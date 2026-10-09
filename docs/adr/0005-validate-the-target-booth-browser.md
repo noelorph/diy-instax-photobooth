@@ -1,0 +1,3 @@
+# Validate the target booth browser on hardware
+
+Bluefy on the iPad A16 is the first release's target browser because it exposes Web Bluetooth on iPad, but direct Mini Link 3 printing and continuous fullscreen camera operation are not yet proven together. Before committing to that browser for launch, a target-device trial must demonstrate restricted navigation, continuous preview and Bluetooth access, three consecutive Guest Sessions, a Retake, exhausted allowance handling, printer disconnect recovery, and reliable detection of film ejection. If this fails, the printing or booth browser approach must be reconsidered before release.
