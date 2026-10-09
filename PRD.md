@@ -1,0 +1,152 @@
+# DIY Instax Photo Booth — Product Requirements
+
+**Status:** Product scope agreed; target-device printing and booth operation remain feasibility gates.
+**Date:** 2026-10-09
+**Source:** [Initial product prompt](docs/prompts/prd-prompt.md), followed by the product interview and [domain decisions](docs/adr/).
+
+## 1. Product summary
+
+DIY Instax Photo Booth is a website-based photo booth for special Events. An Admin prepares an Event and runs the booth on an iPad A16. Guests take a photo, retake it if desired, and receive one physical Instax Mini print from an Instax Mini Link 3 printer. Booking and payment happen outside the product.
+
+The first release must support the full path from Event setup through a confirmed physical print, with accurate Print Allowance and Film Stock records. Its target booth browser is Bluefy on the iPad A16, conditional on the hardware trial in section 3.
+
+## 2. People and boundaries
+
+| Person | Role in the product |
+| --- | --- |
+| Admin | The sole owner account. Creates Events, prepares equipment, starts and ends Booth Mode, resolves failures, and reviews history. The Admin may manage a Live Event from a second device. |
+| Client | One contact associated with an Event. The Client does not sign in. |
+| Guest | An Event attendee who uses Booth Mode without an account. |
+
+**Outside the first release:** booking, payment, guest accounts, photo galleries, digital photo delivery, filters, stickers, photo editing, revenue reporting, and operation without internet. Detailed dashboard charts and the Events list/grid switch are later improvements.
+
+## 3. Launch feasibility gate
+
+The product must not promise direct browser printing until a trial on the **actual iPad A16, Bluefy version, and Instax Mini Link 3** demonstrates all of the following together:
+
+1. The Admin can pair the printer and grant camera and Bluetooth permissions during setup; no permission prompt interrupts a Guest Session.
+2. The booth fills the usable screen, maintains camera preview and printer access, and prevents Guests from reaching browser navigation or Admin pages. The Admin uses iPad Guided Access as part of setup.
+3. A photo can be sent to the printer, and the booth can reliably detect **physical film ejection**. Development of the image after ejection is outside the wait.
+4. Three consecutive Guest Sessions complete, including a Retake. The trial also demonstrates exhausted allowance handling and recovery from a printer disconnect.
+5. Camera preview and Bluetooth access remain usable through the combined fullscreen, capture, and printing flow. The printer can operate as required while connected to power.
+
+If the trial fails, the printing or booth browser approach must be selected again before release. Safari and Chrome become supported booth browsers only after the same end-to-end trial succeeds on them. Bluefy's [Web Bluetooth guide](https://bluefy.app/guide.html) and [fullscreen listing](https://apps.apple.com/us/app/bluefy-web-ble-browser/id1492822055) establish browser capabilities, but do not establish this product's Mini Link 3 integration. Fujifilm documents [Bluetooth 5.1 and approximately 15-second printing](https://www.fujifilm.com/us/en/consumer/instax/printers/minilink3/specifications); its published product flow uses the native Instax app.
+
+## 4. Event and print rules
+
+### Event lifecycle
+
+An Event has one Client and a venue-local scheduled start and end time. Its explicit state is **Draft**, **Live**, **Completed**, or **Cancelled**. Readiness is calculated from the setup checks; it is not a separate state. The Admin may start early or late and explicitly marks a Live Event Completed. An Event cannot be completed or cancelled while a Print Reservation is unresolved. Only one Event may be Live on the booth device and printer at a time.
+
+Unused Draft Events may be deleted. Completed and Cancelled Events stay in History, with an option to remove Client contact details while preserving anonymous Event and print totals.
+
+### Print accounting
+
+The Admin records both the number of booked Film Packages and the **original Print Allowance in individual guest prints**. The system does not infer a fixed number of prints per package. Additional Prints increase the allowance; their purchase is handled outside the product.
+
+Film Stock is the Admin-recorded number of physical Instax sheets available. Test Prints reduce Film Stock but do not use the Guest Print Allowance. Confirmed guest prints reduce both. The Admin updates Film Stock when adding film or reconciling a physical discrepancy. A new Guest Session requires at least one available guest print and one available physical sheet.
+
+The remaining guest allowance is:
+
+`original Print Allowance + Additional Prints − Confirmed Prints − unresolved Print Reservations`
+
+When a Guest selects Print, the booth creates one Print Reservation before sending the job. Reliable detection of film ejection turns it into a Confirmed Print. A clear rejection before film is used releases the reservation. An uncertain result keeps it reserved and pauses the booth until the Admin inspects the printer and resolves the outcome. The booth does not automatically resend an uncertain job.
+
+### Capture accounting
+
+One shutter press is one Capture, including photos later replaced by Retakes. Capture totals and Confirmed Print totals are separate. Retakes do not use Print Allowance. Each completed Guest Session produces one chosen photo and one physical print; an additional copy requires a new session and another print from the allowance.
+
+## 5. Admin experience
+
+### Authentication and navigation
+
+- Only the Admin can sign in with email and a secure password. There is no public signup. The Admin account is provisioned through the [Supabase Auth dashboard or Admin API](https://supabase.com/docs/guides/auth/users), avoiding [direct SQL insertion into Auth tables](https://supabase.com/docs/guides/troubleshooting/database-error-saving-new-user-RU_EwB). Two-factor authentication is not a launch requirement and may be added later.
+- The shared Admin AppShell provides Dashboard, Events, History, and Profile navigation. Profile sits at the bottom of the sidebar.
+- Entering Booth Mode ends the Admin session **on the booth iPad only** and starts access limited to the Live Event. An Admin session on another device can remain active. Returning to Admin pages requires sign-in.
+
+### Dashboard — `/dashboard`
+
+The first release shows scannable cards for Events scheduled in the current month, upcoming Events, and the next Event. A monthly count uses scheduled start time, not creation time. “Total Events booked” means recorded Events other than Cancelled ones.
+
+An activity table lists Event creation and Draft deletion, background and montage uploads, Captures, print outcomes and resolutions, and Film Stock adjustments. It starts with the newest activity, supports 7-day and 30-day filters, and loads 25 rows per page. Entries identify the Event and action without copying Client name, email, phone, or guest images.
+
+A later release adds interactive 7-day, 30-day, and 90-day charts for Captures and Confirmed Prints, with KPI sparklines. Revenue is excluded because payment happens elsewhere.
+
+### Events — `/events`
+
+The first release lists Draft, upcoming, and Live Events, identifies the next scheduled Event, and links each row to `/events/[eventId]`. Upcoming means a non-cancelled Event with a future scheduled start. Overdue Draft Events remain visible for Admin attention. A grid view toggle may be added later. Completed and Cancelled Events appear in History.
+
+At `/events/new`, the Admin enters:
+
+- Event name; Client name, email, and phone;
+- venue address and venue time zone;
+- scheduled start and end;
+- booked Film Package count and original Print Allowance.
+
+The Admin can edit these details before the Event goes Live. The product records the Event as Draft until Booth Mode starts.
+
+### Specific Event — `/events/[eventId]`
+
+The page displays the Event name, state, schedule, venue, Client contact, Film Packages, original Print Allowance, Additional Prints, remaining allowance, Film Stock, and print totals. It lets the Admin upload and preview optional custom media:
+
+- A portrait background image for the Booth Mode interface. It does not alter the printed photo.
+- A silent montage of at most 30 seconds for the welcome screen. It loops, and Start is available at any point. A default welcome screen works without either asset.
+
+Before first start, the Admin confirms that the printer has power and film loaded, and that Guided Access is enabled. The app checks internet, camera, Bluetooth printer connection, a successful Test Print, and positive Print Allowance and Film Stock. A new Test Print is required after printer reconnection, but not after every short Admin pause. The Admin can add Additional Prints and update Film Stock while the Event is Live; Client and booking details remain fixed until Booth Mode stops.
+
+### History — `/history`
+
+History lists Completed and Cancelled Events and summarizes total non-cancelled Events and Captures. Each Event row shows its name, schedule, venue, Client name and contact details when retained, booked Film Packages, original Print Allowance, Additional Prints, Confirmed Prints, and remaining allowance. The Admin may remove the Client's name, email, and phone from a Completed or Cancelled Event without removing anonymous counts.
+
+### Profile — `/profile`
+
+Profile shows the Admin email and lets the Admin update a phone number and light/dark preference and change the password through an authenticated flow. No profile picture is needed.
+
+## 6. Booth Mode experience
+
+### Enter and leave
+
+Starting Booth Mode from `/events/[eventId]` changes the Event to Live, presents the guest interface fullscreen, and ends the iPad's Admin session. iPad Guided Access is part of the Admin's physical setup. A discreet long press pauses Booth Mode and leads to Admin sign-in; ending Guided Access separately requires the iPad passcode. Guests must not be able to navigate to Admin pages.
+
+### Guest flow
+
+1. The welcome screen plays the silent montage or shows the default background. It briefly tells Guests that they receive one physical print and that their photo is discarded after the session. A large Start touch target is available at any time.
+2. Start opens a front-camera live preview framed to the portrait Instax Mini printable crop. No filters, stickers, or editing controls are provided.
+3. Take Photo begins the **3–2–1** countdown and makes one Capture.
+4. The review screen offers **Retake** or **Print**. Retake returns to the live preview without using allowance. The Guest may retake any number of times before printing.
+5. Print reserves one allowance unit, disables duplicate submission, sends the selected photo, and shows printing progress.
+6. On confirmed film ejection, the booth discards the photo and returns to the welcome screen for the next Guest. The Guest does not wait for film development.
+
+After 90 seconds of inactivity on capture or review, an unprinted photo is discarded and the booth returns to welcome. The timeout does not interrupt the countdown or an in-progress print.
+
+### Interruptions and recovery
+
+- At zero remaining Print Allowance or Film Stock, new Guest Sessions stop and the booth requests Admin help.
+- Internet loss pauses new sessions. If it happens before a print command, the selected photo remains only in browser memory while service returns or the Admin cancels. If it happens after a command, the result is Uncertain until resolved.
+- A camera or printer disconnect pauses the booth and requests Admin help. A selected photo may remain in browser memory for recovery; an unselected capture may be discarded. Pairing and permission prompts are handled by the Admin, never by a Guest.
+- A clear pre-film print rejection may be retried by the Admin using the selected photo. An Uncertain Print requires physical inspection and reconciliation before new Guest Sessions resume.
+
+## 7. Privacy and access requirements
+
+Guest photos exist only for the active capture and print flow. They are discarded after a confirmed print, cancellation, or abandoned session; no photo gallery, email delivery, QR download, or persistent guest photo record is part of the first release. The activity log contains no guest images or copies of Client email and phone. Booth access is limited to the Live Event and cannot read Client contact details or reach Admin routes.
+
+The Admin can redact Client name, email, and phone from Completed and Cancelled Events while preserving anonymous Event and print totals. Any activity display must reflect that redaction rather than retain a separate copy of the removed details. If the Event title itself identifies the Client, the Admin can rename it during redaction.
+
+## 8. Acceptance criteria
+
+The first release is ready for an Event only when:
+
+- The target-device trial in section 3 succeeds, including reliable detection of film ejection and restricted guest navigation.
+- The Admin can create a Draft Event, set its Client, schedule, package count, allowance, Film Stock, and optional media; pass setup checks; and start and end Booth Mode.
+- A Guest can complete the countdown, Retake, and Print flow. Three consecutive physical prints, allowance exhaustion, and printer disconnect recovery succeed on the target setup.
+- Test Prints, Confirmed Prints, Additional Prints, reservations, and Film Stock adjustments leave accurate, inspectable totals. Uncertain outcomes pause until Admin resolution.
+- No guest photo remains in Event history, activity, or guest delivery after its session. Client contact redaction removes those details from Event and activity views.
+- Dashboard, Events, History, and Profile routes show the agreed first-release information, and activity pagination loads 25 rows at a time.
+
+## 9. Decision records
+
+- [Do not retain guest photos](docs/adr/0001-do-not-retain-guest-photos.md)
+- [Isolate Booth Mode access from the Admin](docs/adr/0002-isolate-booth-access-from-admin.md)
+- [Reserve Print Allowance before printing](docs/adr/0003-reserve-print-allowance-before-printing.md)
+- [Require internet during the first release](docs/adr/0004-require-internet-for-first-release.md)
+- [Validate the target booth browser on hardware](docs/adr/0005-validate-the-target-booth-browser.md)

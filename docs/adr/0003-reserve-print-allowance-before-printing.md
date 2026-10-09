@@ -1,0 +1,3 @@
+# Reserve print allowance before printing
+
+The booth reserves one Guest print before sending it to the printer and consumes the reservation only after reliable detection of a completed physical print. A clear rejection before film is used releases the reservation. An uncertain result pauses the booth until the Admin inspects the printer and resolves the count. Reliable completion feedback is a launch requirement so routine Guest Sessions do not need Admin confirmation. This protects the Event's allowance against duplicate commands and unclear printer responses, at the cost of requiring manual recovery in ambiguous cases.
