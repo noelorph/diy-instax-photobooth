@@ -53,7 +53,7 @@ The remaining guest allowance is:
 
 Available Film Stock is the current inventory balance, after Confirmed Prints, Test Prints, additions, and reconciliations, minus unresolved Film Reservations.
 
-When a Guest selects Print, the booth creates one Print Reservation and one Film Reservation before sending the job. A Test Print uses a generated calibration image and creates only a Film Reservation. The authorized booth browser reports printer feedback; the server accepts an ejection report only for the matching pending attempt. Reliable detection of film ejection turns the Guest attempt into a Confirmed Print and consumes the held sheet. If the ejected sheet is unusable, the Admin may reclassify it as Wasted Film: Film Stock stays reduced, the Event's Print Allowance is restored, and another attempt is allowed. A clear rejection before film is used releases both reservations. An uncertain result keeps them reserved and pauses the booth until the Admin inspects the printer and resolves the outcome. If the browser reloads or crashes after reservation and the server cannot prove whether the command reached the printer, the outcome is uncertain. The booth does not automatically resend an uncertain job.
+When a Guest selects Print, the booth creates one Print Reservation and one Film Reservation before sending the job. A Test Print uses a generated calibration image and creates only a Film Reservation. The authorized booth browser reports printer feedback; the server accepts an ejection report only for the matching pending attempt. Reliable detection of film ejection turns the Guest attempt into a Confirmed Print and consumes the held sheet. If the ejected sheet is unusable, the Admin may reclassify it as Wasted Film: Film Stock stays reduced and the Event's Print Allowance is restored. The ejected Guest Session stays closed; a replacement uses a new Guest Session and new Capture because the original photo was discarded. A clear rejection before film is used releases both reservations. An uncertain result keeps them reserved and pauses the booth until the Admin inspects the printer and resolves the outcome. If the browser reloads or crashes after reservation and the server cannot prove whether the command reached the printer, the outcome is uncertain. The booth does not automatically resend an uncertain job.
 
 ### Capture accounting
 
@@ -120,7 +120,7 @@ Starting Booth Mode from `/events/[eventId]` changes the Event to Live, presents
 3. Take Photo begins the **3–2–1** countdown and makes one Capture.
 4. The review screen offers **Retake** or **Print**. Retake returns to the live preview without using allowance. The Guest may retake any number of times before printing.
 5. Print reserves one allowance unit, disables duplicate submission, sends the selected photo, and shows printing progress.
-6. On confirmed film ejection, the booth discards the photo and returns to the welcome screen for the next Guest. The Guest does not wait for film development.
+6. On confirmed film ejection, the booth closes the Guest Session, discards the photo, and returns to the welcome screen for the next Guest. The Guest does not wait for film development.
 
 After 90 seconds of inactivity on capture or review, an unprinted photo is discarded and the booth returns to welcome. The timeout does not interrupt the countdown or an in-progress print.
 
