@@ -3,10 +3,11 @@
 **Status:** Product scope agreed; target-device printing and booth operation remain feasibility gates.
 **Date:** 2026-10-09
 **Source:** [Initial product prompt](docs/prompts/prd-prompt.md), followed by the product interview and [domain decisions](docs/adr/).
+**Architecture:** [Proposed first-release design](ARCHITECTURE.md).
 
 ## 1. Product summary
 
-DIY Instax Photo Booth is a website-based photo booth for special Events. An Admin prepares an Event and runs the booth on an iPad A16. Guests take a photo, retake it if desired, and receive one physical Instax Mini print from an Instax Mini Link 3 printer. Booking and payment happen outside the product.
+DIY Instax Photo Booth is a website-based photo booth for special Events, including paid Client Events. An Admin prepares an Event and runs the booth on an iPad A16. Guests take a photo, retake it if desired, and receive one physical Instax Mini print from an Instax Mini Link 3 printer. Booking and payment happen outside the product.
 
 The first release must support the full path from Event setup through a confirmed physical print, with accurate Print Allowance and Film Stock records. Its target booth browser is Bluefy on the iPad A16, conditional on the hardware trial in section 3.
 
@@ -22,7 +23,7 @@ The first release must support the full path from Event setup through a confirme
 
 ## 3. Launch feasibility gate
 
-The product must not promise direct browser printing until a trial on the **actual iPad A16, Bluefy version, and Instax Mini Link 3** demonstrates all of the following together:
+The hardware trial happens before the full Admin and print-accounting build. The product must not promise direct browser printing until a trial on the **actual iPad A16, Bluefy version, and Instax Mini Link 3** demonstrates all of the following together:
 
 1. The Admin can pair the printer and grant camera and Bluetooth permissions during setup; no permission prompt interrupts a Guest Session.
 2. The booth fills the usable screen, maintains camera preview and printer access, and prevents Guests from reaching browser navigation or Admin pages. The Admin uses iPad Guided Access as part of setup.
@@ -36,25 +37,29 @@ If the trial fails, the printing or booth browser approach must be selected agai
 
 ### Event lifecycle
 
-An Event has one Client and a venue-local scheduled start and end time. Its explicit state is **Draft**, **Live**, **Completed**, or **Cancelled**. Readiness is calculated from the setup checks; it is not a separate state. The Admin may start early or late and explicitly marks a Live Event Completed. An Event cannot be completed or cancelled while a Print Reservation is unresolved. Only one Event may be Live on the booth device and printer at a time.
+An Event has one Client and a venue-local scheduled start and end time. Each Event stores its own Client contact details; redacting one Event does not change another Event booked by the same person. Its explicit state is **Draft**, **Live**, **Completed**, or **Cancelled**. Readiness is calculated from the setup checks; it is not a separate state. The Admin may start early or late and explicitly marks a Live Event Completed. An Event cannot be completed or cancelled while a Print Reservation or Film Reservation is unresolved. The first release allows only one Live Event across the system because it uses one booth iPad and one printer.
 
-Unused Draft Events may be deleted. Completed and Cancelled Events stay in History, with an option to remove Client contact details while preserving anonymous Event and print totals.
+Unused Draft Events may be deleted. Completed and Cancelled Events stay in History, with an option for Client Redaction while preserving anonymous Event and print totals.
 
 ### Print accounting
 
 The Admin records both the number of booked Film Packages and the **original Print Allowance in individual guest prints**. The system does not infer a fixed number of prints per package. Additional Prints increase the allowance; their purchase is handled outside the product.
 
-Film Stock is the Admin-recorded number of physical Instax sheets available. Test Prints reduce Film Stock but do not use the Guest Print Allowance. Confirmed guest prints reduce both. The Admin updates Film Stock when adding film or reconciling a physical discrepancy. A new Guest Session requires at least one available guest print and one available physical sheet.
+Film Stock is the Admin-recorded shared inventory of physical Instax sheets available across Events; remaining sheets carry forward when an Event ends. Test Prints reduce Film Stock but do not use the Guest Print Allowance. Confirmed guest prints reduce both. The Admin may record additions while a print is pending. To reconcile a discrepancy, the Admin first resolves all Film Reservations, then enters an observed physical sheet count and a reason; the correction remains in stock history. A new Guest Session requires at least one available guest print and one available physical sheet.
 
 The remaining guest allowance is:
 
 `original Print Allowance + Additional Prints − Confirmed Prints − unresolved Print Reservations`
 
-When a Guest selects Print, the booth creates one Print Reservation before sending the job. Reliable detection of film ejection turns it into a Confirmed Print. A clear rejection before film is used releases the reservation. An uncertain result keeps it reserved and pauses the booth until the Admin inspects the printer and resolves the outcome. The booth does not automatically resend an uncertain job.
+Available Film Stock is the current inventory balance, after Confirmed Prints, Test Prints, additions, and reconciliations, minus unresolved Film Reservations.
+
+When a Guest selects Print, the booth creates one Print Reservation and one Film Reservation before sending the job. A Test Print uses a generated calibration image and creates only a Film Reservation. The authorized booth browser reports printer feedback; the server accepts an ejection report only for the matching pending attempt. Reliable detection of film ejection turns the Guest attempt into a Confirmed Print and consumes the held sheet. If the ejected sheet is unusable, the Admin may reclassify it as Wasted Film: Film Stock stays reduced, the Event's Print Allowance is restored, and another attempt is allowed. A clear rejection before film is used releases both reservations. An uncertain result keeps them reserved and pauses the booth until the Admin inspects the printer and resolves the outcome. If the browser reloads or crashes after reservation and the server cannot prove whether the command reached the printer, the outcome is uncertain. The booth does not automatically resend an uncertain job.
 
 ### Capture accounting
 
 One shutter press is one Capture, including photos later replaced by Retakes. Capture totals and Confirmed Print totals are separate. Retakes do not use Print Allowance. Each completed Guest Session produces one chosen photo and one physical print; an additional copy requires a new session and another print from the allowance.
+
+Non-identifying Guest Session and Print Attempt records keep IDs, timestamps, Capture counts, and print outcomes with Event history for accounting and recovery, but no Guest identity or photo. The booth may persist non-photo operation IDs and Capture metadata locally until the server acknowledges them, then retry after a reload without double-counting.
 
 ## 5. Admin experience
 
@@ -62,7 +67,7 @@ One shutter press is one Capture, including photos later replaced by Retakes. Ca
 
 - Only the Admin can sign in with email and a secure password. There is no public signup. The Admin account is provisioned through the [Supabase Auth dashboard or Admin API](https://supabase.com/docs/guides/auth/users), avoiding [direct SQL insertion into Auth tables](https://supabase.com/docs/guides/troubleshooting/database-error-saving-new-user-RU_EwB). Two-factor authentication is not a launch requirement and may be added later.
 - The shared Admin AppShell provides Dashboard, Events, History, and Profile navigation. Profile sits at the bottom of the sidebar.
-- Entering Booth Mode ends the Admin session **on the booth iPad only** and starts access limited to the Live Event. An Admin session on another device can remain active. Returning to Admin pages requires sign-in.
+- Entering Booth Mode ends the Admin session **on the booth iPad only** and issues that device a revocable Booth Access Grant limited to the Live Event, with no access to Client contact details or Admin actions. The grant survives an ordinary reload or brief connection loss, but pausing or ending Booth Mode revokes it. A paused Event remains Live; resuming requires Admin sign-in and a new grant. An Admin session on another device can remain active. Returning to Admin pages requires sign-in.
 
 ### Dashboard — `/dashboard`
 
@@ -96,7 +101,7 @@ Before first start, the Admin confirms that the printer has power and film loade
 
 ### History — `/history`
 
-History lists Completed and Cancelled Events and summarizes total non-cancelled Events and Captures. Each Event row shows its name, schedule, venue, Client name and contact details when retained, booked Film Packages, original Print Allowance, Additional Prints, Confirmed Prints, and remaining allowance. The Admin may remove the Client's name, email, and phone from a Completed or Cancelled Event without removing anonymous counts.
+History lists Completed and Cancelled Events and summarizes total non-cancelled Events and Captures. Each Event row shows its name, schedule, venue, Client name and contact details when retained, booked Film Packages, original Print Allowance, Additional Prints, Confirmed Prints, and remaining allowance. The Admin may perform Client Redaction without removing anonymous counts.
 
 ### Profile — `/profile`
 
@@ -106,7 +111,7 @@ Profile shows the Admin email and lets the Admin update a phone number and light
 
 ### Enter and leave
 
-Starting Booth Mode from `/events/[eventId]` changes the Event to Live, presents the guest interface fullscreen, and ends the iPad's Admin session. iPad Guided Access is part of the Admin's physical setup. A discreet long press pauses Booth Mode and leads to Admin sign-in; ending Guided Access separately requires the iPad passcode. Guests must not be able to navigate to Admin pages.
+Starting Booth Mode from `/events/[eventId]` changes the Event to Live, presents the guest interface fullscreen, and ends the iPad's Admin session. iPad Guided Access is part of the Admin's physical setup. A discreet long press requests a pause and leads to Admin sign-in after an in-progress Print Attempt has finished and its result has been recorded; an interrupted attempt becomes an Uncertain Print for Admin resolution. Pausing before a print discards the unprinted photo but keeps the Capture count; resuming starts at welcome. Ending Guided Access separately requires the iPad passcode. Guests must not be able to navigate to Admin pages.
 
 ### Guest flow
 
@@ -128,9 +133,9 @@ After 90 seconds of inactivity on capture or review, an unprinted photo is disca
 
 ## 7. Privacy and access requirements
 
-Guest photos exist only for the active capture and print flow. They are discarded after a confirmed print, cancellation, or abandoned session; no photo gallery, email delivery, QR download, or persistent guest photo record is part of the first release. The activity log contains no guest images or copies of Client email and phone. Booth access is limited to the Live Event and cannot read Client contact details or reach Admin routes.
+Guest photos exist only in the booth browser's memory for the active capture and direct print flow; they are never uploaded to Next.js or Supabase. They are discarded after a confirmed print, cancellation, or abandoned session; no photo gallery, email delivery, QR download, or persistent guest photo record is part of the first release. The activity log contains no guest images or copies of Client email and phone. Booth access is limited to the Live Event and cannot read Client contact details or reach Admin routes.
 
-The Admin can redact Client name, email, and phone from Completed and Cancelled Events while preserving anonymous Event and print totals. Any activity display must reflect that redaction rather than retain a separate copy of the removed details. If the Event title itself identifies the Client, the Admin can rename it during redaction.
+The Admin can perform Client Redaction on Completed and Cancelled Events, removing Client name, email, phone, and Event Media while preserving anonymous Event and print totals. Any activity display must reflect that redaction rather than retain a separate copy of the removed details. If the Event title itself identifies the Client, the Admin can rename it during redaction.
 
 ## 8. Acceptance criteria
 
@@ -140,7 +145,7 @@ The first release is ready for an Event only when:
 - The Admin can create a Draft Event, set its Client, schedule, package count, allowance, Film Stock, and optional media; pass setup checks; and start and end Booth Mode.
 - A Guest can complete the countdown, Retake, and Print flow. Three consecutive physical prints, allowance exhaustion, and printer disconnect recovery succeed on the target setup.
 - Test Prints, Confirmed Prints, Additional Prints, reservations, and Film Stock adjustments leave accurate, inspectable totals. Uncertain outcomes pause until Admin resolution.
-- No guest photo remains in Event history, activity, or guest delivery after its session. Client contact redaction removes those details from Event and activity views.
+- No guest photo remains in Event history, activity, or guest delivery after its session. Client Redaction removes contact details and Event Media without exposing the removed details in activity views.
 - Dashboard, Events, History, and Profile routes show the agreed first-release information, and activity pagination loads 25 rows at a time.
 
 ## 9. Decision records
@@ -150,3 +155,7 @@ The first release is ready for an Event only when:
 - [Reserve Print Allowance before printing](docs/adr/0003-reserve-print-allowance-before-printing.md)
 - [Require internet during the first release](docs/adr/0004-require-internet-for-first-release.md)
 - [Validate the target booth browser on hardware](docs/adr/0005-validate-the-target-booth-browser.md)
+- [Carry Film Stock across Events](docs/adr/0006-carry-film-stock-across-events.md)
+- [Route Booth Mode requests through the server](docs/adr/0007-route-booth-requests-through-server.md)
+- [Record print and stock changes transactionally](docs/adr/0008-record-print-and-stock-changes-transactionally.md)
+- [Remove Event Media during Client Redaction](docs/adr/0009-remove-event-media-during-client-redaction.md)
