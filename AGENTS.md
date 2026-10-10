@@ -24,7 +24,11 @@ Use the single-context layout with a root `GLOSSARY.md` and `docs/adr/`. See `do
 
 ### Product requirements
 
-Read the root `PRD.md` for the agreed product scope, behavior, and launch constraints before changing product behavior.
+Read the root `PRD.md` for the agreed product scope, behavior, and launch constraints.
+
+### Architecture
+
+Read the root `ARCHITECTURE.md` for the proposed system design and technical boundaries.
 
 ### Keep decisions and documentation in sync
 
