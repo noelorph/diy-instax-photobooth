@@ -75,7 +75,7 @@ The names below describe the intended model; migration names and exact columns c
 | `film_stock_balance`       | Single current on-hand count, revision                                                                                                                                                            | Transactionally maintained balance and lock for reservations; reconciled against stock entries   |
 | `activity_events`          | Event ID or opaque deleted-Event reference, action, time, actor, safe metadata                                                                                                                    | Paginated Dashboard activity without Client contact snapshots or image data                      |
 
-The Print Reservation and Film Reservation are holds represented by an unresolved `print_attempts` row. A Test Print has only a Film Reservation. The original allowance is fixed on the Event; Additional Prints are separate entries. Confirmed Prints and open reservations determine remaining allowance. A Wasted Film correction changes the Print Attempt's current outcome and appends a correction event, while its consumed sheet stays recorded in the stock ledger.
+The Print Reservation and Film Reservation are holds represented by an unresolved `print_attempts` row. A Test Print has only a Film Reservation. The original allowance is fixed on the Event; Additional Prints are separate entries. Confirmed Prints and open reservations determine remaining allowance. A Wasted Film correction changes the Print Attempt's current outcome and appends a correction event, while its consumed sheet stays recorded in the stock ledger. The linked Guest Session remains closed; its original photo cannot be reused.
 
 Activity entries reference the Event and action rather than copying Client details. Event displays use the Event's current title and contact state so Client Redaction affects every view. A deleted Draft Event appears by an opaque reference and action, without retaining its Client details or former title.
 
@@ -90,7 +90,7 @@ Postgres enforces the following in transactions and constraints:
 3. Each client operation has a stable idempotency key. A repeat request returns the existing result; it cannot create a second Capture, reservation, stock change, or print outcome.
 4. Each Print Attempt transition commits its applicable reservation or outcome, allowance effect, stock entry, and activity entry in one Postgres transaction. The reservation commits before the browser sends the Bluetooth command; the outcome commits in a later transaction after printer feedback or Admin resolution. Lock the Event and shared stock balance during reservation or consumption. The ledger remains append-only; the current balance is a transactionally maintained read model checked against it.
 5. A clear pre-film rejection releases both Guest holds. Verified ejection consumes one sheet and provisionally counts a Confirmed Print. Test Print ejection consumes only stock. An uncertain outcome retains the applicable holds and blocks new Guest Sessions.
-6. The Admin may reclassify an unusable ejected Guest print as Wasted Film. This restores one allowance unit through an auditable correction while leaving the stock consumption in place.
+6. The Admin may reclassify an unusable ejected Guest print as Wasted Film. This restores one allowance unit through an auditable correction while leaving the stock consumption in place; a replacement requires a new Guest Session and Capture.
 7. Completing or cancelling an Event requires every Print and Film Reservation to be resolved. Physical-count reconciliation requires no pending Film Reservation; stock additions remain allowed while an attempt is pending.
 8. Client and booking fields remain fixed while the Event is Live. Readiness is calculated from setup checks rather than stored as an Event state.
 
@@ -131,13 +131,13 @@ The physical Bluetooth command cannot join a Postgres transaction. The reservati
 2. The Guest may Retake without using allowance. The selected image stays in browser memory; Print waits for Capture metadata acknowledgement. Ninety seconds of inactivity before printing discards the image and returns to welcome.
 3. Print requests a transaction that checks the Live Event, grant, Guest Session, allowance, stock, and absence of another active attempt. It creates a Print Attempt with one Print Reservation and one Film Reservation.
 4. The browser adapter encodes and sends the image directly over Web Bluetooth. The authorized booth reports a clear pre-film rejection, reliable film ejection, or uncertainty, always naming the pending attempt. The server validates the transition and commits the appropriate counts and journal entries.
-5. After accepted ejection, the browser discards the image and returns to welcome. The Guest does not wait for chemical development. An Uncertain Print pauses the booth for Admin inspection and is never resent automatically.
+5. After accepted ejection, the browser closes the Guest Session, discards the image, and returns to welcome. The Guest does not wait for chemical development. An Uncertain Print pauses the booth for Admin inspection and is never resent automatically.
 
 ### Pause, recovery, and redaction
 
 - A pause requested during printing waits for the attempt's result. If the flow is interrupted, the attempt is Uncertain and requires Admin resolution. A pause before printing discards the photo, retains Captures, revokes the grant, and resumes later at welcome.
 - A reload before printing loses the in-memory photo. Non-photo Capture metadata can retry idempotently. A reload after reservation is treated as uncertain when command delivery cannot be ruled out.
-- The Admin resolves an Uncertain Print as ejected, clearly unused, or Wasted Film based on physical inspection. The resolution writes an outcome event and updates holds and balances transactionally.
+- The Admin resolves an Uncertain Print as ejected or clearly unused based on physical inspection; an unusable ejected Guest print may be recorded as Wasted Film. Resolving a Guest attempt as ejected closes its Guest Session and discards any photo still in memory. A replacement after Wasted Film starts a new Guest Session and Capture. The resolution writes an outcome event and updates holds and balances transactionally.
 - Client Redaction clears Client name/email/phone and removes Event Media for a Completed or Cancelled Event. The app stops issuing media access, deletes the private objects, and reports completion only after removal succeeds. The Admin can rename an identifying Event title. Anonymous Event, Capture, print, and stock totals remain.
 
 ## 7. Media, privacy, and failure behavior

@@ -34,7 +34,7 @@ The shared inventory of physical Instax sheets available to the booth across Eve
 A print made during setup to check the printer; it uses Film Stock but not the Event's Print Allowance.
 
 **Guest Session**:
-One Guest's attempt to choose a photo and receive one physical print.
+One Guest's capture and print flow, ending at confirmed film ejection or abandonment. Replacing an unusable print starts a new Guest Session.
 
 **Event Media**:
 An optional portrait background image or silent welcome montage chosen for an Event's Booth Mode.
@@ -55,7 +55,7 @@ One unit of an Event's Print Allowance held while a selected photo is being prin
 One sheet of shared Film Stock held while a Guest or Test Print is being attempted or its outcome is unresolved.
 
 **Print Attempt**:
-One request to make a Guest or Test Print, from its reservations through its recorded outcome. A Guest Session may have more than one Print Attempt after a clear failure or Wasted Film.
+One request to make a Guest or Test Print, from its reservations through its recorded outcome. A Guest Session may have another Print Attempt after a clear pre-film rejection; a Wasted Film replacement belongs to a new Guest Session.
 
 **Confirmed Print**:
 A Guest print whose film has ejected and is counted against the Print Allowance; film development occurs afterward. An ejected sheet found to be unusable may be reclassified as Wasted Film by the Admin.
