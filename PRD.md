@@ -1,7 +1,7 @@
 # DIY Instax Photo Booth — Product Requirements
 
 **Status:** Product scope agreed; target-device printing and booth operation remain feasibility gates.
-**Date:** 2026-10-09
+**Date:** 2026-10-11
 **Source:** [Initial product prompt](docs/prompts/prd-prompt.md), followed by the product interview and [domain decisions](docs/adr/).
 **Architecture:** [Proposed first-release design](ARCHITECTURE.md).
 **UI/UX:** [Design system](DESIGN_SYSTEM.md).
@@ -71,6 +71,20 @@ Non-identifying Guest Session and Print Attempt records keep IDs, timestamps, Ca
 - The Admin sidebar becomes a collapsible rail on tablets and a menu on phones; Profile remains last in each navigation layout. First-release UI copy is in English. Event schedules appear in venue-local time with an explicit time-zone label where ambiguity matters.
 - Entering Booth Mode ends the Admin session **on the booth iPad only** and issues that device a revocable Booth Access Grant limited to the Live Event, with no access to Client contact details or Admin actions. The grant survives an ordinary reload or brief connection loss, but pausing or ending Booth Mode revokes it. A paused Event remains Live; resuming requires Admin sign-in and a new grant. An Admin session on another device can remain active. Returning to Admin pages requires sign-in.
 
+### Admin sign-in — `/sign-in`
+
+The public sign-in page has labeled email and password fields, a **Sign in** action, and a **Forgot password?** link to `/forgot-password`. It has no signup option or authenticated Admin navigation. Signed-out attempts to open Admin pages lead here without revealing protected Event or Client details. Ordinary sign-in opens `/dashboard`.
+
+The Booth iPad uses this same sign-in form after a pause, expired grant, or failed Booth handoff. That entry shows **Booth paused** on a dark surface, with no Event name, Client details, printer diagnostics, or Booth recovery controls before authentication. Successful sign-in on the same paused device opens the Live Event's management page, where the Admin reviews its actual state and explicitly chooses **Resume Booth Mode**; sign-in alone never restarts Guest access. Invalid fields, incorrect credentials, connection failure, and an expired Admin session show persistent, actionable feedback. Incorrect-credential feedback does not disclose whether an email belongs to an account.
+
+### Request password recovery — `/forgot-password`
+
+The public recovery request page accepts the Admin email and offers **Send recovery link** and a return to `/sign-in`. It is reachable from ordinary and paused sign-in. After a request, it shows the same neutral check-your-email message whether or not the address belongs to the Admin account. A delivery or connection failure shows a retry action without revealing account existence. No Event or Client information appears on this page, including when recovery begins on a paused booth iPad.
+
+### Set a new password — `/reset-password`
+
+The recovery email links to this page, where a valid recovery link lets the Admin enter and confirm a new secure password. An invalid, expired, or already-used link cannot change the password and offers a path to request another link. The recovery pages show no Admin data. A successful reset ends **all Admin sessions**, including sessions on other devices, and asks the Admin to sign in with the new password. A Booth Access Grant is separate and remains active if a Live booth is running; password recovery never resumes a paused booth automatically. If recovery finishes on the same paused iPad, fresh sign-in returns to that Live Event's management page. Recovery opened on another device follows ordinary sign-in to `/dashboard`.
+
 ### Dashboard — `/dashboard`
 
 The first release shows scannable cards for Events scheduled in the current month, upcoming Events, and the next Event. A monthly count uses scheduled start time, not creation time. “Total Events booked” means recorded Events other than Cancelled ones.
@@ -109,7 +123,7 @@ History lists Completed and Cancelled Events and summarizes total non-cancelled 
 
 ### Profile — `/profile`
 
-Profile shows the Admin email and lets the Admin update a phone number and light/dark preference and change the password through an authenticated flow. The preference controls Admin pages; Booth Mode keeps its own dark camera and review presentation. No profile picture is needed.
+Profile shows the Admin email and lets the Admin update a phone number and light/dark preference and change the password through an authenticated flow. It also offers **Sign out**, which ends only this device's Admin session and returns to `/sign-in`; an Admin session on another device and any active Booth Access Grant remain in place. The preference controls Admin pages; Booth Mode keeps its own dark camera and review presentation. No profile picture is needed.
 
 ## 6. Booth Mode experience
 
@@ -152,6 +166,7 @@ The first release is ready for an Event only when:
 - Test Prints, Confirmed Prints, Additional Prints, reservations, and Film Stock adjustments leave accurate, inspectable totals. Uncertain outcomes pause until Admin resolution.
 - No guest photo remains in Event history, activity, or guest delivery after its session. Client Redaction removes contact details and Event Media without exposing the removed details in activity views.
 - Dashboard, Events, History, and Profile routes show the agreed first-release information, and activity pagination loads 25 rows at a time.
+- The Admin can sign in through `/sign-in`, sign out from Profile on one device, and recover a forgotten password through `/forgot-password` and `/reset-password`. Invalid recovery links fail safely; a successful reset requires fresh sign-in on every Admin device without interrupting an active Booth Access Grant.
 
 ## 9. Decision records
 
@@ -165,3 +180,4 @@ The first release is ready for an Event only when:
 - [Record print and stock changes transactionally](docs/adr/0008-record-print-and-stock-changes-transactionally.md)
 - [Remove Event Media during Client Redaction](docs/adr/0009-remove-event-media-during-client-redaction.md)
 - [Use one design system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md)
+- [Keep Booth access separate during Admin password recovery](docs/adr/0011-keep-booth-access-separate-during-password-recovery.md)

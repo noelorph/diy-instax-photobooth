@@ -1,3 +1,5 @@
+> **Historical input.** This is the original visual-design request, retained as project history. It is not the current UI specification. Follow the [design system](../../DESIGN_SYSTEM.md), [PRD](../../PRD.md), [architecture](../../ARCHITECTURE.md), [glossary](../../GLOSSARY.md), and [decision records](../adr/) when implementing the product. Where this prompt differs, those current documents take precedence.
+
 You are designing the visual foundation for the DIY-INSTAX-PHOTOBOOTH.
 
 Your task is to create a comprehensive, opinionated, implementation-ready DESIGN_SYSTEM.md that will serve as the visual and interaction source of truth for all future UI development. **Do not create a generic design system.**
