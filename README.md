@@ -12,6 +12,8 @@ A web-based Event photo booth with an Admin application and Guest-facing Booth M
 
 Read the PRD and design system before implementing an interface. The design system governs presentation; the PRD governs product behavior.
 
+The first-release Admin authentication requirements cover `/sign-in`, `/forgot-password`, and `/reset-password`; **Sign out** belongs on `/profile`. See the [Admin experience](PRD.md#5-admin-experience) for the behavior of each page.
+
 ## Local development
 
-This repository currently contains a Next.js 16 starter app and the product/design documentation. Install dependencies with `npm ci`, then run `npm run dev` and open `http://localhost:3000`. Available checks include `npm run lint`, `npm run format:check`, and `npm test`. The Admin and Booth Mode flows described in the guides are not yet implemented.
+This repository currently contains a Next.js 16 starter app and the product/design documentation. Install dependencies with `npm ci`, then run `npm run dev` and open `http://localhost:3000`. Available checks include `npm run lint`, `npm run format:check`, and `npm test`. The authentication, Admin, and Booth Mode flows described in the guides are not yet implemented.
