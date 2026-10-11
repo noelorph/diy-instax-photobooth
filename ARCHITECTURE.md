@@ -3,6 +3,7 @@
 **Status:** Proposed for the first release. Direct browser printing remains conditional on the target-device trial.
 **Date:** 2026-10-10
 **Basis:** [Product requirements](PRD.md), [architecture prompt](docs/prompts/architecture-prompt.md), [glossary](GLOSSARY.md), and [decision records](docs/adr/).
+**Interface guidance:** [Design system](DESIGN_SYSTEM.md).
 
 ## 1. System boundary
 
@@ -27,7 +28,7 @@ Guest photo bytes stay in booth browser memory and go directly to the printer. T
 | Layer                | Choice                                   | Responsibility                                                                                   |
 | -------------------- | ---------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | Web application      | Next.js 16 App Router, React, TypeScript | Admin pages, Booth Mode shell, server rendering, and Route Handlers                              |
-| Interface            | Tailwind CSS, shadcn/ui, Lucide          | Admin and Guest interfaces; camera and Bluetooth controls are Client Components                  |
+| Interface            | Tailwind CSS, shadcn/ui, Lucide          | Components follow DESIGN_SYSTEM.md; camera and Bluetooth controls are Client Components          |
 | Validation and forms | Zod, React Hook Form                     | Validate Admin input and server requests; database constraints remain authoritative              |
 | Identity             | Supabase Auth and `@supabase/ssr`        | Sole Admin email/password account and cookie-based server session                                |
 | Data                 | Supabase Postgres                        | Event records, grants, anonymous activity, reservations, ledger, and transactional state changes |
@@ -127,8 +128,8 @@ The physical Bluetooth command cannot join a Postgres transaction. The reservati
 
 ### Guest capture and print
 
-1. The booth checks availability through its server endpoint before Start. Front-camera preview, portrait Instax Mini crop, and the 3–2–1 countdown run locally. Each shutter press creates a Capture metadata request with a stable operation ID; only non-photo IDs and metadata may be kept locally for retry after reload.
-2. The Guest may Retake without using allowance. The selected image stays in browser memory; Print waits for Capture metadata acknowledgement. Ninety seconds of inactivity before printing discards the image and returns to welcome.
+1. The booth checks availability through its server endpoint before Start. Mirrored front-camera preview, portrait Instax Mini crop, and the 3–2–1 countdown run locally. The review presents the unmirrored final crop used for printing. Each shutter press creates a Capture metadata request with a stable operation ID; only non-photo IDs and metadata may be kept locally for retry after reload.
+2. The Guest may Retake without using allowance. The selected image stays in browser memory; Print waits for Capture metadata acknowledgement. A warning near the end of the 90-second inactivity period lets the Guest continue; otherwise the image is discarded and the booth returns to welcome.
 3. Print requests a transaction that checks the Live Event, grant, Guest Session, allowance, stock, and absence of another active attempt. It creates a Print Attempt with one Print Reservation and one Film Reservation.
 4. The browser adapter encodes and sends the image directly over Web Bluetooth. The authorized booth reports a clear pre-film rejection, reliable film ejection, or uncertainty, always naming the pending attempt. The server validates the transition and commits the appropriate counts and journal entries.
 5. After accepted ejection, the browser closes the Guest Session, discards the image, and returns to welcome. The Guest does not wait for chemical development. An Uncertain Print pauses the booth for Admin inspection and is never resent automatically.
@@ -142,9 +143,9 @@ The physical Bluetooth command cannot join a Postgres transaction. The reservati
 
 ## 7. Media, privacy, and failure behavior
 
-Private Storage contains only Event Media. Admin uploads are scoped by Event. After validating the Booth Access Grant, the server issues short-lived signed URLs only for the Live Event's media. Validate image type, video type, file size, and the montage's 30-second limit before accepting media. Storage object paths use opaque Event IDs, not Client names. The optional background affects the booth interface, not the printed photo. Delete objects during Client Redaction rather than relying on URL expiry alone; previously cached responses may take a short time to disappear from a CDN. If a Storage deletion fails, keep redaction visibly incomplete and retry removal without restoring the already cleared Client fields.
+Private Storage contains only Event Media. Admin uploads are scoped by Event. After validating the Booth Access Grant, the server issues short-lived signed URLs only for the Live Event's media. Validate image type, video type, file size, and the montage's 30-second limit before accepting media. Storage object paths use opaque Event IDs, not Client names. The optional image appears on welcome and around the camera preview, but never enters the captured or printed photo. The montage is welcome-only; the image or default screen provides its fallback and reduced-motion presentation. Delete objects during Client Redaction rather than relying on URL expiry alone; previously cached responses may take a short time to disappear from a CDN. If a Storage deletion fails, keep redaction visibly incomplete and retry removal without restoring the already cleared Client fields.
 
-Neither logs nor error reports include photo bytes, Client email/phone, grant secrets, or signed media URLs. Browser memory holding a photo is cleared after confirmation, cancellation, timeout, pause before print, or abandonment. A network loss pauses new sessions; an image waiting to print remains only in memory until service returns or the Admin cancels. Camera or printer disconnects request Admin help. A print command with an unclear physical result creates an Uncertain Print and holds allowance and stock until resolution.
+Neither logs nor error reports include photo bytes, Client email/phone, grant secrets, or signed media URLs. Browser memory holding a photo is cleared after confirmation, cancellation, timeout, pause before print, or abandonment. A network loss pauses new sessions; an image waiting to print remains only in memory until service returns or the Admin cancels. If command delivery is known not to have happened, restored service and availability return the Guest to review for an explicit Print action; the booth does not send automatically. Camera or printer disconnects request Admin help. A print command with an unclear physical result creates an Uncertain Print and holds allowance and stock until resolution.
 
 ## 8. Verification and delivery
 

@@ -1,0 +1,3 @@
+# Use one design system for Admin and Booth Mode
+
+Admin pages and Booth Mode will share semantic tokens, typography, icons, and component behavior under [DESIGN_SYSTEM.md](../../DESIGN_SYSTEM.md), while each has layout and control rules suited to its user. The Admin needs dense, scannable management views and a saved light/dark preference; Guests need a consistent dark camera experience with large touch controls, independent of that preference. Separate visual systems would let the two surfaces drift, while forcing identical layouts would make the booth feel like a dashboard. The shared system is the UI/UX source of truth; the PRD retains product behavior and the architecture retains technical boundaries.
