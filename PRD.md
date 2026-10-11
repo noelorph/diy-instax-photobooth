@@ -4,6 +4,7 @@
 **Date:** 2026-10-09
 **Source:** [Initial product prompt](docs/prompts/prd-prompt.md), followed by the product interview and [domain decisions](docs/adr/).
 **Architecture:** [Proposed first-release design](ARCHITECTURE.md).
+**UI/UX:** [Design system](DESIGN_SYSTEM.md).
 
 ## 1. Product summary
 
@@ -13,11 +14,11 @@ The first release must support the full path from Event setup through a confirme
 
 ## 2. People and boundaries
 
-| Person | Role in the product |
-| --- | --- |
-| Admin | The sole owner account. Creates Events, prepares equipment, starts and ends Booth Mode, resolves failures, and reviews history. The Admin may manage a Live Event from a second device. |
-| Client | One contact associated with an Event. The Client does not sign in. |
-| Guest | An Event attendee who uses Booth Mode without an account. |
+| Person | Role in the product                                                                                                                                                                     |
+| ------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Admin  | The sole owner account. Creates Events, prepares equipment, starts and ends Booth Mode, resolves failures, and reviews history. The Admin may manage a Live Event from a second device. |
+| Client | One contact associated with an Event. The Client does not sign in.                                                                                                                      |
+| Guest  | An Event attendee who uses Booth Mode without an account.                                                                                                                               |
 
 **Outside the first release:** booking, payment, guest accounts, photo galleries, digital photo delivery, filters, stickers, photo editing, revenue reporting, and operation without internet. Detailed dashboard charts and the Events list/grid switch are later improvements.
 
@@ -26,7 +27,7 @@ The first release must support the full path from Event setup through a confirme
 The hardware trial happens before the full Admin and print-accounting build. The product must not promise direct browser printing until a trial on the **actual iPad A16, Bluefy version, and Instax Mini Link 3** demonstrates all of the following together:
 
 1. The Admin can pair the printer and grant camera and Bluetooth permissions during setup; no permission prompt interrupts a Guest Session.
-2. The booth fills the usable screen, maintains camera preview and printer access, and prevents Guests from reaching browser navigation or Admin pages. The Admin uses iPad Guided Access as part of setup.
+2. The booth fills the usable screen in its canonical portrait layout, maintains camera preview and printer access, and prevents Guests from reaching browser navigation or Admin pages. The Admin uses iPad Guided Access as part of setup. Laptop and phone Booth layouts are responsive previews, not supported printing devices until they pass their own end-to-end trial.
 3. A photo can be sent to the printer, and the booth can reliably detect **physical film ejection**. Development of the image after ejection is outside the wait.
 4. Three consecutive Guest Sessions complete, including a Retake. The trial also demonstrates exhausted allowance handling and recovery from a printer disconnect.
 5. Camera preview and Bluetooth access remain usable through the combined fullscreen, capture, and printing flow. The printer can operate as required while connected to power.
@@ -67,6 +68,7 @@ Non-identifying Guest Session and Print Attempt records keep IDs, timestamps, Ca
 
 - Only the Admin can sign in with email and a secure password. There is no public signup. The Admin account is provisioned through the [Supabase Auth dashboard or Admin API](https://supabase.com/docs/guides/auth/users), avoiding [direct SQL insertion into Auth tables](https://supabase.com/docs/guides/troubleshooting/database-error-saving-new-user-RU_EwB). Two-factor authentication is not a launch requirement and may be added later.
 - The shared Admin AppShell provides Dashboard, Events, History, and Profile navigation. Profile sits at the bottom of the sidebar.
+- The Admin sidebar becomes a collapsible rail on tablets and a menu on phones; Profile remains last in each navigation layout. First-release UI copy is in English. Event schedules appear in venue-local time with an explicit time-zone label where ambiguity matters.
 - Entering Booth Mode ends the Admin session **on the booth iPad only** and issues that device a revocable Booth Access Grant limited to the Live Event, with no access to Client contact details or Admin actions. The grant survives an ordinary reload or brief connection loss, but pausing or ending Booth Mode revokes it. A paused Event remains Live; resuming requires Admin sign-in and a new grant. An Admin session on another device can remain active. Returning to Admin pages requires sign-in.
 
 ### Dashboard — `/dashboard`
@@ -94,10 +96,12 @@ The Admin can edit these details before the Event goes Live. The product records
 
 The page displays the Event name, state, schedule, venue, Client contact, Film Packages, original Print Allowance, Additional Prints, remaining allowance, Film Stock, and print totals. It lets the Admin upload and preview optional custom media:
 
-- A portrait background image for the Booth Mode interface. It does not alter the printed photo.
-- A silent montage of at most 30 seconds for the welcome screen. It loops, and Start is available at any point. A default welcome screen works without either asset.
+- A portrait background image for welcome and the area around the camera preview in Booth Mode. It is never composited into the Guest photo and does not alter the printed photo. Review and printing use controlled surfaces so the photo and status remain readable.
+- A silent montage of at most 30 seconds for the welcome screen. It loops, can be paused, and Start is available at any point. When both assets exist, the montage takes priority on welcome and the still image is its fallback; the still image also appears around the camera preview. Reduced-motion users see the still image or default welcome instead of an autoplay montage. A default welcome screen works without either asset.
 
 Before first start, the Admin confirms that the printer has power and film loaded, and that Guided Access is enabled. The app checks internet, camera, Bluetooth printer connection, a successful Test Print, and positive Print Allowance and Film Stock. A new Test Print is required after printer reconnection, but not after every short Admin pause. The Admin can add Additional Prints and update Film Stock while the Event is Live; Client and booking details remain fixed until Booth Mode stops.
+
+Before ending Booth Mode, reconciling Film Stock, resolving an Uncertain Print, or performing Client Redaction, the Admin reviews the specific consequence and then submits a clearly named action. Starting Booth Mode uses its readiness checklist without an extra confirmation.
 
 ### History — `/history`
 
@@ -105,24 +109,24 @@ History lists Completed and Cancelled Events and summarizes total non-cancelled 
 
 ### Profile — `/profile`
 
-Profile shows the Admin email and lets the Admin update a phone number and light/dark preference and change the password through an authenticated flow. No profile picture is needed.
+Profile shows the Admin email and lets the Admin update a phone number and light/dark preference and change the password through an authenticated flow. The preference controls Admin pages; Booth Mode keeps its own dark camera and review presentation. No profile picture is needed.
 
 ## 6. Booth Mode experience
 
 ### Enter and leave
 
-Starting Booth Mode from `/events/[eventId]` changes the Event to Live, presents the guest interface fullscreen, and ends the iPad's Admin session. iPad Guided Access is part of the Admin's physical setup. A discreet long press requests a pause and leads to Admin sign-in after an in-progress Print Attempt has finished and its result has been recorded; an interrupted attempt becomes an Uncertain Print for Admin resolution. Pausing before a print discards the unprinted photo but keeps the Capture count; resuming starts at welcome. Ending Guided Access separately requires the iPad passcode. Guests must not be able to navigate to Admin pages.
+Starting Booth Mode from `/events/[eventId]` changes the Event to Live, presents the guest interface fullscreen, and ends the iPad's Admin session. iPad Guided Access is part of the Admin's physical setup. A discreet long press, with a keyboard/assistive-input equivalent, requests a pause and leads to Admin sign-in after an in-progress Print Attempt has finished and its result has been recorded; an interrupted attempt becomes an Uncertain Print for Admin resolution. The alternative never bypasses Admin sign-in. Pausing before a print discards the unprinted photo but keeps the Capture count; resuming starts at welcome. Ending Guided Access separately requires the iPad passcode. Guests must not be able to navigate to Admin pages.
 
 ### Guest flow
 
-1. The welcome screen plays the silent montage or shows the default background. It briefly tells Guests that they receive one physical print and that their photo is discarded after the session. A large Start touch target is available at any time.
-2. Start opens a front-camera live preview framed to the portrait Instax Mini printable crop. No filters, stickers, or editing controls are provided.
+1. The welcome screen plays the silent montage, shows the Event background image, or shows the default background in that priority order, subject to the reduced-motion preference. It briefly tells Guests that they receive one physical print and that their photo is discarded after the session. A large Start touch target is available at any time.
+2. Start opens a mirrored front-camera live preview framed to the portrait Instax Mini printable crop. The Event background image may appear around the preview but never inside the captured image. No filters, stickers, or editing controls are provided.
 3. Take Photo begins the **3–2–1** countdown and makes one Capture.
-4. The review screen offers **Retake** or **Print**. Retake returns to the live preview without using allowance. The Guest may retake any number of times before printing.
-5. Print reserves one allowance unit, disables duplicate submission, sends the selected photo, and shows printing progress.
+4. The review screen shows the unmirrored image and final printable crop, then offers **Retake** or **Print**. Retake returns to the live preview without using allowance. The Guest may retake any number of times before printing.
+5. Print reserves one allowance unit, disables duplicate submission, sends the selected photo, and shows honest phases such as preparing, sending, and waiting for film as feedback permits. It does not show an invented percentage or treat command submission as a Confirmed Print.
 6. On confirmed film ejection, the booth closes the Guest Session, discards the photo, and returns to the welcome screen for the next Guest. The Guest does not wait for film development.
 
-After 90 seconds of inactivity on capture or review, an unprinted photo is discarded and the booth returns to welcome. The timeout does not interrupt the countdown or an in-progress print.
+After 90 seconds of inactivity on capture or review, an unprinted photo is discarded and the booth returns to welcome. A warning near the end offers **Continue**, which resets the timer. The timeout does not interrupt the countdown or an in-progress print.
 
 ### Interruptions and recovery
 
@@ -130,6 +134,7 @@ After 90 seconds of inactivity on capture or review, an unprinted photo is disca
 - Internet loss pauses new sessions. If it happens before a print command, the selected photo remains only in browser memory while service returns or the Admin cancels. If it happens after a command, the result is Uncertain until resolved.
 - A camera or printer disconnect pauses the booth and requests Admin help. A selected photo may remain in browser memory for recovery; an unselected capture may be discarded. Pairing and permission prompts are handled by the Admin, never by a Guest.
 - A clear pre-film print rejection may be retried by the Admin using the selected photo. An Uncertain Print requires physical inspection and reconciliation before new Guest Sessions resume.
+- Guest-facing interruption messages give a short next step such as asking the Admin for help. Printer diagnostics, reservation outcomes, and recovery actions appear only after Admin sign-in.
 
 ## 7. Privacy and access requirements
 
@@ -159,3 +164,4 @@ The first release is ready for an Event only when:
 - [Route Booth Mode requests through the server](docs/adr/0007-route-booth-requests-through-server.md)
 - [Record print and stock changes transactionally](docs/adr/0008-record-print-and-stock-changes-transactionally.md)
 - [Remove Event Media during Client Redaction](docs/adr/0009-remove-event-media-during-client-redaction.md)
+- [Use one design system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md)

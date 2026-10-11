@@ -30,6 +30,10 @@ Read the root `PRD.md` for the agreed product scope, behavior, and launch constr
 
 Read the root `ARCHITECTURE.md` for the proposed system design and technical boundaries.
 
+### UI/UX
+
+Read the root `DESIGN_SYSTEM.md` before designing or changing an interface. It governs visual language, interaction presentation, responsive layouts, components, and accessibility; `PRD.md` governs product behavior.
+
 ### Keep decisions and documentation in sync
 
 Before modifying important documentation such as `PRD.md`, `GLOSSARY.md`, `docs/adr/`, or product specs, ask the user focused questions about the intended decision, its scope, and affected behavior. Wait for the answers before editing those files.
