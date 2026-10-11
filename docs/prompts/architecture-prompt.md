@@ -1,3 +1,5 @@
+> **Historical input.** This is the original architecture request, retained as project history. It is not the current technical specification. Follow the [architecture](../../ARCHITECTURE.md), [PRD](../../PRD.md), [design system](../../DESIGN_SYSTEM.md), [glossary](../../GLOSSARY.md), and [decision records](../adr/) when implementing the product. Where this prompt differs, those current documents take precedence.
+
 Let's design [ARCHITECTURE.md](http://ARCHITECTURE.md)
 
 We need to define how data flows for our proposed system and requirements.

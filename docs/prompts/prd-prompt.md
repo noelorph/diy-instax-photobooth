@@ -1,3 +1,5 @@
+> **Historical input.** This is the original request that informed the product interview. It is not the current product specification. Follow the [PRD](../../PRD.md), [architecture](../../ARCHITECTURE.md), [design system](../../DESIGN_SYSTEM.md), [glossary](../../GLOSSARY.md), and [decision records](../adr/) when implementing the product. Where this prompt differs, those current documents take precedence.
+
 Let's make a product requirement document. Store it in [PRD.md](http://PRD.md).
 
 
