@@ -123,15 +123,15 @@ Starting Booth Mode from `/events/[eventId]` changes the Event to Live, presents
 2. Start opens a mirrored front-camera live preview framed to the portrait Instax Mini printable crop. The Event background image may appear around the preview but never inside the captured image. No filters, stickers, or editing controls are provided.
 3. Take Photo begins the **3–2–1** countdown and makes one Capture.
 4. The review screen shows the unmirrored image and final printable crop, then offers **Retake** or **Print**. Retake returns to the live preview without using allowance. The Guest may retake any number of times before printing.
-5. Print reserves one allowance unit, disables duplicate submission, sends the selected photo, and shows honest phases such as preparing, sending, and waiting for film as feedback permits. It does not show an invented percentage or treat command submission as a Confirmed Print.
+5. Print reserves one allowance unit, disables duplicate submission, sends the selected photo, and shows honest phases such as preparing, sending, and waiting for film to eject as feedback permits. It does not show an invented percentage or treat command submission as a Confirmed Print.
 6. On confirmed film ejection, the booth closes the Guest Session, discards the photo, and returns to the welcome screen for the next Guest. The Guest does not wait for film development.
 
-After 90 seconds of inactivity on capture or review, an unprinted photo is discarded and the booth returns to welcome. A warning near the end offers **Continue**, which resets the timer. The timeout does not interrupt the countdown or an in-progress print.
+After 90 seconds of inactivity on capture or review, an unprinted photo is discarded and the booth returns to welcome. A warning near the end offers **Continue**, which resets the timer. The timeout does not interrupt the countdown, an in-progress print, or a pre-send connection hold; it resumes when review is available again.
 
 ### Interruptions and recovery
 
 - At zero remaining Print Allowance or Film Stock, new Guest Sessions stop and the booth requests Admin help.
-- Internet loss pauses new sessions. If it happens before a print command, the selected photo remains only in browser memory while service returns or the Admin cancels. If it happens after a command, the result is Uncertain until resolved.
+- Internet loss pauses new sessions. If it happens before a print command, the selected photo remains only in browser memory while the page stays loaded and service returns or the Admin cancels. Once service and availability checks recover, the booth returns to review with Print available; the Guest must choose Print again, and nothing sends automatically. A reload loses the in-memory photo. If loss happens after a command, or command delivery cannot be ruled out, the result is Uncertain until resolved.
 - A camera or printer disconnect pauses the booth and requests Admin help. A selected photo may remain in browser memory for recovery; an unselected capture may be discarded. Pairing and permission prompts are handled by the Admin, never by a Guest.
 - A clear pre-film print rejection may be retried by the Admin using the selected photo. An Uncertain Print requires physical inspection and reconciliation before new Guest Sessions resume.
 - Guest-facing interruption messages give a short next step such as asking the Admin for help. Printer diagnostics, reservation outcomes, and recovery actions appear only after Admin sign-in.
