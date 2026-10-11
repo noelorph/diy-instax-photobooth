@@ -32,7 +32,7 @@ All components consume semantic tokens. Map the roles below to theme-scoped CSS 
 | `surface-muted` | `#ECEFEA` | `#223333`    | Subtle grouping, selected rows               |
 | `text`          | `#1D2B2A` | `#EFF5F1`    | Primary text                                 |
 | `text-muted`    | `#4D605D` | `#B5C7C2`    | Secondary text                               |
-| `border`        | `#7C918B` | `#708A84`    | Essential control boundaries                 |
+| `border`        | `#728780` | `#708A84`    | Essential control boundaries                 |
 | `border-subtle` | `#C8D2CE` | `#3C514D`    | Decorative dividers only                     |
 | `primary`       | `#1F6663` | `#6FB7AE`    | Primary action, links, active state          |
 | `primary-hover` | `#17514F` | `#8ACAC1`    | Hover on primary actions                     |
@@ -55,7 +55,7 @@ Tinted status surfaces use the matching status text color:
 | `danger-soft`  | `#FCE9EA` | `#4A292B`    |
 | `info-soft`    | `#E5F1F7` | `#1E3A48`    |
 
-Use status colors as text or icon accents on `surface` or their matching soft surface; pair them with a label and, when useful, an icon. Do not put light teal on ivory for small text or dark teal on dark surfaces. Do not use opacity alone to create muted text or disabled states. Primary text on canvas, primary button text, muted text on surface, status text on surface and matching soft surfaces, and essential control borders have been checked against the stated contrast targets. Recheck actual Event Media overlays and any new color pairing.
+Use status colors as text or icon accents on `surface` or their matching soft surface; pair them with a label and, when useful, an icon. Do not put light teal on ivory for small text or dark teal on dark surfaces. Do not use opacity alone to create muted text or disabled states. Primary text on canvas, primary button text, muted text on surface, status text on surface and matching soft surfaces, and essential control borders have been checked against the stated contrast targets. Check essential borders against every rendered control fill, including hover and selected states. Recheck actual Event Media overlays and any new color pairing.
 
 Authenticated Admin pages render the saved Profile light/dark preference. Ordinary Admin sign-in uses the light Admin tokens before that preference is available. The sign-in handoff from a Booth pause uses the dark tokens so the iPad does not abruptly switch visual context; it still uses the shared form and control rules. Booth Mode does not inherit the Admin preference. On the camera and review screens, dark surfaces frame the photo and keep controls predictable under different Event Media.
 
@@ -72,7 +72,7 @@ Use **DM Sans** for all UI text, with a system sans-serif fallback. Load one var
 | `heading-sm` | 22 / 28 px                  | 600     | Section titles                                         |
 | `heading`    | 28 / 36 px                  | 600     | Admin page titles                                      |
 | `display`    | 36 / 44 px                  | 600–700 | Booth welcome and major state                          |
-| `countdown`  | clamp(80, 12vw, 144) px / 1 | 700     | 3–2–1 only                                             |
+| `countdown`  | clamp(5rem, 12vw, 9rem) / 1 | 700     | 3–2–1 only                                             |
 
 Scale text with `rem` in implementation; the pixel values above describe the intended default at a 16 px root. Body text must remain readable at 200% browser zoom. Booth instructions should normally use `body-lg` or larger. Avoid truncating Event names, statuses, or error causes when the full text is needed to act.
 
@@ -126,7 +126,7 @@ Buttons have `primary`, `secondary`, `quiet`, and `destructive` treatments. Use 
 | Control state             | Required treatment                                                                                                                              |
 | ------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
 | Primary default / hover   | `primary` fill with `on-primary` text; use `primary-hover` fill on hover and press                                                              |
-| Secondary default / hover | `surface` with `text` and `border`; use `surface-muted` on hover and press                                                                      |
+| Secondary default / hover | `surface` with `text` and `border`; retain `border` when using `surface-muted` on hover and press                                               |
 | Quiet default / hover     | No resting fill, `text` label; use `surface-muted` on hover and press                                                                           |
 | Destructive               | Use `danger` text on a quiet control in context; use `danger` fill with `on-danger` text in the final review dialog and `danger-hover` on hover |
 | Selected                  | `primary-soft` background with `primary` text and a visible selection marker, not color alone                                                   |
@@ -140,6 +140,26 @@ Use an explicit 2 px focus ring with a 2 px separation where possible; focus mus
 Forms use visible labels, concise helper text, inline validation, and an error summary when several fields fail. Preserve entered values after validation. Date and time fields show the venue time zone; table dates use venue-local time with an explicit zone where ambiguity matters. Tables have named columns, a clear sort/filter state, keyboard-reachable controls, and a compact labeled-summary pattern rather than clipped cells on phones. The 7-day/30-day activity filter is a simple two-option control; do not introduce the later-release charts.
 
 Dialogs are reserved for consequential Admin choices. Show the exact effect before ending Booth Mode, Client Redaction, Film Stock reconciliation, or resolution of an Uncertain Print. Use action labels that name the result, not a generic “Confirm.” Starting Booth Mode uses its readiness checklist instead of a redundant confirmation. Success feedback appears in context after the state has actually committed.
+
+### Admin operational panel
+
+Use the same operational panel in Event setup and Live Event management, adapting its readiness and actions to the Event state. Place it before the Booth controls so the Admin sees blockers before starting or resuming. Group the figures by resource, with two labeled values in each group:
+
+| Resource                          | Available                                                                                       | Reserved                                                    |
+| --------------------------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| Print Allowance · this Event      | Original Print Allowance + Additional Prints − Confirmed Prints − unresolved Print Reservations | Unresolved Print Reservations                               |
+| Film Stock · shared across Events | Current Film Stock balance − unresolved Film Reservations                                       | Unresolved Film Reservations, including Test Print attempts |
+
+Label every number with **prints** or **sheets**, use tabular numerals, and preserve all four labels on compact screens by stacking the groups. Show **0 reserved** explicitly when there are no holds. Keep available and reserved visually distinct; a reservation is a hold, not a Confirmed Print or consumed sheet. Show original allowance and Additional Prints as secondary context, and label Film Stock as shared across Events. Check readiness against the available values, not available plus reserved. Update the figures only when the recorded state changes; a pending command is not success.
+
+Show recovery immediately below the affected figures, with the status, why Booth readiness is blocked, and one next action for each issue:
+
+| Issue                               | Panel presentation and next action                                                                                                                                                                                                                                                                                      |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Uncertain Print                     | Show **Uncertain Print — Booth unavailable** and the applicable held print/sheet counts. **Inspect and resolve print** opens the existing Admin review flow for that attempt; the Admin records the observed outcome before Booth Mode can start or resume. Never offer automatic resend or label the hold as consumed. |
+| Printer disconnected or reconnected | Show connection status and **Reconnect printer** guidance for the Admin. Once connected, show **Run Test Print** as the next action and keep readiness blocked until that Test Print succeeds. A short Admin pause with no reconnection does not require another test.                                                  |
+
+If both issues exist, show both rows and their actions; do not imply that fixing one clears the other. Resolve an Uncertain Print through the consequential review dialog, and show the updated counts and readiness only after the result commits. Keep the printer's technical diagnostics in the Admin panel and out of Guest messages.
 
 ### Sign-in and Booth handoff
 
@@ -200,20 +220,20 @@ Validate the actual Event image and montage overlays, both themes, high zoom, iP
 
 ## 7. Page recipes
 
-| Page or flow           | Required visual hierarchy                                                                     | Primary action and important states                                                                               |
-| ---------------------- | --------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
-| Admin sign-in          | Title and brief purpose → email/password form → persistent error area                         | Sign in; invalid fields, incorrect credentials, submitting, connection failure, expired session; no public signup |
-| Dashboard              | Page title → this-month/upcoming/next-Event summaries → activity table                        | Event links; 7/30-day filter, pagination, empty activity                                                          |
-| Events                 | Next Event and Live status → Draft/upcoming list → row details                                | Create Event; overdue Draft and zero-results states                                                               |
-| New / specific Event   | Identity and schedule → Client and booking details → media → stock/readiness → Booth controls | Save Draft or start only when ready; explicit zone, allowance, stock, Test Print status                           |
-| History                | Summary totals → Completed/Cancelled rows → Event details                                     | Client Redaction review; retained/redacted Client states                                                          |
-| Profile                | Admin identity → phone → theme → password                                                     | Save and authenticated password feedback                                                                          |
-| Booth entry handoff    | Preparing Booth Mode status → Guest welcome only after access is active                       | Prevent repeat start; failed handoff leads to paused sign-in recovery                                             |
-| Booth pause handoff    | Dark **Booth paused** message → Sign in → shared email/password form                          | No Event details before auth; wait for print result before switching; generic help if interrupted                 |
-| Signed-in pause return | Live Event title/state → readiness and unresolved outcomes → Booth controls                   | Explicit Resume Booth Mode; no automatic resume; resolve blockers first                                           |
-| Booth welcome          | Event Media or default frame → one-print/privacy message → Start                              | Loading/fallback media, exhausted supplies, internet block                                                        |
-| Booth capture/review   | Camera crop → shutter/countdown → final image → Retake/Print                                  | Camera failure, timeout warning, pre-send connection loss and return to review                                    |
-| Booth print            | Current phase → plain next step → confirmed or distinct recovery message                      | Prevent duplicate send; clear rejection and uncertain outcome use separate actions                                |
+| Page or flow           | Required visual hierarchy                                                                                                | Primary action and important states                                                                                           |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------- |
+| Admin sign-in          | Title and brief purpose → email/password form → persistent error area                                                    | Sign in; invalid fields, incorrect credentials, submitting, connection failure, expired session; no public signup             |
+| Dashboard              | Page title → this-month/upcoming/next-Event summaries → activity table                                                   | Event links; 7/30-day filter, pagination, empty activity                                                                      |
+| Events                 | Next Event and Live status → Draft/upcoming list → row details                                                           | Create Event; overdue Draft and zero-results states                                                                           |
+| New / specific Event   | Identity and schedule → Client and booking details → media → available/reserved resources and readiness → Booth controls | Save Draft or start only when ready; show shared Film Stock, Uncertain Print resolution, reconnection, and Test Print actions |
+| History                | Summary totals → Completed/Cancelled rows → Event details                                                                | Client Redaction review; retained/redacted Client states                                                                      |
+| Profile                | Admin identity → phone → theme → password                                                                                | Save and authenticated password feedback                                                                                      |
+| Booth entry handoff    | Preparing Booth Mode status → Guest welcome only after access is active                                                  | Prevent repeat start; failed handoff leads to paused sign-in recovery                                                         |
+| Booth pause handoff    | Dark **Booth paused** message → Sign in → shared email/password form                                                     | No Event details before auth; wait for print result before switching; generic help if interrupted                             |
+| Signed-in pause return | Live Event title/state → readiness and unresolved outcomes → Booth controls                                              | Explicit Resume Booth Mode; no automatic resume; resolve blockers first                                                       |
+| Booth welcome          | Event Media or default frame → one-print/privacy message → Start                                                         | Loading/fallback media, exhausted supplies, internet block                                                                    |
+| Booth capture/review   | Camera crop → shutter/countdown → final image → Retake/Print                                                             | Camera failure, timeout warning, pre-send connection loss and return to review                                                |
+| Booth print            | Current phase → plain next step → confirmed or distinct recovery message                                                 | Prevent duplicate send; clear rejection and uncertain outcome use separate actions                                            |
 
 Do not create dashboard charts, revenue panels, galleries, or photo-editing controls for first release. The Admin can manage a Live Event on another device, but the Booth iPad shows only the Guest surface while its Booth Access Grant is active.
 
