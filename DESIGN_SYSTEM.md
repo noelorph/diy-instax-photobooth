@@ -11,6 +11,8 @@ This is the source of truth for the product's visual language, interaction prese
 
 The first-release surfaces are Admin sign-in, password recovery request and reset, Dashboard, Events, History, Profile, Event setup/detail, the handoff into and out of Booth Mode, and Guest-facing Booth Mode. Booth Mode targets an iPad A16 running Bluefy with an Instax Mini Link 3, subject to the PRD's hardware trial; laptop and phone layouts are responsive previews until their own end-to-end hardware trials pass. Do not imply printing is supported before a device passes its trial. Later-release charts, a grid toggle, galleries, editing, filters, stickers, and digital delivery are outside this system's first-release component set.
 
+The pre-gate Admin foundation in [PRD section 3](PRD.md#3-launch-feasibility-gate) is an implementation phase, not a different visual system or a completed first-release flow. Apply these tokens and component rules to the foundation without presenting gated Booth or printing features as available.
+
 ## 2. Design philosophy
 
 1. **Let the occasion supply the energy.** The interface is calm and composed. Guest photos, Event Media, and the 3–2–1 countdown carry the celebratory moment.

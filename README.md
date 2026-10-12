@@ -12,6 +12,10 @@ A web-based Event photo booth with an Admin application and Guest-facing Booth M
 
 Read the PRD and design system before implementing an interface. The design system governs presentation; the PRD governs product behavior.
 
+## Development sequence
+
+Before the target iPad A16 printing trial passes, work may cover the independent Admin foundation (sign-in and recovery, navigation, Profile account settings, and Draft Event creation/editing) plus an isolated printer qualification harness and simulated tests. Draft deletion and the full Admin, Booth, and print-accounting build remain gated as described in [PRD section 3](PRD.md#3-launch-feasibility-gate) and [ADR-0012](docs/adr/0012-stage-development-before-hardware-qualification.md). Record the exact iPad model and iPadOS version during the trial; an iPhone trial cannot close the target-device gate.
+
 The first-release Admin authentication requirements cover `/sign-in`, `/forgot-password`, and `/reset-password`; **Sign out** belongs on `/profile`. See the [Admin experience](PRD.md#5-admin-experience) for the behavior of each page.
 
 ## Local development

@@ -24,7 +24,9 @@ The first release must support the full path from Event setup through a confirme
 
 ## 3. Launch feasibility gate
 
-The hardware trial happens before the full Admin and print-accounting build. The product must not promise direct browser printing until a trial on the **actual iPad A16, Bluefy version, and Instax Mini Link 3** demonstrates all of the following together:
+The hardware trial happens before the full Admin and print-accounting build. Before that trial, development may cover only the independent Admin foundation: Admin sign-in and password recovery, Admin navigation, Profile account settings, and creating and editing Draft Event details. Draft deletion waits for the decision in [issue #8](https://github.com/noelorph/diy-instax-photobooth/issues/8). An isolated printer qualification harness and simulated printer tests may also be built before the trial. This pre-gate work is not a completed Admin system or a supported Booth Mode; it must not enable Live Event operation, printer-backed readiness or Test Prints, Print or Film Reservations, or Confirmed Print accounting. See [ADR-0012](docs/adr/0012-stage-development-before-hardware-qualification.md).
+
+The product must not promise direct browser printing until a trial on the **actual iPad A16, Bluefy version, and Instax Mini Link 3** demonstrates all of the following together:
 
 1. The Admin can pair the printer and grant camera and Bluetooth permissions during setup; no permission prompt interrupts a Guest Session.
 2. The booth fills the usable screen in its canonical portrait layout, maintains camera preview and printer access, and prevents Guests from reaching browser navigation or Admin pages. The Admin uses iPad Guided Access as part of setup. Laptop and phone Booth layouts are responsive previews, not supported printing devices until they pass their own end-to-end trial.
@@ -33,6 +35,8 @@ The hardware trial happens before the full Admin and print-accounting build. The
 5. Camera preview and Bluetooth access remain usable through the combined fullscreen, capture, and printing flow. The printer can operate as required while connected to power.
 
 If the trial fails, the printing or booth browser approach must be selected again before release. Safari and Chrome become supported booth browsers only after the same end-to-end trial succeeds on them. Bluefy's [Web Bluetooth guide](https://bluefy.app/guide.html) and [fullscreen listing](https://apps.apple.com/us/app/bluefy-web-ble-browser/id1492822055) establish browser capabilities, but do not establish this product's Mini Link 3 integration. Fujifilm documents [Bluetooth 5.1 and approximately 15-second printing](https://www.fujifilm.com/us/en/consumer/instax/printers/minilink3/specifications); its published product flow uses the native Instax app.
+
+Record the exact iPad model and iPadOS version during the target-device trial rather than assuming them in implementation. A loaded, usable film pack is needed for the controlled physical-print trial; connection, status, simulated failure checks, and used-film evidence cannot establish fresh-film image quality or reliable ejection feedback. An iPhone trial may inform the protocol hypothesis, but it cannot satisfy the iPad acceptance gate.
 
 ## 4. Event and print rules
 
@@ -181,3 +185,4 @@ The first release is ready for an Event only when:
 - [Remove Event Media during Client Redaction](docs/adr/0009-remove-event-media-during-client-redaction.md)
 - [Use one design system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md)
 - [Keep Booth access separate during Admin password recovery](docs/adr/0011-keep-booth-access-separate-during-password-recovery.md)
+- [Stage development before hardware qualification](docs/adr/0012-stage-development-before-hardware-qualification.md)
