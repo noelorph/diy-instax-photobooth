@@ -1,0 +1,22 @@
+# iPhone-qualified development, iPad-qualified launch
+
+## Intent and scope
+
+Use the owner's iPhone 15 with Bluefy and the Instax Mini Link 3 to qualify the real capture-to-print boundary before building the full Admin, Booth Mode, and print-accounting system. The iPhone is a development and test booth device only. The iPad A16 remains the sole first-release booth device. Its exact model and iPadOS version are unknown until purchase and must be recorded during its own trial.
+
+This changes when integrated development may start, not what counts as a release-ready booth. If the iPad trial exposes a different printer signal, browser behavior, or kiosk constraint, the shared printing or accounting design may change and must be reverified.
+
+## Development stages
+
+1. **Before iPhone qualification:** Build the independent Admin foundation: sign-in and password recovery, Admin navigation, Profile account settings, and Draft Event creation/editing. Draft deletion awaits issue #8. An isolated printer qualification harness and simulated printer tests are allowed. Do not enable Live Event operation, Booth Access Grants, printer-backed readiness or Test Prints, reservations, stock consumption, or Confirmed Print accounting.
+2. **iPhone qualification:** Use a loaded, usable fresh-film pack in the iPhone 15, Bluefy, and Mini Link 3 setup. Record exact iOS and Bluefy versions and printer firmware. A thin prototype must demonstrate Admin-side pairing and permissions, camera preview with Bluetooth through capture and print, guest navigation restrictions using Guided Access, correct printable crop and orientation, three consecutive physical Guest prints including a Retake, allowance exhaustion, disconnect recovery, and operation with continuous printer power. Observe the physical output and correlate it with printer responses. A command acknowledgement or Film Remaining change alone does not prove reliable ejection. Ambiguous fault outcomes stay uncertain; normal completion needs reliable ejection feedback. A lightweight local counter is sufficient; physical sheets used here are qualification prints recorded manually, not Event Test Prints. This stage does not require the full Admin or accounting system.
+3. **After iPhone qualification:** A passed, documented iPhone trial permits full Admin, Booth Mode, and print-accounting development against the observed printer behavior, with a simulated adapter for automated tests. The iPhone remains a test device; passing does not authorize an Event launch or make phone Booth Mode a supported product feature.
+4. **iPad qualification before launch:** On the purchased iPad A16, repeat the complete target-device trial using usable film, including Guided Access, portrait layout and crop, camera/Bluefy/Bluetooth coexistence, physical ejection feedback, three consecutive Guest Sessions, Retake, allowance exhaustion, disconnect recovery, and printer power. Run the integrated application's acceptance checks on the iPad. If a criterion fails, revisit the affected browser, printer, UI, or shared accounting boundary; re-test before release.
+
+Used film may support connection and protocol experiments but cannot qualify image quality or a reliable physical ejection outcome. If the iPhone trial fails, the full build remains gated while the printer or booth approach is reconsidered.
+
+## Boundaries and verification
+
+Keep the printer protocol behind an adapter so device-specific behavior does not silently become an accounting guarantee. A Guest print becomes Confirmed only when the evidence supports physical film ejection; ambiguous outcomes use the existing Uncertain Print flow. The iPhone trial establishes a development hypothesis for the adapter and state machine. Automated tests exercise that hypothesis, and the iPad trial validates it for release.
+
+Align PRD section 3, architecture verification, design-system device language, README, and ADR-0005 in the documentation change. After review, add a separate iPhone qualification issue, keep the existing iPad hardware issue as the launch gate, and change the contract milestone's blocker from the iPad issue to the iPhone issue. Keep the existing first-release iPad behavior, privacy rules, Admin/Booth isolation, and accounting definitions unless a physical trial supplies evidence to change them.

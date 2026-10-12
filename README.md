@@ -12,6 +12,10 @@ A web-based Event photo booth with an Admin application and Guest-facing Booth M
 
 Read the PRD and design system before implementing an interface. The design system governs presentation; the PRD governs product behavior.
 
+## Development sequence
+
+The iPhone 15 is a development-only Booth Mode test device. Until a fresh-film iPhone trial proves the combined capture, print, and reliable physical-ejection path, work is limited to the independent Admin foundation and an isolated printer qualification harness. A passed iPhone trial permits the full Admin, Booth, and print-accounting build. The iPad A16 remains the only first-release booth and must pass its own end-to-end hardware trial before launch. The exact iPad model and iPadOS version will be recorded when that device is available. See [PRD section 3](PRD.md#3-development-and-launch-feasibility-gates) and [ADR-0012](docs/adr/0012-qualify-development-on-iphone-before-ipad-launch.md).
+
 The first-release Admin authentication requirements cover `/sign-in`, `/forgot-password`, and `/reset-password`; **Sign out** belongs on `/profile`. See the [Admin experience](PRD.md#5-admin-experience) for the behavior of each page.
 
 ## Local development
