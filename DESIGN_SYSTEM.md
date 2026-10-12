@@ -9,7 +9,9 @@
 
 This is the source of truth for the product's visual language, interaction presentation, responsive layouts, component use, and accessibility. [PRD.md](PRD.md) owns product behavior and release scope; [ARCHITECTURE.md](ARCHITECTURE.md) owns system boundaries and technology. If guidance conflicts, reconcile the documents before implementation instead of silently choosing one. Use [GLOSSARY.md](GLOSSARY.md) for product terms.
 
-The first-release surfaces are Admin sign-in, password recovery request and reset, Dashboard, Events, History, Profile, Event setup/detail, the handoff into and out of Booth Mode, and Guest-facing Booth Mode. Booth Mode targets an iPad A16 running Bluefy with an Instax Mini Link 3, subject to the PRD's hardware trial; laptop and phone layouts are responsive previews until their own end-to-end hardware trials pass. Do not imply printing is supported before a device passes its trial. Later-release charts, a grid toggle, galleries, editing, filters, stickers, and digital delivery are outside this system's first-release component set.
+The first-release surfaces are Admin sign-in, password recovery request and reset, Dashboard, Events, History, Profile, Event setup/detail, the handoff into and out of Booth Mode, and Guest-facing Booth Mode. Booth Mode targets an iPad A16 running Bluefy with an Instax Mini Link 3, subject to the PRD's iPad launch trial. The owner's iPhone 15 Plus may run a compact Booth Mode flow for its qualification trial and subsequent development testing; it is not a supported first-release booth. Other phone and laptop layouts remain responsive previews. Do not imply launch printing support before the iPad trial passes. Later-release charts, a grid toggle, galleries, editing, filters, stickers, and digital delivery are outside this system's first-release component set.
+
+Before the iPhone development gate, apply this visual system to the limited Admin foundation and qualification harness without presenting gated Live Event or print-accounting actions as available. The compact iPhone test flow must keep capture, review, and Print controls usable within its viewport; qualification must verify the actual crop and browser chrome on that device. The iPad portrait layout remains canonical for release.
 
 ## 2. Design philosophy
 
@@ -96,12 +98,12 @@ Use borders and spacing before shadows. A Booth control may be rounder and large
 
 Breakpoints describe layout behavior, not device support: `compact` below 640 CSS px, `medium` 640–1023 px, and `wide` at 1024 px or above. Also test narrow height, 200% zoom, dynamic viewport changes, and iPad safe-area insets. Do not assume the browser grants a fixed fullscreen height; use the usable viewport and safe areas.
 
-| Surface     | Compact                                                           | Medium                                                       | Wide                                                                  |
-| ----------- | ----------------------------------------------------------------- | ------------------------------------------------------------ | --------------------------------------------------------------------- |
-| Admin shell | Menu opens navigation; one content column; 16 px page inset       | Collapsible navigation rail; one or two columns; 24 px inset | 240 px sidebar; max 1280 px content; 32 px inset                      |
-| Admin data  | Rows become labeled summaries; preserve key state and next action | Tables may scroll within their region if labels remain clear | Tables for Events, History, and activity; align numeric columns right |
-| Admin forms | One column, full-width actions                                    | Group related fields in two columns where helpful            | Two-column form groups, never a wall of fields                        |
-| Booth Mode  | Responsive preview, not validated for printing                    | Canonical portrait iPad layout                               | Adaptive preview or landscape layout, not a supported printing claim  |
+| Surface     | Compact                                                                  | Medium                                                       | Wide                                                                  |
+| ----------- | ------------------------------------------------------------------------ | ------------------------------------------------------------ | --------------------------------------------------------------------- |
+| Admin shell | Menu opens navigation; one content column; 16 px page inset              | Collapsible navigation rail; one or two columns; 24 px inset | 240 px sidebar; max 1280 px content; 32 px inset                      |
+| Admin data  | Rows become labeled summaries; preserve key state and next action        | Tables may scroll within their region if labels remain clear | Tables for Events, History, and activity; align numeric columns right |
+| Admin forms | One column, full-width actions                                           | Group related fields in two columns where helpful            | Two-column form groups, never a wall of fields                        |
+| Booth Mode  | Development trial on the owner's iPhone 15 Plus; no launch support claim | Canonical portrait iPad layout                               | Adaptive preview or landscape layout, not a supported printing claim  |
 
 The canonical Booth layout is portrait on the iPad A16. Put the preview at the center, preserve the portrait Instax Mini printable crop, and keep main controls in a reachable lower region without covering the crop. The Start, Take Photo, Retake, and Print actions remain visible without horizontal scrolling. In landscape, use side space for instructions and actions while retaining the portrait preview. Never stretch or distort the camera image or Event background. The exact crop and browser chrome behavior must be validated on the target hardware.
 
