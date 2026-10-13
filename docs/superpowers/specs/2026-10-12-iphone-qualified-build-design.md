@@ -4,6 +4,8 @@
 
 Use the owner's iPhone 15 Plus with Bluefy and the Instax Mini Link 3 to qualify the real capture-to-print boundary before building the full Admin, Booth Mode, and print-accounting system. The currently reported setup is iOS 26.2.1, Bluefy 3.9.3, and printer firmware 0102(RX); verify these versions when the trial runs. The iPhone is a development and test booth device only. The iPad A16 remains the sole first-release booth device. Its exact model and iPadOS version are unknown until purchase and must be recorded during its own trial.
 
+The detailed harness and physical-trial criteria for this stage are in the [issue #17 qualification design](2026-10-13-iphone-print-qualification-design.md). The owner reports a new fresh-film pack loaded as of 2026-10-13; the physical gate remains untested.
+
 This changes when integrated development may start, not what counts as a release-ready booth. If the iPad trial exposes a different printer signal, browser behavior, or kiosk constraint, the shared printing or accounting design may change and must be reverified.
 
 ## Development stages

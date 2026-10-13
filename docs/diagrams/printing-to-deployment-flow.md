@@ -1,6 +1,6 @@
 # Printing qualification to deployment
 
-These diagrams show the agreed sequence in [PRD section 3](../../PRD.md#3-development-and-launch-feasibility-gates), [PRD section 8](../../PRD.md#8-acceptance-criteria), and [ADR-0012](../adr/0012-qualify-development-on-iphone-before-ipad-launch.md). The iPhone 15 Plus is a development device. The iPad A16 is the sole first-release Booth Mode device.
+These diagrams show the agreed sequence in [PRD section 3](../../PRD.md#3-development-and-launch-feasibility-gates), [PRD section 8](../../PRD.md#8-acceptance-criteria), [ADR-0012](../adr/0012-qualify-development-on-iphone-before-ipad-launch.md), and the [issue #17 qualification design](../superpowers/specs/2026-10-13-iphone-print-qualification-design.md). The iPhone 15 Plus is a development device. The iPad A16 is the sole first-release Booth Mode device.
 
 ```mermaid
 flowchart LR
@@ -29,7 +29,7 @@ flowchart TD
     G -- Yes --> I["iPhone development gate passes"]
 ```
 
-Current reported test setup: iPhone 15 Plus on iOS 26.2.1, Bluefy 3.9.3, and Mini Link 3 firmware 0102(RX). Verify those versions when testing. A command acknowledgement or Film Remaining change alone does not prove ejection. The independent Admin foundation may be built alongside this stage, but it is not required to pass the gate. Qualification prints are recorded manually; they are not Event Test Prints or Confirmed Prints.
+Current reported test setup: iPhone 15 Plus on iOS 26.2.1, Bluefy 3.9.3, and Mini Link 3 firmware 0102(RX), with a new fresh-film pack reported loaded as of 2026-10-13. Verify the versions and film usability when testing. A command acknowledgement or Film Remaining change alone does not prove ejection. The independent Admin foundation may be built alongside this stage, but it is not required to pass the gate. Qualification prints are recorded manually; they are not Event Test Prints or Confirmed Prints.
 
 ## 2. Build the full Admin and Booth Mode application
 
