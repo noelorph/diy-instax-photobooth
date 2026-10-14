@@ -113,6 +113,10 @@
   flex-direction: column;
   gap: 12px;
 }
+.pendingActions {
+  display: grid;
+  gap: 12px;
+}
 .shell button {
   min-height: 44px;
   padding: 10px 16px;

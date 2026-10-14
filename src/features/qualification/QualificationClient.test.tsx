@@ -127,6 +127,56 @@ describe('supervised iPhone qualification page', () => {
     expect(screen.queryByText('Print complete')).toBeNull();
   });
 
+  it('keepsStatusObservationOpenForTenSecondsAfterEmergenceMarker', async () => {
+    const { services } = fixture();
+    await enterTrial(services);
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    await screen.findByRole('button', { name: 'Print' });
+    vi.useFakeTimers();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+      await Promise.resolve();
+    });
+
+    const confirm = screen.getByRole('button', { name: 'Observed film ejection' });
+    expect(confirm.hasAttribute('disabled')).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet fully emerged' }));
+    expect(confirm.hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText(/Status recording continues for 10 seconds/)).toBeDefined();
+    expect(services.observe).toHaveBeenCalledOnce();
+    act(() => {
+      vi.mocked(services.observe).mock.calls[0][1]({
+        opcode: INSTAX_OPCODES.supportFunctionInfo,
+        payload: new Uint8Array([0, 2, 2, 0x12, 0x7f, 0x0b]),
+      });
+    });
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(9_999);
+    });
+    expect(confirm.hasAttribute('disabled')).toBe(true);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+    expect(confirm.hasAttribute('disabled')).toBe(false);
+    expect(screen.getByText(/Observation window ended; check the status log/)).toBeDefined();
+    expect(services.observe).toHaveBeenCalledOnce();
+
+    fireEvent.click(confirm);
+    expect(screen.getByText('2 sheets available')).toBeDefined();
+    expect(vi.mocked(services.observe).mock.results[0].value).toHaveBeenCalledOnce();
+    fireEvent.click(screen.getByText('Operator diagnostics'));
+    fireEvent.click(screen.getByRole('button', { name: 'Export non-photo log' }));
+    const json = screen.getByRole('textbox', { name: 'Non-photo log JSON' }) as HTMLTextAreaElement;
+    const events = JSON.parse(json.value).events;
+    expect(events.map((event: { kind: string }) => event.kind)).toContain(
+      'physical-ejection-marker'
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: 'status', filmRemaining: 2, responseHex: '000202127f0b' })
+    );
+  });
+
   it('observationTimeoutIsUncertain', async () => {
     const { services } = fixture();
     await enterTrial(services);

@@ -73,6 +73,8 @@ export function QualificationClient({ services }: { services?: QualificationServ
   const [sheetsChecked, setSheetsChecked] = useState(false);
   const [logExport, setLogExport] = useState<{ filename: string; json: string } | null>(null);
   const [copyStatus, setCopyStatus] = useState('');
+  const [emergenceMarkerTime, setEmergenceMarkerTime] = useState<string | null>(null);
+  const [statusTailComplete, setStatusTailComplete] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const connectionRef = useRef<PrinterConnection | null>(null);
@@ -82,6 +84,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
   const controllerRef = useRef<TrialController | null>(null);
   const stopObservationRef = useRef<(() => void) | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const markerTailRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const servicesRef = useRef<QualificationServices | null>(services ?? null);
 
   useEffect(() => {
@@ -116,6 +119,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     return () => {
       stopObservationRef.current?.();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
+      if (markerTailRef.current) clearTimeout(markerTailRef.current);
       streamRef.current?.getTracks().forEach((track) => track.stop());
       if (previewRef.current) active.revoke(previewRef.current);
       void connectionRef.current?.disconnect();
@@ -133,6 +137,8 @@ export function QualificationClient({ services }: { services?: QualificationServ
     stopObservationRef.current = null;
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = null;
+    if (markerTailRef.current) clearTimeout(markerTailRef.current);
+    markerTailRef.current = null;
   }
   function clearPhoto() {
     jpegRef.current = null;
@@ -300,6 +306,8 @@ export function QualificationClient({ services }: { services?: QualificationServ
       return;
     setPrinting(true);
     setRejection('');
+    setEmergenceMarkerTime(null);
+    setStatusTailComplete(false);
     try {
       await controller.startPrint(jpeg);
       const current = controller.getState();
@@ -342,11 +350,32 @@ export function QualificationClient({ services }: { services?: QualificationServ
       setPrinting(false);
     }
   }
+  function markPhysicalEmergence() {
+    const controller = controllerRef.current;
+    if (
+      !controller ||
+      controller.getState().phase !== 'awaiting-observation' ||
+      markerTailRef.current ||
+      emergenceMarkerTime
+    )
+      return;
+    const marker = controller.markPhysicalEmergence();
+    setEvents(logRef.current?.getEvents() ?? []);
+    setEmergenceMarkerTime(marker.timestamp);
+    setStatusTailComplete(false);
+    markerTailRef.current = setTimeout(() => {
+      setStatusTailComplete(true);
+      markerTailRef.current = null;
+    }, 10_000);
+  }
   function observedEjection() {
+    if (!emergenceMarkerTime || !statusTailComplete) return;
     const controller = controllerRef.current!;
     controller.observeEjection(new Date().toISOString());
     setTrialState(controller.getState());
     stopObservation();
+    setEmergenceMarkerTime(null);
+    setStatusTailComplete(false);
     clearPhoto();
     setStage(controller.getState().phase === 'exhausted' ? 'setup' : 'camera');
   }
@@ -360,6 +389,8 @@ export function QualificationClient({ services }: { services?: QualificationServ
     setStage('setup');
     setEvents([]);
     setLogExport(null);
+    setEmergenceMarkerTime(null);
+    setStatusTailComplete(false);
   }
   function exportLog() {
     const log = logRef.current;
@@ -513,9 +544,26 @@ export function QualificationClient({ services }: { services?: QualificationServ
           </>
         )}
         {stage === 'pending' && (
-          <button className={styles.primary} type="button" onClick={observedEjection}>
-            Observed film ejection
-          </button>
+          <div className={styles.pendingActions}>
+            <button type="button" disabled={!!emergenceMarkerTime} onClick={markPhysicalEmergence}>
+              Sheet fully emerged
+            </button>
+            <p className={styles.detail} aria-live="polite">
+              {emergenceMarkerTime
+                ? statusTailComplete
+                  ? `Marker saved at ${new Date(emergenceMarkerTime).toLocaleTimeString()}. Observation window ended; check the status log.`
+                  : `Marker saved at ${new Date(emergenceMarkerTime).toLocaleTimeString()}. Status recording continues for 10 seconds.`
+                : 'Tap only when the entire sheet is outside the printer. This is a timing marker, not automatic confirmation.'}
+            </p>
+            <button
+              className={styles.primary}
+              type="button"
+              disabled={!emergenceMarkerTime || !statusTailComplete}
+              onClick={observedEjection}
+            >
+              Observed film ejection
+            </button>
+          </div>
         )}
         {(stage === 'uncertain' ||
           trialState.needsReconciliation ||

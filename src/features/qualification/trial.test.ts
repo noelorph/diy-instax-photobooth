@@ -45,6 +45,27 @@ describe('local qualification allowance', () => {
     expect(f.controller.getState().remaining).toBe(2);
   });
 
+  it('physicalEmergenceMarkerRecordsTimeWithoutConsumingAllowance', async () => {
+    const f = fixture();
+    await f.controller.startPrint(jpeg);
+    const attemptId = f.log.getEvents().find((event) => event.kind === 'print-start')?.attemptId;
+
+    const marker = f.controller.markPhysicalEmergence();
+
+    expect(marker).toMatchObject({
+      kind: 'physical-ejection-marker',
+      attemptId,
+      timestamp: '2026-10-14T10:00:00Z',
+    });
+    expect(f.controller.getState()).toMatchObject({ remaining: 3, phase: 'awaiting-observation' });
+    expect(f.controller.markPhysicalEmergence()).toEqual(marker);
+    expect(
+      f.log.getEvents().filter((event) => event.kind === 'physical-ejection-marker')
+    ).toHaveLength(1);
+    f.controller.observeEjection('2026-10-14T10:00:00Z');
+    expect(f.controller.getState().remaining).toBe(2);
+  });
+
   it('ejectionObservationIsIdempotent', async () => {
     const f = fixture();
     await f.controller.startPrint(jpeg);

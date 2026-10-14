@@ -1,7 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PrinterConnection } from './bluetooth';
-import { INSTAX_OPCODES, type InstaxOpcode } from './protocol';
+import { INSTAX_OPCODES, type InstaxOpcode, type InstaxResponse } from './protocol';
 import {
   preflightPrinter,
   sendTrialPrint,
@@ -95,12 +95,46 @@ describe('supervised print session', () => {
     const onError = vi.fn();
     const stop = startStatusObservation(fake, onStatus, onError);
     await vi.advanceTimersByTimeAsync(60_001);
-    expect(calls.filter((call) => call.opcode === INSTAX_OPCODES.supportFunctionInfo)).toHaveLength(
-      30
-    );
-    expect(onStatus).toHaveBeenCalledTimes(30);
+    const sampled = calls.length;
+    expect(sampled).toBeGreaterThan(30);
+    expect(calls.every((call) => call.opcode === INSTAX_OPCODES.supportFunctionInfo)).toBe(true);
+    expect(onStatus).toHaveBeenCalledTimes(sampled);
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(calls).toHaveLength(sampled);
     expect(onError).not.toHaveBeenCalled();
     stop();
+  });
+
+  it('samplesRawStatusWithinOneSecondWithoutSendingAnotherPrint', async () => {
+    vi.useFakeTimers();
+    const { fake, calls } = connection();
+    const onStatus = vi.fn();
+    const stop = startStatusObservation(fake, onStatus, vi.fn());
+    await vi.advanceTimersByTimeAsync(1_000);
+    expect(onStatus).toHaveBeenCalledOnce();
+    expect(calls).toEqual([
+      { opcode: INSTAX_OPCODES.supportFunctionInfo, payload: new Uint8Array([2]) },
+    ]);
+    stop();
+  });
+
+  it('cancellingObservationIgnoresAnInFlightStatusReply', async () => {
+    vi.useFakeTimers();
+    let resolve!: (response: InstaxResponse) => void;
+    const { fake } = connection();
+    fake.exchange = () => new Promise<InstaxResponse>((complete) => (resolve = complete));
+    const onStatus = vi.fn();
+    const stop = startStatusObservation(fake, onStatus, vi.fn());
+    await vi.advanceTimersByTimeAsync(900);
+
+    stop();
+    resolve({
+      opcode: INSTAX_OPCODES.supportFunctionInfo,
+      payload: new Uint8Array([0, 2, 3, 0, 0, 11]),
+    });
+    await Promise.resolve();
+
+    expect(onStatus).not.toHaveBeenCalled();
   });
 
   it('rejects malformed image variants before any printer exchange', async () => {

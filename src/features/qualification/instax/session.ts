@@ -121,9 +121,14 @@ export function startStatusObservation(
 ): () => void {
   let elapsed = 0;
   let busy = false;
+  let stopped = false;
   const interval = setInterval(async () => {
-    elapsed += 2000;
-    if (elapsed >= 60_000) clearInterval(interval);
+    elapsed += 900;
+    if (elapsed >= 60_000) {
+      clearInterval(interval);
+      stopped = true;
+      return;
+    }
     if (busy) return;
     busy = true;
     try {
@@ -132,12 +137,15 @@ export function startStatusObservation(
         new Uint8Array([2]),
         10_000
       );
-      onStatus(response);
+      if (!stopped) onStatus(response);
     } catch (error) {
-      onError(error instanceof Error ? error : new Error(String(error)));
+      if (!stopped) onError(error instanceof Error ? error : new Error(String(error)));
     } finally {
       busy = false;
     }
-  }, 2000);
-  return () => clearInterval(interval);
+  }, 900);
+  return () => {
+    stopped = true;
+    clearInterval(interval);
+  };
 }
