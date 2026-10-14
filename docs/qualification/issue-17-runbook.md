@@ -1,6 +1,6 @@
 # Issue #17 — iPhone print qualification runbook
 
-**Status:** Harness implemented; device dry run and film trial await operator observation. Use the [approved design](../superpowers/specs/2026-10-13-iphone-print-qualification-design.md) for the gate criteria. This runbook is for the supervised iPhone 15 Plus development gate. It does not qualify the iPad launch gate.
+**Status (2026-10-14):** The iPhone dry run passed. Four physical sheets have printed with the reviewed crop and orientation; the printer last reported four sheets remaining. An uncertain second attempt and page reloads reset the local allowance, so the three-print exhaustion check is incomplete. The observed standard status change has not established reliable physical-ejection feedback. The full development gate remains closed while the Mini Link 3 status channel is investigated. Use the [approved design](../superpowers/specs/2026-10-13-iphone-print-qualification-design.md) for the gate criteria. This runbook is for the supervised iPhone 15 Plus development gate. It does not qualify the iPad launch gate.
 
 ## Prepare the device connection
 
