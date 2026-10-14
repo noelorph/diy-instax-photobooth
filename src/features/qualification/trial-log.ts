@@ -12,6 +12,7 @@ export type TrialLog = {
   readonly runId: string;
   beginRun(): void;
   record(event: TrialEventInput): TrialEvent;
+  getEvents(): TrialEvent[];
   exportJson(): string;
   newAttemptId(): string;
 };
@@ -52,5 +53,6 @@ export function createTrialLog(clock: { now(): number; iso(): string }): TrialLo
       return { ...event };
     },
     exportJson: () => JSON.stringify({ runId, events }, null, 2),
+    getEvents: () => events.map((event) => ({ ...event })),
   };
 }

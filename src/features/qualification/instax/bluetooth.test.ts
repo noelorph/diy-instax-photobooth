@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { connectMiniLink3, type WebBluetoothPort } from './bluetooth';
 import { INSTAX_OPCODES } from './protocol';
 
@@ -47,8 +47,10 @@ function fixture(model = 'FI033') {
     notify.value = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
     notify.dispatchEvent(new Event('characteristicvaluechanged'));
   }
-  return { bluetooth, device, server, reads, print, notify, writes, emit };
+  return { bluetooth, device, server, reads, print, notify, write, writes, emit };
 }
+
+afterEach(() => vi.useRealTimers());
 
 describe('Mini Link 3 Bluetooth connection', () => {
   it('connectsAndReadsFirmware', async () => {
@@ -119,5 +121,62 @@ describe('Mini Link 3 Bluetooth connection', () => {
     f.device.dispatchEvent(new Event('gattserverdisconnected'));
     await expect(pendingExchange).rejects.toThrow('disconnected');
     expect(onDisconnect).toHaveBeenCalledTimes(1);
+  });
+
+  it('bounds a hung BLE write with the exchange timeout', async () => {
+    vi.useFakeTimers();
+    const f = fixture();
+    let release!: () => void;
+    f.write.writeValueWithoutResponse.mockImplementation(
+      () =>
+        new Promise<void>((resolve) => {
+          release = resolve;
+        })
+    );
+    const connection = await connectMiniLink3(f.bluetooth, {
+      onResponse: vi.fn(),
+      onDisconnect: vi.fn(),
+    });
+    const pending = connection.exchange(INSTAX_OPCODES.handshake, undefined, 10);
+    const outcome = pending.then(
+      () => 'resolved',
+      (error: Error) => error.message
+    );
+    await vi.advanceTimersByTimeAsync(11);
+    const resultAtDeadline = await Promise.race([outcome, Promise.resolve('still pending')]);
+    release();
+    await outcome;
+    expect(resultAtDeadline).toContain('timed out');
+    await expect(connection.exchange(INSTAX_OPCODES.handshake)).rejects.toThrow('disconnected');
+  });
+
+  it('does not write later BLE slices after timeout or disconnect', async () => {
+    vi.useFakeTimers();
+    for (const failure of ['timeout', 'disconnect']) {
+      const f = fixture();
+      let release!: () => void;
+      f.write.writeValueWithoutResponse.mockImplementation(
+        () =>
+          new Promise<void>((resolve) => {
+            release = resolve;
+          })
+      );
+      const connection = await connectMiniLink3(f.bluetooth, {
+        onResponse: vi.fn(),
+        onDisconnect: vi.fn(),
+      });
+      const pending = connection.exchange(INSTAX_OPCODES.downloadData, new Uint8Array(900), 10);
+      const outcome = pending.then(
+        () => 'resolved',
+        (error: Error) => error.message
+      );
+      if (failure === 'timeout') await vi.advanceTimersByTimeAsync(11);
+      else f.device.dispatchEvent(new Event('gattserverdisconnected'));
+      const resultAtFailure = await outcome;
+      release();
+      await Promise.resolve();
+      expect(resultAtFailure).not.toBe('resolved');
+      expect(f.write.writeValueWithoutResponse).toHaveBeenCalledTimes(1);
+    }
   });
 });

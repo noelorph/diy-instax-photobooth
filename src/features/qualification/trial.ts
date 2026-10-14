@@ -6,6 +6,7 @@ export type TrialState = {
   remaining: number;
   phase: 'ready' | 'sending' | 'awaiting-observation' | 'uncertain' | 'exhausted';
   needsReconciliation: boolean;
+  lastMessage?: string;
 };
 export type TrialController = {
   startPrint(jpeg: Uint8Array): Promise<void>;
@@ -37,7 +38,7 @@ export function createTrialController(
       if (state.phase !== 'ready') throw new Error('Print attempt busy');
       const attemptId = log.newAttemptId();
       activeAttemptId = attemptId;
-      setState({ phase: 'sending' });
+      setState({ phase: 'sending', lastMessage: undefined });
       storage.setItem(STORAGE_KEY, '1');
       log.record({ kind: 'print-start', attemptId });
       let result: SendResult;
@@ -57,10 +58,10 @@ export function createTrialController(
       if (currentPhase() === 'uncertain') return;
       if (result.kind === 'accepted') setState({ phase: 'awaiting-observation' });
       else if (result.kind === 'uncertain')
-        setState({ phase: 'uncertain', needsReconciliation: true });
+        setState({ phase: 'uncertain', needsReconciliation: true, lastMessage: result.message });
       else {
         activeAttemptId = undefined;
-        setState({ phase: 'ready' });
+        setState({ phase: 'ready', lastMessage: result.message });
       }
     },
     observeEjection(observedAt) {
@@ -77,7 +78,7 @@ export function createTrialController(
       if (state.phase !== 'sending' && state.phase !== 'awaiting-observation')
         throw new Error('No active attempt');
       log.record({ kind: 'uncertain', attemptId: activeAttemptId, message: reason });
-      setState({ phase: 'uncertain', needsReconciliation: true });
+      setState({ phase: 'uncertain', needsReconciliation: true, lastMessage: reason });
     },
     beginNewRun(physicalSheetsChecked) {
       if (!physicalSheetsChecked) throw new Error('Physical sheets must be reconciled');

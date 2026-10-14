@@ -26,6 +26,14 @@ type Server = {
   disconnect(): void;
 };
 type Device = EventTarget & { name?: string; gatt?: { connect(): Promise<Server> } };
+type PendingRequest = {
+  opcode: number;
+  resolve(value: InstaxResponse): void;
+  reject(error: Error): void;
+  timer: ReturnType<typeof setTimeout>;
+  writeComplete: boolean;
+  response?: InstaxResponse;
+};
 export type WebBluetoothPort = {
   requestDevice(options: {
     filters: { namePrefix: string }[];
@@ -79,20 +87,30 @@ export async function connectMiniLink3(
 
     const stream = new InstaxResponseStream();
     let stopped = false;
-    let pending:
-      | {
-          opcode: number;
-          resolve(value: InstaxResponse): void;
-          reject(error: Error): void;
-          timer: ReturnType<typeof setTimeout>;
-        }
-      | undefined;
-    const rejectPending = (error: Error) => {
+    let pending: PendingRequest | undefined;
+    const isActive = (request: PendingRequest) => !stopped && pending === request;
+    const retire = () => {
+      if (stopped) return;
+      stopped = true;
+      notify.removeEventListener('characteristicvaluechanged', onNotification);
+      device.removeEventListener('gattserverdisconnected', onDisconnect);
+      if (server.connected) server.disconnect();
+    };
+    const rejectPending = (error: Error, retireTransport = false) => {
       if (!pending) return;
       const current = pending;
       pending = undefined;
       clearTimeout(current.timer);
       current.reject(error);
+      if (retireTransport) retire();
+    };
+    const completePending = () => {
+      const response = pending?.response;
+      if (!pending?.writeComplete || !response) return;
+      const current = pending;
+      pending = undefined;
+      clearTimeout(current.timer);
+      current.resolve(response);
     };
     const onNotification = () => {
       if (!notify.value || stopped) return;
@@ -105,14 +123,12 @@ export async function connectMiniLink3(
         for (const response of stream.push(bytes)) {
           callbacks.onResponse(response);
           if (pending?.opcode === response.opcode) {
-            const current = pending;
-            pending = undefined;
-            clearTimeout(current.timer);
-            current.resolve(response);
+            pending.response = response;
+            completePending();
           }
         }
       } catch (error) {
-        rejectPending(error instanceof Error ? error : new Error(String(error)));
+        rejectPending(error instanceof Error ? error : new Error(String(error)), true);
       }
     };
     const onDisconnect = () => {
@@ -137,24 +153,32 @@ export async function connectMiniLink3(
         if (stopped || !server.connected) throw new Error('Printer disconnected');
         if (pending) throw new Error('Printer already has a pending exchange');
         const packet = buildRequest(opcode, payload);
+        let current!: PendingRequest;
         const responsePromise = new Promise<InstaxResponse>((resolve, reject) => {
           const timer = setTimeout(
-            () => rejectPending(new Error('Printer response timed out')),
+            () => rejectPending(new Error('Printer exchange timed out'), true),
             timeoutMs
           );
-          pending = { opcode, resolve, reject, timer };
+          current = { opcode, resolve, reject, timer, writeComplete: false };
+          pending = current;
         });
-        try {
-          for (let offset = 0; offset < packet.byteLength; offset += 182) {
-            const chunk = packet.slice(offset, offset + 182);
-            const buffer = new ArrayBuffer(chunk.byteLength);
-            new Uint8Array(buffer).set(chunk);
-            if (withoutResponse) await write.writeValueWithoutResponse!(buffer);
-            else await write.writeValueWithResponse!(buffer);
+        void (async () => {
+          try {
+            for (let offset = 0; offset < packet.byteLength; offset += 182) {
+              if (!isActive(current)) return;
+              const chunk = packet.slice(offset, offset + 182);
+              const buffer = new ArrayBuffer(chunk.byteLength);
+              new Uint8Array(buffer).set(chunk);
+              if (withoutResponse) await write.writeValueWithoutResponse!(buffer);
+              else await write.writeValueWithResponse!(buffer);
+            }
+            if (!isActive(current)) return;
+            current.writeComplete = true;
+            completePending();
+          } catch (error) {
+            rejectPending(error instanceof Error ? error : new Error(String(error)), true);
           }
-        } catch (error) {
-          rejectPending(error instanceof Error ? error : new Error(String(error)));
-        }
+        })();
         return responsePromise;
       },
       async disconnect() {

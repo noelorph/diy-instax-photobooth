@@ -38,27 +38,56 @@ export function validateTrialJpeg(jpeg: Uint8Array): void {
     throw new Error('Invalid JPEG markers');
   }
   let frameFound = false;
+  let quantizationFound = false;
+  let huffmanFound = false;
+  let scanFound = false;
   let offset = 2;
   while (offset + 3 < jpeg.length) {
     if (jpeg[offset] !== 0xff) throw new Error('Invalid JPEG marker sequence');
     while (jpeg[offset] === 0xff) offset++;
     const marker = jpeg[offset++];
-    if (marker === 0xd9 || marker === 0xda) break;
+    if (marker === 0xd9) break;
     if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
     if (offset + 1 >= jpeg.length) throw new Error('Truncated JPEG frame');
     const length = (jpeg[offset] << 8) | jpeg[offset + 1];
     if (length < 2 || offset + length > jpeg.length) throw new Error('Invalid JPEG segment length');
+    if (marker === 0xdb) quantizationFound = true;
+    if (marker === 0xc4) huffmanFound = true;
     if (marker >= 0xc0 && marker <= 0xcf && ![0xc4, 0xc8, 0xcc].includes(marker)) {
       if (marker !== 0xc0) throw new Error('JPEG must use baseline encoding');
-      if (length < 8) throw new Error('Invalid JPEG frame');
+      const components = jpeg[offset + 7];
+      if (
+        frameFound ||
+        jpeg[offset + 2] !== 8 ||
+        components !== 3 ||
+        length !== 8 + 3 * components
+      ) {
+        throw new Error('Invalid JPEG baseline frame');
+      }
       const height = (jpeg[offset + 3] << 8) | jpeg[offset + 4];
       const width = (jpeg[offset + 5] << 8) | jpeg[offset + 6];
       if (width !== WIDTH || height !== HEIGHT) throw new Error('JPEG must be 600 × 800');
       frameFound = true;
     }
+    if (marker === 0xda) {
+      const components = jpeg[offset + 2];
+      if (
+        !frameFound ||
+        !quantizationFound ||
+        !huffmanFound ||
+        components !== 3 ||
+        length !== 6 + 2 * components ||
+        offset + length >= jpeg.length - 2
+      ) {
+        throw new Error('JPEG baseline scan or tables are invalid');
+      }
+      scanFound = true;
+      break;
+    }
     offset += length;
   }
   if (!frameFound) throw new Error('JPEG baseline frame not found');
+  if (!scanFound) throw new Error('JPEG baseline scan not found');
 }
 
 function encodeJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {

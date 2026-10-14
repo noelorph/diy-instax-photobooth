@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { PrinterConnection } from './bluetooth';
 import { INSTAX_OPCODES, type InstaxOpcode } from './protocol';
@@ -8,9 +9,12 @@ import {
   type PrintPhase,
 } from './session';
 
-const validJpeg = new Uint8Array([
-  0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 3, 32, 2, 88, 3, 1, 17, 0, 2, 17, 0, 3, 17, 0, 0xff, 0xd9,
-]);
+const validJpeg = new Uint8Array(
+  readFileSync('src/features/qualification/fixtures/baseline-600x800.jpg')
+);
+const frameOffset = validJpeg.findIndex(
+  (byte, index) => byte === 0xff && validJpeg[index + 1] === 0xc0
+);
 function connection(options: { failAt?: number; failOpcode?: number; film?: number } = {}) {
   const calls: { opcode: number; payload: Uint8Array }[] = [];
   const fake: PrinterConnection = {
@@ -32,10 +36,11 @@ function connection(options: { failAt?: number; failOpcode?: number; film?: numb
 }
 async function sendWithTimers(
   fake: PrinterConnection,
-  onPhase: (phase: PrintPhase) => void = vi.fn()
+  onPhase: (phase: PrintPhase) => void = vi.fn(),
+  jpeg = validJpeg
 ) {
   vi.useFakeTimers();
-  const result = sendTrialPrint(fake, validJpeg, onPhase);
+  const result = sendTrialPrint(fake, jpeg, onPhase);
   await vi.runAllTimersAsync();
   return result;
 }
@@ -54,12 +59,12 @@ describe('supervised print session', () => {
     const phases: string[] = [];
     expect(await sendWithTimers(fake, (phase) => phases.push(phase))).toEqual({ kind: 'accepted' });
     const opcodes = calls.map((call) => call.opcode);
-    expect(opcodes.slice(-4)).toEqual([
-      INSTAX_OPCODES.downloadStart,
-      INSTAX_OPCODES.downloadData,
-      INSTAX_OPCODES.downloadEnd,
-      INSTAX_OPCODES.printImage,
-    ]);
+    expect(opcodes[3]).toBe(INSTAX_OPCODES.downloadStart);
+    expect(opcodes.slice(4, -2)).toEqual(
+      Array(Math.ceil(validJpeg.length / 900)).fill(INSTAX_OPCODES.downloadData)
+    );
+    expect(opcodes.slice(-2)).toEqual([INSTAX_OPCODES.downloadEnd, INSTAX_OPCODES.printImage]);
+    expect(calls[4].payload.length).toBe(904);
     expect(opcodes.filter((opcode) => opcode === INSTAX_OPCODES.printImage)).toHaveLength(1);
     expect(phases).toEqual(['preflight', 'uploading', 'command-sent', 'command-acknowledged']);
   });
@@ -96,5 +101,23 @@ describe('supervised print session', () => {
     expect(onStatus).toHaveBeenCalledTimes(30);
     expect(onError).not.toHaveBeenCalled();
     stop();
+  });
+
+  it('rejects malformed image variants before any printer exchange', async () => {
+    const frameOnly = new Uint8Array([
+      0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 3, 32, 2, 88, 3, 1, 17, 0, 2, 17, 0, 3, 17, 0, 0xff, 0xd9,
+    ]);
+    const progressive = validJpeg.slice();
+    progressive[frameOffset + 1] = 0xc2;
+    const wrongSize = validJpeg.slice();
+    wrongSize[frameOffset + 7] = 3;
+    const oversize = new Uint8Array(55_001);
+    oversize.set(validJpeg);
+    for (const image of [frameOnly, progressive, wrongSize, oversize]) {
+      const { fake, calls } = connection();
+      const result = await sendTrialPrint(fake, image, vi.fn());
+      expect(result.kind).toBe('rejected-before-command');
+      expect(calls).toHaveLength(0);
+    }
   });
 });

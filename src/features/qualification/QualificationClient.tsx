@@ -67,6 +67,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
   );
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [printing, setPrinting] = useState(false);
+  const [rejection, setRejection] = useState('');
   const [trialState, setTrialState] = useState<TrialState>(initialState);
   const [events, setEvents] = useState<TrialEvent[]>([]);
   const [sheetsChecked, setSheetsChecked] = useState(false);
@@ -147,8 +148,16 @@ export function QualificationClient({ services }: { services?: QualificationServ
       const track = stream.getVideoTracks()[0];
       if (!track) throw new Error('No video track available');
       track.addEventListener('ended', () => {
+        if (streamRef.current !== stream) return;
+        streamRef.current = null;
+        if (videoRef.current) videoRef.current.srcObject = null;
         setCameraReady(false);
         setCameraError('Camera stream ended. Retry camera in setup.');
+        const phase = controllerRef.current?.getState().phase;
+        if (phase !== 'sending' && phase !== 'awaiting-observation') {
+          clearPhoto();
+          setStage('setup');
+        }
       });
       if (videoRef.current) videoRef.current.srcObject = stream;
       setCameraReady(true);
@@ -219,6 +228,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
   async function capture() {
     if (!cameraReady || !videoRef.current) return;
     try {
+      setRejection('');
       const image = await servicesRef.current!.prepare(videoRef.current);
       clearPhoto();
       jpegRef.current = image.jpeg;
@@ -236,6 +246,18 @@ export function QualificationClient({ services }: { services?: QualificationServ
     setStage('camera');
     record({ kind: 'retake' });
   }
+  function returnToSetupAfterRejection() {
+    clearPhoto();
+    setRejection('');
+    setPrinterReady(false);
+    setPrinterDetails('');
+    const connection = connectionRef.current;
+    connectionRef.current = null;
+    void connection
+      ?.disconnect()
+      .catch((error) => record({ kind: 'disconnect-error', message: errorText(error) }));
+    setStage('setup');
+  }
   async function print() {
     const controller = controllerRef.current;
     const jpeg = jpegRef.current;
@@ -248,10 +270,12 @@ export function QualificationClient({ services }: { services?: QualificationServ
     )
       return;
     setPrinting(true);
+    setRejection('');
     try {
       await controller.startPrint(jpeg);
       const current = controller.getState();
       setTrialState(current);
+      setEvents(logRef.current?.getEvents() ?? []);
       if (current.phase === 'awaiting-observation') {
         setStage('pending');
         stopObservationRef.current = servicesRef.current!.observe(
@@ -279,6 +303,8 @@ export function QualificationClient({ services }: { services?: QualificationServ
         stopObservation();
         clearPhoto();
         setStage('uncertain');
+      } else if (current.lastMessage) {
+        setRejection(`No print command was sent. ${current.lastMessage}`);
       }
     } catch (error) {
       setSetupError(`Print: ${errorText(error)}`);
@@ -301,6 +327,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     controller.beginNewRun(true);
     setTrialState(controller.getState());
     setSheetsChecked(false);
+    setRejection('');
     setStage('setup');
     setEvents([]);
   }
@@ -348,6 +375,11 @@ export function QualificationClient({ services }: { services?: QualificationServ
       {cameraError && (
         <p className={styles.alert} role="alert">
           {cameraError}
+        </p>
+      )}
+      {rejection && (
+        <p className={styles.alert} role="alert">
+          {rejection}
         </p>
       )}
       <section className={styles.stage} aria-label="Trial view">
@@ -424,19 +456,26 @@ export function QualificationClient({ services }: { services?: QualificationServ
           </button>
         )}
         {stage === 'review' && (
-          <div className={styles.actionRow}>
-            <button type="button" disabled={printing} onClick={retake}>
-              Retake
-            </button>
-            <button
-              className={styles.primary}
-              type="button"
-              disabled={printing || !printerReady || trialState.phase !== 'ready'}
-              onClick={print}
-            >
-              Print
-            </button>
-          </div>
+          <>
+            <div className={styles.actionRow}>
+              <button type="button" disabled={printing} onClick={retake}>
+                Retake
+              </button>
+              <button
+                className={styles.primary}
+                type="button"
+                disabled={printing || !!rejection || !printerReady || trialState.phase !== 'ready'}
+                onClick={print}
+              >
+                Print
+              </button>
+            </div>
+            {rejection && (
+              <button type="button" onClick={returnToSetupAfterRejection}>
+                Return to setup
+              </button>
+            )}
+          </>
         )}
         {stage === 'pending' && (
           <button className={styles.primary} type="button" onClick={observedEjection}>

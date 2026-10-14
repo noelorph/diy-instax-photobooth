@@ -70,9 +70,11 @@ describe('supervised iPhone qualification page', () => {
     const { services, track } = fixture();
     await enterTrial(services);
     track.dispatchEvent(new Event('ended'));
-    await waitFor(() =>
-      expect(screen.getByRole('button', { name: 'Capture' }).hasAttribute('disabled')).toBe(true)
-    );
+    expect(await screen.findByRole('button', { name: 'Retry camera' })).toBeDefined();
+    expect(screen.queryByRole('button', { name: 'Capture' })).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Retry camera' }));
+    await waitFor(() => expect(services.getUserMedia).toHaveBeenCalledTimes(2));
+    await screen.findByText('Camera ready');
   });
 
   it('retakeKeepsAllowance', async () => {
@@ -133,5 +135,22 @@ describe('supervised iPhone qualification page', () => {
     });
     await enterTrial(services);
     expect(screen.queryByText(/deadbeef/)).toBeNull();
+  });
+
+  it('shows a pre-command rejection and setup recovery without resending', async () => {
+    const { services } = fixture();
+    vi.mocked(services.send).mockResolvedValue({
+      kind: 'rejected-before-command',
+      message: 'No film reported',
+    });
+    await enterTrial(services);
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    await screen.findByRole('button', { name: 'Print' });
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+    expect(await screen.findByText(/No print command was sent/)).toBeDefined();
+    expect(screen.getByText(/rejected-before-command/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Return to setup' }));
+    expect(screen.getByText('Printer not connected')).toBeDefined();
+    expect(services.send).toHaveBeenCalledTimes(1);
   });
 });
