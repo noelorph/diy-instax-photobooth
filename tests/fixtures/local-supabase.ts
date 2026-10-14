@@ -7,10 +7,11 @@ type LocalStatus = {
   API_URL: string;
   ANON_KEY: string;
   SERVICE_ROLE_KEY: string;
+  JWT_SECRET: string;
 };
 
 // Always discover this checkout's local stack; never consume application/remote env vars.
-export function localSupabase() {
+export function localSupabaseStatus() {
   const status = JSON.parse(
     execFileSync(resolve('node_modules/.bin/supabase'), ['status', '-o', 'json'], {
       encoding: 'utf8',
@@ -20,6 +21,11 @@ export function localSupabase() {
   if (status.API_URL !== 'http://127.0.0.1:55321') {
     throw new Error('Integration fixtures require the isolated local Supabase API on port 55321.');
   }
+  return status;
+}
+
+export function localSupabase() {
+  const status = localSupabaseStatus();
   const options = {
     auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
   };

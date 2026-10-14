@@ -8,3 +8,27 @@ body {
 body {
   margin: 0;
 }
+
+.admin-foundation {
+  --color-canvas: #f6f5f0;
+  --color-text: #1d2b2a;
+  --color-text-muted: #4d605d;
+  min-height: 100dvh;
+  padding: 2rem;
+  color: var(--color-text);
+  background: var(--color-canvas);
+  font-family: 'DM Sans', system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
+.admin-foundation h1 {
+  margin-block: 1rem;
+  font-size: 1.75rem;
+  line-height: 1.3;
+  font-weight: 600;
+}
+
+.admin-foundation p {
+  color: var(--color-text-muted);
+}
