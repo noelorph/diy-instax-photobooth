@@ -102,4 +102,23 @@ describe('local qualification allowance', () => {
     await f.controller.startPrint(jpeg);
     expect(f.log.exportJson()).toContain(f.log.runId);
   });
+
+  it('keeps disconnect uncertainty if an in-flight send later reports rejection', async () => {
+    let finish!: (result: SendResult) => void;
+    const f = fixture();
+    f.send.mockImplementation(
+      () =>
+        new Promise<SendResult>((resolve) => {
+          finish = resolve;
+        })
+    );
+    const pending = f.controller.startPrint(jpeg);
+    f.controller.markUncertain('printer disconnected');
+    finish({ kind: 'rejected-before-command', message: 'write failed' });
+    await pending;
+    expect(f.controller.getState()).toMatchObject({
+      phase: 'uncertain',
+      needsReconciliation: true,
+    });
+  });
 });

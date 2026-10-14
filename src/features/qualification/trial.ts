@@ -27,6 +27,7 @@ export function createTrialController(
   const setState = (patch: Partial<TrialState>) => {
     state = { ...state, ...patch };
   };
+  const currentPhase = (): TrialState['phase'] => state.phase;
   return {
     getState: () => ({ ...state }),
     async startPrint(jpeg) {
@@ -53,6 +54,7 @@ export function createTrialController(
         attemptId,
         message: result.kind === 'accepted' ? undefined : result.message,
       });
+      if (currentPhase() === 'uncertain') return;
       if (result.kind === 'accepted') setState({ phase: 'awaiting-observation' });
       else if (result.kind === 'uncertain')
         setState({ phase: 'uncertain', needsReconciliation: true });
