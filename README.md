@@ -11,6 +11,7 @@ A web-based Event photo booth with an Admin application and Guest-facing Booth M
 - [Decision records](docs/adr/): durable product and technical decisions
 - [Development flowcharts](docs/diagrams/printing-to-deployment-flow.md): iPhone qualification, full build, and iPad release gate
 - [iPhone qualification design](docs/superpowers/specs/2026-10-13-iphone-print-qualification-design.md): isolated harness, physical trial, evidence, and pass criteria for issue #17
+- [iPhone qualification runbook](docs/qualification/issue-17-runbook.md): trusted HTTPS setup, no-print dry run, fresh-film sequence, and blank evidence record
 
 Read the PRD and design system before implementing an interface. The design system governs presentation; the PRD governs product behavior.
 
