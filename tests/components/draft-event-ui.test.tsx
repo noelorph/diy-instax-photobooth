@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { renderToString } from 'react-dom/server';
 import { afterEach, expect, it } from 'vitest';
 import { DraftForm } from '@/features/admin/events/draft-form';
 import { DraftList } from '@/features/admin/events/draft-list';
@@ -31,6 +32,37 @@ const ok = async () => saved;
 function form(action: () => Promise<DraftActionState> = ok) {
   return render(<DraftForm initial={draft} createAction={ok} updateAction={action} />);
 }
+it('shows saved Draft values in server-rendered edit fields', () => {
+  const html = renderToString(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  const container = document.createElement('div');
+  container.innerHTML = html;
+
+  expect((container.querySelector('input[name="title"]') as HTMLInputElement).value).toBe(
+    'Birthday'
+  );
+  expect((container.querySelector('input[name="startsAtLocal"]') as HTMLInputElement).value).toBe(
+    '2025-01-10T18:00'
+  );
+});
+it('keeps the Draft editor unavailable until hydration attaches its form state', () => {
+  const html = renderToString(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  const container = document.createElement('div');
+  container.innerHTML = html;
+
+  expect(
+    (container.querySelector('input[name="title"]') as HTMLInputElement).matches(':disabled')
+  ).toBe(true);
+  expect((container.querySelector('button[type="submit"]') as HTMLButtonElement).disabled).toBe(
+    true
+  );
+  expect(container.querySelector('[role="status"]')?.textContent).toBe('Preparing Draft editor…');
+
+  form();
+  expect((screen.getByLabelText('Event name') as HTMLInputElement).disabled).toBe(false);
+  expect((screen.getByRole('button', { name: 'Save Draft' }) as HTMLButtonElement).disabled).toBe(
+    false
+  );
+});
 it('offers creation in an empty list and labels venue-local overdue Draft schedules', () => {
   const { rerender } = render(<DraftList drafts={[]} now={Date.parse('2026-01-01Z')} />);
   expect(screen.getByText('No Draft Events yet.')).toBeTruthy();

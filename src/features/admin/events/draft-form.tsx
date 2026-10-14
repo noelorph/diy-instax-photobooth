@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { unstable_rethrow } from 'next/navigation';
-import { useActionState, useEffect, useId, useRef, useState } from 'react';
+import { useActionState, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Temporal } from '@js-temporal/polyfill';
 import type { DraftEvent } from '@/lib/events/drafts';
@@ -28,6 +28,10 @@ function localTime(instant: string, zone: string) {
   return Temporal.Instant.from(instant).toZonedDateTimeISO(zone).toPlainDateTime().toString();
 }
 
+const subscribeToHydration = () => () => {};
+const hydratedSnapshot = () => true;
+const serverSnapshot = () => false;
+
 export function DraftForm({ initial, createAction, updateAction }: DraftFormProps) {
   const id = useId();
   const feedback = useRef<HTMLParagraphElement>(null);
@@ -39,25 +43,27 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
   const [edited, setEdited] = useState(false);
   const [editedErrorFields, setEditedErrorFields] = useState<(keyof DraftEventInput)[]>([]);
   const [liveErrors, setLiveErrors] = useState<DraftFieldErrors>({});
+  const hydrated = useSyncExternalStore(subscribeToHydration, hydratedSnapshot, serverSnapshot);
+  const initialValues: DraftEventInput = initial
+    ? {
+        ...initial,
+        startsAtLocal: localTime(initial.startsAtUtc, initial.timeZone),
+        endsAtLocal: localTime(initial.endsAtUtc, initial.timeZone),
+      }
+    : {
+        title: '',
+        venueAddress: '',
+        timeZone: '',
+        startsAtLocal: '',
+        endsAtLocal: '',
+        clientName: '',
+        clientEmail: '',
+        clientPhone: '',
+        filmPackageCount: 0,
+        originalPrintAllowance: 0,
+      };
   const { register, control } = useForm<DraftEventInput>({
-    defaultValues: initial
-      ? {
-          ...initial,
-          startsAtLocal: localTime(initial.startsAtUtc, initial.timeZone),
-          endsAtLocal: localTime(initial.endsAtUtc, initial.timeZone),
-        }
-      : {
-          title: '',
-          venueAddress: '',
-          timeZone: '',
-          startsAtLocal: '',
-          endsAtLocal: '',
-          clientName: '',
-          clientEmail: '',
-          clientPhone: '',
-          filmPackageCount: 0,
-          originalPrintAllowance: 0,
-        },
+    defaultValues: initialValues,
   });
   const timeZone = useWatch({ control, name: 'timeZone' });
   const [state, submit, pending] = useActionState<DraftActionState, FormData>(
@@ -111,6 +117,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
         <label htmlFor={`${id}-${name}`}>{label}</label>
         <input
           {...register(name)}
+          defaultValue={initialValues[name]}
           id={`${id}-${name}`}
           type={type}
           required
@@ -178,7 +185,12 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
           if (pending) event.preventDefault();
         }}
       >
-        <fieldset disabled={pending}>
+        {!hydrated ? (
+          <p className="field-help" role="status">
+            Preparing Draft editor…
+          </p>
+        ) : null}
+        <fieldset disabled={pending || !hydrated}>
           <legend>Event and venue</legend>
           <div className="draft-fields">
             {field('title', 'Event name')}
@@ -191,7 +203,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
             )}
           </div>
         </fieldset>
-        <fieldset disabled={pending}>
+        <fieldset disabled={pending || !hydrated}>
           <legend>Schedule</legend>
           <p className="field-help">
             Venue-local time{timeZone ? ` · ${timeZone}` : ' · enter the venue time zone above'}.
@@ -211,7 +223,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
             )}
           </div>
         </fieldset>
-        <fieldset disabled={pending}>
+        <fieldset disabled={pending || !hydrated}>
           <legend>Client contact</legend>
           <p className="field-help">These contact details belong to this Event.</p>
           <div className="draft-fields">
@@ -220,7 +232,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
             {field('clientPhone', 'Client phone', 'tel')}
           </div>
         </fieldset>
-        <fieldset disabled={pending}>
+        <fieldset disabled={pending || !hydrated}>
           <legend>Booking</legend>
           <p className="field-help">
             Enter the package count and guest prints separately. Either can be zero while preparing
@@ -256,7 +268,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
           </p>
         ) : null}
         <div className="draft-actions">
-          <button type="submit" disabled={pending}>
+          <button type="submit" disabled={pending || !hydrated}>
             Save Draft
           </button>
           {saved && !initial ? <Link href={`/events/${saved.id}`}>View saved Draft</Link> : null}

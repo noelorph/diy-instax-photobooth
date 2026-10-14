@@ -17,6 +17,7 @@ for (const width of [390, 1440]) {
   test(`create, list, view and edit Drafts by keyboard at ${width}px with supplemental CSS scaling`, async ({
     page,
     context,
+    browser,
   }, testInfo) => {
     const local = localSupabase();
     const admin = await local.provisionUser();
@@ -80,6 +81,26 @@ for (const width of [390, 1440]) {
       eventId = (await view.getAttribute('href'))!.split('/').pop();
       await view.click();
       await expect(page.getByLabel('Event name').filter({ visible: true })).toHaveValue(title);
+      if (width === 390) {
+        const staticContext = await browser.newContext({
+          javaScriptEnabled: false,
+          storageState: await context.storageState(),
+        });
+        try {
+          const staticPage = await staticContext.newPage();
+          await staticPage.goto(`/events/${eventId}`);
+          await expect(staticPage.getByLabel('Event name')).toHaveValue(title);
+          await expect(staticPage.getByLabel('Scheduled start')).toHaveValue('2025-01-10T18:00');
+          await expect(staticPage.getByLabel('Event name')).toBeDisabled();
+          await expect(staticPage.locator('form.draft-form')).toHaveAttribute('aria-busy', 'false');
+          await expect(staticPage.locator('form.draft-form > p[role="status"]')).toHaveText(
+            'Preparing Draft editor…'
+          );
+          await expect(staticPage.locator('button[type="submit"]')).toBeDisabled();
+        } finally {
+          await staticContext.close();
+        }
+      }
       await expect(page.getByLabel('Scheduled start').filter({ visible: true })).toHaveValue(
         '2025-01-10T18:00'
       );
