@@ -1,6 +1,6 @@
 # Pre-gate Admin access and shell
 
-**Status:** Proposed for owner review; implementation has not started.
+**Status:** Approved by the owner on 2026-10-14; implementation has not started.
 
 ## Intent and boundary
 
