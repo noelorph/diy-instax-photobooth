@@ -53,7 +53,7 @@ export function parseResponse(packet: Uint8Array): InstaxResponse {
 }
 
 export class InstaxResponseStream {
-  private pending = new Uint8Array<ArrayBufferLike>(0);
+  private pending = new Uint8Array<ArrayBufferLike>(new ArrayBuffer(0));
 
   push(chunk: Uint8Array): InstaxResponse[] {
     if (this.pending.byteLength + chunk.byteLength > MAX_RESPONSE_BYTES * 2) {
