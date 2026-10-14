@@ -1,6 +1,10 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { z } from 'zod';
 
+export const scheduleOrderError = 'Scheduled end must be after the scheduled start.';
+export const ambiguousLocalTimeError =
+  'This local time does not exist or is ambiguous in the venue time zone. Choose an unambiguous local time.';
+
 const localDateTime = z
   .string()
   .trim()
@@ -68,8 +72,7 @@ const draftEventSchema = z
         ctx.addIssue({
           code: 'custom',
           path: [field],
-          message:
-            'This local time does not exist or is ambiguous in the venue time zone. Choose an unambiguous local time.',
+          message: ambiguousLocalTimeError,
         });
         return undefined;
       }
@@ -81,7 +84,7 @@ const draftEventSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['endsAtLocal'],
-        message: 'Scheduled end must be after the scheduled start.',
+        message: scheduleOrderError,
       });
       return z.NEVER;
     }

@@ -7,7 +7,12 @@ import { useForm, useWatch } from 'react-hook-form';
 import { Temporal } from '@js-temporal/polyfill';
 import { ZodError } from 'zod';
 import type { DraftEvent, DraftFieldErrors } from '@/lib/events/drafts';
-import { parseDraftEventInput, type DraftEventInput } from './draft-event.schema';
+import {
+  ambiguousLocalTimeError,
+  parseDraftEventInput,
+  scheduleOrderError,
+  type DraftEventInput,
+} from './draft-event.schema';
 import type { DraftActionState } from './state';
 
 export type DraftFormProps = {
@@ -34,6 +39,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
     initial ? { id: initial.id, revision: initial.revision } : undefined
   );
   const [edited, setEdited] = useState(false);
+  const [editedErrorFields, setEditedErrorFields] = useState<(keyof DraftEventInput)[]>([]);
   const { register, control } = useForm<DraftEventInput>({
     defaultValues: initial
       ? {
@@ -58,6 +64,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
   const [state, submit, pending] = useActionState<DraftActionState, FormData>(
     async (previous, data) => {
       setEdited(false);
+      setEditedErrorFields([]);
       try {
         parseDraftEventInput({
           ...Object.fromEntries(data),
@@ -96,10 +103,16 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
   useEffect(() => {
     feedback.current?.focus();
   }, [state]);
-  const errors = state.status === 'invalid' ? state.fieldErrors : {};
+  const errors: DraftFieldErrors = state.status === 'invalid' ? { ...state.fieldErrors } : {};
+  for (const name of editedErrorFields) delete errors[name];
+  const hasFieldErrors = Object.entries(errors).some(
+    ([name, message]) => message && name !== 'state' && name !== 'expectedRevision'
+  );
   const error =
     state.status === 'invalid'
-      ? (errors.expectedRevision ?? errors.state ?? 'Correct the highlighted fields and try again.')
+      ? (errors.expectedRevision ??
+        errors.state ??
+        (hasFieldErrors ? 'Correct the highlighted fields and try again.' : undefined))
       : state.status === 'conflict' || state.status === 'unavailable'
         ? state.error
         : state.status === 'not_found'
@@ -166,7 +179,30 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
         noValidate
         aria-busy={pending}
         onReset={(event) => event.preventDefault()}
-        onChange={() => setEdited(true)}
+        onChange={(event) => {
+          setEdited(true);
+          const name = event.target.name as keyof DraftEventInput;
+          if (state.status === 'invalid' && state.fieldErrors[name]) {
+            setEditedErrorFields((fields) => (fields.includes(name) ? fields : [...fields, name]));
+          }
+          if (
+            name === 'startsAtLocal' &&
+            state.status === 'invalid' &&
+            state.fieldErrors.endsAtLocal === scheduleOrderError
+          ) {
+            setEditedErrorFields((fields) =>
+              fields.includes('endsAtLocal') ? fields : [...fields, 'endsAtLocal']
+            );
+          }
+          if (name === 'timeZone' && state.status === 'invalid') {
+            const dependentFields = (['startsAtLocal', 'endsAtLocal'] as const).filter(
+              (field) => state.fieldErrors[field] === ambiguousLocalTimeError
+            );
+            if (dependentFields.length) {
+              setEditedErrorFields((fields) => [...new Set([...fields, ...dependentFields])]);
+            }
+          }
+        }}
         onSubmit={(event) => {
           if (pending) event.preventDefault();
         }}

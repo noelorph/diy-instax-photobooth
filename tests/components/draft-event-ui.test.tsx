@@ -64,6 +64,74 @@ it('validates fields locally and retains entered values', async () => {
   expect((screen.getByLabelText('Client email') as HTMLInputElement).value).toBe('invalid');
   expect(screen.queryByText('Draft saved.')).toBeNull();
 });
+it('clears an edited field error while retaining other invalid field feedback', async () => {
+  form();
+  fireEvent.change(screen.getByLabelText('Client email'), { target: { value: 'invalid' } });
+  fireEvent.change(screen.getByLabelText('Client phone'), { target: { value: '' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByText('Enter a valid Client email.');
+  expect(screen.getByText('Enter the Client phone.')).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText('Client email'), {
+    target: { value: 'alex@example.test' },
+  });
+  expect(screen.queryByText('Enter a valid Client email.')).toBeNull();
+  expect(screen.getByLabelText('Client email').getAttribute('aria-invalid')).toBe('false');
+  expect(screen.getByText('Enter the Client phone.')).toBeTruthy();
+  expect(screen.getByLabelText('Client phone').getAttribute('aria-invalid')).toBe('true');
+  expect(screen.getByRole('alert').textContent).toBe(
+    'Correct the highlighted fields and try again.'
+  );
+
+  fireEvent.change(screen.getByLabelText('Client phone'), {
+    target: { value: '+639171234567' },
+  });
+  expect(screen.queryByText('Enter the Client phone.')).toBeNull();
+  expect(screen.getByLabelText('Client phone').getAttribute('aria-invalid')).toBe('false');
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+it('clears the stale end-order error when the scheduled start changes', async () => {
+  form();
+  fireEvent.change(screen.getByLabelText('Scheduled end'), {
+    target: { value: '2025-01-10T17:00' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByText('Scheduled end must be after the scheduled start.');
+
+  fireEvent.change(screen.getByLabelText('Scheduled start'), {
+    target: { value: '2025-01-10T16:00' },
+  });
+  expect(screen.queryByText('Scheduled end must be after the scheduled start.')).toBeNull();
+  expect(screen.getByLabelText('Scheduled end').getAttribute('aria-invalid')).toBe('false');
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+it('clears a stale local-time error when the venue time zone changes', async () => {
+  form();
+  fireEvent.change(screen.getByLabelText('Venue time zone'), {
+    target: { value: 'America/New_York' },
+  });
+  fireEvent.change(screen.getByLabelText('Scheduled start'), {
+    target: { value: '2026-03-08T02:30' },
+  });
+  fireEvent.change(screen.getByLabelText('Scheduled end'), {
+    target: { value: '2026-03-08T04:00' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByText(
+    'This local time does not exist or is ambiguous in the venue time zone. Choose an unambiguous local time.'
+  );
+
+  fireEvent.change(screen.getByLabelText('Venue time zone'), {
+    target: { value: 'Asia/Manila' },
+  });
+  expect(
+    screen.queryByText(
+      'This local time does not exist or is ambiguous in the venue time zone. Choose an unambiguous local time.'
+    )
+  ).toBeNull();
+  expect(screen.getByLabelText('Scheduled start').getAttribute('aria-invalid')).toBe('false');
+  expect(screen.queryByRole('alert')).toBeNull();
+});
 it('does not claim a pending save succeeded and updates the revision after persistence', async () => {
   let finish!: (result: DraftActionState) => void;
   form(
