@@ -7,7 +7,14 @@ import {
   startAdminRouteServer,
 } from '../fixtures/admin-route-server';
 
-const destinations = ['/dashboard', '/events', '/history', '/profile'];
+const destinations = [
+  '/dashboard',
+  '/events',
+  '/events/new',
+  '/events/aaaaaaaa-aaaa-4aaa-aaaa-aaaaaaaaaaaa',
+  '/history',
+  '/profile',
+];
 
 function expectPrivate(response: Response) {
   expect(response.headers.get('cache-control')).toContain('private');
@@ -27,6 +34,8 @@ async function expectDenied(response: Response) {
   expect(body).not.toContain('Event management is not available yet');
   expect(body).not.toContain('Event history is not available yet');
   expect(body).not.toContain('Account preferences');
+  expect(body).not.toContain('Draft bookings');
+  expect(body).not.toContain('Client email');
   expectPrivate(response);
 }
 
@@ -65,11 +74,19 @@ describe('Admin page responses with local Auth sessions', () => {
         if (destination === '/profile') {
           expect(body).toContain(session.user.email);
           if (!rsc) expect(body).toContain('Account preferences');
+        } else if (destination === '/events') {
+          expect(body).toContain('Draft bookings');
+          expect(body).toContain('Create Event');
+        } else if (destination === '/events/new') {
+          if (!rsc) expect(body).toContain('Create Event');
+        } else if (destination.startsWith('/events/')) {
+          expect(body).toContain('Draft not found.');
+          expect(body).not.toContain('Client email');
         } else {
           expect(body).toContain('Admin foundation');
           expect(body).toContain('not available yet');
         }
-        expect(body).not.toMatch(/Start Booth|Resume Booth|Test Print|Create Event/);
+        expect(body).not.toMatch(/Start Booth|Resume Booth|Test Print/);
         expect(body).not.toContain(session.access_token);
         expect(body).not.toContain(session.refresh_token);
         expectPrivate(response);
