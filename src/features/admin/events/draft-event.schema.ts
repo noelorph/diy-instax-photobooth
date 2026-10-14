@@ -13,13 +13,23 @@ const localDateTime = z
     'Enter a valid venue-local date and time without an offset.'
   );
 
-const draftEventSchema = z
+const bookingSchema = z.object({
+  title: z.string().trim().min(1, 'Enter the Event name.'),
+  clientName: z.string().trim().min(1, 'Enter the Client name.'),
+  clientEmail: z.string().trim().pipe(z.email('Enter a valid Client email.')),
+  clientPhone: z.string().trim().min(1, 'Enter the Client phone.'),
+  venueAddress: z.string().trim().min(1, 'Enter the venue address.'),
+  // Match the PostgreSQL integer columns used by Draft persistence.
+  filmPackageCount: z
+    .int32('Enter a whole Film Package count up to 2147483647.')
+    .nonnegative('Film Package count cannot be negative.'),
+  originalPrintAllowance: z
+    .int32('Enter a whole Print Allowance up to 2147483647.')
+    .nonnegative('Print Allowance cannot be negative.'),
+});
+
+const scheduleSchema = z
   .object({
-    title: z.string().trim().min(1, 'Enter the Event name.'),
-    clientName: z.string().trim().min(1, 'Enter the Client name.'),
-    clientEmail: z.string().trim().pipe(z.email('Enter a valid Client email.')),
-    clientPhone: z.string().trim().min(1, 'Enter the Client phone.'),
-    venueAddress: z.string().trim().min(1, 'Enter the venue address.'),
     timeZone: z
       .string()
       .trim()
@@ -45,15 +55,8 @@ const draftEventSchema = z
       }),
     startsAtLocal: localDateTime,
     endsAtLocal: localDateTime,
-    // Match the PostgreSQL integer columns used by Draft persistence.
-    filmPackageCount: z
-      .int32('Enter a whole Film Package count up to 2147483647.')
-      .nonnegative('Film Package count cannot be negative.'),
-    originalPrintAllowance: z
-      .int32('Enter a whole Print Allowance up to 2147483647.')
-      .nonnegative('Print Allowance cannot be negative.'),
   })
-  .transform(({ startsAtLocal, endsAtLocal, ...booking }, ctx) => {
+  .transform(({ startsAtLocal, endsAtLocal, ...schedule }, ctx) => {
     function instant(value: string, field: 'startsAtLocal' | 'endsAtLocal') {
       let local: Temporal.PlainDateTime;
       try {
@@ -67,7 +70,7 @@ const draftEventSchema = z
         return undefined;
       }
       try {
-        return local.toZonedDateTime(booking.timeZone, { disambiguation: 'reject' }).toInstant();
+        return local.toZonedDateTime(schedule.timeZone, { disambiguation: 'reject' }).toInstant();
       } catch {
         ctx.addIssue({
           code: 'custom',
@@ -88,8 +91,12 @@ const draftEventSchema = z
       });
       return z.NEVER;
     }
-    return { ...booking, startsAtUtc: start.toString(), endsAtUtc: end.toString() };
+    return { ...schedule, startsAtUtc: start.toString(), endsAtUtc: end.toString() };
   });
+
+// Validate the schedule even when unrelated booking fields are invalid.
+// Live feedback and submitted saves use these same rules and UTC conversion.
+const draftEventSchema = z.intersection(bookingSchema, scheduleSchema);
 
 export type DraftEventInput = z.input<typeof draftEventSchema>;
 export type ValidatedDraftEvent = z.output<typeof draftEventSchema>;

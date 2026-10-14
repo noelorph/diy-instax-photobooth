@@ -139,6 +139,72 @@ it('retains an end-order error until the edited start is before the end', async 
   expect(screen.getByLabelText('Scheduled end').getAttribute('aria-invalid')).toBe('false');
   expect(screen.queryByRole('alert')).toBeNull();
 });
+it('keeps end-order feedback truthful while an unrelated email remains invalid', async () => {
+  form();
+  fireEvent.change(screen.getByLabelText('Scheduled end'), {
+    target: { value: '2025-01-10T17:00' },
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByText('Scheduled end must be after the scheduled start.');
+  fireEvent.change(screen.getByLabelText('Client email'), { target: { value: 'invalid' } });
+  fireEvent.change(screen.getByLabelText('Scheduled start'), {
+    target: { value: '2025-01-10T19:00' },
+  });
+  expect(screen.getByLabelText('Scheduled end').getAttribute('aria-invalid')).toBe('true');
+  expect(screen.getByText('Scheduled end must be after the scheduled start.')).toBeTruthy();
+  expect(screen.getByText('Enter a valid Client email.')).toBeTruthy();
+
+  fireEvent.change(screen.getByLabelText('Scheduled start'), {
+    target: { value: '2025-01-10T16:00' },
+  });
+  expect(screen.getByLabelText('Scheduled end').getAttribute('aria-invalid')).toBe('false');
+  expect(screen.queryByText('Scheduled end must be after the scheduled start.')).toBeNull();
+  expect(screen.getByText('Enter a valid Client email.')).toBeTruthy();
+  expect(screen.getByRole('alert')).toBeTruthy();
+});
+it.each(['Scheduled start', 'Scheduled end'])(
+  'keeps a DST gap on %s visible across dependency edits with an invalid email',
+  async (label) => {
+    form();
+    fireEvent.change(screen.getByLabelText('Venue time zone'), {
+      target: { value: 'America/New_York' },
+    });
+    fireEvent.change(screen.getByLabelText('Scheduled start'), {
+      target: { value: label === 'Scheduled start' ? '2026-03-08T02:30' : '2026-03-08T01:00' },
+    });
+    fireEvent.change(screen.getByLabelText('Scheduled end'), {
+      target: { value: label === 'Scheduled end' ? '2026-03-08T02:30' : '2026-03-08T04:00' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+    await screen.findByText(
+      'This local time does not exist or is ambiguous in the venue time zone. Choose an unambiguous local time.'
+    );
+    fireEvent.change(screen.getByLabelText('Client email'), { target: { value: 'invalid' } });
+    fireEvent.change(screen.getByLabelText('Venue time zone'), {
+      target: { value: 'America/Chicago' },
+    });
+    expect(screen.getByLabelText(label).getAttribute('aria-invalid')).toBe('true');
+    expect(
+      screen.getByText(
+        'This local time does not exist or is ambiguous in the venue time zone. Choose an unambiguous local time.'
+      )
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(label), { target: { value: '2026-03-08T02:45' } });
+    expect(screen.getByLabelText(label).getAttribute('aria-invalid')).toBe('true');
+
+    fireEvent.change(screen.getByLabelText('Venue time zone'), {
+      target: { value: 'Asia/Manila' },
+    });
+    expect(screen.getByLabelText(label).getAttribute('aria-invalid')).toBe('false');
+    expect(
+      screen.queryByText(
+        'This local time does not exist or is ambiguous in the venue time zone. Choose an unambiguous local time.'
+      )
+    ).toBeNull();
+    expect(screen.getByText('Enter a valid Client email.')).toBeTruthy();
+    expect(screen.getByRole('alert')).toBeTruthy();
+  }
+);
 it('retains a DST gap error across affected zones until the time is unambiguous', async () => {
   form();
   fireEvent.change(screen.getByLabelText('Venue time zone'), {
