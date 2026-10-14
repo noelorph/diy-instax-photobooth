@@ -7,6 +7,9 @@ Terms for the event-based Instax photo booth.
 **Event**:
 A scheduled occasion for which one Client books the photo booth, with a venue-local start and end time.
 
+**Draft**:
+An Event being prepared by the Admin. Its booked Film Package count or original Print Allowance may be zero; it is not ready for Booth Mode solely because its details were saved.
+
 **Client**:
 The person who books an Event and serves as its contact.
 

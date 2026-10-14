@@ -141,6 +141,8 @@ Use an explicit 2 px focus ring with a 2 px separation where possible; focus mus
 
 Forms use visible labels, concise helper text, inline validation, and an error summary when several fields fail. Preserve entered values after validation. Date and time fields show the venue time zone; table dates use venue-local time with an explicit zone where ambiguity matters. Tables have named columns, a clear sort/filter state, keyboard-reachable controls, and a compact labeled-summary pattern rather than clipped cells on phones. The 7-day/30-day activity filter is a simple two-option control; do not introduce the later-release charts.
 
+For Draft Event schedule errors, identify the field and explain when a local time does not exist or occurs twice in the chosen venue time zone; ask for an unambiguous time. If another device saved the Draft first, keep the Admin's entered values visible while offering a clear path to reload the latest record. A Draft with zero Film Packages or zero original Print Allowance remains a Draft and must not show a ready-to-start state. See [ADR-0014](docs/adr/0014-validate-draft-event-saves.md).
+
 Dialogs are reserved for consequential Admin choices. Show the exact effect before ending Booth Mode, Client Redaction, Film Stock reconciliation, or resolution of an Uncertain Print. Use action labels that name the result, not a generic “Confirm.” Starting Booth Mode uses its readiness checklist instead of a redundant confirmation. Success feedback appears in context after the state has actually committed.
 
 ### Admin operational panel

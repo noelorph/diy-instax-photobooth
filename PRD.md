@@ -112,6 +112,8 @@ At `/events/new`, the Admin enters:
 
 The Admin can edit these details before the Event goes Live. The product records the Event as Draft until Booth Mode starts.
 
+During Draft creation and editing, the required identity, contact, venue, and schedule fields must be valid. Film Package count and original Print Allowance must be whole and nonnegative; either may be zero while the Event remains Draft. The venue-local schedule must use a valid IANA time zone, an unambiguous existing local start and end, and an end instant after the start. Invalid or ambiguous times are rejected with a field-level explanation rather than shifted or guessed. A stale edit from another device must not silently overwrite newer Draft details. See [ADR-0014](docs/adr/0014-validate-draft-event-saves.md).
+
 ### Specific Event — `/events/[eventId]`
 
 The page displays the Event name, state, schedule, venue, Client contact, Film Packages, original Print Allowance, Additional Prints, remaining allowance, Film Stock, and print totals. It lets the Admin upload and preview optional custom media:
@@ -188,3 +190,5 @@ The first release is ready for an Event only when:
 - [Use one design system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md)
 - [Keep Booth access separate during Admin password recovery](docs/adr/0011-keep-booth-access-separate-during-password-recovery.md)
 - [Qualify development on iPhone before iPad launch](docs/adr/0012-qualify-development-on-iphone-before-ipad-launch.md)
+- [Use optional HTTPS for local device testing](docs/adr/0013-use-optional-https-for-local-device-testing.md)
+- [Validate Draft Event saves before operational setup](docs/adr/0014-validate-draft-event-saves.md)

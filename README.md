@@ -9,6 +9,7 @@ A web-based Event photo booth with an Admin application and Guest-facing Booth M
 - [Architecture](ARCHITECTURE.md): proposed system design and technical boundaries
 - [Glossary](GLOSSARY.md): canonical product language
 - [Decision records](docs/adr/): durable product and technical decisions
+- [Approved pre-gate Admin specs](docs/superpowers/specs/2026-10-13-admin-access-and-shell-design.md): Admin access and shell, followed by [Draft Event management](docs/superpowers/specs/2026-10-13-draft-event-management-design.md)
 - [Development flowcharts](docs/diagrams/printing-to-deployment-flow.md): iPhone qualification, full build, and iPad release gate
 
 Read the PRD and design system before implementing an interface. The design system governs presentation; the PRD governs product behavior.
