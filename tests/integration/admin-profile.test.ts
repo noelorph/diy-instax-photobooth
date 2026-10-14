@@ -104,6 +104,13 @@ describe('Profile actions with local Auth and RLS', () => {
     expect((await client.auth.getSession()).data.session).toBeNull();
     expect((await readProfile(local.tokenClient(session.access_token))).data).toEqual([]);
   });
+  it('redirects after RLS confirms a revoked session even if local cookie cleanup throws', async () => {
+    const { client, session } = await adminSession();
+    vi.spyOn(client.auth, 'signOut').mockRejectedValue(new Error('cookie cleanup failed'));
+
+    await expect(signOut({}, new FormData())).rejects.toThrow(/NEXT_REDIRECT/);
+    expect((await readProfile(local.tokenClient(session.access_token))).data).toEqual([]);
+  });
   it('denies direct mutations to an authenticated non-Admin and a revoked Admin', async () => {
     const outsider = await local.provisionUser();
     vi.mocked(createClient).mockResolvedValue((await local.signIn(outsider)).client);

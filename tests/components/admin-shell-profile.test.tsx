@@ -84,6 +84,50 @@ it('prevents duplicate saves, displays success, and recovers from a transport fa
     (screen.getByRole('button', { name: 'Change password' }) as HTMLButtonElement).disabled
   ).toBe(false);
 });
+it('hides saved feedback when either preference differs from the saved values', async () => {
+  render(<Profile initial={initial} saveAction={ok} passwordAction={ok} signOutAction={ok} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Save preferences' }));
+  await screen.findByText('Saved.');
+
+  fireEvent.change(screen.getByLabelText('Phone number'), {
+    target: { value: '+63 917 123 4567' },
+  });
+  expect(screen.queryByText('Saved.')).toBeNull();
+
+  fireEvent.click(screen.getByRole('button', { name: 'Save preferences' }));
+  await screen.findByText('Saved.');
+  fireEvent.change(screen.getByLabelText('Appearance'), { target: { value: 'dark' } });
+  expect(screen.queryByText('Saved.')).toBeNull();
+});
+it('keeps submitted preferences fixed while saving and restores editing after confirmation', async () => {
+  let finish!: (value: { confirmation: string }) => void;
+  render(
+    <Profile
+      initial={initial}
+      saveAction={() =>
+        new Promise((resolve) => {
+          finish = resolve;
+        })
+      }
+      passwordAction={ok}
+      signOutAction={ok}
+    />
+  );
+  const phone = screen.getByLabelText('Phone number') as HTMLInputElement;
+  const theme = screen.getByLabelText('Appearance') as HTMLSelectElement;
+  fireEvent.change(phone, { target: { value: '+63 917 123 4567' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save preferences' }));
+  await screen.findByText('Saving preferences…');
+  expect(phone.disabled).toBe(true);
+  expect(theme.disabled).toBe(true);
+
+  finish({ confirmation: 'Preferences saved.' });
+  await screen.findByText('Preferences saved.');
+  expect(phone.disabled).toBe(false);
+  expect(theme.disabled).toBe(false);
+  fireEvent.change(theme, { target: { value: 'dark' } });
+  expect(screen.queryByText('Preferences saved.')).toBeNull();
+});
 it('keeps failed sign-out actionable without claiming the session ended', async () => {
   render(
     <Profile

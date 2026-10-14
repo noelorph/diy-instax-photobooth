@@ -6,6 +6,8 @@ import { invalidRecoveryLink, type ResetState } from './reset-state';
 
 const incompleteReset =
   'Your password was saved, but Admin sessions could not all be ended. The reset is incomplete. Enter a different password and submit again to retry.';
+const uncertainReset =
+  'Your password was saved, but we could not confirm whether all Admin sessions ended. Request another recovery link to finish the reset.';
 
 export async function resetPassword(_state: ResetState, data: FormData): Promise<ResetState> {
   const password = data.get('password');
@@ -42,11 +44,34 @@ export async function resetPassword(_state: ResetState, data: FormData): Promise
     saved = true;
     // The high-level global signOut clears the recovery cookie even when
     // remote revocation fails, leaving no session for a different-password retry.
-    if ((await client.auth.admin.signOut(sessionData.session.access_token, 'global')).error) {
-      return { error: incompleteReset, revocationIncomplete: true };
+    let revocationConfirmed = false;
+    try {
+      revocationConfirmed = !(
+        await client.auth.admin.signOut(sessionData.session.access_token, 'global')
+      ).error;
+    } catch (error) {
+      unstable_rethrow(error);
+    }
+    if (!revocationConfirmed) {
+      // The Auth response can be lost after revocation commits. The live-session
+      // RLS boundary distinguishes a confirmed-active recovery session from one
+      // that can no longer submit a different password.
+      try {
+        const { data: profile, error } = await client.from('admin_profiles').select('id');
+        if (!error && profile?.length)
+          return { error: incompleteReset, revocationIncomplete: true };
+      } catch (error) {
+        unstable_rethrow(error);
+      }
+      return { error: uncertainReset, requiresNewLink: true };
     }
     // Remote global revocation is confirmed; now clear this browser's cookie.
-    await client.auth.signOut({ scope: 'local' });
+    try {
+      await client.auth.signOut({ scope: 'local' });
+    } catch (error) {
+      unstable_rethrow(error);
+      // The recovery session is already revoked; another password cannot retry cleanup.
+    }
     return {
       confirmation:
         'Password changed. All Admin sessions have ended. Sign in with your new password.',
@@ -55,9 +80,9 @@ export async function resetPassword(_state: ResetState, data: FormData): Promise
     unstable_rethrow(error);
     return {
       error: saved
-        ? incompleteReset
+        ? uncertainReset
         : 'The reset could not be completed. Check your connection and try again.',
-      revocationIncomplete: saved,
+      requiresNewLink: saved,
     };
   }
 }

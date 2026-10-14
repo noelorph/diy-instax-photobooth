@@ -99,6 +99,28 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
     const fresh = await local.signIn({ email: admin.email, password: newPassword });
     expect((await readProfile(fresh.client)).data?.map((row) => row.id)).toEqual([admin.id]);
   }, 15000);
+
+  it('completes after global revocation even when local recovery cleanup throws', async () => {
+    const { admin, client, callback } = await recovery();
+    const first = await local.signIn(admin);
+    const second = await local.signIn(admin);
+    await GET(new Request(callback));
+    const temporary = (await client.auth.getSession()).data.session!;
+    vi.spyOn(client.auth, 'signOut').mockRejectedValueOnce(new Error('local cleanup failed'));
+
+    const newPassword = `Reset-${randomUUID()}!`;
+    const result = await resetPassword({}, passwords(newPassword));
+
+    expect(result.confirmation).toMatch(/all Admin sessions have ended/i);
+    expect(result.error).toBeUndefined();
+    expect(result.revocationIncomplete).toBeUndefined();
+    for (const session of [first.session, second.session, temporary]) {
+      expect((await readProfile(local.tokenClient(session.access_token))).data).toEqual([]);
+    }
+    const fresh = await local.signIn({ email: admin.email, password: newPassword });
+    expect((await readProfile(fresh.client)).data?.map((row) => row.id)).toEqual([admin.id]);
+  }, 15000);
+
   it('rejects mismatched and short passwords while leaving the recovery link usable', async () => {
     const { client, callback } = await recovery();
     await GET(new Request(callback));
@@ -231,6 +253,46 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
           .auth.signInWithPassword({ email: admin.email, password: firstPassword })
       ).error
     ).not.toBeNull();
+  }, 15000);
+
+  it('requests a new recovery link when global revocation committed but its response was lost', async () => {
+    const { callback, client, admin } = await recovery();
+    const other = await local.signIn(admin);
+    await GET(new Request(callback));
+    const temporary = (await client.auth.getSession()).data.session!;
+    const real = client.auth.admin.signOut.bind(client.auth.admin);
+    vi.spyOn(client.auth.admin, 'signOut').mockImplementationOnce(async (jwt, scope) => {
+      await real(jwt, scope);
+      throw new TypeError('lost response');
+    });
+
+    const result = await resetPassword({}, passwords('Saved-after-lost-response!'));
+
+    expect(result.confirmation).toBeUndefined();
+    expect(result.requiresNewLink).toBe(true);
+    expect(result.error).toMatch(/could not confirm.*all Admin sessions/i);
+    expect(result.error).toMatch(/request another recovery link/i);
+    expect(result.error).not.toMatch(/enter a different password/i);
+    expect((await readProfile(local.tokenClient(temporary.access_token))).data).toEqual([]);
+    expect((await readProfile(local.tokenClient(other.session.access_token))).data).toEqual([]);
+  }, 15000);
+
+  it('keeps all-session revocation uncertain when the live-session check is unavailable', async () => {
+    const { callback, client } = await recovery();
+    await GET(new Request(callback));
+    vi.spyOn(client.auth.admin, 'signOut').mockImplementationOnce(async () => {
+      vi.spyOn(client, 'from').mockImplementationOnce(() => {
+        throw new TypeError('RLS probe offline');
+      });
+      return { data: null, error: new AuthApiError('lost response', 503, 'unexpected_failure') };
+    });
+
+    const result = await resetPassword({}, passwords('Saved-without-verification!'));
+
+    expect(result.confirmation).toBeUndefined();
+    expect(result.requiresNewLink).toBe(true);
+    expect(result.error).toMatch(/could not confirm whether all Admin sessions ended/i);
+    expect(result.error).not.toMatch(/enter a different password/i);
   }, 15000);
 
   it('keeps callback destinations fixed despite foreign request hosts and rejects missing configuration', async () => {

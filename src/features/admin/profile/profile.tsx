@@ -8,11 +8,13 @@ function ProfileForm({
   title,
   pendingText,
   children,
+  showConfirmation = true,
 }: {
   action: ProfileAction;
   title: string;
   pendingText: string;
-  children?: (state: ProfileState, id: string) => ReactNode;
+  children?: (state: ProfileState, id: string, pending: boolean) => ReactNode;
+  showConfirmation?: boolean;
 }) {
   const id = useId();
   const feedback = useRef<HTMLParagraphElement>(null);
@@ -43,13 +45,13 @@ function ProfileForm({
         if (pending) event.preventDefault();
       }}
     >
-      {children?.(state, id)}
+      {children?.(state, id, pending)}
       {state.error || state.fieldErrors ? (
         <p className="auth-alert" role="alert" tabIndex={-1} ref={feedback}>
           {state.error ?? 'Correct the highlighted fields and try again.'}
         </p>
       ) : null}
-      {state.confirmation ? (
+      {state.confirmation && showConfirmation ? (
         <p className="profile-success" role="status" tabIndex={-1} ref={feedback}>
           {state.confirmation}
         </p>
@@ -69,6 +71,7 @@ function Field({
   value,
   onChange,
   password = false,
+  disabled = false,
 }: {
   label: string;
   name: string;
@@ -77,6 +80,7 @@ function Field({
   value: string;
   onChange: (value: string) => void;
   password?: boolean;
+  disabled?: boolean;
 }) {
   return (
     <div className="auth-field">
@@ -87,6 +91,7 @@ function Field({
         type={password ? 'password' : 'tel'}
         autoComplete={password ? 'new-password' : 'tel'}
         value={value}
+        disabled={disabled}
         onChange={(event) => onChange(event.target.value)}
         maxLength={password ? 128 : 40}
         aria-invalid={Boolean(state.fieldErrors?.[name])}
@@ -113,6 +118,10 @@ export function Profile({
 }) {
   const [phone, setPhone] = useState(initial.phone ?? '');
   const [theme, setTheme] = useState(initial.theme);
+  const [savedPreferences, setSavedPreferences] = useState<{
+    phone: string;
+    theme: ProfileData['theme'];
+  } | null>(null);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   return (
@@ -131,8 +140,22 @@ export function Profile({
             {initial.email}
           </p>
         </div>
-        <ProfileForm action={saveAction} title="Save preferences" pendingText="Saving preferences…">
-          {(state, id) => (
+        <ProfileForm
+          action={async (state, data) => {
+            const result = await saveAction(state, data);
+            if (result.confirmation) {
+              setSavedPreferences({
+                phone: String(data.get('phone') ?? ''),
+                theme: data.get('theme') as ProfileData['theme'],
+              });
+            }
+            return result;
+          }}
+          title="Save preferences"
+          pendingText="Saving preferences…"
+          showConfirmation={savedPreferences?.phone === phone && savedPreferences.theme === theme}
+        >
+          {(state, id, pending) => (
             <>
               <Field
                 label="Phone number"
@@ -141,6 +164,7 @@ export function Profile({
                 state={state}
                 value={phone}
                 onChange={setPhone}
+                disabled={pending}
               />
               <p className="field-help">Optional. Include your country code.</p>
               <div className="auth-field">
@@ -149,6 +173,7 @@ export function Profile({
                   id={`${id}-theme`}
                   name="theme"
                   value={theme}
+                  disabled={pending}
                   onChange={(event) => setTheme(event.target.value as 'light' | 'dark')}
                   aria-invalid={Boolean(state.fieldErrors?.theme)}
                   aria-describedby={state.fieldErrors?.theme ? `${id}-theme-error` : undefined}

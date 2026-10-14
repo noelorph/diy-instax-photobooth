@@ -90,7 +90,11 @@ export async function signOut(_state: ProfileState, _data: FormData): Promise<Pr
     if (client) {
       const { data, error } = await client.from('admin_profiles').select('id');
       if (!error && !data?.length) {
-        await client.auth.signOut({ scope: 'local' });
+        try {
+          await client.auth.signOut({ scope: 'local' });
+        } catch (cleanupError) {
+          unstable_rethrow(cleanupError);
+        }
         redirect('/sign-in');
       }
       if (!error)

@@ -100,4 +100,23 @@ describe('Public password reset form', () => {
     expect(screen.getByText(warning)).toBeTruthy();
     expect(screen.queryByRole('link', { name: 'Sign in' })).toBeNull();
   });
+
+  it('offers a new recovery link without a password retry after an uncertain revocation', async () => {
+    render(
+      <ResetPasswordForm
+        action={async () => ({
+          error:
+            'Your password was saved, but we could not confirm whether all Admin sessions ended. Request another recovery link to finish the reset.',
+          requiresNewLink: true,
+        })}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Set new password' }));
+    expect((await screen.findByRole('alert')).textContent).toMatch(/could not confirm/i);
+    expect(screen.getByRole('link', { name: 'Request another link' }).getAttribute('href')).toBe(
+      '/forgot-password'
+    );
+    expect(screen.queryByLabelText('New password')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Set new password' })).toBeNull();
+  });
 });

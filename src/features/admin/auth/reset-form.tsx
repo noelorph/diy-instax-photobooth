@@ -52,6 +52,15 @@ export function ResetPasswordForm({
         <Link href="/sign-in">Back to sign in</Link>
       </div>
     );
+  if (state.requiresNewLink)
+    return (
+      <div className="auth-form">
+        <p className="auth-alert" role="alert" tabIndex={-1} ref={feedback}>
+          {state.error}
+        </p>
+        <Link href="/forgot-password">Request another link</Link>
+      </div>
+    );
   return (
     <form
       action={formAction}
