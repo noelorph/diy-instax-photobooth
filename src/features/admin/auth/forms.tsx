@@ -92,7 +92,11 @@ function PublicAuthForm({ action, signIn }: { action: AuthFormAction; signIn: bo
         </p>
       ) : null}
       <button type="submit" disabled={pending}>
-        {signIn ? 'Sign in' : state.error ? 'Try again' : 'Send recovery link'}
+        {signIn
+          ? 'Sign in'
+          : state.error || state.confirmation
+            ? 'Try again'
+            : 'Send recovery link'}
       </button>
       {pending ? <p role="status">{signIn ? 'Signing in…' : 'Sending recovery link…'}</p> : null}
       {signIn ? (

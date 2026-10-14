@@ -168,14 +168,18 @@ describe('Public recovery request form', () => {
     expect(screen.queryByRole('navigation')).toBeNull();
   });
 
-  it('renders persistent neutral confirmation and preserves the entered email', async () => {
+  it('renders persistent neutral confirmation with an explicit retry and preserved email', async () => {
+    let attempts = 0;
     render(
       <RecoveryRequestForm
-        action={async (_, data) => ({
-          email: String(data.get('email')),
-          confirmation:
-            'Check your email. If this address has an account, a recovery link will arrive shortly.',
-        })}
+        action={async (_, data) => {
+          attempts++;
+          return {
+            email: String(data.get('email')),
+            confirmation:
+              'Check your email. If recovery is available for this address, a link may arrive shortly. If it does not arrive, wait a minute and try again.',
+          };
+        }}
       />
     );
     const email = screen.getByLabelText('Email') as HTMLInputElement;
@@ -186,6 +190,9 @@ describe('Public recovery request form', () => {
     );
     expect(email.value).toBe('owner@example.test');
     expect(screen.queryByRole('alert')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
+    await waitFor(() => expect(attempts).toBe(2));
+    expect(email.value).toBe('owner@example.test');
   });
 
   it('retains a failed request and offers an explicit retry', async () => {

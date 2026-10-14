@@ -1,6 +1,7 @@
 'use server';
 
-import { redirect } from 'next/navigation';
+import { redirect, unstable_rethrow } from 'next/navigation';
+import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { connectionError, type AuthFormState } from './state';
 import { recoveryCallbackUrl } from './config';
@@ -72,17 +73,34 @@ export async function requestRecovery(
   const email = emailFrom(formData);
   const invalidEmail = emailError(email);
   if (invalidEmail) return { email, fieldErrors: { email: invalidEmail } };
+  const failure = {
+    email,
+    error: 'Unable to send a recovery link. Check your connection and try again.',
+  };
+  let client: Awaited<ReturnType<typeof createClient>>;
+  let redirectTo: string;
   try {
-    const redirectTo = recoveryCallbackUrl();
-    const client = await createClient();
-    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
-    if (error) return { email, error: 'Unable to send a recovery link. Please try again.' };
-  } catch {
-    return { email, error: 'Unable to send a recovery link. Check your connection and try again.' };
+    redirectTo = recoveryCallbackUrl();
+    client = await createClient();
+  } catch (error) {
+    unstable_rethrow(error);
+    return failure;
   }
+  let authFailure: unknown;
+  try {
+    const { error } = await client.auth.resetPasswordForEmail(email, { redirectTo });
+    authFailure = error;
+  } catch (error) {
+    unstable_rethrow(error);
+    authFailure = error;
+  }
+  // A known address can hit cooldown or delivery errors while an unknown one
+  // succeeds. Even HTTP 500 becomes AuthRetryableFetchError in the SDK; only
+  // status 0 identifies connection loss independent of account existence.
+  if (isAuthRetryableFetchError(authFailure) && authFailure.status === 0) return failure;
   return {
     email,
     confirmation:
-      'Check your email. If this address has an account, a recovery link will arrive shortly.',
+      'Check your email. If recovery is available for this address, a link may arrive shortly. If it does not arrive, wait a minute and try again.',
   };
 }

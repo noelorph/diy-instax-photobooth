@@ -2,7 +2,7 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
 import { createServerClient } from '@supabase/ssr';
-import { AuthApiError } from '@supabase/supabase-js';
+import { AuthApiError, AuthRetryableFetchError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { requestRecovery, signIn } from '@/features/admin/auth/actions';
 import { localSupabase, localSupabaseStatus, readProfile } from '../fixtures/local-supabase';
@@ -225,21 +225,78 @@ describe('Neutral recovery action and local Mailpit delivery', () => {
     });
   });
 
-  it('permits retry after delivery failure without exposing the provider diagnostic', async () => {
+  it('keeps repeated known and unknown recovery requests publicly identical during a real cooldown', async () => {
+    const admin = await local.provisionUser();
+    expect((await local.allowlist(admin.id)).error).toBeNull();
+    const client = local.client();
+    const request = vi.spyOn(client.auth, 'resetPasswordForEmail');
+    vi.mocked(createClient).mockResolvedValue(client);
+    const first = await requestRecovery({ email: '' }, credentials(admin.email, ''));
+    const repeated = await requestRecovery(first, credentials(admin.email, ''));
+    const cooldownResult = await request.mock.results[1].value;
+    expect(cooldownResult.error?.code).toBe('over_email_send_rate_limit');
+    const unknownEmail = `unknown-${randomUUID()}@example.test`;
+    const unknown = await requestRecovery({ email: '' }, credentials(unknownEmail, ''));
+    const repeatedUnknown = await requestRecovery(unknown, credentials(unknownEmail, ''));
+    expect(repeated).toEqual(first);
+    expect({ ...repeated, email: unknownEmail }).toEqual(unknown);
+    expect(repeatedUnknown).toEqual(unknown);
+    expect(repeated.error).toBeUndefined();
+    expect(repeated.confirmation).toMatch(/check your email/i);
+  });
+
+  it.each([
+    [
+      'cooldown',
+      new AuthApiError('private cooldown diagnostic', 429, 'over_email_send_rate_limit'),
+    ],
+    ['delivery', new AuthRetryableFetchError('private SMTP diagnostic', 500)],
+    ['legacy delivery', new AuthApiError('private SMTP diagnostic', 500, 'unexpected_failure')],
+    [
+      'address authorization',
+      new AuthApiError('private address diagnostic', 403, 'email_address_not_authorized'),
+    ],
+  ])('normalizes %s errors to unknown-address confirmation and permits retry', async (_, error) => {
     const client = local.client();
     vi.spyOn(client.auth, 'resetPasswordForEmail')
-      .mockResolvedValueOnce({
-        data: null,
-        error: new AuthApiError('private SMTP diagnostic', 500, 'unexpected_failure'),
-      })
-      .mockResolvedValueOnce({ data: {}, error: null });
+      .mockResolvedValueOnce({ data: null, error: error as AuthApiError })
+      .mockResolvedValue({ data: {}, error: null });
     vi.mocked(createClient).mockResolvedValue(client);
     const data = credentials('owner@example.test', '');
-    const failed = await requestRecovery({ email: '' }, data);
-    expect(failed.error).toMatch(/try again/i);
-    expect(failed.email).toBe('owner@example.test');
-    expect(failed.confirmation).toBeUndefined();
-    expect(JSON.stringify(failed)).not.toContain('SMTP');
-    expect((await requestRecovery(failed, data)).confirmation).toMatch(/check your email/i);
+    const accountFailure = await requestRecovery({ email: '' }, data);
+    const unknown = await requestRecovery({ email: '' }, credentials('unknown@example.test', ''));
+    expect({ ...accountFailure, email: 'unknown@example.test' }).toEqual(unknown);
+    expect(accountFailure.error).toBeUndefined();
+    expect(accountFailure.confirmation).toMatch(/check your email/i);
+    expect(JSON.stringify(accountFailure)).not.toContain('private');
+    expect(await requestRecovery(accountFailure, data)).toEqual(accountFailure);
+  });
+
+  it('shows retry failure only for address-independent connection loss', async () => {
+    const client = local.client();
+    vi.spyOn(client.auth, 'resetPasswordForEmail').mockResolvedValue({
+      data: null,
+      error: new AuthRetryableFetchError('private connection diagnostic', 0),
+    });
+    vi.mocked(createClient).mockResolvedValue(client);
+    const known = await requestRecovery({ email: '' }, credentials('owner@example.test', ''));
+    const unknown = await requestRecovery({ email: '' }, credentials('unknown@example.test', ''));
+    expect(known.error).toMatch(/connection.*try again/i);
+    expect(known.confirmation).toBeUndefined();
+    expect({ ...known, email: 'unknown@example.test' }).toEqual(unknown);
+    expect(JSON.stringify(known)).not.toContain('private');
+  });
+
+  it('normalizes a thrown Auth delivery error to the same neutral confirmation', async () => {
+    const client = local.client();
+    vi.spyOn(client.auth, 'resetPasswordForEmail')
+      .mockRejectedValueOnce(new AuthRetryableFetchError('private delivery diagnostic', 500))
+      .mockResolvedValue({ data: {}, error: null });
+    vi.mocked(createClient).mockResolvedValue(client);
+    const known = await requestRecovery({ email: '' }, credentials('owner@example.test', ''));
+    const unknown = await requestRecovery({ email: '' }, credentials('unknown@example.test', ''));
+    expect({ ...known, email: 'unknown@example.test' }).toEqual(unknown);
+    expect(known.error).toBeUndefined();
+    expect(known.confirmation).toMatch(/check your email/i);
   });
 });

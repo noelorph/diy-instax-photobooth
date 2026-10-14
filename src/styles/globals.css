@@ -47,8 +47,8 @@ body {
   --color-focus: #1f6663;
   --color-danger: #a33137;
   --color-danger-soft: #fce9ea;
-  --color-success: #226a4d;
-  --color-success-soft: #e5f2e9;
+  --color-info: #245a78;
+  --color-info-soft: #e5f1f7;
   box-sizing: border-box;
   display: grid;
   align-items: center;
@@ -175,8 +175,8 @@ body {
 }
 
 .auth-confirmation {
-  color: var(--color-success);
-  background: var(--color-success-soft);
+  color: var(--color-info);
+  background: var(--color-info-soft);
 }
 
 @media (min-width: 640px) {
