@@ -28,36 +28,50 @@ const bookingSchema = z.object({
     .nonnegative('Print Allowance cannot be negative.'),
 });
 
-const scheduleSchema = z
-  .object({
-    timeZone: z
-      .string()
-      .trim()
-      .min(1, 'Enter the venue time zone.')
-      .transform((zone, ctx) => {
-        if (!/^[+-]/.test(zone)) {
-          try {
-            // Intl accepts case-insensitive input; persist its IANA spelling so
-            // PostgreSQL's case-sensitive zone lookup receives the same name.
-            const normalized = new Intl.DateTimeFormat('en', { timeZone: zone }).resolvedOptions()
-              .timeZone;
-            Temporal.Instant.fromEpochMilliseconds(0).toZonedDateTimeISO(normalized);
-            return normalized;
-          } catch {
-            // Report invalid zones on their field before converting local times.
-          }
+const scheduleInputSchema = z.object({
+  timeZone: z
+    .string()
+    .trim()
+    .min(1, 'Enter the venue time zone.')
+    .transform((zone, ctx) => {
+      if (!/^[+-]/.test(zone)) {
+        try {
+          // Intl accepts case-insensitive input; persist its IANA spelling so
+          // PostgreSQL's case-sensitive zone lookup receives the same name.
+          const normalized = new Intl.DateTimeFormat('en', { timeZone: zone }).resolvedOptions()
+            .timeZone;
+          Temporal.Instant.fromEpochMilliseconds(0).toZonedDateTimeISO(normalized);
+          return normalized;
+        } catch {
+          // Report invalid zones on their field before converting local times.
         }
-        ctx.addIssue({
-          code: 'custom',
-          message: 'Enter a valid IANA venue time zone, such as Asia/Manila.',
-        });
-        return z.NEVER;
-      }),
-    startsAtLocal: localDateTime,
-    endsAtLocal: localDateTime,
-  })
-  .transform(({ startsAtLocal, endsAtLocal, ...schedule }, ctx) => {
-    function instant(value: string, field: 'startsAtLocal' | 'endsAtLocal') {
+      }
+      ctx.addIssue({
+        code: 'custom',
+        message: 'Enter a valid IANA venue time zone, such as Asia/Manila.',
+      });
+      return z.NEVER;
+    }),
+  startsAtLocal: localDateTime,
+  endsAtLocal: localDateTime,
+});
+
+const scheduleSchema = z
+  // Parse fields inside the transform so malformed input cannot suppress sibling errors.
+  .object({ timeZone: z.unknown(), startsAtLocal: z.unknown(), endsAtLocal: z.unknown() })
+  .transform((input, ctx) => {
+    function parseField(field: keyof z.input<typeof scheduleInputSchema>) {
+      const result = scheduleInputSchema.shape[field].safeParse(input[field]);
+      if (result.success) return result.data;
+      for (const issue of result.error.issues) {
+        ctx.addIssue({ ...issue, path: [field, ...issue.path] });
+      }
+      return undefined;
+    }
+    const timeZone = parseField('timeZone');
+    function instant(field: 'startsAtLocal' | 'endsAtLocal') {
+      const value = parseField(field);
+      if (value === undefined || timeZone === undefined) return undefined;
       let local: Temporal.PlainDateTime;
       try {
         local = Temporal.PlainDateTime.from(value);
@@ -70,7 +84,7 @@ const scheduleSchema = z
         return undefined;
       }
       try {
-        return local.toZonedDateTime(schedule.timeZone, { disambiguation: 'reject' }).toInstant();
+        return local.toZonedDateTime(timeZone, { disambiguation: 'reject' }).toInstant();
       } catch {
         ctx.addIssue({
           code: 'custom',
@@ -80,9 +94,9 @@ const scheduleSchema = z
         return undefined;
       }
     }
-    const start = instant(startsAtLocal, 'startsAtLocal');
-    const end = instant(endsAtLocal, 'endsAtLocal');
-    if (!start || !end) return z.NEVER;
+    const start = instant('startsAtLocal');
+    const end = instant('endsAtLocal');
+    if (timeZone === undefined || !start || !end) return z.NEVER;
     if (Temporal.Instant.compare(end, start) <= 0) {
       ctx.addIssue({
         code: 'custom',
@@ -91,14 +105,14 @@ const scheduleSchema = z
       });
       return z.NEVER;
     }
-    return { ...schedule, startsAtUtc: start.toString(), endsAtUtc: end.toString() };
+    return { timeZone, startsAtUtc: start.toString(), endsAtUtc: end.toString() };
   });
 
 // Validate the schedule even when unrelated booking fields are invalid.
 // Live feedback and submitted saves use these same rules and UTC conversion.
 const draftEventSchema = z.intersection(bookingSchema, scheduleSchema);
 
-export type DraftEventInput = z.input<typeof draftEventSchema>;
+export type DraftEventInput = z.input<typeof bookingSchema> & z.input<typeof scheduleInputSchema>;
 export type ValidatedDraftEvent = z.output<typeof draftEventSchema>;
 
 /** Throws a ZodError with input field paths; shared by form and server validation. */

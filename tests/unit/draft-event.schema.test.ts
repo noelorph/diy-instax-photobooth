@@ -92,6 +92,36 @@ describe('Draft Event input', () => {
       );
     }
   );
+  it.each(['startsAtLocal', 'endsAtLocal'])(
+    'reports the DST gap on %s independently of malformed sibling input',
+    (field) => {
+      const sibling = field === 'startsAtLocal' ? 'endsAtLocal' : 'startsAtLocal';
+      for (const value of ['', undefined, 'not a date', new File(['date'], 'date.txt')]) {
+        let error: unknown;
+        try {
+          parseDraftEventInput({
+            ...validInput,
+            timeZone: 'America/New_York',
+            [field]: '2026-03-08T02:30',
+            [sibling]: value,
+          });
+        } catch (caught) {
+          error = caught;
+        }
+        expect(error).toBeInstanceOf(ZodError);
+        expect((error as ZodError).issues.map((issue) => issue.path[0])).toEqual([
+          'startsAtLocal',
+          'endsAtLocal',
+        ]);
+        const errors = draftFieldErrors(error as ZodError);
+        expect(errors[field as 'startsAtLocal' | 'endsAtLocal']).toMatch(
+          /does not exist|ambiguous/
+        );
+        expect(errors[sibling as 'startsAtLocal' | 'endsAtLocal']).toEqual(expect.any(String));
+        expect(errors.endsAtLocal).not.toMatch(/after the scheduled start/);
+      }
+    }
+  );
   it.each([
     [0, 0],
     [0, 37],
@@ -179,6 +209,21 @@ function validFormData() {
 }
 
 describe('Draft FormData validation', () => {
+  it.each([
+    ['startsAtLocal', 'endsAtLocal'],
+    ['endsAtLocal', 'startsAtLocal'],
+  ])('retains %s DST feedback alongside blank %s', (field, sibling) => {
+    const data = validFormData();
+    data.set('timeZone', 'America/New_York');
+    data.set(field, '2026-03-08T02:30');
+    data.set(sibling, '');
+    const errors = validateDraftFormData(data);
+    expect(errors[field as 'startsAtLocal' | 'endsAtLocal']).toMatch(/does not exist|ambiguous/);
+    expect(errors[sibling as 'startsAtLocal' | 'endsAtLocal']).toBe(
+      'Enter a valid venue-local date and time without an offset.'
+    );
+    expect(Object.keys(errors)).toEqual(['startsAtLocal', 'endsAtLocal']);
+  });
   it.each(['filmPackageCount', 'originalPrintAllowance'])(
     'reports missing, empty, whitespace, and file values on %s',
     (field) => {

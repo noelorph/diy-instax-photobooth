@@ -205,6 +205,50 @@ it.each(['Scheduled start', 'Scheduled end'])(
     expect(screen.getByRole('alert')).toBeTruthy();
   }
 );
+it.each(['Scheduled start', 'Scheduled end'])(
+  'keeps DST feedback on %s when its sibling is cleared and the zone changes',
+  async (label) => {
+    form();
+    const sibling = label === 'Scheduled start' ? 'Scheduled end' : 'Scheduled start';
+    fireEvent.change(screen.getByLabelText('Venue time zone'), {
+      target: { value: 'America/New_York' },
+    });
+    fireEvent.change(screen.getByLabelText('Scheduled start'), {
+      target: { value: label === 'Scheduled start' ? '2026-03-08T02:30' : '2026-03-08T01:00' },
+    });
+    fireEvent.change(screen.getByLabelText('Scheduled end'), {
+      target: { value: label === 'Scheduled end' ? '2026-03-08T02:30' : '2026-03-08T04:00' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+    await screen.findByText(
+      'This local time does not exist or is ambiguous in the venue time zone. Choose an unambiguous local time.'
+    );
+
+    fireEvent.change(screen.getByLabelText(sibling), { target: { value: '' } });
+    expect(screen.getByLabelText(label).getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByLabelText(sibling).getAttribute('aria-invalid')).toBe('true');
+    expect(
+      screen.getByText(
+        'This local time does not exist or is ambiguous in the venue time zone. Choose an unambiguous local time.'
+      )
+    ).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Venue time zone'), {
+      target: { value: 'America/Chicago' },
+    });
+    expect(screen.getByLabelText(label).getAttribute('aria-invalid')).toBe('true');
+
+    fireEvent.change(screen.getByLabelText('Venue time zone'), {
+      target: { value: 'Asia/Manila' },
+    });
+    expect(screen.getByLabelText(label).getAttribute('aria-invalid')).toBe('false');
+    expect(screen.getByLabelText(sibling).getAttribute('aria-invalid')).toBe('true');
+    expect(screen.getByRole('alert')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(sibling), {
+      target: { value: sibling === 'Scheduled start' ? '2026-03-08T01:00' : '2026-03-08T04:00' },
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+  }
+);
 it('retains a DST gap error across affected zones until the time is unambiguous', async () => {
   form();
   fireEvent.change(screen.getByLabelText('Venue time zone'), {
