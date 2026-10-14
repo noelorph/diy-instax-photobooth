@@ -71,8 +71,16 @@ export async function signOut(_state: ProfileState, _data: FormData): Promise<Pr
   let client;
   try {
     client = await createClient();
-    const { error } = await client.auth.signOut({ scope: 'local' });
-    if (!error) redirect('/sign-in');
+    const { data: sessionData, error: sessionError } = await client.auth.getSession();
+    if (sessionError) throw sessionError;
+    if (!sessionData.session) redirect('/sign-in');
+    // Keep the local cookie for a retry if Auth does not confirm revocation.
+    // The high-level signOut clears it even when the remote call fails.
+    const { error } = await client.auth.admin.signOut(sessionData.session.access_token, 'local');
+    if (!error) {
+      await client.auth.signOut({ scope: 'local' });
+      redirect('/sign-in');
+    }
   } catch (error) {
     unstable_rethrow(error);
   }
@@ -80,10 +88,11 @@ export async function signOut(_state: ProfileState, _data: FormData): Promise<Pr
   // boundary before describing the session as active or ended.
   try {
     if (client) {
-      const session = await client.auth.getSession();
-      if (!session.error && !session.data.session) redirect('/sign-in');
       const { data, error } = await client.from('admin_profiles').select('id');
-      if (!error && !data?.length) redirect('/sign-in');
+      if (!error && !data?.length) {
+        await client.auth.signOut({ scope: 'local' });
+        redirect('/sign-in');
+      }
       if (!error)
         return {
           error:

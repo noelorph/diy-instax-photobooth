@@ -81,23 +81,28 @@ describe('Profile actions with local Auth and RLS', () => {
     expect((await readProfile(other.client)).data?.[0].id).toBe(admin.id);
   });
   it('reports a failed local sign-out with a still-active session and permits retry', async () => {
-    const { client } = await adminSession();
-    vi.spyOn(client.auth, 'signOut').mockResolvedValueOnce({
+    const { client, session } = await adminSession();
+    vi.spyOn(client.auth.admin, 'signOut').mockResolvedValueOnce({
+      data: null,
       error: new AuthRetryableFetchError('lost', 503),
     });
     const failed = await signOut({}, new FormData());
     expect(failed.error).toMatch(/still signed in.*try again/i);
+    expect((await client.auth.getSession()).data.session).not.toBeNull();
     expect((await readProfile(client)).data).toHaveLength(1);
+    expect((await readProfile(local.tokenClient(session.access_token))).data).toHaveLength(1);
     await expect(signOut(failed, new FormData())).rejects.toThrow(/NEXT_REDIRECT/);
   });
   it('redirects after an ambiguous sign-out failure if revocation actually committed', async () => {
-    const { client } = await adminSession();
-    const real = client.auth.signOut.bind(client.auth);
-    vi.spyOn(client.auth, 'signOut').mockImplementationOnce(async () => {
-      await real({ scope: 'local' });
-      return { error: new AuthRetryableFetchError('lost response', 503) };
+    const { client, session } = await adminSession();
+    const real = client.auth.admin.signOut.bind(client.auth.admin);
+    vi.spyOn(client.auth.admin, 'signOut').mockImplementationOnce(async (jwt, scope) => {
+      await real(jwt, scope);
+      return { data: null, error: new AuthRetryableFetchError('lost response', 503) };
     });
     await expect(signOut({}, new FormData())).rejects.toThrow(/NEXT_REDIRECT/);
+    expect((await client.auth.getSession()).data.session).toBeNull();
+    expect((await readProfile(local.tokenClient(session.access_token))).data).toEqual([]);
   });
   it('denies direct mutations to an authenticated non-Admin and a revoked Admin', async () => {
     const outsider = await local.provisionUser();
