@@ -126,6 +126,8 @@ describe('Draft Event input', () => {
     'timeZone',
     'startsAtLocal',
     'endsAtLocal',
+    'filmPackageCount',
+    'originalPrintAllowance',
   ])('rejects whitespace-only %s', (field) => {
     expectFieldError({ ...validInput, [field]: ' \t\n ' }, field);
   });
