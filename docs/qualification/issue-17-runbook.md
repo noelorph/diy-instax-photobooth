@@ -44,7 +44,7 @@ Mark each row **pass**, **fail**, or **not observed**. Record a note for a failu
 | Disconnect **before** any print command blocks printing; reconnect restores setup without sending a queued command              |        |                         |
 | Operator diagnostics show inbound responses with timestamps; **Export non-photo log** contains no photo bytes or Guest identity |        |                         |
 
-Export and inspect one no-print JSON log. Confirm it has a run ID, timestamped non-photo events, model/firmware observed on screen, and no image data. Record its filename or secure evidence location: ________. If Bluefy lacks Web Bluetooth, Canvas produces an unsupported JPEG, printer support/status differs from the trial hypothesis, or any other mismatch appears, stop and repair that module before spending film.
+Open **Operator diagnostics** and tap **Export non-photo log**. Use **Download JSON** or **Copy JSON** in the panel; if Bluefy does not save a file, paste the copied JSON into the evidence record. Keep the tab open until the log is captured. Inspect one no-print JSON log and confirm it has a run ID, timestamped non-photo events, model/firmware observed on screen, and no image data. Record its filename or secure evidence location: ________. If Bluefy lacks Web Bluetooth, Canvas produces an unsupported JPEG, printer support/status differs from the trial hypothesis, or any other mismatch appears, stop and repair that module before spending film.
 
 ## Fresh-film sequence — only after the dry run passes
 

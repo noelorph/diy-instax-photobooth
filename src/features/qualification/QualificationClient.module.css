@@ -132,6 +132,8 @@
 }
 .shell button:focus-visible,
 .shell input:focus-visible,
+.shell textarea:focus-visible,
+.shell a:focus-visible,
 .shell summary:focus-visible {
   outline: 3px solid var(--color-focus);
   outline-offset: 3px;
@@ -211,6 +213,47 @@
 }
 .diagnostics p {
   margin: 8px 0;
+}
+.exportPanel {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+.exportPanel p {
+  margin: 0;
+  line-height: 1.5;
+}
+.exportActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.exportActions a {
+  display: grid;
+  min-height: 44px;
+  padding: 10px;
+  place-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  color: var(--color-text);
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+}
+.exportPanel textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font: 0.75rem/1.5 monospace;
+  resize: vertical;
 }
 .diagnostics ol {
   max-height: 120px;

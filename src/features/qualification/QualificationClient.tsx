@@ -71,6 +71,8 @@ export function QualificationClient({ services }: { services?: QualificationServ
   const [trialState, setTrialState] = useState<TrialState>(initialState);
   const [events, setEvents] = useState<TrialEvent[]>([]);
   const [sheetsChecked, setSheetsChecked] = useState(false);
+  const [logExport, setLogExport] = useState<{ filename: string; json: string } | null>(null);
+  const [copyStatus, setCopyStatus] = useState('');
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const connectionRef = useRef<PrinterConnection | null>(null);
@@ -330,17 +332,23 @@ export function QualificationClient({ services }: { services?: QualificationServ
     setRejection('');
     setStage('setup');
     setEvents([]);
+    setLogExport(null);
   }
   function exportLog() {
     const log = logRef.current;
     if (!log) return;
-    const blob = new Blob([log.exportJson()], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `${log.runId}.json`;
-    link.click();
-    setTimeout(() => URL.revokeObjectURL(url), 1000);
+    setLogExport({ filename: `${log.runId}.json`, json: log.exportJson() });
+    setCopyStatus('');
+  }
+  async function copyLog() {
+    if (!logExport) return;
+    try {
+      if (!navigator.clipboard?.writeText) throw new Error('Clipboard unavailable');
+      await navigator.clipboard.writeText(logExport.json);
+      setCopyStatus('JSON copied. Paste it into the evidence record.');
+    } catch {
+      setCopyStatus('Copy unavailable. Touch and hold the JSON text, then Select All and Copy.');
+    }
   }
 
   if (!mounted) return <main className={styles.shell}>Loading local qualification…</main>;
@@ -509,6 +517,33 @@ export function QualificationClient({ services }: { services?: QualificationServ
         <button type="button" onClick={exportLog}>
           Export non-photo log
         </button>
+        {logExport && (
+          <div className={styles.exportPanel}>
+            <p>Log ready. Download it or copy the JSON below if Bluefy does not save the file.</p>
+            <div className={styles.exportActions}>
+              <a
+                href={`data:application/json;charset=utf-8,${encodeURIComponent(logExport.json)}`}
+                download={logExport.filename}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Download JSON
+              </a>
+              <button type="button" onClick={copyLog}>
+                Copy JSON
+              </button>
+            </div>
+            <label htmlFor="qualification-log-json">Non-photo log JSON</label>
+            <textarea
+              id="qualification-log-json"
+              readOnly
+              rows={8}
+              value={logExport.json}
+              onFocus={(event) => event.currentTarget.select()}
+            />
+            {copyStatus && <p role="status">{copyStatus}</p>}
+          </div>
+        )}
         <ol>
           {events.slice(-20).map((event, index) => (
             <li key={`${event.timestamp}-${index}`}>

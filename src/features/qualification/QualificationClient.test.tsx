@@ -153,4 +153,22 @@ describe('supervised iPhone qualification page', () => {
     expect(screen.getByText('Printer not connected')).toBeDefined();
     expect(services.send).toHaveBeenCalledTimes(1);
   });
+
+  it('shows a selectable log when a browser cannot download files', async () => {
+    const { services } = fixture();
+    render(<QualificationClient services={services} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Export non-photo log' }));
+
+    const json = screen.getByRole('textbox', { name: 'Non-photo log JSON' }) as HTMLTextAreaElement;
+    expect(JSON.parse(json.value)).toMatchObject({
+      runId: expect.stringMatching(/^run-/),
+      events: [],
+    });
+    expect(screen.getByRole('button', { name: 'Copy JSON' })).toBeDefined();
+    expect(screen.getByRole('link', { name: 'Download JSON' }).getAttribute('download')).toMatch(
+      /^run-.+\.json$/
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Copy JSON' }));
+    expect(await screen.findByText(/Touch and hold the JSON text/)).toBeDefined();
+  });
 });
