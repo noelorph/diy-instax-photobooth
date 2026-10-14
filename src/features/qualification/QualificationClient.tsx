@@ -70,6 +70,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
   const [rejection, setRejection] = useState('');
   const [trialState, setTrialState] = useState<TrialState>(initialState);
   const [events, setEvents] = useState<TrialEvent[]>([]);
+  const [liveStatus, setLiveStatus] = useState<TrialEvent | null>(null);
   const [sheetsChecked, setSheetsChecked] = useState(false);
   const [logExport, setLogExport] = useState<{ filename: string; json: string } | null>(null);
   const [copyStatus, setCopyStatus] = useState('');
@@ -132,6 +133,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
   function record(input: Parameters<TrialLog['record']>[0]) {
     const event = logRef.current?.record(input);
     if (event) setEvents((previous) => [...previous, event]);
+    return event;
   }
   function stopObservation() {
     stopObservationRef.current?.();
@@ -310,6 +312,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     setEmergenceMarkerTime(null);
     emergenceMarkedRef.current = false;
     setStatusTailComplete(false);
+    setLiveStatus(null);
     try {
       await controller.startPrint(jpeg);
       const current = controller.getState();
@@ -319,15 +322,17 @@ export function QualificationClient({ services }: { services?: QualificationServ
         setStage('pending');
         stopObservationRef.current = servicesRef.current!.observe(
           connectionRef.current!,
-          (response) =>
-            record({
+          (response) => {
+            const event = record({
               kind: 'status',
               opcode: response.opcode,
               statusByte: response.payload[0],
               filmRemaining:
                 response.payload[2] === undefined ? undefined : response.payload[2] & 15,
               responseHex: hex(response.payload),
-            }),
+            });
+            if (event) setLiveStatus(event);
+          },
           (error) => record({ kind: 'status-error', message: error.message })
         );
         timeoutRef.current = setTimeout(() => {
@@ -400,6 +405,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     setEmergenceMarkerTime(null);
     emergenceMarkedRef.current = false;
     setStatusTailComplete(false);
+    setLiveStatus(null);
   }
   function exportLog() {
     const log = logRef.current;
@@ -421,6 +427,17 @@ export function QualificationClient({ services }: { services?: QualificationServ
   if (!mounted) return <main className={styles.shell}>Loading local qualification…</main>;
   const active = servicesRef.current;
   const blocked = !active?.secureContext || !active.bluetooth;
+  const statusHex =
+    liveStatus?.opcode === INSTAX_OPCODES.supportFunctionInfo ? liveStatus.responseHex : undefined;
+  const statusField = statusHex && statusHex.length >= 10 ? statusHex.slice(6, 10) : undefined;
+  const statusFieldLabel =
+    statusField === '127f'
+      ? '12 7f present'
+      : statusField === '0000'
+        ? '12 7f cleared'
+        : statusField
+          ? `Status field ${statusField.slice(0, 2)} ${statusField.slice(2)}`
+          : 'No status response yet';
   return (
     <main className={styles.shell}>
       <div className={styles.topline}>
@@ -457,10 +474,13 @@ export function QualificationClient({ services }: { services?: QualificationServ
           {rejection}
         </p>
       )}
-      <section className={styles.stage} aria-label="Trial view">
+      <section
+        className={`${styles.stage} ${stage === 'pending' ? styles.pendingStage : ''}`}
+        aria-label="Trial view"
+      >
         <video
           ref={videoRef}
-          className={`${styles.camera} ${stage === 'camera' ? '' : styles.hidden}`}
+          className={`${styles.camera} ${stage === 'camera' || (stage === 'setup' && cameraReady) ? '' : styles.hidden}`}
           autoPlay
           muted
           playsInline
@@ -475,16 +495,33 @@ export function QualificationClient({ services }: { services?: QualificationServ
             alt="Unmirrored portrait crop that will be printed"
           />
         )}
-        {stage === 'setup' && (
+        {stage === 'setup' && !cameraReady && (
           <div className={styles.emptyFrame}>
             <span>Printer and camera setup</span>
             <small>Permissions stay with the operator.</small>
           </div>
         )}
         {stage === 'pending' && (
-          <div className={styles.emptyFrame}>
+          <div className={styles.pendingFrame}>
             <strong>Waiting for film ejection</strong>
-            <small>Command acceptance does not confirm a print.</small>
+            <p>Watch the sheet. Printer status is diagnostic only.</p>
+            <div className={styles.signalPanel} role="group" aria-label="Live printer status">
+              <span className={styles.signalHeading}>Live printer status</span>
+              <span className={styles.signalValue}>{statusFieldLabel}</span>
+              {liveStatus && (
+                <>
+                  {liveStatus.filmRemaining !== undefined && (
+                    <span>
+                      Printer reports {liveStatus.filmRemaining} sheet
+                      {liveStatus.filmRemaining === 1 ? '' : 's'}
+                    </span>
+                  )}
+                  <time dateTime={liveStatus.timestamp}>
+                    Response at {liveStatus.timestamp.slice(11, 23)} UTC
+                  </time>
+                </>
+              )}
+            </div>
           </div>
         )}
         {stage === 'uncertain' && (

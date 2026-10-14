@@ -1,6 +1,7 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QualificationClient, type QualificationServices } from './QualificationClient';
+import styles from './QualificationClient.module.css';
 import { INSTAX_OPCODES } from './instax/protocol';
 
 const jpeg = new Uint8Array([
@@ -48,6 +49,17 @@ afterEach(() => {
 });
 
 describe('supervised iPhone qualification page', () => {
+  it('shows the live camera preview during setup once permission is granted', async () => {
+    const { services } = fixture();
+    render(<QualificationClient services={services} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Enable camera' }));
+    await screen.findByText('Camera ready');
+
+    expect(screen.getByLabelText('Camera preview').classList.contains(styles.hidden)).toBe(false);
+    expect(screen.queryByText('Printer and camera setup')).toBeNull();
+  });
+
   it('blocksUnsupportedBluetooth', () => {
     const { services } = fixture();
     services.bluetooth = undefined;
@@ -125,6 +137,40 @@ describe('supervised iPhone qualification page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Print' }));
     expect(await screen.findByText('Waiting for film ejection')).toBeDefined();
     expect(screen.queryByText('Print complete')).toBeNull();
+  });
+
+  it('shows live status field changes without confirming ejection', async () => {
+    const { services } = fixture();
+    await enterTrial(services);
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    await screen.findByRole('button', { name: 'Print' });
+    fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+
+    const status = await screen.findByRole('group', { name: 'Live printer status' });
+    expect(within(status).getByText('No status response yet')).toBeDefined();
+
+    act(() => {
+      vi.mocked(services.observe).mock.calls[0][1]({
+        opcode: INSTAX_OPCODES.supportFunctionInfo,
+        payload: new Uint8Array([0, 2, 2, 0x12, 0x7f, 0x0b, 0, 0, 0, 0]),
+      });
+    });
+    expect(within(status).getByText('12 7f present')).toBeDefined();
+    expect(within(status).getByText('Printer reports 2 sheets')).toBeDefined();
+    expect(within(status).getByText(/Response at \d\d:\d\d:\d\d\.\d{3} UTC/)).toBeDefined();
+
+    act(() => {
+      vi.mocked(services.observe).mock.calls[0][1]({
+        opcode: INSTAX_OPCODES.supportFunctionInfo,
+        payload: new Uint8Array([0, 2, 1, 0, 0, 0x0b, 0, 0, 0, 0]),
+      });
+    });
+    expect(within(status).getByText('12 7f cleared')).toBeDefined();
+    expect(within(status).getByText('Printer reports 1 sheet')).toBeDefined();
+    expect(screen.getByText('Waiting for film ejection')).toBeDefined();
+    expect(
+      screen.getByRole('button', { name: 'Observed film ejection' }).hasAttribute('disabled')
+    ).toBe(true);
   });
 
   it('keepsStatusObservationOpenForTenSecondsAfterEmergenceMarker', async () => {

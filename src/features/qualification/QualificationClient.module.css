@@ -7,6 +7,7 @@
   --color-border: #708a84;
   --color-primary: #6fb7ae;
   --color-primary-hover: #8acac1;
+  --color-primary-soft: #24413e;
   --color-on-primary: #101b1b;
   --color-focus: #8acac1;
   --color-warning: #ffd27d;
@@ -42,8 +43,8 @@
 .heading p {
   margin: 4px 0 0;
   color: var(--color-text-muted);
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
 }
 .count {
   align-self: flex-start;
@@ -65,6 +66,7 @@
   min-height: 220px;
   max-height: 55dvh;
   display: grid;
+  grid-template-rows: minmax(0, 1fr);
   place-items: center;
   overflow: hidden;
   border: 1px solid var(--color-border);
@@ -74,9 +76,11 @@
 .camera,
 .review {
   display: block;
-  width: 100%;
+  width: auto;
   height: 100%;
-  object-fit: contain;
+  max-width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
 }
 .camera {
   transform: scaleX(-1);
@@ -104,6 +108,56 @@
 }
 .emptyFrame small {
   color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.pendingStage {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
+}
+.pendingFrame {
+  width: 100%;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+.pendingFrame strong {
+  color: var(--color-warning);
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+.pendingFrame p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.signalPanel {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-canvas);
+  display: grid;
+  gap: 4px;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.signalHeading {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.signalValue {
+  color: var(--color-text);
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.signalPanel time {
+  color: var(--color-text-muted);
   font-size: 0.875rem;
   line-height: 1.25rem;
 }
@@ -118,21 +172,24 @@
   gap: 12px;
 }
 .shell button {
-  min-height: 44px;
-  padding: 10px 16px;
-  border: 1px solid var(--color-border);
+  min-height: 60px;
+  padding: 12px 18px;
+  border: 2px solid var(--color-primary);
   border-radius: 8px;
-  background: var(--color-surface-muted);
+  background: var(--color-primary-soft);
   color: var(--color-text);
   font: inherit;
-  font-weight: 600;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 700;
   cursor: pointer;
 }
 .shell button:hover:not(:disabled) {
   border-color: var(--color-primary-hover);
+  background: var(--color-surface-muted);
 }
 .shell button:active:not(:disabled) {
-  background: var(--color-surface);
+  background: var(--color-surface-muted);
 }
 .shell button:focus-visible,
 .shell input:focus-visible,
@@ -146,9 +203,11 @@
   opacity: 1;
   color: var(--color-text-muted);
   border-color: var(--color-border);
+  background: var(--color-surface-muted);
   cursor: not-allowed;
 }
 .shell .primary {
+  min-height: 64px;
   background: var(--color-primary);
   color: var(--color-on-primary);
   border-color: var(--color-primary);
@@ -156,37 +215,39 @@
 .shell .primary:hover:not(:disabled) {
   background: var(--color-primary-hover);
 }
+.shell .primary:active:not(:disabled) {
+  background: var(--color-primary-hover);
+}
 .shell .primary:disabled {
   background: var(--color-surface-muted);
   color: var(--color-text-muted);
 }
 .setupRow {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  gap: 12px;
-  min-height: 44px;
+  display: grid;
+  gap: 8px;
 }
 .setupRow span {
-  font-size: 0.875rem;
-  line-height: 1.25rem;
+  font-size: 1rem;
+  line-height: 1.5rem;
 }
 .setupRow button {
-  flex: 0 0 auto;
+  width: 100%;
 }
 .detail {
   margin: 0;
-  color: var(--color-text-muted);
-  font-size: 0.875rem;
+  color: var(--color-text);
+  font-size: 1rem;
+  line-height: 1.5rem;
 }
 .actionRow {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 12px;
 }
-.shutter {
+.shell .shutter {
   align-self: center;
   min-width: 140px;
+  min-height: 88px;
 }
 .reconcile {
   padding: 12px;
@@ -208,12 +269,16 @@
 }
 .diagnostics {
   color: var(--color-text-muted);
-  font-size: 0.75rem;
+  font-size: 0.875rem;
+  line-height: 1.25rem;
 }
 .diagnostics summary {
   min-height: 44px;
   padding: 12px 0;
   cursor: pointer;
+}
+.diagnostics > button {
+  width: 100%;
 }
 .diagnostics p {
   margin: 8px 0;
@@ -238,15 +303,22 @@
 }
 .exportActions a {
   display: grid;
-  min-height: 44px;
-  padding: 10px;
+  min-height: 60px;
+  padding: 12px 18px;
   place-items: center;
-  border: 1px solid var(--color-border);
+  border: 2px solid var(--color-primary);
   border-radius: 8px;
+  background: var(--color-primary-soft);
   color: var(--color-text);
-  font-weight: 600;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 700;
   text-align: center;
   text-decoration: none;
+}
+.exportActions a:hover {
+  border-color: var(--color-primary-hover);
+  background: var(--color-surface-muted);
 }
 .exportPanel textarea {
   width: 100%;
@@ -288,6 +360,10 @@
   .stage {
     min-height: 180px;
     max-height: 43dvh;
+  }
+  .pendingStage {
+    min-height: 0;
+    max-height: none;
   }
   .emptyFrame {
     min-height: 140px;

@@ -29,7 +29,7 @@ flowchart TD
     G -- Yes --> I["iPhone development gate passes"]
 ```
 
-Current reported test setup: iPhone 15 Plus on iOS 26.2.1, Bluefy 3.9.3, and Mini Link 3 firmware 0102(RX), with a new fresh-film pack reported loaded as of 2026-10-13. Verify the versions and film usability when testing. A command acknowledgement or Film Remaining change alone does not prove ejection. The independent Admin foundation may be built alongside this stage, but it is not required to pass the gate. Qualification prints are recorded manually; they are not Event Test Prints or Confirmed Prints.
+Reported iPhone trial setup: iPhone 15 Plus on iOS 26.2.1, Bluefy 3.9.3, and Mini Link 3 firmware 0102(RX). Verify versions and fresh-film usability again for any new trial. The printer now reports zero sheets, and the development gate remains closed; see the [current trial report](../qualification/issue-17-trial-report.md). A command acknowledgement or Film Remaining change alone does not prove ejection. The independent Admin foundation may be built alongside this stage, but it is not required to pass the gate. Qualification prints are recorded manually; they are not Event Test Prints or Confirmed Prints.
 
 ## 2. Build the full Admin and Booth Mode application
 

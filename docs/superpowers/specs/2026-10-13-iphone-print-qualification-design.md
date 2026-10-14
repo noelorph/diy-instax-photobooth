@@ -4,7 +4,7 @@
 
 ## Intent
 
-Qualify the capture-to-physical-print path on the owner's iPhone 15 Plus, Bluefy, and Instax Mini Link 3 before building the full Admin, Booth Mode, and print-accounting system. The owner reports that a new fresh-film pack is loaded in the printer as of 2026-10-13. That makes the physical trial possible; it does not establish film usability, successful printing, or reliable ejection feedback. Record the actual iOS, Bluefy, and printer firmware versions at trial time rather than relying on the previously reported versions.
+Qualify the capture-to-physical-print path on the owner's iPhone 15 Plus, Bluefy, and Instax Mini Link 3 before building the full Admin, Booth Mode, and print-accounting system. At design approval, a new fresh-film pack had been loaded as of 2026-10-13. That made the physical trial possible but did not establish its outcome. See the [current trial report](../../qualification/issue-17-trial-report.md) for observed results and film state. Record the actual iOS, Bluefy, and printer firmware versions at each trial rather than relying on the previously reported versions.
 
 The output is a pass-or-fail record for every issue #17 criterion, the observed printer signal sequence, and a conclusion about whether normal physical film ejection can be distinguished from command acceptance. A pass opens the **development** gate only. The actual iPad A16 trial in issue #7 remains the first-release **launch** gate.
 
