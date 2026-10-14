@@ -4,6 +4,9 @@ import { createClient } from '@/lib/supabase/server';
 import { recoverySession } from './recovery-session';
 import { invalidRecoveryLink, type ResetState } from './reset-state';
 
+const incompleteReset =
+  'Your password was saved, but Admin sessions could not all be ended. The reset is incomplete. Enter a different password and submit again to retry.';
+
 export async function resetPassword(_state: ResetState, data: FormData): Promise<ResetState> {
   const password = data.get('password');
   const confirmation = data.get('confirmation');
@@ -22,9 +25,10 @@ export async function resetPassword(_state: ResetState, data: FormData): Promise
     const client = await createClient();
     if (!(await recoverySession(client))) return { invalidLink: true, error: invalidRecoveryLink };
     const { error } = await client.auth.updateUser({ password: password as string });
-    // If global sign-out failed after the save, submitting the same password
-    // again must still allow revocation to finish. Never trust previous form state.
-    if (error && error.code !== 'same_password') {
+    if (error?.code === 'same_password') {
+      return { fieldErrors: { password: 'Use a different password from the one currently set.' } };
+    }
+    if (error) {
       return {
         error:
           'Unable to save this password. Use a different secure password or check your connection and try again.',
@@ -32,10 +36,7 @@ export async function resetPassword(_state: ResetState, data: FormData): Promise
     }
     saved = true;
     if ((await client.auth.signOut({ scope: 'global' })).error) {
-      return {
-        error:
-          'Your password is saved, but ending all sessions failed. Submit the same password again to finish the reset.',
-      };
+      return { error: incompleteReset };
     }
     return {
       confirmation:
@@ -45,7 +46,7 @@ export async function resetPassword(_state: ResetState, data: FormData): Promise
     unstable_rethrow(error);
     return {
       error: saved
-        ? 'Your password is saved, but ending all sessions failed. Submit the same password again to finish the reset.'
+        ? incompleteReset
         : 'The reset could not be completed. Check your connection and try again.',
     };
   }

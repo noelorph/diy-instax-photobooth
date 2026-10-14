@@ -111,6 +111,22 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
     expect((await client.auth.getSession()).data.session).toBeNull();
   }, 15000);
 
+  it('does not complete a first reset that reuses the current password', async () => {
+    const { admin, client, callback } = await recovery();
+    const other = await local.signIn(admin);
+    await GET(new Request(callback));
+
+    const result = await resetPassword({}, passwords(admin.password));
+
+    expect(result.confirmation).toBeUndefined();
+    expect(result.fieldErrors?.password ?? result.error).toMatch(/different password/i);
+    expect((await client.auth.getSession()).data.session).not.toBeNull();
+    expect((await readProfile(local.tokenClient(other.session.access_token))).data).toEqual([
+      expect.objectContaining({ id: admin.id }),
+    ]);
+    expect((await local.client().auth.signInWithPassword(admin)).error).toBeNull();
+  }, 15000);
+
   it('rejects an ordinary password session even when the submitted state claims recovery', async () => {
     const admin = await local.provisionUser();
     expect((await local.allowlist(admin.id)).error).toBeNull();
@@ -182,24 +198,37 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
     expect((await local.client().auth.signInWithPassword(admin)).error).toBeNull();
   }, 15000);
 
-  it('does not report completion until global revocation succeeds and supports same-password retry', async () => {
+  it('keeps a saved reset incomplete until revocation succeeds with a different password', async () => {
     const { callback, client, admin } = await recovery();
     await GET(new Request(callback));
     vi.spyOn(client.auth, 'signOut').mockResolvedValueOnce({
       error: new AuthApiError('private outage diagnostic', 503, 'unexpected_failure'),
     });
-    const data = passwords('Retry-new-password!');
-    const failed = await resetPassword({}, data);
+    const firstPassword = 'Retry-new-password!';
+    const failed = await resetPassword({}, passwords(firstPassword));
     expect(failed.confirmation).toBeUndefined();
-    expect(failed.error).toMatch(/password is saved.*ending all sessions failed/i);
+    expect(failed.error).toMatch(/password was saved.*sessions could not all be ended/i);
+    expect(failed.error).toMatch(/different password/i);
     expect(JSON.stringify(failed)).not.toContain('private outage diagnostic');
-    expect((await resetPassword(failed, data)).confirmation).toMatch(
+    expect((await client.auth.getSession()).data.session).not.toBeNull();
+    const samePassword = await resetPassword(failed, passwords(firstPassword));
+    expect(samePassword.confirmation).toBeUndefined();
+    expect(samePassword.fieldErrors?.password).toMatch(/different password/i);
+    const secondPassword = 'Retry-different-password!';
+    expect((await resetPassword(samePassword, passwords(secondPassword))).confirmation).toMatch(
       /all Admin sessions have ended/i
     );
     expect((await client.auth.getSession()).data.session).toBeNull();
     expect(
-      (await local.signIn({ email: admin.email, password: 'Retry-new-password!' })).session
+      (await local.signIn({ email: admin.email, password: secondPassword })).session
     ).toBeTruthy();
+    expect(
+      (
+        await local
+          .client()
+          .auth.signInWithPassword({ email: admin.email, password: firstPassword })
+      ).error
+    ).not.toBeNull();
   }, 15000);
 
   it('keeps callback destinations fixed despite foreign request hosts and rejects missing configuration', async () => {

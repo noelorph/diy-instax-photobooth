@@ -89,7 +89,7 @@ The public recovery request page accepts the Admin email and offers **Send recov
 
 ### Set a new password — `/reset-password`
 
-The recovery email links to this page, where a valid recovery link lets the Admin enter and confirm a new secure password. An invalid, expired, or already-used link cannot change the password and offers a path to request another link. The recovery pages show no Admin data. A successful reset ends **all Admin sessions**, including sessions on other devices, and asks the Admin to sign in with the new password. A Booth Access Grant is separate and remains active if a Live booth is running; password recovery never resumes a paused booth automatically. If recovery finishes on the same paused iPad, fresh sign-in returns to that Live Event's management page. Recovery opened on another device follows ordinary sign-in to `/dashboard`.
+The recovery email links to this page, where a valid recovery link lets the Admin enter and confirm a new secure password. An invalid, expired, or already-used link cannot change the password and offers a path to request another link. The recovery pages show no Admin data. Reusing the current password is an error, not a completed reset. A successful reset ends **all Admin sessions**, including sessions on other devices, and asks the Admin to sign in with the new password. If the password saves but session revocation fails, the reset remains visibly incomplete; the Admin can enter another different password to retry, and other sessions may remain active until revocation succeeds. A Booth Access Grant is separate and remains active if a Live booth is running; password recovery never resumes a paused booth automatically. If recovery finishes on the same paused iPad, fresh sign-in returns to that Live Event's management page. Recovery opened on another device follows ordinary sign-in to `/dashboard`.
 
 ### Dashboard — `/dashboard`
 
@@ -192,3 +192,4 @@ The first release is ready for an Event only when:
 - [Qualify development on iPhone before iPad launch](docs/adr/0012-qualify-development-on-iphone-before-ipad-launch.md)
 - [Use optional HTTPS for local device testing](docs/adr/0013-use-optional-https-for-local-device-testing.md)
 - [Validate Draft Event saves before operational setup](docs/adr/0014-validate-draft-event-saves.md)
+- [Complete Admin reset only after password change and session revocation](docs/adr/0015-complete-admin-reset-only-after-password-change-and-revocation.md)
