@@ -1,6 +1,6 @@
 # Pre-gate Draft Event management
 
-**Status:** Approved by the owner on 2026-10-14; implementation has not started.
+**Status:** Approved by the owner on 2026-10-14; implemented and verified against the isolated local Supabase stack. Hosted staging verification and promotion remain pending until a separate staging project is identified. The approved scope and decisions below are unchanged.
 
 ## Intent and dependency
 
@@ -42,3 +42,9 @@ Use pure validation tests, database integration tests for constraints and author
 Draft deletion waits for [issue #8](https://github.com/noelorph/diy-instax-photobooth/issues/8). Live transitions, Booth Mode and grants, Event Media, printer-backed readiness and Test Prints, Print or Film Reservations, Film Stock changes, Additional Prints, Confirmed Print accounting, and completed History belong to later contract and build work in [issues #9 and #10](https://github.com/noelorph/diy-instax-photobooth/issues/9). No gated operation should appear as an enabled control or callable mutation in this stage.
 
 Before claiming issue #14 complete, review the combined Admin change against both specs, resolve code-review findings, run fresh lint, type, unit/integration, and browser checks, and record deferred integrated and cross-device cases. The Admin foundation is optional parallel work and never blocks issue #17's physical trial.
+
+## Local implementation handoff — 2026-10-14
+
+The combined Admin and Draft foundation implements this spec locally. Regression coverage includes expired/revoked protected access with persistent sign-in-again feedback, real local Auth and database boundaries, and native Chromium 200% page zoom for shell navigation, Profile, and Draft form/list/validation flows with keyboard access. See the [README verification instructions](../../../README.md#profile-and-browser-verification) for reproducible checks and the native zoom method.
+
+The connected hosted project's environment is unconfirmed; no hosted promotion is included in this handoff. Identify the separate staging project, apply and verify migrations there, then follow the documented production promotion process. Deferred #10 Booth and physical-device cases and all exclusions in this spec remain pending.

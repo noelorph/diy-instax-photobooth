@@ -20,15 +20,25 @@ const draftEventSchema = z
       .string()
       .trim()
       .min(1, 'Enter the venue time zone.')
-      .refine((zone) => {
-        if (/^[+-]/.test(zone)) return false;
-        try {
-          Temporal.Instant.fromEpochMilliseconds(0).toZonedDateTimeISO(zone);
-          return true;
-        } catch {
-          return false;
+      .transform((zone, ctx) => {
+        if (!/^[+-]/.test(zone)) {
+          try {
+            // Intl accepts case-insensitive input; persist its IANA spelling so
+            // PostgreSQL's case-sensitive zone lookup receives the same name.
+            const normalized = new Intl.DateTimeFormat('en', { timeZone: zone }).resolvedOptions()
+              .timeZone;
+            Temporal.Instant.fromEpochMilliseconds(0).toZonedDateTimeISO(normalized);
+            return normalized;
+          } catch {
+            // Report invalid zones on their field before converting local times.
+          }
         }
-      }, 'Enter a valid IANA venue time zone, such as Asia/Manila.'),
+        ctx.addIssue({
+          code: 'custom',
+          message: 'Enter a valid IANA venue time zone, such as Asia/Manila.',
+        });
+        return z.NEVER;
+      }),
     startsAtLocal: localDateTime,
     endsAtLocal: localDateTime,
     // Match the PostgreSQL integer columns used by Draft persistence.

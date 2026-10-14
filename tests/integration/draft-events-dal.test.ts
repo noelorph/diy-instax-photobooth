@@ -88,6 +88,34 @@ describe('protected Draft DAL with local Auth and Data API', () => {
     });
   });
 
+  it('persists lowercase IANA zones using the parser’s normalized name', async () => {
+    await admin();
+    const draft = await create({ ...booking, timeZone: 'asia/manila' });
+    expect(await getDraft(draft.id)).toMatchObject({
+      status: 'success',
+      draft: { timeZone: 'Asia/Manila', startsAtUtc: '2026-12-01T10:00:00+00:00' },
+    });
+    expect(
+      await updateDraft(draft.id, 1, { ...booking, timeZone: 'america/new_york' })
+    ).toMatchObject({ status: 'success', draft: { timeZone: 'America/New_York' } });
+  });
+
+  it('reports a database-rejected venue zone on its field without a partial save', async () => {
+    await admin();
+    const draft = await create();
+    const before = await listDrafts();
+    // ICU recognizes this legacy name, but the local PostgreSQL tzdata does not.
+    const input = { ...booking, timeZone: 'SystemV/EST5' };
+    for (const result of [await createDraft(input), await updateDraft(draft.id, 1, input)]) {
+      expect(result).toMatchObject({
+        status: 'invalid',
+        fieldErrors: { timeZone: expect.stringMatching(/venue time zone/i) },
+      });
+    }
+    expect(await listDrafts()).toEqual(before);
+    expect(await getDraft(draft.id)).toEqual({ status: 'success', draft });
+  });
+
   it('updates every booking field while preserving a second Event’s independent Client snapshot', async () => {
     const owner = await admin();
     const first = await create();

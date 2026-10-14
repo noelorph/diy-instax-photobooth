@@ -71,6 +71,18 @@ function bookingColumns(input: ValidatedDraftEvent) {
   };
 }
 
+function saveFailure(error: { code: string; message: string }): InvalidDraft {
+  // Runtime ICU and PostgreSQL can ship different tzdata versions. Preserve the
+  // database's authority and return its known zone rejection as field feedback.
+  if (error.code === '23514' && error.message === 'A valid venue time zone is required.') {
+    return {
+      status: 'invalid',
+      fieldErrors: { timeZone: 'Choose a supported IANA venue time zone, such as Asia/Manila.' },
+    };
+  }
+  throw error;
+}
+
 export async function listDrafts(): Promise<DraftListResult> {
   return recover(async () => {
     await requireAdmin();
@@ -116,7 +128,7 @@ export async function createDraft(input: unknown): Promise<DraftSaveResult> {
       .select(columns)
       .returns<DraftEvent[]>()
       .single();
-    if (error) throw error;
+    if (error) return saveFailure(error);
     return { status: 'success' as const, draft: data };
   });
 }
@@ -151,7 +163,7 @@ export async function updateDraft(
       .select(columns)
       .returns<DraftEvent[]>()
       .maybeSingle();
-    if (error) throw error;
+    if (error) return saveFailure(error);
     if (data) return { status: 'success' as const, draft: data };
     // Check existence only after the atomic write attempt; never use a prior read
     // to decide that an update is safe. No Client fields are needed here.

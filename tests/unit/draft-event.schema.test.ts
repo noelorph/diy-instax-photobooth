@@ -17,6 +17,13 @@ const validInput = {
 };
 
 describe('Draft Event input', () => {
+  it('normalizes lowercase IANA zones to a name accepted by persistence', () => {
+    expect(parseDraftEventInput({ ...validInput, timeZone: 'asia/manila' })).toMatchObject({
+      timeZone: 'Asia/Manila',
+      startsAtUtc: '2026-10-20T10:00:00Z',
+    });
+  });
+
   it.each(['startsAtLocal', 'endsAtLocal'])(
     'requires a valid venue-local date and time on %s',
     (field) => {

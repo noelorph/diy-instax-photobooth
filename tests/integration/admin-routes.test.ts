@@ -21,7 +21,7 @@ function expectPrivate(response: Response) {
   expect(response.headers.get('cache-control')).toContain('no-store');
 }
 
-async function expectDenied(response: Response) {
+async function expectDenied(response: Response, sessionEnded = false) {
   const body = await response.text();
   // Cache Components may stream a redirect after sending a neutral fallback.
   const destination =
@@ -30,6 +30,7 @@ async function expectDenied(response: Response) {
     body.match(/NEXT_REDIRECT;[^;]+;([^;]+);/)?.[1] ??
     '';
   expect(destination).toContain('/sign-in');
+  if (sessionEnded) expect(destination).toBe('/sign-in?reason=session-ended');
   expect(body).not.toContain('Admin foundation');
   expect(body).not.toContain('Event management is not available yet');
   expect(body).not.toContain('Event history is not available yet');
@@ -108,7 +109,16 @@ describe('Admin page responses with local Auth sessions', () => {
     const verification = await local.client().auth.getClaims(expired.access_token);
     expect(verification.error).not.toBeNull();
     for (const destination of destinations) {
-      await expectDenied(await routes.request(destination, sessionCookies(expired)));
+      await expectDenied(await routes.request(destination, sessionCookies(expired)), true);
+    }
+    for (let visit = 0; visit < 2; visit++) {
+      const response = await routes.request('/sign-in?reason=session-ended');
+      const body = await response.text();
+      expect(body).toContain('Your session is no longer available. Sign in again to continue.');
+      expect(body).toContain('role="status"');
+      expect(body).toContain('Forgot password?');
+      expect(body).not.toContain(session.user.email);
+      expect(body).not.toContain(session.access_token);
     }
   });
 
@@ -128,7 +138,7 @@ describe('Admin page responses with local Auth sessions', () => {
           // The original still-unexpired JWT is replayed; refresh must not mask
           // the final live-session check by swapping it for a fresh credential.
           expect(response.headers.get('set-cookie')).toBeNull();
-          await expectDenied(response);
+          await expectDenied(response, true);
         }
       }
     }

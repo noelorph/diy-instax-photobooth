@@ -54,7 +54,8 @@ for (const width of [390, 768, 1440]) {
       await expect(page.getByLabel('Phone number')).toHaveValue('+63 917 123 4567');
       await expect(page.getByLabel('Appearance')).toHaveValue('dark');
       await expect(page.locator('.admin-shell')).toHaveAttribute('data-theme', 'dark');
-      // CSS zoom changes both text and effective layout space at 200%.
+      // Supplemental CSS scaling only. Native page zoom and media-query changes
+      // are verified separately in native-zoom.spec.ts.
       await page.locator('html').evaluate((element) => {
         element.style.zoom = '2';
       });
@@ -82,7 +83,12 @@ for (const width of [390, 768, 1440]) {
       await expect(page).toHaveURL(/\/sign-in$/);
       await expect(page.getByRole('navigation')).toHaveCount(0);
       await page.goto('/profile');
-      await expect(page).toHaveURL(/\/sign-in$/);
+      await expect(page).toHaveURL(/\/sign-in\?reason=session-ended$/);
+      await expect(page.getByRole('status')).toHaveText(
+        'Your session is no longer available. Sign in again to continue.'
+      );
+      await page.reload();
+      await expect(page.getByRole('status')).toContainText('Sign in again');
       expect((await other.client.auth.refreshSession()).error).toBeNull();
       expect((await readProfile(other.client)).data?.[0].id).toBe(admin.id);
     } finally {

@@ -1,6 +1,6 @@
 # Pre-gate Admin access and shell
 
-**Status:** Approved by the owner on 2026-10-14; implementation has not started.
+**Status:** Approved by the owner on 2026-10-14; implemented and verified against the isolated local Supabase stack. Hosted staging verification and promotion remain pending until a separate staging project is identified. The approved scope and decisions below are unchanged.
 
 ## Intent and boundary
 
@@ -44,3 +44,9 @@ Use unit/component tests for form and shell states, Auth/database integration te
 ## Completion and handoff
 
 This spec is complete when its tested flows work independently of the printer trial and expose no gated operation. It supplies the authorization and AppShell contract to the Draft Event spec. Before claiming issue #14 complete, review the combined Admin change against both specs, resolve code-review findings, run fresh lint, type, unit/integration, and browser checks, and record deferred #10 and physical-device cases. Do not treat this foundation or issue #17's iPhone result as iPad release proof.
+
+## Local implementation handoff — 2026-10-14
+
+The combined Admin and Draft foundation implements this spec locally. Regression coverage includes expired/revoked protected access with persistent sign-in-again feedback, real local Auth and database boundaries, and native Chromium 200% page zoom for shell navigation, Profile, and Draft form/list/validation flows with keyboard access. See the [README verification instructions](../../../README.md#profile-and-browser-verification) for reproducible checks and the native zoom method.
+
+The connected hosted project's environment is unconfirmed; no hosted promotion is included in this handoff. Identify the separate staging project, apply and verify migrations there, then follow the documented production promotion process. Deferred #10 Booth and physical-device cases and all exclusions in this spec remain pending.

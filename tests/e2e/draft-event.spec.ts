@@ -14,7 +14,7 @@ async function fillBooking(page: Page, title: string) {
   await page.getByLabel('Original Print Allowance').filter({ visible: true }).fill('0');
 }
 for (const width of [390, 1440]) {
-  test(`create, list, view and edit Drafts by keyboard at ${width}px and 200% zoom`, async ({
+  test(`create, list, view and edit Drafts by keyboard at ${width}px with supplemental CSS scaling`, async ({
     page,
     context,
   }, testInfo) => {

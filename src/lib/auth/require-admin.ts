@@ -8,7 +8,7 @@ export async function requireAdmin(): Promise<{ userId: string; sessionId: strin
   const userId = data?.claims.sub;
   const sessionId = data?.claims.session_id;
   if (error || !userId || typeof sessionId !== 'string' || !sessionId) {
-    redirect('/sign-in');
+    redirect('/sign-in?reason=session-ended');
   }
 
   // The Profile SELECT policy calls private.is_active_admin(): the verified
@@ -19,6 +19,6 @@ export async function requireAdmin(): Promise<{ userId: string; sessionId: strin
     .select('id')
     .eq('id', userId)
     .maybeSingle();
-  if (profileError || !profile) redirect('/sign-in');
+  if (profileError || !profile) redirect('/sign-in?reason=session-ended');
   return { userId, sessionId };
 }
