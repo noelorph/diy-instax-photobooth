@@ -35,6 +35,10 @@ for (const width of [390, 768, 1440]) {
       }
       const nav = page.getByRole('navigation', { name: 'Admin' });
       await expect(nav.getByRole('link').last()).toHaveAccessibleName('Profile');
+      if (width === 1440) {
+        await nav.getByRole('link', { name: 'History' }).click();
+        await expect(page.getByRole('heading', { name: 'History' })).toBeVisible();
+      }
       await nav.getByRole('link', { name: 'Profile', exact: true }).focus();
       await page.keyboard.press('Enter');
       await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
