@@ -7,10 +7,8 @@ import { useForm, useWatch } from 'react-hook-form';
 import { Temporal } from '@js-temporal/polyfill';
 import type { DraftEvent } from '@/lib/events/drafts';
 import {
-  ambiguousLocalTimeError,
   validateDraftFormData,
   type DraftFieldErrors,
-  scheduleOrderError,
   type DraftEventInput,
 } from './draft-event.schema';
 import type { DraftActionState } from './state';
@@ -40,6 +38,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
   );
   const [edited, setEdited] = useState(false);
   const [editedErrorFields, setEditedErrorFields] = useState<(keyof DraftEventInput)[]>([]);
+  const [liveErrors, setLiveErrors] = useState<DraftFieldErrors>({});
   const { register, control } = useForm<DraftEventInput>({
     defaultValues: initial
       ? {
@@ -65,6 +64,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
     async (previous, data) => {
       setEdited(false);
       setEditedErrorFields([]);
+      setLiveErrors({});
       const fieldErrors = validateDraftFormData(data);
       if (Object.keys(fieldErrors).length) return { status: 'invalid', fieldErrors };
       try {
@@ -88,6 +88,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
   }, [state]);
   const errors: DraftFieldErrors = state.status === 'invalid' ? { ...state.fieldErrors } : {};
   for (const name of editedErrorFields) delete errors[name];
+  if (state.status === 'invalid') Object.assign(errors, liveErrors);
   const hasFieldErrors = Object.entries(errors).some(
     ([name, message]) => message && name !== 'state' && name !== 'expectedRevision'
   );
@@ -165,25 +166,12 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
         onChange={(event) => {
           setEdited(true);
           const name = event.target.name as keyof DraftEventInput;
-          if (state.status === 'invalid' && state.fieldErrors[name]) {
-            setEditedErrorFields((fields) => (fields.includes(name) ? fields : [...fields, name]));
-          }
-          if (
-            name === 'startsAtLocal' &&
-            state.status === 'invalid' &&
-            state.fieldErrors.endsAtLocal === scheduleOrderError
-          ) {
-            setEditedErrorFields((fields) =>
-              fields.includes('endsAtLocal') ? fields : [...fields, 'endsAtLocal']
-            );
-          }
-          if (name === 'timeZone' && state.status === 'invalid') {
-            const dependentFields = (['startsAtLocal', 'endsAtLocal'] as const).filter(
-              (field) => state.fieldErrors[field] === ambiguousLocalTimeError
-            );
-            if (dependentFields.length) {
-              setEditedErrorFields((fields) => [...new Set([...fields, ...dependentFields])]);
-            }
+          if (state.status === 'invalid') {
+            const affectedFields: (keyof DraftEventInput)[] = [name];
+            if (name === 'startsAtLocal') affectedFields.push('endsAtLocal');
+            if (name === 'timeZone') affectedFields.push('startsAtLocal', 'endsAtLocal');
+            setEditedErrorFields((fields) => [...new Set([...fields, ...affectedFields])]);
+            setLiveErrors(validateDraftFormData(new FormData(event.currentTarget)));
           }
         }}
         onSubmit={(event) => {

@@ -46,6 +46,21 @@ for (const width of [390, 1440]) {
       await page.getByRole('button', { name: 'Save Draft' }).click();
       await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
       await fillBooking(page, title);
+      const clientEmail = page.getByLabel('Client email').filter({ visible: true });
+      const emailError = page
+        .getByText('Enter a valid Client email.', { exact: true })
+        .filter({ visible: true });
+      await clientEmail.fill('invalid');
+      await page.getByRole('button', { name: 'Save Draft' }).click();
+      await expect(emailError).toBeVisible();
+      await expect(clientEmail).toHaveAttribute('aria-invalid', 'true');
+      await clientEmail.fill('still-invalid');
+      await expect(emailError).toBeVisible();
+      await expect(clientEmail).toHaveAttribute('aria-invalid', 'true');
+      await clientEmail.fill('alex@example.test');
+      await expect(emailError).toHaveCount(0);
+      await expect(clientEmail).toHaveAttribute('aria-invalid', 'false');
+      await expect(page.getByRole('main').getByRole('alert')).toHaveCount(0);
       await page.locator('html').evaluate((element) => {
         element.style.zoom = '2';
       });
@@ -79,6 +94,7 @@ for (const width of [390, 1440]) {
       ).toHaveCount(0);
       const stale = await context.newPage();
       await stale.goto(`/events/${eventId}`);
+      await expect(stale.getByLabel('Event name').filter({ visible: true })).toHaveValue(title);
       await stale.getByLabel('Event name').filter({ visible: true }).fill('Retain my stale edit');
       await page.getByLabel('Event name').filter({ visible: true }).fill(`${title} updated`);
       await page.getByLabel('Venue address').filter({ visible: true }).fill('Cebu hall');
