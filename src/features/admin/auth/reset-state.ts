@@ -1,6 +1,7 @@
 export type ResetState = {
   fieldErrors?: { password?: string; confirmation?: string };
   error?: string;
+  revocationIncomplete?: boolean;
   invalidLink?: boolean;
   confirmation?: string;
 };

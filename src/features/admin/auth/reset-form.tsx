@@ -13,12 +13,16 @@ export function ResetPasswordForm({
 }) {
   const id = useId();
   const feedback = useRef<HTMLParagraphElement>(null);
+  const [revocationWarning, setRevocationWarning] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [state, formAction, pending] = useActionState<ResetState, FormData>(
     async (previous, data) => {
       try {
-        return await action(previous, data);
+        const next = await action(previous, data);
+        if (next.revocationIncomplete && next.error) setRevocationWarning(next.error);
+        if (next.confirmation) setRevocationWarning(null);
+        return next;
       } catch (error) {
         unstable_rethrow(error);
         return { error: 'Check your connection and try again.' };
@@ -88,6 +92,11 @@ export function ResetPasswordForm({
           ) : null}
         </div>
       ))}
+      {revocationWarning && !state.revocationIncomplete ? (
+        <p role="status" className="auth-alert">
+          {revocationWarning}
+        </p>
+      ) : null}
       {state.fieldErrors || state.error ? (
         <p role="alert" className="auth-alert" tabIndex={-1} ref={feedback}>
           {state.error ?? 'Correct the highlighted fields and try again.'}

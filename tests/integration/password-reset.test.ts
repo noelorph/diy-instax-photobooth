@@ -201,12 +201,14 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
   it('keeps a saved reset incomplete until revocation succeeds with a different password', async () => {
     const { callback, client, admin } = await recovery();
     await GET(new Request(callback));
-    vi.spyOn(client.auth, 'signOut').mockResolvedValueOnce({
+    vi.spyOn(client.auth.admin, 'signOut').mockResolvedValueOnce({
+      data: null,
       error: new AuthApiError('private outage diagnostic', 503, 'unexpected_failure'),
     });
     const firstPassword = 'Retry-new-password!';
     const failed = await resetPassword({}, passwords(firstPassword));
     expect(failed.confirmation).toBeUndefined();
+    expect(failed.revocationIncomplete).toBe(true);
     expect(failed.error).toMatch(/password was saved.*sessions could not all be ended/i);
     expect(failed.error).toMatch(/different password/i);
     expect(JSON.stringify(failed)).not.toContain('private outage diagnostic');

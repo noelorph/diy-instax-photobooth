@@ -72,4 +72,32 @@ describe('Public password reset form', () => {
     );
     expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(false);
   });
+
+  it('keeps the saved-but-unrevoked warning visible after a same-password retry', async () => {
+    const warning =
+      'Your password was saved, but Admin sessions could not all be ended. The reset is incomplete.';
+    let attempts = 0;
+    render(
+      <ResetPasswordForm
+        action={async () => {
+          attempts += 1;
+          return attempts === 1
+            ? { error: warning, revocationIncomplete: true }
+            : { fieldErrors: { password: 'Use a different password.' } };
+        }}
+      />
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: 'Set new password' }));
+    await screen.findByText(warning);
+    await waitFor(() =>
+      expect(
+        (screen.getByRole('button', { name: 'Set new password' }) as HTMLButtonElement).disabled
+      ).toBe(false)
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Set new password' }));
+    await screen.findByText('Use a different password.');
+    expect(screen.getByText(warning)).toBeTruthy();
+    expect(screen.queryByRole('link', { name: 'Sign in' })).toBeNull();
+  });
 });
