@@ -7,7 +7,7 @@ import {
   startAdminRouteServer,
 } from '../fixtures/admin-route-server';
 
-const destinations = ['/dashboard', '/events', '/history'];
+const destinations = ['/dashboard', '/events', '/history', '/profile'];
 
 function expectPrivate(response: Response) {
   expect(response.headers.get('cache-control')).toContain('private');
@@ -26,6 +26,7 @@ async function expectDenied(response: Response) {
   expect(body).not.toContain('Admin foundation');
   expect(body).not.toContain('Event management is not available yet');
   expect(body).not.toContain('Event history is not available yet');
+  expect(body).not.toContain('Account preferences');
   expectPrivate(response);
 }
 
@@ -61,9 +62,14 @@ describe('Admin page responses with local Auth sessions', () => {
         const body = await response.text();
         expect(response.status).toBe(200);
         if (rsc) expect(response.headers.get('content-type')).toContain('text/x-component');
-        expect(body).toContain('Admin foundation');
-        expect(body).toContain('not available yet');
-        expect(body).not.toMatch(/Start Booth|Resume Booth|Test Print|Create Event|<button/);
+        if (destination === '/profile') {
+          expect(body).toContain(session.user.email);
+          if (!rsc) expect(body).toContain('Account preferences');
+        } else {
+          expect(body).toContain('Admin foundation');
+          expect(body).toContain('not available yet');
+        }
+        expect(body).not.toMatch(/Start Booth|Resume Booth|Test Print|Create Event/);
         expect(body).not.toContain(session.access_token);
         expect(body).not.toContain(session.refresh_token);
         expectPrivate(response);

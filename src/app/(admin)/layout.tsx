@@ -1,9 +1,10 @@
 import { Suspense, type ReactNode } from 'react';
-import { requireAdmin } from '@/lib/auth/require-admin';
+import { readAdminProfile } from '@/features/admin/profile/read';
+import { AppShell } from '@/features/admin/app-shell';
 
 async function AuthorizedAdmin({ children }: { children: ReactNode }) {
-  await requireAdmin();
-  return children;
+  const profile = await readAdminProfile();
+  return <AppShell theme={profile.theme}>{children}</AppShell>;
 }
 
 export default function AdminLayout({ children }: { children: ReactNode }) {

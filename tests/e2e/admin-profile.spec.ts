@@ -1,0 +1,92 @@
+import { test, expect } from '@playwright/test';
+import { localSupabase, readProfile } from '../fixtures/local-supabase';
+for (const width of [390, 768, 1440]) {
+  test(`sign in, navigate, persist Profile, and locally sign out at ${width}px`, async ({
+    page,
+  }, testInfo) => {
+    const local = localSupabase();
+    const admin = await local.provisionUser();
+    try {
+      expect((await local.allowlist(admin.id)).error).toBeNull();
+      let other = await local.signIn(admin);
+      await page.setViewportSize({ width, height: 1000 });
+      await page.goto('/sign-in');
+      await expect(page.getByRole('navigation')).toHaveCount(0);
+      await page.getByLabel('Email', { exact: true }).fill(admin.email);
+      await page.getByLabel('Password', { exact: true }).fill(admin.password);
+      await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+      await expect(page).toHaveURL(/\/dashboard$/);
+      if (width < 640) {
+        const trigger = page.getByRole('button', { name: /^(Open|Close) navigation$/ });
+        await trigger.focus();
+        await page.keyboard.press('Enter');
+        await expect(trigger).toHaveAttribute('aria-expanded', 'true');
+        await page.keyboard.press('Escape');
+        await expect(trigger).toBeFocused();
+        await page.keyboard.press('Enter');
+      }
+      if (width >= 640 && width < 1024) {
+        const dashboard = page.getByRole('navigation').getByRole('link', { name: 'Dashboard' });
+        expect(
+          await dashboard.evaluate((element) => element.scrollWidth <= element.clientWidth)
+        ).toBe(true);
+        await page.getByRole('button', { name: 'Expand navigation' }).click();
+        await expect(page.getByRole('button', { name: 'Collapse navigation' })).toBeVisible();
+      }
+      const nav = page.getByRole('navigation', { name: 'Admin' });
+      await expect(nav.getByRole('link').last()).toHaveAccessibleName('Profile');
+      await nav.getByRole('link', { name: 'Profile', exact: true }).focus();
+      await page.keyboard.press('Enter');
+      await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
+      if (width < 640)
+        await expect(page.getByRole('button', { name: 'Open navigation' })).toHaveAttribute(
+          'aria-expanded',
+          'false'
+        );
+      await page.getByLabel('Phone number').fill('+63 917 123 4567');
+      await page.getByLabel('Appearance').selectOption('dark');
+      await page.getByRole('button', { name: 'Save preferences' }).click();
+      await expect(page.getByText('Preferences saved.')).toBeVisible();
+      await expect(page.getByLabel('Appearance')).toHaveValue('dark');
+      await expect(page.locator('.admin-shell')).toHaveAttribute('data-theme', 'dark');
+      await page.screenshot({ path: testInfo.outputPath(`profile-${width}.png`), fullPage: true });
+      await page.reload();
+      await expect(page.getByLabel('Phone number')).toHaveValue('+63 917 123 4567');
+      await expect(page.getByLabel('Appearance')).toHaveValue('dark');
+      await expect(page.locator('.admin-shell')).toHaveAttribute('data-theme', 'dark');
+      // CSS zoom changes both text and effective layout space at 200%.
+      await page.locator('html').evaluate((element) => {
+        element.style.zoom = '2';
+      });
+      await expect(page.getByRole('button', { name: 'Save preferences' })).toBeVisible();
+      expect(
+        await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
+      ).toBe(true);
+      await page.locator('html').evaluate((element) => {
+        element.style.zoom = '';
+      });
+      if (width === 1440) {
+        const password = 'Browser-profile-password-456!';
+        await page.getByLabel('New password', { exact: true }).fill(password);
+        await page.getByLabel('Confirm new password').fill(password);
+        await page.getByRole('button', { name: 'Change password' }).click();
+        await expect(page.getByText('Password changed.', { exact: false })).toBeVisible();
+        expect(
+          (await local.client().auth.signInWithPassword({ email: admin.email, password })).error
+        ).toBeNull();
+        // Auth password changes may end existing sessions; establish a new
+        // independent device to measure local Sign out alone.
+        other = await local.signIn({ email: admin.email, password });
+      }
+      await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+      await expect(page).toHaveURL(/\/sign-in$/);
+      await expect(page.getByRole('navigation')).toHaveCount(0);
+      await page.goto('/profile');
+      await expect(page).toHaveURL(/\/sign-in$/);
+      expect((await other.client.auth.refreshSession()).error).toBeNull();
+      expect((await readProfile(other.client)).data?.[0].id).toBe(admin.id);
+    } finally {
+      await local.cleanup();
+    }
+  });
+}
