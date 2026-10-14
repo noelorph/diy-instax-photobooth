@@ -1,6 +1,6 @@
 # iPhone print qualification design
 
-**Status:** Proposed for written-spec review. This design implements the existing iPhone development gate in [issue #17](https://github.com/noelorph/diy-instax-photobooth/issues/17), [PRD section 3](../../../PRD.md#3-development-and-launch-feasibility-gates), and [ADR-0012](../../adr/0012-qualify-development-on-iphone-before-ipad-launch.md). It does not change either hardware gate.
+**Status:** Approved by the owner on 2026-10-14. This design implements the existing iPhone development gate in [issue #17](https://github.com/noelorph/diy-instax-photobooth/issues/17), [PRD section 3](../../../PRD.md#3-development-and-launch-feasibility-gates), and [ADR-0012](../../adr/0012-qualify-development-on-iphone-before-ipad-launch.md). It does not change either hardware gate.
 
 ## Intent
 
