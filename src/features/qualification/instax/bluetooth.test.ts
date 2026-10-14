@@ -53,6 +53,34 @@ function fixture(model = 'FI033') {
 afterEach(() => vi.useRealTimers());
 
 describe('Mini Link 3 Bluetooth connection', () => {
+  it('identifies a numeric failure before the device chooser opens', async () => {
+    const f = fixture();
+    vi.mocked(f.bluetooth.requestDevice).mockRejectedValueOnce(2);
+
+    await expect(
+      connectMiniLink3(f.bluetooth, { onResponse: vi.fn(), onDisconnect: vi.fn() })
+    ).rejects.toMatchObject({ message: 'Bluetooth device selection: 2' });
+  });
+
+  it('identifies a numeric GATT connection failure', async () => {
+    const f = fixture();
+    vi.spyOn(f.device.gatt, 'connect').mockRejectedValueOnce(2);
+
+    await expect(
+      connectMiniLink3(f.bluetooth, { onResponse: vi.fn(), onDisconnect: vi.fn() })
+    ).rejects.toMatchObject({ message: 'Bluetooth GATT connection: 2' });
+  });
+
+  it('identifies a numeric device information failure', async () => {
+    const f = fixture();
+    vi.mocked(f.server.getPrimaryService).mockRejectedValueOnce(2);
+
+    await expect(
+      connectMiniLink3(f.bluetooth, { onResponse: vi.fn(), onDisconnect: vi.fn() })
+    ).rejects.toMatchObject({ message: 'Bluetooth device information service: 2' });
+    expect(f.server.disconnect).toHaveBeenCalledOnce();
+  });
+
   it('connectsAndReadsFirmware', async () => {
     const f = fixture();
     const connection = await connectMiniLink3(f.bluetooth, {

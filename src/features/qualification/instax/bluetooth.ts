@@ -58,24 +58,46 @@ export async function connectMiniLink3(
   bluetooth: WebBluetoothPort,
   callbacks: { onResponse(response: InstaxResponse): void; onDisconnect(): void }
 ): Promise<PrinterConnection> {
-  const device = await bluetooth.requestDevice({
-    filters: [{ namePrefix: 'INSTAX-' }],
-    optionalServices: [DEVICE_INFO_SERVICE, INSTAX_BLE_UUIDS.printService],
-  });
+  let device: Device;
+  try {
+    device = await bluetooth.requestDevice({
+      filters: [{ namePrefix: 'INSTAX-' }],
+      optionalServices: [DEVICE_INFO_SERVICE, INSTAX_BLE_UUIDS.printService],
+    });
+  } catch (error) {
+    throw new Error(
+      `Bluetooth device selection: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
   if (!device.gatt) throw new Error('Selected printer has no GATT server');
-  const server = await device.gatt.connect();
+  let server: Server;
+  try {
+    server = await device.gatt.connect();
+  } catch (error) {
+    throw new Error(
+      `Bluetooth GATT connection: ${error instanceof Error ? error.message : String(error)}`
+    );
+  }
+  let stage = 'device information service';
   try {
     const info = await server.getPrimaryService(DEVICE_INFO_SERVICE);
+    stage = 'model characteristic';
     const modelCharacteristic = await info.getCharacteristic(MODEL_NUMBER);
     if (!modelCharacteristic.readValue) throw new Error('Printer model is unreadable');
+    stage = 'model read';
     const modelNumber = decode(await modelCharacteristic.readValue());
     if (modelNumber !== 'FI033')
       throw new Error(`Expected FI033, received ${modelNumber || 'no model'}`);
+    stage = 'firmware characteristic';
     const firmwareCharacteristic = await info.getCharacteristic(FIRMWARE_REVISION);
     if (!firmwareCharacteristic.readValue) throw new Error('Printer firmware is unreadable');
+    stage = 'firmware read';
     const firmwareRevision = decode(await firmwareCharacteristic.readValue());
+    stage = 'print service';
     const printService = await server.getPrimaryService(INSTAX_BLE_UUIDS.printService);
+    stage = 'write characteristic';
     const write = await printService.getCharacteristic(INSTAX_BLE_UUIDS.writeCharacteristic);
+    stage = 'notification characteristic';
     const notify = await printService.getCharacteristic(INSTAX_BLE_UUIDS.notifyCharacteristic);
     const withoutResponse =
       !!write.properties?.writeWithoutResponse && !!write.writeValueWithoutResponse;
@@ -138,6 +160,7 @@ export async function connectMiniLink3(
       callbacks.onDisconnect();
     };
     notify.addEventListener('characteristicvaluechanged', onNotification);
+    stage = 'notifications';
     try {
       await notify.startNotifications();
     } catch (error) {
@@ -194,6 +217,8 @@ export async function connectMiniLink3(
     };
   } catch (error) {
     if (server.connected) server.disconnect();
-    throw error;
+    throw new Error(
+      `Bluetooth ${stage}: ${error instanceof Error ? error.message : String(error)}`
+    );
   }
 }

@@ -178,8 +178,9 @@ export function QualificationClient({ services }: { services?: QualificationServ
       return;
     }
     setSetupError('');
+    let connection: PrinterConnection | null = null;
     try {
-      const connection = await active.connect(active.bluetooth, {
+      connection = await active.connect(active.bluetooth, {
         onResponse(response) {
           const transferResponse =
             response.opcode === INSTAX_OPCODES.downloadStart ||
@@ -216,15 +217,32 @@ export function QualificationClient({ services }: { services?: QualificationServ
         },
       });
       connectionRef.current = connection;
-      const preflight = await active.preflight(connection);
+      let preflight: Awaited<ReturnType<typeof preflightPrinter>>;
+      try {
+        preflight = await active.preflight(connection);
+      } catch (error) {
+        throw new Error(`Printer status check: ${errorText(error)}`);
+      }
       setPrinterDetails(
         `${connection.modelNumber} · firmware ${connection.firmwareRevision} · film reported ${preflight.filmRemaining}`
       );
       setPrinterReady(true);
       record({ kind: 'printer-ready', filmRemaining: preflight.filmRemaining });
     } catch (error) {
+      if (connection) {
+        connectionRef.current = null;
+        try {
+          await connection.disconnect();
+        } catch (disconnectError) {
+          record({ kind: 'disconnect-error', message: errorText(disconnectError) });
+        }
+      }
       setPrinterReady(false);
-      setSetupError(`Printer: ${errorText(error)}`);
+      setSetupError(
+        error instanceof Error && error.message.startsWith('Printer status check:')
+          ? error.message
+          : `Printer: ${errorText(error)}`
+      );
     }
   }
   async function capture() {

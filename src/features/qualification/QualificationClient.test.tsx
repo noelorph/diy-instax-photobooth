@@ -56,6 +56,27 @@ describe('supervised iPhone qualification page', () => {
     expect(screen.getByRole('button', { name: 'Start trial' }).hasAttribute('disabled')).toBe(true);
   });
 
+  it('identifies a numeric failure during printer status check', async () => {
+    const { services } = fixture();
+    vi.mocked(services.preflight).mockRejectedValueOnce(2);
+    render(<QualificationClient services={services} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect printer' }));
+
+    expect(await screen.findByText('Printer status check: 2')).toBeDefined();
+  });
+
+  it('disconnects after a failed printer status check', async () => {
+    const { services, connection } = fixture();
+    vi.mocked(services.preflight).mockRejectedValueOnce(new Error('status timed out'));
+    render(<QualificationClient services={services} />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Connect printer' }));
+
+    await waitFor(() => expect(connection.disconnect).toHaveBeenCalledOnce());
+    expect(screen.getByText('Printer not connected')).toBeDefined();
+  });
+
   it('retriesDeniedCamera', async () => {
     const { services } = fixture();
     vi.mocked(services.getUserMedia).mockRejectedValueOnce(new Error('Permission denied'));
