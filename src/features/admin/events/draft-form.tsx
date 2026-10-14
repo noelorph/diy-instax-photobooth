@@ -5,11 +5,11 @@ import { unstable_rethrow } from 'next/navigation';
 import { useActionState, useEffect, useId, useRef, useState } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Temporal } from '@js-temporal/polyfill';
-import { ZodError } from 'zod';
-import type { DraftEvent, DraftFieldErrors } from '@/lib/events/drafts';
+import type { DraftEvent } from '@/lib/events/drafts';
 import {
   ambiguousLocalTimeError,
-  parseDraftEventInput,
+  validateDraftFormData,
+  type DraftFieldErrors,
   scheduleOrderError,
   type DraftEventInput,
 } from './draft-event.schema';
@@ -65,25 +65,8 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
     async (previous, data) => {
       setEdited(false);
       setEditedErrorFields([]);
-      try {
-        parseDraftEventInput({
-          ...Object.fromEntries(data),
-          filmPackageCount:
-            data.get('filmPackageCount') === '' ? NaN : Number(data.get('filmPackageCount')),
-          originalPrintAllowance:
-            data.get('originalPrintAllowance') === ''
-              ? NaN
-              : Number(data.get('originalPrintAllowance')),
-        });
-      } catch (error) {
-        if (!(error instanceof ZodError)) throw error;
-        const fieldErrors: DraftFieldErrors = {};
-        for (const issue of error.issues) {
-          const field = issue.path[0] as keyof DraftFieldErrors;
-          fieldErrors[field] ??= issue.message;
-        }
-        return { status: 'invalid', fieldErrors };
-      }
+      const fieldErrors = validateDraftFormData(data);
+      if (Object.keys(fieldErrors).length) return { status: 'invalid', fieldErrors };
       try {
         const result = saved
           ? await updateAction(saved.id, saved.revision, previous, data)

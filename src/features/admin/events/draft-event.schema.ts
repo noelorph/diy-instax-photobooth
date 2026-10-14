@@ -1,5 +1,5 @@
 import { Temporal } from '@js-temporal/polyfill';
-import { z } from 'zod';
+import { z, ZodError } from 'zod';
 
 export const scheduleOrderError = 'Scheduled end must be after the scheduled start.';
 export const ambiguousLocalTimeError =
@@ -97,4 +97,43 @@ export type ValidatedDraftEvent = z.output<typeof draftEventSchema>;
 /** Throws a ZodError with input field paths; shared by form and server validation. */
 export function parseDraftEventInput(input: unknown): ValidatedDraftEvent {
   return draftEventSchema.parse(input);
+}
+
+export type DraftFieldErrors = Partial<
+  Record<keyof DraftEventInput | 'state' | 'expectedRevision', string>
+>;
+
+export function draftInputFromFormData(data: FormData): Record<string, unknown> {
+  if (!(data instanceof FormData)) return {};
+  function count(field: string) {
+    const value = data.get(field);
+    return typeof value === 'string' && value.trim() !== '' ? Number(value) : NaN;
+  }
+  return {
+    ...Object.fromEntries(data),
+    ...(data.has('state')
+      ? { state: data.getAll('state').every((value) => value === 'Draft') ? 'Draft' : null }
+      : {}),
+    filmPackageCount: count('filmPackageCount'),
+    originalPrintAllowance: count('originalPrintAllowance'),
+  };
+}
+
+export function draftFieldErrors(error: ZodError): DraftFieldErrors {
+  const fieldErrors: DraftFieldErrors = {};
+  for (const issue of error.issues) {
+    const field = issue.path[0] as keyof DraftFieldErrors | undefined;
+    if (field) fieldErrors[field] ??= issue.message;
+  }
+  return fieldErrors;
+}
+
+export function validateDraftFormData(data: FormData): DraftFieldErrors {
+  try {
+    parseDraftEventInput(draftInputFromFormData(data));
+    return {};
+  } catch (error) {
+    if (!(error instanceof ZodError)) throw error;
+    return draftFieldErrors(error);
+  }
 }

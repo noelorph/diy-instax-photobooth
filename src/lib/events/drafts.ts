@@ -4,8 +4,9 @@ import { unstable_rethrow } from 'next/navigation';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { createClient } from '@/lib/supabase/server';
 import {
+  draftFieldErrors,
   parseDraftEventInput,
-  type DraftEventInput,
+  type DraftFieldErrors,
   type ValidatedDraftEvent,
 } from '@/features/admin/events/draft-event.schema';
 
@@ -13,9 +14,7 @@ export type DraftEvent = ValidatedDraftEvent & { id: string; state: 'Draft'; rev
 type Unavailable = { status: 'unavailable'; error: string };
 export type DraftReadResult =
   { status: 'success'; draft: DraftEvent } | { status: 'not_found' } | Unavailable;
-export type DraftFieldErrors = Partial<
-  Record<keyof DraftEventInput | 'state' | 'expectedRevision', string>
->;
+export type { DraftFieldErrors } from '@/features/admin/events/draft-event.schema';
 type InvalidDraft = { status: 'invalid'; fieldErrors: DraftFieldErrors };
 export type DraftSaveResult =
   DraftReadResult | InvalidDraft | { status: 'conflict'; error: string };
@@ -43,12 +42,7 @@ function validate(input: unknown): { status: 'valid'; values: ValidatedDraftEven
     return { status: 'valid', values: parseDraftEventInput(input) };
   } catch (error) {
     if (!(error instanceof ZodError)) throw error;
-    const fieldErrors: DraftFieldErrors = {};
-    for (const issue of error.issues) {
-      const field = issue.path[0] as keyof DraftFieldErrors | undefined;
-      if (field) fieldErrors[field] ??= issue.message;
-    }
-    return { status: 'invalid', fieldErrors };
+    return { status: 'invalid', fieldErrors: draftFieldErrors(error) };
   }
 }
 

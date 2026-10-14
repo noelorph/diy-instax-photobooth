@@ -1,7 +1,12 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest';
 import { ZodError } from 'zod';
-import { parseDraftEventInput } from '@/features/admin/events/draft-event.schema';
+import {
+  draftFieldErrors,
+  draftInputFromFormData,
+  parseDraftEventInput,
+  validateDraftFormData,
+} from '@/features/admin/events/draft-event.schema';
 
 const validInput = {
   title: '  Birthday party  ',
@@ -166,3 +171,69 @@ function expectFieldError(input: unknown, field: string, message?: RegExp) {
   expect(issue).toBeDefined();
   if (message) expect(issue?.message).toMatch(message);
 }
+
+function validFormData() {
+  const data = new FormData();
+  for (const [field, value] of Object.entries(validInput)) data.set(field, String(value));
+  return data;
+}
+
+describe('Draft FormData validation', () => {
+  it.each(['filmPackageCount', 'originalPrintAllowance'])(
+    'reports missing, empty, whitespace, and file values on %s',
+    (field) => {
+      for (const value of [undefined, '', ' \t\n ', new File(['0'], 'count.txt')]) {
+        const data = validFormData();
+        if (value === undefined) data.delete(field);
+        else data.set(field, value);
+        expect(
+          validateDraftFormData(data)[field as 'filmPackageCount' | 'originalPrintAllowance']
+        ).toEqual(expect.any(String));
+        expectFieldError(draftInputFromFormData(data), field);
+      }
+    }
+  );
+
+  it('accepts zero counts without changing their independent values', () => {
+    const data = validFormData();
+    data.set('filmPackageCount', '0');
+    data.set('originalPrintAllowance', '0');
+    expect(validateDraftFormData(data)).toEqual({});
+    expect(parseDraftEventInput(draftInputFromFormData(data))).toMatchObject({
+      filmPackageCount: 0,
+      originalPrintAllowance: 0,
+    });
+  });
+
+  it.each([
+    ['Live', 'Draft'],
+    ['Draft', 'Live'],
+    [new File(['Draft'], 'state.txt'), 'Draft'],
+  ])('preserves rejection of non-Draft duplicate state values (%s, %s)', (first, second) => {
+    const data = validFormData();
+    data.append('state', first);
+    data.append('state', second);
+    expect(draftInputFromFormData(data).state).toBeNull();
+  });
+
+  it('preserves absent and exclusively Draft state submissions', () => {
+    const data = validFormData();
+    expect(draftInputFromFormData(data)).not.toHaveProperty('state');
+    data.append('state', 'Draft');
+    data.append('state', 'Draft');
+    expect(draftInputFromFormData(data).state).toBe('Draft');
+  });
+
+  it('retains the first issue per field and ignores issues without a field path', () => {
+    const error = new ZodError([
+      { code: 'custom', path: ['title'], message: 'Enter the Event name.' },
+      { code: 'custom', path: ['title'], message: 'Another Event name error.' },
+      { code: 'custom', path: [], message: 'Form-level error.' },
+      { code: 'custom', path: ['clientEmail'], message: 'Enter a valid Client email.' },
+    ]);
+    expect(draftFieldErrors(error)).toEqual({
+      title: 'Enter the Event name.',
+      clientEmail: 'Enter a valid Client email.',
+    });
+  });
+});
