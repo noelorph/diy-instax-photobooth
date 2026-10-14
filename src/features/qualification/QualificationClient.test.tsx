@@ -159,7 +159,9 @@ describe('supervised iPhone qualification page', () => {
       await vi.advanceTimersByTimeAsync(1);
     });
     expect(confirm.hasAttribute('disabled')).toBe(false);
-    expect(screen.getByText(/Observation window ended; check the status log/)).toBeDefined();
+    expect(
+      screen.getByText(/Status recording complete\. Tap “Observed film ejection” below now/)
+    ).toBeDefined();
     expect(services.observe).toHaveBeenCalledOnce();
 
     fireEvent.click(confirm);
@@ -193,6 +195,36 @@ describe('supervised iPhone qualification page', () => {
     });
     expect(screen.getByText(/Inspect the printer/)).toBeDefined();
     expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
+  });
+
+  it('explains a missed final confirmation after emergence was marked', async () => {
+    const { services } = fixture();
+    await enterTrial(services);
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    await screen.findByRole('button', { name: 'Print' });
+    vi.useFakeTimers();
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+      await Promise.resolve();
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Sheet fully emerged' }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(
+      screen.getByText(/Physical emergence was marked, but final confirmation was missed/)
+    ).toBeDefined();
+    fireEvent.click(screen.getByText('Operator diagnostics'));
+    fireEvent.click(screen.getByRole('button', { name: 'Export non-photo log' }));
+    const json = screen.getByRole('textbox', { name: 'Non-photo log JSON' }) as HTMLTextAreaElement;
+    const events = JSON.parse(json.value).events;
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        kind: 'uncertain',
+        message:
+          'Physical emergence was marked, but final confirmation was missed within 60 seconds',
+      })
+    );
   });
 
   it('does not expose image transfer response bytes in diagnostics', async () => {

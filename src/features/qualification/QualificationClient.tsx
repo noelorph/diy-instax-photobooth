@@ -85,6 +85,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
   const stopObservationRef = useRef<(() => void) | null>(null);
   const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const markerTailRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const emergenceMarkedRef = useRef(false);
   const servicesRef = useRef<QualificationServices | null>(services ?? null);
 
   useEffect(() => {
@@ -307,6 +308,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     setPrinting(true);
     setRejection('');
     setEmergenceMarkerTime(null);
+    emergenceMarkedRef.current = false;
     setStatusTailComplete(false);
     try {
       await controller.startPrint(jpeg);
@@ -330,7 +332,11 @@ export function QualificationClient({ services }: { services?: QualificationServ
         );
         timeoutRef.current = setTimeout(() => {
           if (controller.getState().phase !== 'awaiting-observation') return;
-          controller.markUncertain('No observed physical ejection within 60 seconds');
+          controller.markUncertain(
+            emergenceMarkedRef.current
+              ? 'Physical emergence was marked, but final confirmation was missed within 60 seconds'
+              : 'No observed physical ejection within 60 seconds'
+          );
           setTrialState(controller.getState());
           stopObservation();
           clearPhoto();
@@ -360,6 +366,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     )
       return;
     const marker = controller.markPhysicalEmergence();
+    emergenceMarkedRef.current = true;
     setEvents(logRef.current?.getEvents() ?? []);
     setEmergenceMarkerTime(marker.timestamp);
     setStatusTailComplete(false);
@@ -375,6 +382,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     setTrialState(controller.getState());
     stopObservation();
     setEmergenceMarkerTime(null);
+    emergenceMarkedRef.current = false;
     setStatusTailComplete(false);
     clearPhoto();
     setStage(controller.getState().phase === 'exhausted' ? 'setup' : 'camera');
@@ -390,6 +398,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     setEvents([]);
     setLogExport(null);
     setEmergenceMarkerTime(null);
+    emergenceMarkedRef.current = false;
     setStatusTailComplete(false);
   }
   function exportLog() {
@@ -481,7 +490,9 @@ export function QualificationClient({ services }: { services?: QualificationServ
         {stage === 'uncertain' && (
           <div className={styles.emptyFrame}>
             <strong>Outcome uncertain</strong>
-            <small>Inspect the printer and physical sheets. Do not resend.</small>
+            <small>
+              {trialState.lastMessage}. Inspect the printer and physical sheets. Do not resend.
+            </small>
           </div>
         )}
       </section>
@@ -551,7 +562,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
             <p className={styles.detail} aria-live="polite">
               {emergenceMarkerTime
                 ? statusTailComplete
-                  ? `Marker saved at ${new Date(emergenceMarkerTime).toLocaleTimeString()}. Observation window ended; check the status log.`
+                  ? `Marker saved at ${new Date(emergenceMarkerTime).toLocaleTimeString()}. Status recording complete. Tap “Observed film ejection” below now to confirm the sheet.`
                   : `Marker saved at ${new Date(emergenceMarkerTime).toLocaleTimeString()}. Status recording continues for 10 seconds.`
                 : 'Tap only when the entire sheet is outside the printer. This is a timing marker, not automatic confirmation.'}
             </p>
