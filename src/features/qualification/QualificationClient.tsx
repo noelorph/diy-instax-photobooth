@@ -194,6 +194,15 @@ export function QualificationClient({ services }: { services?: QualificationServ
             responseHex: transferResponse ? undefined : hex(response.payload),
           });
         },
+        onLink3Status(bytes) {
+          record({ kind: 'link3-status', responseHex: hex(bytes) });
+        },
+        onLink3StatusReady() {
+          record({ kind: 'link3-status-listening' });
+        },
+        onLink3StatusError(error) {
+          record({ kind: 'link3-status-unavailable', message: error.message });
+        },
         onDisconnect() {
           connectionRef.current = null;
           setPrinterReady(false);

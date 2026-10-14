@@ -30,4 +30,11 @@ describe('qualification evidence log', () => {
     expect(exported).not.toContain('sentinel-image-bytes');
     expect(second.responseHex).toHaveLength(256);
   });
+
+  it('exports bounded raw Link 3 status without photo data', () => {
+    const log = createTrialLog({ now: () => 0, iso: () => '2026-10-14T10:00:00Z' });
+    const event = log.record({ kind: 'link3-status', responseHex: '12 7f 00' });
+    expect(event.responseHex).toBe('127f00');
+    expect(log.exportJson()).toContain('"responseHex": "127f00"');
+  });
 });

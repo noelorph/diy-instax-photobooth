@@ -44,7 +44,10 @@ export function createTrialLog(clock: { now(): number; iso(): string }): TrialLo
       if (input.statusByte !== undefined) event.statusByte = input.statusByte & 255;
       if (input.filmRemaining !== undefined) event.filmRemaining = input.filmRemaining & 15;
       if (input.message !== undefined) event.message = String(input.message).slice(0, 300);
-      if (input.responseHex !== undefined && ['printer-response', 'status'].includes(input.kind)) {
+      if (
+        input.responseHex !== undefined &&
+        ['printer-response', 'status', 'link3-status'].includes(input.kind)
+      ) {
         event.responseHex = String(input.responseHex)
           .replace(/[^0-9a-f]/gi, '')
           .slice(0, 256);
