@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { QualificationClient, type QualificationServices } from './QualificationClient';
+import { INSTAX_OPCODES } from './instax/protocol';
 
 const jpeg = new Uint8Array([
   0xff, 0xd8, 0xff, 0xc0, 0, 17, 8, 3, 32, 2, 88, 3, 1, 17, 0, 2, 17, 0, 3, 17, 0, 0xff, 0xd9,
@@ -29,7 +30,7 @@ function fixture() {
     observe: vi.fn(() => vi.fn()),
     storage: localStorage,
   };
-  return { services, track };
+  return { services, track, connection };
 }
 async function enterTrial(services: QualificationServices) {
   render(<QualificationClient services={services} />);
@@ -119,5 +120,18 @@ describe('supervised iPhone qualification page', () => {
     });
     expect(screen.getByText(/Inspect the printer/)).toBeDefined();
     expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
+  });
+
+  it('does not expose image transfer response bytes in diagnostics', async () => {
+    const { services, connection } = fixture();
+    vi.mocked(services.connect).mockImplementation(async (_bluetooth, callbacks) => {
+      callbacks.onResponse({
+        opcode: INSTAX_OPCODES.downloadData,
+        payload: new Uint8Array([0xde, 0xad, 0xbe, 0xef]),
+      });
+      return connection;
+    });
+    await enterTrial(services);
+    expect(screen.queryByText(/deadbeef/)).toBeNull();
   });
 });

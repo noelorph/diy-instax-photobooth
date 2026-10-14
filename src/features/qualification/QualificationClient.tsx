@@ -6,6 +6,7 @@ import {
   type PrinterConnection,
   type WebBluetoothPort,
 } from './instax/bluetooth';
+import { INSTAX_OPCODES } from './instax/protocol';
 import {
   preflightPrinter,
   sendTrialPrint,
@@ -169,11 +170,16 @@ export function QualificationClient({ services }: { services?: QualificationServ
     try {
       const connection = await active.connect(active.bluetooth, {
         onResponse(response) {
+          const transferResponse =
+            response.opcode === INSTAX_OPCODES.downloadStart ||
+            response.opcode === INSTAX_OPCODES.downloadData ||
+            response.opcode === INSTAX_OPCODES.downloadEnd ||
+            response.opcode === INSTAX_OPCODES.printImage;
           record({
             kind: 'printer-response',
             opcode: response.opcode,
-            statusByte: response.payload[0],
-            responseHex: hex(response.payload),
+            statusByte: transferResponse ? undefined : response.payload[0],
+            responseHex: transferResponse ? undefined : hex(response.payload),
           });
         },
         onDisconnect() {
