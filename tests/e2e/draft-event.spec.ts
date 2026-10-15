@@ -92,10 +92,8 @@ for (const width of [390, 1440]) {
           await expect(staticPage.getByLabel('Event name')).toHaveValue(title);
           await expect(staticPage.getByLabel('Scheduled start')).toHaveValue('2025-01-10T18:00');
           await expect(staticPage.getByLabel('Event name')).toBeDisabled();
-          await expect(staticPage.locator('form.draft-form')).toHaveAttribute('aria-busy', 'false');
-          await expect(staticPage.locator('form.draft-form > p[role="status"]')).toHaveText(
-            'Preparing Draft editor…'
-          );
+          await expect(staticPage.locator('form')).toHaveAttribute('aria-busy', 'false');
+          await expect(staticPage.getByRole('status')).toHaveText('Preparing Draft editor…');
           await expect(staticPage.locator('button[type="submit"]')).toBeDisabled();
         } finally {
           await staticContext.close();
@@ -174,7 +172,8 @@ for (const width of [390, 1440]) {
       ).toBe(true);
       expect(
         await page
-          .locator('.draft-table caption')
+          .getByRole('table')
+          .locator('caption')
           .evaluate(
             (caption) => caption.clientWidth >= (caption.parentElement?.clientWidth ?? 0) * 0.9
           )

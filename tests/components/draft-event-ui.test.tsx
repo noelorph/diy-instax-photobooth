@@ -76,6 +76,46 @@ it('offers creation in an empty list and labels venue-local overdue Draft schedu
   expect(screen.getByText(/18:00/)).toBeTruthy();
   expect(screen.getByText(/Asia\/Manila/)).toBeTruthy();
   expect(screen.getByText('Overdue Draft')).toBeTruthy();
+  expect(screen.getByText('Draft', { exact: true })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Create Event' })).toBeNull();
+});
+it('submits an edited registered value after clearing its error while another server error remains', async () => {
+  const submissions: FormData[] = [];
+  render(
+    <DraftForm
+      initial={draft}
+      createAction={ok}
+      updateAction={async (_id, _revision, _state, data) => {
+        submissions.push(data);
+        return submissions.length === 1
+          ? {
+              status: 'invalid',
+              fieldErrors: {
+                title: 'Review this Event name.',
+                venueAddress: 'Review this venue address.',
+              },
+            }
+          : saved;
+      }}
+    />
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByText('Review this Event name.');
+  const title = screen.getByLabelText('Event name');
+  expect(document.getElementById(title.getAttribute('aria-describedby')!)?.textContent).toBe(
+    'Review this Event name.'
+  );
+  fireEvent.change(title, { target: { value: 'Anniversary dinner' } });
+  expect(screen.queryByText('Review this Event name.')).toBeNull();
+  expect(title.getAttribute('aria-invalid')).toBe('false');
+  expect(title.getAttribute('aria-describedby')).toBeNull();
+  expect(screen.getByText('Review this venue address.')).toBeTruthy();
+  expect(screen.getByRole('alert')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByText('Draft saved.');
+  expect(submissions).toHaveLength(2);
+  expect(submissions[1].get('title')).toBe('Anniversary dinner');
+  expect(submissions[1].get('venueAddress')).toBe('Manila hall');
 });
 it('shows zero booking counts as Draft with venue-local editable times', () => {
   form();
@@ -356,8 +396,9 @@ it('retains state and revision guidance across edits until the next save', async
   expect(screen.getByRole('alert').textContent).toBe('Reload the latest Draft before saving.');
   expect(screen.getByRole('link', { name: 'Reload latest Draft' })).toBeTruthy();
   fireEvent.change(screen.getByLabelText('Client email'), { target: { value: 'invalid' } });
+  expect(screen.getByText('Enter a valid Client email.')).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
-  await screen.findByText('Enter a valid Client email.');
+  await screen.findByText('Correct the highlighted fields and try again.');
   expect(screen.getByRole('alert').textContent).toBe(
     'Correct the highlighted fields and try again.'
   );

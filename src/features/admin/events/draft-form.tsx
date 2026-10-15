@@ -5,6 +5,13 @@ import { unstable_rethrow } from 'next/navigation';
 import { useActionState, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Temporal } from '@js-temporal/polyfill';
+import { FormField } from '@/components/shared/form-field';
+import { FormFeedback } from '@/components/shared/form-feedback';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatusBadge } from '@/components/shared/status-badge';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import styles from './draft.module.css';
 import type { DraftEvent } from '@/lib/events/drafts';
 import {
   validateDraftFormData,
@@ -34,7 +41,7 @@ const serverSnapshot = () => false;
 
 export function DraftForm({ initial, createAction, updateAction }: DraftFormProps) {
   const id = useId();
-  const feedback = useRef<HTMLParagraphElement>(null);
+  const feedback = useRef<HTMLDivElement>(null);
   // Keep the revision belonging to this editor; a server refresh must never
   // silently attach a newer revision to the Admin's older form values.
   const [saved, setSaved] = useState(
@@ -110,62 +117,49 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
           : undefined;
 
   function field(name: keyof DraftEventInput, label: string, type = 'text', help?: string) {
-    const errorId = `${id}-${name}-error`;
-    const helpId = `${id}-${name}-help`;
     return (
-      <div className="auth-field">
-        <label htmlFor={`${id}-${name}`}>{label}</label>
-        <input
-          {...register(name)}
-          defaultValue={initialValues[name]}
-          id={`${id}-${name}`}
-          type={type}
-          required
-          min={type === 'number' ? 0 : undefined}
-          step={type === 'number' ? 1 : type === 'datetime-local' ? 'any' : undefined}
-          autoComplete={
-            name === 'clientEmail'
-              ? 'email'
-              : name === 'clientPhone'
-                ? 'tel'
-                : name === 'clientName'
-                  ? 'name'
-                  : 'off'
-          }
-          aria-invalid={Boolean(errors[name])}
-          aria-describedby={
-            [help ? helpId : '', errors[name] ? errorId : ''].filter(Boolean).join(' ') || undefined
-          }
-        />
-        {help ? (
-          <p className="field-help" id={helpId}>
-            {help}
-          </p>
-        ) : null}
-        {errors[name] ? (
-          <p className="auth-field-error" id={errorId}>
-            {errors[name]}
-          </p>
-        ) : null}
-      </div>
+      <FormField id={`${id}-${name}`} label={label} help={help} error={errors[name]}>
+        {(a11y) => (
+          <Input
+            {...register(name)}
+            {...a11y}
+            defaultValue={initialValues[name]}
+            type={type}
+            required
+            min={type === 'number' ? 0 : undefined}
+            step={type === 'number' ? 1 : type === 'datetime-local' ? 'any' : undefined}
+            autoComplete={
+              name === 'clientEmail'
+                ? 'email'
+                : name === 'clientPhone'
+                  ? 'tel'
+                  : name === 'clientName'
+                    ? 'name'
+                    : 'off'
+            }
+          />
+        )}
+      </FormField>
     );
   }
 
   return (
-    <div className="draft-content">
-      <Link className="draft-link" href="/events">
+    <div className={styles.content}>
+      <Link className={styles.link} href="/events">
         Back to Events
       </Link>
-      <header>
-        <h1>{initial ? 'Edit Draft' : 'Create Event'}</h1>
-        <p>Save the booking details for this Event.</p>
-        <div className="draft-meta">
-          <span className="draft-badge">Draft</span>
-          {saved ? <span>Revision {saved.revision}</span> : null}
-        </div>
-      </header>
+      <PageHeader
+        title={initial ? 'Edit Draft' : 'Create Event'}
+        description="Save the booking details for this Event."
+        meta={
+          <>
+            <StatusBadge status="Draft" />
+            {saved ? <span>Revision {saved.revision}</span> : null}
+          </>
+        }
+      />
       <form
-        className="auth-form draft-form"
+        className={styles.form}
         action={submit}
         noValidate
         aria-busy={pending}
@@ -185,14 +179,10 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
           if (pending) event.preventDefault();
         }}
       >
-        {!hydrated ? (
-          <p className="field-help" role="status">
-            Preparing Draft editor…
-          </p>
-        ) : null}
+        {!hydrated ? <FormFeedback kind="status">Preparing Draft editor…</FormFeedback> : null}
         <fieldset disabled={pending || !hydrated}>
           <legend>Event and venue</legend>
-          <div className="draft-fields">
+          <div className={styles.fields}>
             {field('title', 'Event name')}
             {field('venueAddress', 'Venue address')}
             {field(
@@ -205,10 +195,10 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
         </fieldset>
         <fieldset disabled={pending || !hydrated}>
           <legend>Schedule</legend>
-          <p className="field-help">
+          <p className={styles.help}>
             Venue-local time{timeZone ? ` · ${timeZone}` : ' · enter the venue time zone above'}.
           </p>
-          <div className="draft-fields">
+          <div className={styles.fields}>
             {field(
               'startsAtLocal',
               'Scheduled start',
@@ -225,8 +215,8 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
         </fieldset>
         <fieldset disabled={pending || !hydrated}>
           <legend>Client contact</legend>
-          <p className="field-help">These contact details belong to this Event.</p>
-          <div className="draft-fields">
+          <p className={styles.help}>These contact details belong to this Event.</p>
+          <div className={styles.fields}>
             {field('clientName', 'Client name')}
             {field('clientEmail', 'Client email', 'email')}
             {field('clientPhone', 'Client phone', 'tel')}
@@ -234,11 +224,11 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
         </fieldset>
         <fieldset disabled={pending || !hydrated}>
           <legend>Booking</legend>
-          <p className="field-help">
+          <p className={styles.help}>
             Enter the package count and guest prints separately. Either can be zero while preparing
             a Draft.
           </p>
-          <div className="draft-fields">
+          <div className={styles.fields}>
             {field('filmPackageCount', 'Booked Film Packages', 'number')}
             {field(
               'originalPrintAllowance',
@@ -249,9 +239,9 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
           </div>
         </fieldset>
         {error ? (
-          <p className="auth-alert" role="alert" ref={feedback} tabIndex={-1}>
+          <FormFeedback kind="error" feedbackRef={feedback} tabIndex={-1}>
             {error}
-          </p>
+          </FormFeedback>
         ) : null}
         {(state.status === 'conflict' || errors.expectedRevision) && saved ? (
           <div>
@@ -259,21 +249,27 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
               Your entered values are still here. Reloading replaces them with the latest saved
               details.
             </p>
-            <a href={`/events/${saved.id}`}>Reload latest Draft</a>
+            <a className={styles.link} href={`/events/${saved.id}`}>
+              Reload latest Draft
+            </a>
           </div>
         ) : null}
         {state.status === 'success' && !edited && !pending ? (
-          <p className="profile-success" role="status" ref={feedback} tabIndex={-1}>
+          <FormFeedback kind="success" feedbackRef={feedback} tabIndex={-1}>
             {state.confirmation}
-          </p>
+          </FormFeedback>
         ) : null}
-        <div className="draft-actions">
-          <button type="submit" disabled={pending || !hydrated}>
+        <div className={styles.actions}>
+          <Button type="submit" disabled={pending || !hydrated}>
             Save Draft
-          </button>
-          {saved && !initial ? <Link href={`/events/${saved.id}`}>View saved Draft</Link> : null}
+          </Button>
+          {saved && !initial ? (
+            <Link className={styles.link} href={`/events/${saved.id}`}>
+              View saved Draft
+            </Link>
+          ) : null}
         </div>
-        {pending ? <p role="status">Saving Draft…</p> : null}
+        {pending ? <FormFeedback kind="status">Saving Draft…</FormFeedback> : null}
       </form>
     </div>
   );

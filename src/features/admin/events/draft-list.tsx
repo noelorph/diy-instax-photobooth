@@ -1,25 +1,30 @@
 import Link from 'next/link';
+import { EmptyState } from '@/components/shared/empty-state';
+import { PageHeader } from '@/components/shared/page-header';
+import { StatusBadge } from '@/components/shared/status-badge';
+import { buttonVariants } from '@/components/ui/button';
+import styles from './draft.module.css';
 import type { DraftEvent } from '@/lib/events/drafts';
 
 export function DraftList({ drafts, now }: { drafts: DraftEvent[]; now: number }) {
   return (
-    <section className="draft-content">
-      <header className="draft-list-header">
-        <div>
-          <h1>Events</h1>
-          <p>Draft bookings, ordered by scheduled start.</p>
-        </div>
-        <Link className="draft-primary-link" href="/events/new">
-          Create Event
-        </Link>
-      </header>
+    <section className={styles.content}>
+      <PageHeader
+        title="Events"
+        description="Draft bookings, ordered by scheduled start."
+        action={
+          <Link className={buttonVariants()} href="/events/new">
+            Create Event
+          </Link>
+        }
+      />
       {drafts.length === 0 ? (
-        <div className="draft-empty">
-          <h2>No Draft Events yet.</h2>
-          <p>Create an Event to save its booking details.</p>
-        </div>
+        <EmptyState
+          title="No Draft Events yet."
+          description="Create an Event to save its booking details."
+        />
       ) : (
-        <table className="draft-table">
+        <table className={styles.table}>
           <caption>Draft Events · earliest scheduled start first</caption>
           <thead>
             <tr>
@@ -39,11 +44,14 @@ export function DraftList({ drafts, now }: { drafts: DraftEvent[]; now: number }
               return (
                 <tr key={draft.id}>
                   <th scope="row">
-                    <Link href={`/events/${draft.id}`}>{draft.title}</Link>
+                    <span className={styles.cellLabel}>Event</span>
+                    <Link className={styles.link} href={`/events/${draft.id}`}>
+                      {draft.title}
+                    </Link>
                     <p>{draft.venueAddress}</p>
                   </th>
                   <td>
-                    <span className="draft-cell-label">Venue-local schedule</span>
+                    <span className={styles.cellLabel}>Venue-local schedule</span>
                     <time dateTime={draft.startsAtUtc}>
                       {format.format(new Date(draft.startsAtUtc))}
                     </time>
@@ -56,9 +64,10 @@ export function DraftList({ drafts, now }: { drafts: DraftEvent[]; now: number }
                     <span>{draft.timeZone}</span>
                   </td>
                   <td>
-                    <span className="draft-badge">Draft</span>
+                    <span className={styles.cellLabel}>Status</span>
+                    <StatusBadge status="Draft" />
                     {Date.parse(draft.startsAtUtc) < now ? (
-                      <p className="draft-overdue">Overdue Draft</p>
+                      <p className={styles.overdue}>Overdue Draft</p>
                     ) : null}
                   </td>
                 </tr>
