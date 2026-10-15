@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/.worktrees/
 /.pnp
 .pnp.*
 .yarn/*
@@ -23,6 +24,7 @@
 # misc
 .DS_Store
 *.pem
+/certificates/
 
 # debug
 npm-debug.log*
