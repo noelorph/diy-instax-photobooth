@@ -1,0 +1,29 @@
+import styles from '@/components/layout/auth-frame.module.css';
+import { Suspense } from 'react';
+import { FormFeedback } from '@/components/shared/form-feedback';
+import { signIn } from '@/features/admin/auth/actions';
+import { SignInForm } from '@/features/admin/auth/forms';
+
+type Props = { searchParams: Promise<{ reason?: string | string[] }> };
+
+async function SessionFeedback({ searchParams }: Props) {
+  const { reason } = await searchParams;
+  return reason === 'session-ended' ? (
+    <FormFeedback kind="status">
+      Your session is no longer available. Sign in again to continue.
+    </FormFeedback>
+  ) : null;
+}
+
+export default function SignInPage(props: Props) {
+  return (
+    <>
+      <h1 className={styles.heading}>Sign in</h1>
+      <p className={styles.description}>Sign in to your Admin account.</p>
+      <Suspense fallback={null}>
+        <SessionFeedback {...props} />
+      </Suspense>
+      <SignInForm action={signIn} />
+    </>
+  );
+}

@@ -89,7 +89,7 @@ The public recovery request page accepts the Admin email and offers **Send recov
 
 ### Set a new password — `/reset-password`
 
-The recovery email links to this page, where a valid recovery link lets the Admin enter and confirm a new secure password. An invalid, expired, or already-used link cannot change the password and offers a path to request another link. The recovery pages show no Admin data. A successful reset ends **all Admin sessions**, including sessions on other devices, and asks the Admin to sign in with the new password. A Booth Access Grant is separate and remains active if a Live booth is running; password recovery never resumes a paused booth automatically. If recovery finishes on the same paused iPad, fresh sign-in returns to that Live Event's management page. Recovery opened on another device follows ordinary sign-in to `/dashboard`.
+The recovery email links to this page, where a valid recovery link lets the Admin enter and confirm a new secure password. An invalid, expired, or already-used link cannot change the password and offers a path to request another link. The recovery pages show no Admin data. Reusing the current password is an error, not a completed reset. A successful reset ends **all Admin sessions**, including sessions on other devices, and asks the Admin to sign in with the new password. If the password saves but session revocation is not confirmed, the reset remains visibly incomplete. When the recovery session is confirmed active, the Admin can enter another different password to retry. When it is revoked or cannot be verified, the page explains that the outcome for all sessions is uncertain and directs the Admin to request a new recovery link. Other sessions may remain active until revocation succeeds. A Booth Access Grant is separate and remains active if a Live booth is running; password recovery never resumes a paused booth automatically. If recovery finishes on the same paused iPad, fresh sign-in returns to that Live Event's management page. Recovery opened on another device follows ordinary sign-in to `/dashboard`.
 
 ### Dashboard — `/dashboard`
 
@@ -111,6 +111,8 @@ At `/events/new`, the Admin enters:
 - booked Film Package count and original Print Allowance.
 
 The Admin can edit these details before the Event goes Live. The product records the Event as Draft until Booth Mode starts.
+
+During Draft creation and editing, the required identity, contact, venue, and schedule fields must be valid. Film Package count and original Print Allowance must be whole and nonnegative; either may be zero while the Event remains Draft. The venue-local schedule must use a valid IANA time zone, an unambiguous existing local start and end, and an end instant after the start. Invalid or ambiguous times are rejected with a field-level explanation rather than shifted or guessed. A stale edit from another device must not silently overwrite newer Draft details. See [ADR-0014](docs/adr/0014-validate-draft-event-saves.md).
 
 ### Specific Event — `/events/[eventId]`
 
@@ -191,5 +193,8 @@ The first release is ready for an Event only when:
 - [Use one design system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md)
 - [Keep Booth access separate during Admin password recovery](docs/adr/0011-keep-booth-access-separate-during-password-recovery.md)
 - [Qualify development on iPhone before iPad launch](docs/adr/0012-qualify-development-on-iphone-before-ipad-launch.md)
+- [Use optional HTTPS for local device testing](docs/adr/0013-use-optional-https-for-local-device-testing.md)
+- [Validate Draft Event saves before operational setup](docs/adr/0014-validate-draft-event-saves.md)
+- [Complete Admin reset only after password change and session revocation](docs/adr/0015-complete-admin-reset-only-after-password-change-and-revocation.md)
 - [Stop Booth Mode safely before a Print Reservation](docs/adr/0014-stop-booth-before-print-reservation.md)
 - [Keep operational history when deleting a Draft](docs/adr/0015-keep-history-when-deleting-draft.md)
