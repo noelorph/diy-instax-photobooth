@@ -1,6 +1,6 @@
 # Cohesive Admin UI refresh
 
-**Status:** Proposed for owner review. The in-chat design direction was approved on 2026-10-15; this written spec requires review before implementation planning.
+**Status:** Proposed for owner review. The in-chat design direction was approved on 2026-10-15; the owner then requested CodeRabbit typography across Admin and Booth Mode. This revised written spec requires review before implementation planning.
 
 ## Intent and scope
 
@@ -12,7 +12,7 @@ Success means the Admin can recognize one visual system across all these routes,
 
 ## Visual direction
 
-Use DM Sans and the design system's light and dark semantic palettes. The light Admin uses ivory canvas, white surfaces, ink text, and restrained teal actions; the saved Profile preference selects the documented dark palette for authenticated pages. Ordinary public auth stays light. Do not add a new palette, display font, gradient, or decorative card grid.
+Use Geist Sans Variable across the Admin refresh and future Booth Mode, as decided in [ADR-0017](../../adr/0017-use-geist-typography-across-admin-and-booth.md), with the design system's light and dark semantic palettes. The light Admin uses ivory canvas, white surfaces, ink text, and restrained teal actions; the saved Profile preference selects the documented dark palette for authenticated pages. Ordinary public auth stays light. Use the reference's compact 14/18 px secondary text and 16/22 px body rhythm in Admin screens; preserve larger Booth instruction and countdown roles. Do not add a new palette, second display font, gradient, or decorative card grid.
 
 The distinctive cue is one small portrait photo-frame mark at the navigation brand and public auth heading. It evokes a physical print without imitating a product logo or applying an effect to Guest photos. Keep the rest of the interface quiet: spacing, alignment, and useful borders establish hierarchy. Page titles are left aligned. Supporting text explains the current task; it does not become a decorative eyebrow on every page.
 
@@ -45,7 +45,7 @@ Implement in reviewable slices: (1) theme bridge, root component configuration, 
 
 Use TDD for component behavior and interaction changes: observe a relevant regression test fail before a behavior fix, then pass. Existing component, integration, and browser journeys must continue to pass. Add focused tests for shared field associations, button/link semantics, navigation state/focus, and any changed feedback behavior. Do not add tests that merely duplicate CSS values.
 
-Verify compact, medium, and wide layouts; light and dark Admin themes; ordinary public auth; keyboard focus and menu operation; 200% browser zoom; long Event and Client text; Draft empty, overdue, invalid, conflict, pending, and saved states; and recovery/reset errors and success. Inspect rendered screenshots for visual consistency and compare them with this spec. Run lint, type checking, formatting, the full applicable test suite, production build, and Playwright browser checks. Complete an independent code review of the whole UI change against this spec and [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), resolve findings, then verify again before declaring completion.
+Verify compact, medium, and wide layouts; light and dark Admin themes; ordinary public auth; keyboard focus and menu operation; 200% browser zoom; long Event and Client text; Draft empty, overdue, invalid, conflict, pending, and saved states; and recovery/reset errors and success. Verify that Geist loads from the application origin, remains readable at 200% zoom, and renders tabular counts and times consistently in both themes. Inspect rendered screenshots for visual consistency and compare them with this spec. Run lint, type checking, formatting, the full applicable test suite, production build, and Playwright browser checks. Complete an independent code review of the whole UI change against this spec and [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), resolve findings, then verify again before declaring completion.
 
 ## Boundaries and deferred work
 

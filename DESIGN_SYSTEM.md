@@ -1,7 +1,7 @@
 # DIY Instax Photo Booth — Design System
 
 - **Status:** Agreed design direction; implementation and target-device validation remain pending.
-- **Date:** 2026-10-11
+- **Date:** 2026-10-11; typography revised 2026-10-15
 - **Source:** [Design prompt](docs/prompts/design-system-prompt.md), [product requirements](PRD.md), and the design interview.
 - **Decision:** [One visual system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md).
 
@@ -63,15 +63,15 @@ Authenticated Admin pages render the saved Profile light/dark preference. Ordina
 
 ### Typography
 
-Use **DM Sans** for all UI text, with a system sans-serif fallback. Load one variable family with normal and italic styles only if needed; avoid a second display font. Use tabular numerals for counts, times, inventory, and table columns. Keep labels in sentence case, not all caps except very short metadata eyebrows.
+Use **Geist Sans Variable** for all Admin and Booth UI text, with a system sans-serif fallback. Load it from locally served assets in the root layout; add italic styles only if needed and avoid a second display or monospace family. The compact Admin rhythm follows the [CodeRabbit app typography reference](docs/adr/0017-use-geist-typography-across-admin-and-booth.md), while Booth instructions and countdown retain their larger, accessible roles. Use tabular numerals for counts, times, inventory, and table columns. Keep labels in sentence case, not all caps except very short metadata eyebrows.
 
 | Role         | Size / line height          | Weight  | Typical use                                            |
 | ------------ | --------------------------- | ------- | ------------------------------------------------------ |
 | `caption`    | 12 / 16 px                  | 500     | Secondary metadata; never essential Booth instructions |
-| `body-sm`    | 14 / 20 px                  | 400–500 | Dense Admin rows and helper text                       |
-| `body`       | 16 / 24 px                  | 400–500 | Forms, descriptions, default controls                  |
-| `body-lg`    | 18 / 28 px                  | 400–600 | Booth instructions and prominent summaries             |
-| `heading-sm` | 22 / 28 px                  | 600     | Section titles                                         |
+| `body-sm`    | 14 / 18 px                  | 400–500 | Dense Admin rows and helper text                       |
+| `body`       | 16 / 22 px                  | 400–500 | Forms, descriptions, default controls                  |
+| `body-lg`    | 20 / 28 px                  | 400–600 | Booth instructions and prominent summaries             |
+| `heading-sm` | 20 / 28 px                  | 600     | Section titles                                         |
 | `heading`    | 28 / 36 px                  | 600     | Admin page titles                                      |
 | `display`    | 36 / 44 px                  | 600–700 | Booth welcome and major state                          |
 | `countdown`  | clamp(5rem, 12vw, 9rem) / 1 | 700     | 3–2–1 only                                             |
