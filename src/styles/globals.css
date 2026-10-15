@@ -1,11 +1,29 @@
 @import 'tailwindcss';
 
-@font-face {
-  font-family: 'DM Sans';
-  font-style: normal;
-  font-weight: 100 1000;
-  font-display: swap;
-  src: url('/fonts/dm-sans-variable.ttf') format('truetype');
+@theme inline {
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --color-ds-canvas: var(--color-canvas);
+  --color-ds-surface: var(--color-surface);
+  --color-ds-surface-muted: var(--color-surface-muted);
+  --color-ds-text: var(--color-text);
+  --color-ds-text-muted: var(--color-text-muted);
+  --color-ds-border: var(--color-border);
+  --color-ds-border-subtle: var(--color-border-subtle);
+  --color-ds-primary: var(--color-primary);
+  --color-ds-primary-hover: var(--color-primary-hover);
+  --color-ds-on-primary: var(--color-on-primary);
+  --color-ds-primary-soft: var(--color-primary-soft);
+  --color-ds-focus: var(--color-focus);
+  --color-ds-danger: var(--color-danger);
+  --color-ds-danger-hover: var(--color-danger-hover);
+  --color-ds-on-danger: var(--color-on-danger);
+  --color-ds-danger-soft: var(--color-danger-soft);
+  --color-ds-info: var(--color-info);
+  --color-ds-info-soft: var(--color-info-soft);
+  --color-ds-success: var(--color-success);
+  --color-ds-success-soft: var(--color-success-soft);
+  --color-ds-warning: var(--color-warning);
+  --color-ds-warning-soft: var(--color-warning-soft);
 }
 
 html,
@@ -15,8 +33,10 @@ body {
 
 body {
   margin: 0;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
 }
 
+:root,
 .public-auth,
 .admin-shell {
   --color-canvas: #f6f5f0;
@@ -31,6 +51,10 @@ body {
   --color-on-primary: #ffffff;
   --color-focus: #1f6663;
   --color-danger: #a33137;
+  --color-danger-hover: #87282d;
+  --color-on-danger: #ffffff;
+  --color-warning: #805300;
+  --color-warning-soft: #fff1d6;
   --color-danger-soft: #fce9ea;
   --color-info: #245a78;
   --color-info-soft: #e5f1f7;
@@ -48,7 +72,7 @@ body {
     max(2rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
   background: var(--color-canvas);
   color: var(--color-text);
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-size: 1rem;
   line-height: 1.5;
 }
@@ -194,6 +218,8 @@ body {
   --color-on-primary: #101b1b;
   --color-focus: #8acac1;
   --color-danger: #ff999c;
+  --color-danger-hover: #ffb3b5;
+  --color-on-danger: #101b1b;
   --color-danger-soft: #4a292b;
   --color-info: #8cc8e8;
   --color-info-soft: #1e3a48;
@@ -206,7 +232,7 @@ body {
   min-height: 100dvh;
   background: var(--color-canvas);
   color: var(--color-text);
-  font-family: 'DM Sans', system-ui, sans-serif;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-size: 1rem;
   line-height: 1.5;
 }
