@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js 16.4 App Router, React 19, TypeScript, Supabase Postgres/RLS, Zod, React Hook Form, a pinned Temporal polyfill, Vitest, React Testing Library, Playwright.
 
-**Spec:** [Pre-gate Draft Event management](../specs/2026-10-13-draft-event-management-design.md)
+**Spec:** [Draft Event management (implemented)](../specs/2026-10-13-draft-event-management-design.md)
 
 ## Global Constraints
 

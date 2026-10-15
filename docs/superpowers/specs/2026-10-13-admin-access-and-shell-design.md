@@ -1,10 +1,10 @@
-# Pre-gate Admin access and shell
+# Admin access and shell (implemented; original pre-gate spec)
 
 **Status:** Approved by the owner on 2026-10-14; implemented and verified against the isolated local Supabase stack. Hosted staging verification and promotion remain pending until a separate staging project is identified. The approved scope and decisions below are unchanged.
 
 ## Intent and boundary
 
-Deliver the independent Admin identity and navigation foundation allowed by [issue #14](https://github.com/noelorph/diy-instax-photobooth/issues/14), [PRD section 3](../../../PRD.md#3-development-and-launch-feasibility-gates), and [ADR-0012](../../adr/0012-qualify-development-on-iphone-before-ipad-launch.md) while [issue #17](https://github.com/noelorph/diy-instax-photobooth/issues/17) qualifies printing. This is the first of two pre-gate Admin specs; [Draft Event management](2026-10-13-draft-event-management-design.md) builds on its authorization boundary. Success means the sole Admin can authenticate, recover access, manage Profile, and navigate protected pages without any Booth or printing operation becoming available.
+Deliver the independent Admin identity and navigation foundation allowed by [issue #14](https://github.com/noelorph/diy-instax-photobooth/issues/14), [PRD section 3](../../../PRD.md#3-development-and-launch-feasibility-gates), and [ADR-0012](../../adr/0012-qualify-development-on-iphone-before-ipad-launch.md) while [issue #17](https://github.com/noelorph/diy-instax-photobooth/issues/17) qualifies printing. This was the first of two Admin foundation specs; [Draft Event management](2026-10-13-draft-event-management-design.md) builds on its authorization boundary. Success means the sole Admin can authenticate, recover access, manage Profile, and navigate protected pages without any Booth or printing operation becoming available.
 
 The first release's full Dashboard, Events, and History views remain assigned to [issue #10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Until the Draft Event spec supplies the Events view, these three destinations are protected, clearly labeled foundation pages. Dashboard and History remain protected placeholders after that spec. They show no invented metrics, activity, Event history, or operational actions. Their presence in navigation does not imply the complete Admin system is ready.
 
