@@ -49,7 +49,7 @@ for (const width of [1000, 1440, 2400]) {
     });
     const local = localSupabase();
     const admin = await local.provisionUser();
-    const title = `Native zoom ${admin.id}`;
+    const title = `Native zoom ${admin.id} ${'Celebration'.repeat(14)}`;
     let eventId: string | undefined;
     try {
       expect((await local.allowlist(admin.id)).error).toBeNull();
@@ -144,10 +144,10 @@ for (const width of [1000, 1440, 2400]) {
       for (const [label, value] of Object.entries({
         'Event name': title,
         'Venue address': 'Manila hall',
-        'Venue time zone': 'asia/manila',
+        'Venue time zone': 'America/Argentina/Rio_Gallegos',
         'Scheduled start': '2025-01-10T18:00',
         'Scheduled end': '2025-01-10T20:00',
-        'Client name': 'Alex',
+        'Client name': 'Alexandria'.repeat(18),
         'Client email': 'alex@example.test',
         'Client phone': '+639171234567',
         'Booked Film Packages': '0',
@@ -165,8 +165,10 @@ for (const width of [1000, 1440, 2400]) {
       const view = page.getByRole('link', { name: 'View saved Draft' });
       eventId = (await view.getAttribute('href'))!.split('/').pop();
       await keyboardActivate(page, view);
+      await expect(page).toHaveURL(new RegExp(`/events/${eventId}$`));
+      await expect(page.getByRole('heading', { name: 'Edit Draft', exact: true })).toBeVisible();
       await expect(page.getByLabel('Venue time zone').filter({ visible: true })).toHaveValue(
-        'Asia/Manila'
+        'America/Argentina/Rio_Gallegos'
       );
       await page.getByLabel('Original Print Allowance').filter({ visible: true }).fill('7');
       await keyboardActivate(page, save);
@@ -183,7 +185,7 @@ for (const width of [1000, 1440, 2400]) {
       const row = page
         .getByRole('row')
         .filter({ has: page.getByRole('link', { name: title, exact: true }) });
-      await expect(row).toContainText('Asia/Manila');
+      await expect(row).toContainText('America/Argentina/Rio_Gallegos');
       await expect(row).toContainText('18:00');
       await expect(row).toContainText('Overdue Draft');
       await expectNoHorizontalOverflow(page);

@@ -62,7 +62,7 @@ function ProfileForm({
           {state.confirmation}
         </FormFeedback>
       ) : null}
-      <Button type="submit" disabled={pending} className="justify-self-start">
+      <Button type="submit" disabled={pending} className="w-full justify-self-start sm:w-auto">
         {title}
       </Button>
       {pending ? (
