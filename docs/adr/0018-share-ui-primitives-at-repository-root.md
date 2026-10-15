@@ -1,6 +1,6 @@
 # Share UI primitives at the repository root
 
-**Location superseded:** [ADR-0018](0018-place-shared-ui-components-under-src.md) moves the existing shared library to `src/components/`. The component responsibilities and styling guidance below remain in effect; the root-location and special-alias choices are historical.
+**Location superseded:** [ADR-0020](0020-place-shared-ui-components-under-src.md) moves the existing shared library to `src/components/`. The component responsibilities and styling guidance below remain in effect; the root-location and special-alias choices are historical.
 
 The Admin foundation currently repeats native form controls and styles them through broad global selectors, even though [DESIGN_SYSTEM.md](../../DESIGN_SYSTEM.md) calls for Tailwind CSS 4, customized shadcn/ui primitives, and Lucide icons. The owner approved a cohesive refresh of every implemented Admin screen, with project-wide reusable components under root `/components`.
 

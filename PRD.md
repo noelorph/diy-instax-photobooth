@@ -112,7 +112,7 @@ At `/events/new`, the Admin enters:
 
 The Admin can edit these details before the Event goes Live. The product records the Event as Draft until Booth Mode starts.
 
-During Draft creation and editing, the required identity, contact, venue, and schedule fields must be valid. Film Package count and original Print Allowance must be whole and nonnegative; either may be zero while the Event remains Draft. The venue-local schedule must use a valid IANA time zone, an unambiguous existing local start and end, and an end instant after the start. Invalid or ambiguous times are rejected with a field-level explanation rather than shifted or guessed. A stale edit from another device must not silently overwrite newer Draft details. See [ADR-0014](docs/adr/0014-validate-draft-event-saves.md).
+During Draft creation and editing, the required identity, contact, venue, and schedule fields must be valid. Film Package count and original Print Allowance must be whole and nonnegative; either may be zero while the Event remains Draft. The venue-local schedule must use a valid IANA time zone, an unambiguous existing local start and end, and an end instant after the start. Invalid or ambiguous times are rejected with a field-level explanation rather than shifted or guessed. A stale edit from another device must not silently overwrite newer Draft details. See [ADR-0017](docs/adr/0017-validate-draft-event-saves.md).
 
 ### Specific Event — `/events/[eventId]`
 
@@ -194,7 +194,7 @@ The first release is ready for an Event only when:
 - [Keep Booth access separate during Admin password recovery](docs/adr/0011-keep-booth-access-separate-during-password-recovery.md)
 - [Qualify development on iPhone before iPad launch](docs/adr/0012-qualify-development-on-iphone-before-ipad-launch.md)
 - [Use optional HTTPS for local device testing](docs/adr/0013-use-optional-https-for-local-device-testing.md)
-- [Validate Draft Event saves before operational setup](docs/adr/0014-validate-draft-event-saves.md)
+- [Validate Draft Event saves before operational setup](docs/adr/0017-validate-draft-event-saves.md)
 - [Complete Admin reset only after password change and session revocation](docs/adr/0015-complete-admin-reset-only-after-password-change-and-revocation.md)
 - [Stop Booth Mode safely before a Print Reservation](docs/adr/0014-stop-booth-before-print-reservation.md)
-- [Keep operational history when deleting a Draft](docs/adr/0015-keep-history-when-deleting-draft.md)
+- [Keep operational history when deleting a Draft](docs/adr/0016-keep-history-when-deleting-draft.md)

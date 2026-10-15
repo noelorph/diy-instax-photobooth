@@ -40,9 +40,9 @@ The public authentication pages are `/sign-in`, `/forgot-password`, and `/reset-
 
 Keep domain rules for Event transitions, allowance, stock, and Print Attempt outcomes separate from UI and printer protocol code. The printer adapter exposes a small interface so tests can substitute a simulated printer without changing the Guest flow.
 
-Reusable interface code lives at `src/components/`: customized shadcn/ui primitives in `ui/`, product-neutral compositions in `shared/`, and reusable page shells in `layout/`. Feature state and page-specific compositions stay in `src/features/`. The shared layer consumes [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)'s semantic tokens across Admin themes and later Booth Mode; see [ADR-0018](docs/adr/0018-place-shared-ui-components-under-src.md).
+Reusable interface code lives at `src/components/`: customized shadcn/ui primitives in `ui/`, product-neutral compositions in `shared/`, and reusable page shells in `layout/`. Feature state and page-specific compositions stay in `src/features/`. The shared layer consumes [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)'s semantic tokens across Admin themes and later Booth Mode; see [ADR-0020](docs/adr/0020-place-shared-ui-components-under-src.md).
 
-The root layout supplies one locally served Geist Sans Variable family to public auth, Admin, and Booth Mode; their text roles and responsive sizes follow [ADR-0017](docs/adr/0017-use-geist-typography-across-admin-and-booth.md) and the design system.
+The root layout supplies one locally served Geist Sans Variable family to public auth, Admin, and Booth Mode; their text roles and responsive sizes follow [ADR-0019](docs/adr/0019-use-geist-typography-across-admin-and-booth.md) and the design system.
 
 ## 3. Identity and access
 
@@ -88,7 +88,7 @@ The Print Reservation and Film Reservation are holds represented by an unresolve
 
 Activity entries reference the Event and action rather than copying Client details. Event displays use the Event's current title and contact state so Client Redaction affects every view. A deleted Draft remains only as an opaque reference for its retained Test Print, Film Stock, and activity records. It is excluded from Events and History; Client details, title, venue, schedule, and Event Media are erased. Its operational records and their effects on shared Film Stock are never cascaded away. Draft deletion requires all associated Print and Film Reservations to be resolved and is reported complete only after private Event Media is removed.
 
-Draft writes validate whole, nonnegative package and allowance counts while allowing zero before operational readiness. Venue-local schedules are converted to UTC only after rejecting invalid zones, nonexistent or ambiguous local times, and an end instant no later than the start. An update compares the submitted revision with the saved revision and reports a conflict rather than overwriting a newer edit. See [ADR-0014](docs/adr/0014-validate-draft-event-saves.md).
+Draft writes validate whole, nonnegative package and allowance counts while allowing zero before operational readiness. Venue-local schedules are converted to UTC only after rejecting invalid zones, nonexistent or ambiguous local times, and an end instant no later than the start. An update compares the submitted revision with the saved revision and reports a conflict rather than overwriting a newer edit. See [ADR-0017](docs/adr/0017-validate-draft-event-saves.md).
 
 Dashboard and History queries use scheduled start time for Event counts and UTC instants for upcoming comparisons. The Dashboard groups each Event into its venue-local scheduled month. Activity is ordered newest first, filtered to 7 or 30 days, and paginated in batches of 25. Index Event state/start and activity time/ID for these access patterns; never materialize Client contact fields in activity rows.
 

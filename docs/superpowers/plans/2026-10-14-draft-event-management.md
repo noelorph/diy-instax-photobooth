@@ -87,5 +87,5 @@
 ## Final verification and review
 
 - [ ] Run the full lint, type check, unit/component, database integration, Playwright, and build checks on the combined Admin branch.
-- [ ] Review the whole branch against both approved specs, issue #14, ADR-0014, and the gated-operation exclusions. Resolve important findings and rerun the affected checks.
+- [ ] Review the whole branch against both approved specs, issue #14, ADR-0017, and the gated-operation exclusions. Resolve important findings and rerun the affected checks.
 - [ ] Record the remaining Booth/cross-device integration and hardware cases for #10/#17. Claim issue #14 complete only after the combined review and fresh verification pass.
