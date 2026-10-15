@@ -1,5 +1,31 @@
 @import 'tailwindcss';
 
+@theme inline {
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --color-ds-canvas: var(--color-canvas);
+  --color-ds-surface: var(--color-surface);
+  --color-ds-surface-muted: var(--color-surface-muted);
+  --color-ds-text: var(--color-text);
+  --color-ds-text-muted: var(--color-text-muted);
+  --color-ds-border: var(--color-border);
+  --color-ds-border-subtle: var(--color-border-subtle);
+  --color-ds-primary: var(--color-primary);
+  --color-ds-primary-hover: var(--color-primary-hover);
+  --color-ds-on-primary: var(--color-on-primary);
+  --color-ds-primary-soft: var(--color-primary-soft);
+  --color-ds-focus: var(--color-focus);
+  --color-ds-danger: var(--color-danger);
+  --color-ds-danger-hover: var(--color-danger-hover);
+  --color-ds-on-danger: var(--color-on-danger);
+  --color-ds-danger-soft: var(--color-danger-soft);
+  --color-ds-info: var(--color-info);
+  --color-ds-info-soft: var(--color-info-soft);
+  --color-ds-success: var(--color-success);
+  --color-ds-success-soft: var(--color-success-soft);
+  --color-ds-warning: var(--color-warning);
+  --color-ds-warning-soft: var(--color-warning-soft);
+}
+
 html,
 body {
   min-height: 100%;
@@ -7,4 +33,74 @@ body {
 
 body {
   margin: 0;
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+}
+
+:root,
+.public-auth,
+.admin-shell {
+  --color-canvas: #f6f5f0;
+  --color-surface: #ffffff;
+  --color-surface-muted: #ecefea;
+  --color-text: #1d2b2a;
+  --color-text-muted: #4d605d;
+  --color-border: #728780;
+  --color-border-subtle: #c8d2ce;
+  --color-primary: #1f6663;
+  --color-primary-hover: #17514f;
+  --color-on-primary: #ffffff;
+  --color-focus: #1f6663;
+  --color-danger: #a33137;
+  --color-danger-hover: #87282d;
+  --color-on-danger: #ffffff;
+  --color-warning: #805300;
+  --color-warning-soft: #fff1d6;
+  --color-danger-soft: #fce9ea;
+  --color-info: #245a78;
+  --color-info-soft: #e5f1f7;
+  --color-primary-soft: #daece8;
+  --color-success: #226a4d;
+  --color-success-soft: #e5f2e9;
+}
+
+.admin-shell[data-theme='dark'] {
+  --color-canvas: #101b1b;
+  --color-surface: #1a2929;
+  --color-surface-muted: #223333;
+  --color-text: #eff5f1;
+  --color-text-muted: #b5c7c2;
+  --color-border: #708a84;
+  --color-border-subtle: #3c514d;
+  --color-primary: #6fb7ae;
+  --color-primary-hover: #8acac1;
+  --color-primary-soft: #24413e;
+  --color-on-primary: #101b1b;
+  --color-focus: #8acac1;
+  --color-danger: #ff999c;
+  --color-danger-hover: #ffb3b5;
+  --color-on-danger: #101b1b;
+  --color-warning: #ffd27d;
+  --color-warning-soft: #4a3619;
+  --color-danger-soft: #4a292b;
+  --color-info: #8cc8e8;
+  --color-info-soft: #1e3a48;
+  --color-success: #88cba5;
+  --color-success-soft: #1e3d30;
+  color-scheme: dark;
+}
+
+.admin-shell {
+  min-height: 100dvh;
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.admin-shell * {
+  box-sizing: border-box;
+}
+.admin-shell :is(a, button, input, select, [tabindex]):focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }

@@ -1,0 +1,9 @@
+# Complete Admin reset only after password change and session revocation
+
+A recovery reset completes only when Supabase Auth accepts a password different from the current one and global Admin session revocation succeeds. Supabase's `same_password` response means the proposed password is already current; it is not evidence that this recovery attempt saved it. On any such response, keep the recovery form available, show a password field error, and do not report completion or revoke sessions as though a new password was saved.
+
+If the password save succeeds but global revocation is not confirmed, show that the password was saved while the reset remains incomplete. The server calls Auth's token-scoped global revocation endpoint without using the high-level sign-out method, which would clear the recovery cookie even on a remote failure. It checks the existing live-session RLS boundary after an error or lost response. If that boundary confirms the recovery session is still active, the Admin may submit another **different** password through it to retry the save and revocation. A prior form response is not trusted as proof that a save occurred.
+
+If the recovery session is revoked, or its status cannot be verified, do not offer a retry through that session. Explain that the password was saved but the outcome for all Admin sessions could not be confirmed, and direct the Admin to request a new recovery link. A revoked recovery session alone does not prove every other session ended. Only a confirmed successful global revocation leads to the completion message and fresh sign-in. Until then, other Admin sessions may remain active.
+
+This refines the recovery failure path in the approved [Admin access specification](../superpowers/specs/2026-10-13-admin-access-and-shell-design.md). [ADR-0011](0011-keep-booth-access-separate-during-password-recovery.md) continues to govern the separate Booth Access Grant; it is not superseded.

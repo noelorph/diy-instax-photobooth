@@ -1,7 +1,7 @@
 # DIY Instax Photo Booth — Design System
 
 - **Status:** Agreed design direction; implementation and target-device validation remain pending.
-- **Date:** 2026-10-11
+- **Date:** 2026-10-11; typography revised 2026-10-15
 - **Source:** [Design prompt](docs/prompts/design-system-prompt.md), [product requirements](PRD.md), and the design interview.
 - **Decision:** [One visual system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md).
 
@@ -63,15 +63,15 @@ Authenticated Admin pages render the saved Profile light/dark preference. Ordina
 
 ### Typography
 
-Use **DM Sans** for all UI text, with a system sans-serif fallback. Load one variable family with normal and italic styles only if needed; avoid a second display font. Use tabular numerals for counts, times, inventory, and table columns. Keep labels in sentence case, not all caps except very short metadata eyebrows.
+Use **Geist Sans Variable** for all Admin and Booth UI text, with a system sans-serif fallback. Load it from locally served assets in the root layout; add italic styles only if needed and avoid a second display or monospace family. The compact Admin rhythm follows the [CodeRabbit app typography reference](docs/adr/0019-use-geist-typography-across-admin-and-booth.md), while Booth instructions and countdown retain their larger, accessible roles. Use tabular numerals for counts, times, inventory, and table columns. Keep labels in sentence case, not all caps except very short metadata eyebrows.
 
 | Role         | Size / line height          | Weight  | Typical use                                            |
 | ------------ | --------------------------- | ------- | ------------------------------------------------------ |
 | `caption`    | 12 / 16 px                  | 500     | Secondary metadata; never essential Booth instructions |
-| `body-sm`    | 14 / 20 px                  | 400–500 | Dense Admin rows and helper text                       |
-| `body`       | 16 / 24 px                  | 400–500 | Forms, descriptions, default controls                  |
-| `body-lg`    | 18 / 28 px                  | 400–600 | Booth instructions and prominent summaries             |
-| `heading-sm` | 22 / 28 px                  | 600     | Section titles                                         |
+| `body-sm`    | 14 / 18 px                  | 400–500 | Dense Admin rows and helper text                       |
+| `body`       | 16 / 22 px                  | 400–500 | Forms, descriptions, default controls                  |
+| `body-lg`    | 20 / 28 px                  | 400–600 | Booth instructions and prominent summaries             |
+| `heading-sm` | 20 / 28 px                  | 600     | Section titles                                         |
 | `heading`    | 28 / 36 px                  | 600     | Admin page titles                                      |
 | `display`    | 36 / 44 px                  | 600–700 | Booth welcome and major state                          |
 | `countdown`  | clamp(5rem, 12vw, 9rem) / 1 | 700     | 3–2–1 only                                             |
@@ -117,6 +117,8 @@ Use 120 ms for quick hover/press feedback, 180 ms for control and dialog transit
 
 Implement with Tailwind CSS 4 and customized shadcn/ui primitives where they fit; use Lucide for interface icons. The design system's semantic tokens and behavior override library defaults. Keep shared primitives separate from Admin composites and Booth composites. Do not install or expose an entire library of unused components.
 
+Project-wide reusable components live at `src/components/`: `ui/` holds customized shadcn/ui primitives, `shared/` holds product-neutral compositions, and `layout/` holds reusable page shells. Feature state and page-specific composites remain with their feature. Add only primitives used by an implemented flow; see [ADR-0020](docs/adr/0020-place-shared-ui-components-under-src.md) and the [Admin UI refresh spec](docs/superpowers/specs/2026-10-15-admin-ui-refresh-design.md).
+
 | Layer             | Components needed for first release                                                                                                                                                                                         | Variants and states                                                              |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
 | Shared primitives | Button, IconButton, TextField, Textarea, Select, DateTimeField, Checkbox, Badge, Alert, Dialog, Menu, ProgressStatus, Spinner, Skeleton                                                                                     | Default, hover, active, focus-visible, disabled, loading, invalid where relevant |
@@ -140,6 +142,8 @@ Buttons have `primary`, `secondary`, `quiet`, and `destructive` treatments. Use 
 Use an explicit 2 px focus ring with a 2 px separation where possible; focus must remain visible in light, dark, and media-backed contexts. Disabled and loading controls keep a readable label and explain the blocker nearby when the reason is not obvious. Never use a toast as the sole way to report a failed print, stock problem, or form error.
 
 Forms use visible labels, concise helper text, inline validation, and an error summary when several fields fail. Preserve entered values after validation. Date and time fields show the venue time zone; table dates use venue-local time with an explicit zone where ambiguity matters. Tables have named columns, a clear sort/filter state, keyboard-reachable controls, and a compact labeled-summary pattern rather than clipped cells on phones. The 7-day/30-day activity filter is a simple two-option control; do not introduce the later-release charts.
+
+For Draft Event schedule errors, identify the field and explain when a local time does not exist or occurs twice in the chosen venue time zone; ask for an unambiguous time. If another device saved the Draft first, keep the Admin's entered values visible while offering a clear path to reload the latest record. A Draft with zero Film Packages or zero original Print Allowance remains a Draft and must not show a ready-to-start state. See [ADR-0017](docs/adr/0017-validate-draft-event-saves.md).
 
 Dialogs are reserved for consequential Admin choices. Show the exact effect before ending Booth Mode, Client Redaction, Film Stock reconciliation, or resolution of an Uncertain Print. Use action labels that name the result, not a generic “Confirm.” Starting Booth Mode uses its readiness checklist instead of a redundant confirmation. Success feedback appears in context after the state has actually committed.
 
@@ -182,7 +186,7 @@ Treat each transition as a visible state, with one next action:
 
 The sign-in form covers empty or invalid fields, incorrect credentials, submission in progress, connection failure, and expired Admin session. Put a persistent error next to the affected field or in a form-level alert as appropriate; retain the email, let the Admin correct the password, and keep the action available for a retry once submission ends. Use a neutral error for incorrect credentials without revealing whether an email exists. Do not replace these states with a disappearing toast. Ordinary sign-in enters the Admin experience; the pause return opens the Live Event management page after authentication. If that Event was completed remotely, the signed-in Admin sees it in History instead.
 
-The recovery request at `/forgot-password` uses the same compact form width and visible-label rules. Show one email field, **Send recovery link**, and a route back to sign-in. Its confirmation is neutral for known and unknown addresses; a delivery or connection failure offers retry without exposing account existence. The reset page at `/reset-password` uses labeled new-password and confirmation fields. Show an actionable error for invalid or expired links, with **Request another link**; show a clear success state that leads to fresh sign-in. Recovery started from a paused booth keeps the quiet dark presentation and hides Event details throughout. Neither recovery page shows the authenticated AppShell. Sign-out from `/profile` is a clearly labeled action followed by `/sign-in`, with visible failure feedback if the current device remains signed in.
+The recovery request at `/forgot-password` uses the same compact form width and visible-label rules. Show one email field, **Send recovery link**, and a route back to sign-in. Its confirmation is neutral for known and unknown addresses; a delivery or connection failure offers retry without exposing account existence. The reset page at `/reset-password` uses labeled new-password and confirmation fields. Show an actionable error for invalid or expired links, with **Request another link**; show a clear success state that leads to fresh sign-in. If the password saves but all-session revocation cannot be confirmed, show an incomplete state: offer a different-password retry only while the recovery session is confirmed active; otherwise replace the form with the uncertainty message and **Request another link**. Recovery started from a paused booth keeps the quiet dark presentation and hides Event details throughout. Neither recovery page shows the authenticated AppShell. Sign-out from `/profile` is a clearly labeled action followed by `/sign-in`, with visible failure feedback if the current device remains signed in.
 
 ### Booth interaction states
 

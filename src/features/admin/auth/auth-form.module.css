@@ -1,0 +1,21 @@
+.form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.link:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
+}

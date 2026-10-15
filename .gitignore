@@ -3,6 +3,7 @@
 # dependencies
 /node_modules
 /.worktrees/
+/.superpowers/
 /.pnp
 .pnp.*
 .yarn/*
@@ -41,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/playwright-report/
+/test-results/
