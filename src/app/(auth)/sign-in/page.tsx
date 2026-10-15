@@ -1,3 +1,4 @@
+import styles from '@/components/layout/auth-frame.module.css';
 import { Suspense } from 'react';
 import { FormFeedback } from '@/components/shared/form-feedback';
 import { signIn } from '@/features/admin/auth/actions';
@@ -17,8 +18,8 @@ async function SessionFeedback({ searchParams }: Props) {
 export default function SignInPage(props: Props) {
   return (
     <>
-      <h1>Sign in</h1>
-      <p>Sign in to your Admin account.</p>
+      <h1 className={styles.heading}>Sign in</h1>
+      <p className={styles.description}>Sign in to your Admin account.</p>
       <Suspense fallback={null}>
         <SessionFeedback {...props} />
       </Suspense>

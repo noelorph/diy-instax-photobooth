@@ -7,6 +7,7 @@ import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { NativeSelect } from '@/components/ui/native-select';
+import styles from './profile.module.css';
 import type { ProfileAction, ProfileData, ProfileState } from './state';
 
 function ProfileForm({
@@ -134,15 +135,15 @@ export function Profile({
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
   return (
-    <div className="profile-content">
+    <div className={styles.content}>
       <PageHeader title="Profile" description="Manage your account and how Admin pages appear." />
-      <section aria-labelledby="preferences-heading" className="profile-section">
-        <div>
+      <section aria-labelledby="preferences-heading" className={styles.section}>
+        <div className={styles.sectionDescription}>
           <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="preferences-heading">
             Account preferences
           </h2>
-          <p className="profile-email">
-            <span>Email</span>
+          <p className={styles.email}>
+            <span className={styles.emailLabel}>Email</span>
             <br />
             {initial.email}
           </p>
@@ -191,8 +192,8 @@ export function Profile({
           )}
         </ProfileForm>
       </section>
-      <section aria-labelledby="password-heading" className="profile-section">
-        <div>
+      <section aria-labelledby="password-heading" className={styles.section}>
+        <div className={styles.sectionDescription}>
           <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="password-heading">
             Password
           </h2>
@@ -236,8 +237,8 @@ export function Profile({
           )}
         </ProfileForm>
       </section>
-      <section aria-labelledby="session-heading" className="profile-section">
-        <div>
+      <section aria-labelledby="session-heading" className={styles.section}>
+        <div className={styles.sectionDescription}>
           <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="session-heading">
             This device
           </h2>

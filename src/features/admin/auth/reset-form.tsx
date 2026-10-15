@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import styles from './auth-form.module.css';
 import { unstable_rethrow } from 'next/navigation';
 import { useActionState, useEffect, useId, useRef, useState } from 'react';
 import { FormField } from '@/components/shared/form-field';
@@ -39,37 +40,45 @@ export function ResetPasswordForm({
   }, [state]);
   if (state.confirmation)
     return (
-      <div className="public-auth-form">
+      <div className={styles.form}>
         <FormFeedback kind="success" tabIndex={-1} feedbackRef={feedback}>
           {state.confirmation}
         </FormFeedback>
-        <Link href="/sign-in">Sign in</Link>
+        <Link className={styles.link} href="/sign-in">
+          Sign in
+        </Link>
       </div>
     );
   if (invalidLink || state.invalidLink)
     return (
-      <div className="public-auth-form">
+      <div className={styles.form}>
         <FormFeedback kind="error" tabIndex={-1} feedbackRef={feedback}>
           {invalidRecoveryLink}
         </FormFeedback>
-        <Link href="/forgot-password">Request another link</Link>
-        <Link href="/sign-in">Back to sign in</Link>
+        <Link className={styles.link} href="/forgot-password">
+          Request another link
+        </Link>
+        <Link className={styles.link} href="/sign-in">
+          Back to sign in
+        </Link>
       </div>
     );
   if (state.requiresNewLink)
     return (
-      <div className="public-auth-form">
+      <div className={styles.form}>
         <FormFeedback kind="error" tabIndex={-1} feedbackRef={feedback}>
           {state.error}
         </FormFeedback>
-        <Link href="/forgot-password">Request another link</Link>
+        <Link className={styles.link} href="/forgot-password">
+          Request another link
+        </Link>
       </div>
     );
   return (
     <form
       action={formAction}
       noValidate
-      className="public-auth-form"
+      className={styles.form}
       aria-busy={pending}
       onSubmit={(event) => {
         if (pending) event.preventDefault();
@@ -114,7 +123,9 @@ export function ResetPasswordForm({
       {pending ? (
         <FormFeedback kind="status">Saving password and ending sessions…</FormFeedback>
       ) : null}
-      <Link href="/forgot-password">Request another link</Link>
+      <Link className={styles.link} href="/forgot-password">
+        Request another link
+      </Link>
     </form>
   );
 }

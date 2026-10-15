@@ -1,3 +1,4 @@
+import styles from '@/components/layout/auth-frame.module.css';
 import { Suspense } from 'react';
 import { FormFeedback } from '@/components/shared/form-feedback';
 import { unstable_rethrow } from 'next/navigation';
@@ -20,7 +21,7 @@ async function Recovery({ searchParams }: Props) {
 export default function ResetPasswordPage(props: Props) {
   return (
     <>
-      <h1>Set a new password</h1>
+      <h1 className={styles.heading}>Set a new password</h1>
       <Suspense fallback={<FormFeedback kind="status">Checking recovery link…</FormFeedback>}>
         <Recovery {...props} />
       </Suspense>

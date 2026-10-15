@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import styles from './auth-form.module.css';
 import { unstable_rethrow } from 'next/navigation';
 import { useActionState, useId, useState } from 'react';
 import { FormField } from '@/components/shared/form-field';
@@ -39,7 +40,7 @@ function PublicAuthForm({ action, signIn }: { action: AuthFormAction; signIn: bo
       onSubmit={(event) => {
         if (pending) event.preventDefault();
       }}
-      className="public-auth-form"
+      className={styles.form}
       aria-busy={pending}
     >
       <FormField id={`${id}-email`} label="Email" error={state.fieldErrors?.email}>
@@ -86,9 +87,13 @@ function PublicAuthForm({ action, signIn }: { action: AuthFormAction; signIn: bo
         </FormFeedback>
       ) : null}
       {signIn ? (
-        <Link href="/forgot-password">Forgot password?</Link>
+        <Link className={styles.link} href="/forgot-password">
+          Forgot password?
+        </Link>
       ) : (
-        <Link href="/sign-in">Back to sign in</Link>
+        <Link className={styles.link} href="/sign-in">
+          Back to sign in
+        </Link>
       )}
     </form>
   );
