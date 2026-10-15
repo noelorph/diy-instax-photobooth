@@ -1,10 +1,14 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AppShell } from '@/features/admin/app-shell';
 import { Profile } from '@/features/admin/profile/profile';
+const route = vi.hoisted(() => ({ pathname: '/profile' }));
+beforeEach(() => {
+  route.pathname = '/profile';
+});
 vi.mock('next/navigation', async (original) => ({
   ...(await original<typeof import('next/navigation')>()),
-  usePathname: () => '/profile',
+  usePathname: () => route.pathname,
 }));
 afterEach(cleanup);
 const initial = { email: 'owner@example.test', phone: '', theme: 'light' as const };
@@ -33,12 +37,51 @@ it('opens the compact menu and Escape restores focus to its trigger', () => {
       <h1>Profile</h1>
     </AppShell>
   );
-  const menu = screen.getByRole('button', { name: 'Open navigation' });
+  const menu = screen.getByRole('button', { name: 'Open navigation menu' });
   fireEvent.click(menu);
   expect(menu.getAttribute('aria-expanded')).toBe('true');
   fireEvent.keyDown(screen.getByRole('navigation'), { key: 'Escape' });
   expect(menu.getAttribute('aria-expanded')).toBe('false');
   expect(document.activeElement).toBe(menu);
+});
+it.each(['/events/new', '/events/draft-123'])('selects Events on %s', (pathname) => {
+  route.pathname = pathname;
+  render(
+    <AppShell theme="light">
+      <h1>Event</h1>
+    </AppShell>
+  );
+  expect(screen.getByRole('link', { name: 'Events' }).getAttribute('aria-current')).toBe('page');
+  expect(screen.getByRole('link', { name: 'Profile' }).getAttribute('aria-current')).toBeNull();
+});
+it('keeps destination names available as the medium rail expands and collapses', () => {
+  render(
+    <AppShell theme="light">
+      <h1>Profile</h1>
+    </AppShell>
+  );
+  const toggle = screen.getByRole('button', { name: 'Expand navigation' });
+  expect(toggle.getAttribute('aria-expanded')).toBe('false');
+  fireEvent.click(toggle);
+  expect(
+    screen.getByRole('button', { name: 'Collapse navigation' }).getAttribute('aria-expanded')
+  ).toBe('true');
+  fireEvent.click(toggle);
+  for (const name of ['Dashboard', 'Events', 'History', 'Profile']) {
+    expect(screen.getByRole('link', { name }).getAttribute('href')).toBe(`/${name.toLowerCase()}`);
+  }
+});
+it('provides a skip link to the focusable main content', () => {
+  render(
+    <AppShell theme="light">
+      <h1>Profile</h1>
+    </AppShell>
+  );
+  const main = screen.getByRole('main');
+  expect(screen.getByRole('link', { name: 'Skip to content' }).getAttribute('href')).toBe(
+    `#${main.id}`
+  );
+  expect(main.getAttribute('tabindex')).toBe('-1');
 });
 it('preserves changed fields after save failure and exposes validation feedback', async () => {
   render(

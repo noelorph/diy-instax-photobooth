@@ -17,7 +17,7 @@ for (const width of [390, 768, 1440]) {
       await page.getByRole('button', { name: 'Sign in', exact: true }).click();
       await expect(page).toHaveURL(/\/dashboard$/);
       if (width < 640) {
-        const trigger = page.getByRole('button', { name: /^(Open|Close) navigation$/ });
+        const trigger = page.getByRole('button', { name: /^(Open|Close) navigation menu$/ });
         await trigger.focus();
         await page.keyboard.press('Enter');
         await expect(trigger).toHaveAttribute('aria-expanded', 'true');
