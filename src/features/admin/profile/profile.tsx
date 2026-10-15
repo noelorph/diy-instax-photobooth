@@ -1,6 +1,12 @@
 'use client';
 import { unstable_rethrow } from 'next/navigation';
 import { useActionState, useEffect, useId, useRef, useState, type ReactNode } from 'react';
+import { FormField } from '@/components/shared/form-field';
+import { FormFeedback } from '@/components/shared/form-feedback';
+import { PageHeader } from '@/components/shared/page-header';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { NativeSelect } from '@/components/ui/native-select';
 import type { ProfileAction, ProfileData, ProfileState } from './state';
 
 function ProfileForm({
@@ -17,7 +23,7 @@ function ProfileForm({
   showConfirmation?: boolean;
 }) {
   const id = useId();
-  const feedback = useRef<HTMLParagraphElement>(null);
+  const feedback = useRef<HTMLDivElement>(null);
   const [state, submit, pending] = useActionState<ProfileState, FormData>(
     async (previous, data) => {
       try {
@@ -36,7 +42,7 @@ function ProfileForm({
   }, [state]);
   return (
     <form
-      className="auth-form"
+      className="grid min-w-0 content-start gap-4"
       action={submit}
       aria-busy={pending}
       noValidate
@@ -47,19 +53,23 @@ function ProfileForm({
     >
       {children?.(state, id, pending)}
       {state.error || state.fieldErrors ? (
-        <p className="auth-alert" role="alert" tabIndex={-1} ref={feedback}>
+        <FormFeedback kind="error" tabIndex={-1} feedbackRef={feedback}>
           {state.error ?? 'Correct the highlighted fields and try again.'}
-        </p>
+        </FormFeedback>
       ) : null}
       {state.confirmation && showConfirmation ? (
-        <p className="profile-success" role="status" tabIndex={-1} ref={feedback}>
+        <FormFeedback kind="success" tabIndex={-1} feedbackRef={feedback}>
           {state.confirmation}
+        </FormFeedback>
+      ) : null}
+      <Button type="submit" disabled={pending} className="justify-self-start">
+        {title}
+      </Button>
+      {pending ? (
+        <p role="status" className="m-0 text-sm text-ds-text-muted">
+          {pendingText}
         </p>
       ) : null}
-      <button type="submit" disabled={pending}>
-        {title}
-      </button>
-      {pending ? <p role="status">{pendingText}</p> : null}
     </form>
   );
 }
@@ -83,26 +93,25 @@ function Field({
   disabled?: boolean;
 }) {
   return (
-    <div className="auth-field">
-      <label htmlFor={`${id}-${name}`}>{label}</label>
-      <input
-        id={`${id}-${name}`}
-        name={name}
-        type={password ? 'password' : 'tel'}
-        autoComplete={password ? 'new-password' : 'tel'}
-        value={value}
-        disabled={disabled}
-        onChange={(event) => onChange(event.target.value)}
-        maxLength={password ? 128 : 40}
-        aria-invalid={Boolean(state.fieldErrors?.[name])}
-        aria-describedby={state.fieldErrors?.[name] ? `${id}-${name}-error` : undefined}
-      />
-      {state.fieldErrors?.[name] ? (
-        <p id={`${id}-${name}-error`} className="auth-field-error">
-          {state.fieldErrors[name]}
-        </p>
-      ) : null}
-    </div>
+    <FormField
+      id={`${id}-${name}`}
+      label={label}
+      help={password ? undefined : 'Optional. Include your country code.'}
+      error={state.fieldErrors?.[name]}
+    >
+      {(a11y) => (
+        <Input
+          {...a11y}
+          name={name}
+          type={password ? 'password' : 'tel'}
+          autoComplete={password ? 'new-password' : 'tel'}
+          value={value}
+          disabled={disabled}
+          onChange={(event) => onChange(event.target.value)}
+          maxLength={password ? 128 : 40}
+        />
+      )}
+    </FormField>
   );
 }
 export function Profile({
@@ -126,14 +135,12 @@ export function Profile({
   const [confirmation, setConfirmation] = useState('');
   return (
     <div className="profile-content">
-      <header>
-        <p className="page-eyebrow">Your account</p>
-        <h1>Profile</h1>
-        <p>Manage your account and how Admin pages appear.</p>
-      </header>
+      <PageHeader title="Profile" description="Manage your account and how Admin pages appear." />
       <section aria-labelledby="preferences-heading" className="profile-section">
         <div>
-          <h2 id="preferences-heading">Account preferences</h2>
+          <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="preferences-heading">
+            Account preferences
+          </h2>
           <p className="profile-email">
             <span>Email</span>
             <br />
@@ -166,35 +173,32 @@ export function Profile({
                 onChange={setPhone}
                 disabled={pending}
               />
-              <p className="field-help">Optional. Include your country code.</p>
-              <div className="auth-field">
-                <label htmlFor={`${id}-theme`}>Appearance</label>
-                <select
-                  id={`${id}-theme`}
-                  name="theme"
-                  value={theme}
-                  disabled={pending}
-                  onChange={(event) => setTheme(event.target.value as 'light' | 'dark')}
-                  aria-invalid={Boolean(state.fieldErrors?.theme)}
-                  aria-describedby={state.fieldErrors?.theme ? `${id}-theme-error` : undefined}
-                >
-                  <option value="light">Light</option>
-                  <option value="dark">Dark</option>
-                </select>
-                {state.fieldErrors?.theme ? (
-                  <p className="auth-field-error" id={`${id}-theme-error`}>
-                    {state.fieldErrors.theme}
-                  </p>
-                ) : null}
-              </div>
+              <FormField id={`${id}-theme`} label="Appearance" error={state.fieldErrors?.theme}>
+                {(a11y) => (
+                  <NativeSelect
+                    {...a11y}
+                    name="theme"
+                    value={theme}
+                    disabled={pending}
+                    onChange={(event) => setTheme(event.target.value as 'light' | 'dark')}
+                  >
+                    <option value="light">Light</option>
+                    <option value="dark">Dark</option>
+                  </NativeSelect>
+                )}
+              </FormField>
             </>
           )}
         </ProfileForm>
       </section>
       <section aria-labelledby="password-heading" className="profile-section">
         <div>
-          <h2 id="password-heading">Password</h2>
-          <p>Use 12–128 characters for your new password.</p>
+          <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="password-heading">
+            Password
+          </h2>
+          <p className="m-0 text-base leading-[1.375rem] text-ds-text-muted">
+            Use 12–128 characters for your new password.
+          </p>
         </div>
         <ProfileForm
           action={async (state, data) => {
@@ -234,8 +238,12 @@ export function Profile({
       </section>
       <section aria-labelledby="session-heading" className="profile-section">
         <div>
-          <h2 id="session-heading">This device</h2>
-          <p>Sign out of Admin on this device. Your other devices stay signed in.</p>
+          <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="session-heading">
+            This device
+          </h2>
+          <p className="m-0 text-base leading-[1.375rem] text-ds-text-muted">
+            Sign out of Admin on this device. Your other devices stay signed in.
+          </p>
         </div>
         <ProfileForm action={signOutAction} title="Sign out" pendingText="Signing out…" />
       </section>

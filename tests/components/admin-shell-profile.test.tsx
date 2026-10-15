@@ -13,6 +13,29 @@ vi.mock('next/navigation', async (original) => ({
 afterEach(cleanup);
 const initial = { email: 'owner@example.test', phone: '', theme: 'light' as const };
 const ok = async () => ({ confirmation: 'Saved.' });
+it('associates the phone helper and current inline error with its control', async () => {
+  render(
+    <Profile
+      initial={initial}
+      saveAction={async () => ({ fieldErrors: { phone: 'Enter a valid phone number.' } })}
+      passwordAction={ok}
+      signOutAction={ok}
+    />
+  );
+  const phone = screen.getByLabelText('Phone number');
+  const descriptions = () =>
+    (phone.getAttribute('aria-describedby') ?? '')
+      .split(' ')
+      .map((id) => document.getElementById(id)?.textContent);
+  expect(descriptions()).toContain('Optional. Include your country code.');
+  fireEvent.click(screen.getByRole('button', { name: 'Save preferences' }));
+  await screen.findByRole('alert');
+  expect(descriptions()).toEqual([
+    'Optional. Include your country code.',
+    'Enter a valid phone number.',
+  ]);
+  expect(document.activeElement).toBe(screen.getByRole('alert'));
+});
 it('keeps Profile last and marks the current destination', () => {
   render(
     <AppShell theme="dark">
@@ -199,5 +222,35 @@ it('keeps failed sign-out actionable without claiming the session ended', async 
   );
   fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
   expect((await screen.findByRole('alert')).textContent).toMatch(/still signed in/i);
-  expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
+  expect(document.activeElement).toBe(screen.getByRole('alert'));
+  expect((screen.getByRole('button', { name: 'Sign out' }) as HTMLButtonElement).disabled).toBe(
+    false
+  );
+});
+it('associates appearance and password errors with the affected controls', async () => {
+  render(
+    <Profile
+      initial={initial}
+      saveAction={async () => ({ fieldErrors: { theme: 'Choose an appearance.' } })}
+      passwordAction={async () => ({
+        fieldErrors: { password: 'Use a longer password.', confirmation: 'Passwords must match.' },
+      })}
+      signOutAction={ok}
+    />
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Save preferences' }));
+  await screen.findByText('Choose an appearance.');
+  fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
+  await screen.findByText('Passwords must match.');
+  for (const [label, message] of [
+    ['Appearance', 'Choose an appearance.'],
+    ['New password', 'Use a longer password.'],
+    ['Confirm new password', 'Passwords must match.'],
+  ]) {
+    const control = screen.getByLabelText(label);
+    expect(control.getAttribute('aria-invalid')).toBe('true');
+    expect(document.getElementById(control.getAttribute('aria-describedby')!)?.textContent).toBe(
+      message
+    );
+  }
 });
