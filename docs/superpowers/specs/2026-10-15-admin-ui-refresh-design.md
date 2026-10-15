@@ -1,6 +1,6 @@
 # Cohesive Admin UI refresh
 
-**Status:** Proposed for owner review. The in-chat design direction was approved on 2026-10-15; the owner then requested CodeRabbit typography across Admin and Booth Mode. This revised written spec requires review before implementation planning.
+**Status:** Implemented and verified against the isolated local stack following the owner's approved Admin UI direction, shared Geist typography, and `src/components/` location. Hosted staging verification and promotion remain pending until a separate staging project is identified.
 
 ## Intent and scope
 
