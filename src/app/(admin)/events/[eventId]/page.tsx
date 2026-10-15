@@ -1,3 +1,6 @@
+import { PageHeader } from '@/components/shared/page-header';
+import { FormFeedback } from '@/components/shared/form-feedback';
+import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { getDraft } from '@/lib/events/drafts';
 import { DraftForm } from '@/features/admin/events/draft-form';
@@ -8,23 +11,26 @@ export default async function EventPage({ params }: { params: Promise<{ eventId:
   const result = await getDraft(eventId);
   if (result.status !== 'success')
     return (
-      <section className="draft-content">
-        <h1>{result.status === 'not_found' ? 'Draft not found.' : 'Unable to load Draft'}</h1>
+      <section className="max-w-5xl min-w-0">
+        <PageHeader
+          title={result.status === 'not_found' ? 'Draft not found.' : 'Unable to load Draft'}
+          description={
+            result.status === 'not_found' ? 'Return to Events to choose a Draft.' : undefined
+          }
+        />
         {result.status === 'unavailable' ? (
-          <>
-            <p className="auth-alert" role="alert">
-              {result.error}
-            </p>
-            <a className="draft-link" href={`/events/${encodeURIComponent(eventId)}`}>
-              Try again
-            </a>
-          </>
-        ) : (
-          <p>Return to Events to choose a Draft.</p>
-        )}
-        <Link className="draft-link" href="/events">
-          Back to Events
-        </Link>
+          <FormFeedback kind="error">{result.error}</FormFeedback>
+        ) : null}
+        <div className="mt-4 flex flex-wrap gap-3">
+          {result.status === 'unavailable' ? (
+            <Button asChild variant="secondary">
+              <a href={`/events/${encodeURIComponent(eventId)}`}>Try again</a>
+            </Button>
+          ) : null}
+          <Button asChild variant="quiet">
+            <Link href="/events">Back to Events</Link>
+          </Button>
+        </div>
       </section>
     );
   return (
