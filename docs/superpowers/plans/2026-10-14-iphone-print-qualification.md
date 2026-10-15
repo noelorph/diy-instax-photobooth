@@ -1,5 +1,7 @@
 # iPhone Print Qualification Implementation Plan
 
+**Historical plan:** Its pre-build gate timing was superseded by [ADR-0014](../../adr/0014-move-print-qualification-to-integration-checkpoint.md). Use the [current issue #17 trial report](../../qualification/issue-17-trial-report.md) for actual evidence and film state. This plan is not a current instruction to keep integrated development blocked or to repeat completed harness work.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Build and run the isolated iPhone 15 Plus qualification harness for issue #17, then record a pass or fail against physical Mini Link 3 output.
