@@ -2,6 +2,10 @@
 import Link from 'next/link';
 import { unstable_rethrow } from 'next/navigation';
 import { useActionState, useEffect, useId, useRef, useState } from 'react';
+import { FormField } from '@/components/shared/form-field';
+import { FormFeedback } from '@/components/shared/form-feedback';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { invalidRecoveryLink, type ResetAction, type ResetState } from './reset-state';
 
 export function ResetPasswordForm({
@@ -12,7 +16,7 @@ export function ResetPasswordForm({
   invalidLink?: boolean;
 }) {
   const id = useId();
-  const feedback = useRef<HTMLParagraphElement>(null);
+  const feedback = useRef<HTMLDivElement>(null);
   const [revocationWarning, setRevocationWarning] = useState<string | null>(null);
   const [password, setPassword] = useState('');
   const [confirmation, setConfirmation] = useState('');
@@ -35,29 +39,29 @@ export function ResetPasswordForm({
   }, [state]);
   if (state.confirmation)
     return (
-      <div className="auth-form">
-        <p role="status" className="auth-confirmation" tabIndex={-1} ref={feedback}>
+      <div className="public-auth-form">
+        <FormFeedback kind="success" tabIndex={-1} feedbackRef={feedback}>
           {state.confirmation}
-        </p>
+        </FormFeedback>
         <Link href="/sign-in">Sign in</Link>
       </div>
     );
   if (invalidLink || state.invalidLink)
     return (
-      <div className="auth-form">
-        <p className="auth-alert" role="alert" tabIndex={-1} ref={feedback}>
+      <div className="public-auth-form">
+        <FormFeedback kind="error" tabIndex={-1} feedbackRef={feedback}>
           {invalidRecoveryLink}
-        </p>
+        </FormFeedback>
         <Link href="/forgot-password">Request another link</Link>
         <Link href="/sign-in">Back to sign in</Link>
       </div>
     );
   if (state.requiresNewLink)
     return (
-      <div className="auth-form">
-        <p className="auth-alert" role="alert" tabIndex={-1} ref={feedback}>
+      <div className="public-auth-form">
+        <FormFeedback kind="error" tabIndex={-1} feedbackRef={feedback}>
           {state.error}
-        </p>
+        </FormFeedback>
         <Link href="/forgot-password">Request another link</Link>
       </div>
     );
@@ -65,56 +69,51 @@ export function ResetPasswordForm({
     <form
       action={formAction}
       noValidate
-      className="auth-form"
+      className="public-auth-form"
       aria-busy={pending}
       onSubmit={(event) => {
         if (pending) event.preventDefault();
       }}
     >
-      <p id={`${id}-help`}>
-        Use 12–128 characters. After saving, sign in again on each Admin device.
-      </p>
       {(['password', 'confirmation'] as const).map((field) => (
-        <div key={field} className="auth-field">
-          <label htmlFor={`${id}-${field}`}>
-            {field === 'password' ? 'New password' : 'Confirm new password'}
-          </label>
-          <input
-            id={`${id}-${field}`}
-            name={field}
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={12}
-            maxLength={128}
-            value={field === 'password' ? password : confirmation}
-            onChange={(event) =>
-              (field === 'password' ? setPassword : setConfirmation)(event.target.value)
-            }
-            aria-invalid={Boolean(state.fieldErrors?.[field])}
-            aria-describedby={state.fieldErrors?.[field] ? `${id}-${field}-error` : `${id}-help`}
-          />
-          {state.fieldErrors?.[field] ? (
-            <p id={`${id}-${field}-error`} className="auth-field-error">
-              {state.fieldErrors[field]}
-            </p>
-          ) : null}
-        </div>
+        <FormField
+          key={field}
+          id={`${id}-${field}`}
+          label={field === 'password' ? 'New password' : 'Confirm new password'}
+          help="Use 12–128 characters. After saving, sign in again on each Admin device."
+          error={state.fieldErrors?.[field]}
+        >
+          {(a11y) => (
+            <Input
+              {...a11y}
+              name={field}
+              type="password"
+              autoComplete="new-password"
+              required
+              minLength={12}
+              maxLength={128}
+              value={field === 'password' ? password : confirmation}
+              onChange={(event) =>
+                (field === 'password' ? setPassword : setConfirmation)(event.target.value)
+              }
+            />
+          )}
+        </FormField>
       ))}
       {revocationWarning && !state.revocationIncomplete ? (
-        <p role="status" className="auth-alert">
-          {revocationWarning}
-        </p>
+        <FormFeedback kind="status">{revocationWarning}</FormFeedback>
       ) : null}
       {state.fieldErrors || state.error ? (
-        <p role="alert" className="auth-alert" tabIndex={-1} ref={feedback}>
+        <FormFeedback kind="error" tabIndex={-1} feedbackRef={feedback}>
           {state.error ?? 'Correct the highlighted fields and try again.'}
-        </p>
+        </FormFeedback>
       ) : null}
-      <button type="submit" disabled={pending}>
+      <Button type="submit" disabled={pending}>
         Set new password
-      </button>
-      {pending ? <p role="status">Saving password and ending sessions…</p> : null}
+      </Button>
+      {pending ? (
+        <FormFeedback kind="status">Saving password and ending sessions…</FormFeedback>
+      ) : null}
       <Link href="/forgot-password">Request another link</Link>
     </form>
   );

@@ -3,6 +3,10 @@
 import Link from 'next/link';
 import { unstable_rethrow } from 'next/navigation';
 import { useActionState, useId, useState } from 'react';
+import { FormField } from '@/components/shared/form-field';
+import { FormFeedback } from '@/components/shared/form-feedback';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { connectionError, type AuthFormAction, type AuthFormState } from './state';
 
 export function SignInForm({ action }: { action: AuthFormAction }) {
@@ -35,70 +39,52 @@ function PublicAuthForm({ action, signIn }: { action: AuthFormAction; signIn: bo
       onSubmit={(event) => {
         if (pending) event.preventDefault();
       }}
-      className="auth-form"
+      className="public-auth-form"
       aria-busy={pending}
     >
-      <div className="auth-field">
-        <label htmlFor={`${id}-email`}>Email</label>
-        <input
-          id={`${id}-email`}
-          name="email"
-          type="email"
-          autoComplete="email"
-          required
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-          aria-invalid={Boolean(state.fieldErrors?.email)}
-          aria-describedby={state.fieldErrors?.email ? `${id}-email-error` : undefined}
-        />
-        {state.fieldErrors?.email ? (
-          <p id={`${id}-email-error`} className="auth-field-error">
-            {state.fieldErrors.email}
-          </p>
-        ) : null}
-      </div>
-      {signIn ? (
-        <div className="auth-field">
-          <label htmlFor={`${id}-password`}>Password</label>
-          <input
-            id={`${id}-password`}
-            name="password"
-            type="password"
-            autoComplete="current-password"
+      <FormField id={`${id}-email`} label="Email" error={state.fieldErrors?.email}>
+        {(a11y) => (
+          <Input
+            {...a11y}
+            name="email"
+            type="email"
+            autoComplete="email"
             required
-            aria-invalid={Boolean(state.fieldErrors?.password)}
-            aria-describedby={state.fieldErrors?.password ? `${id}-password-error` : undefined}
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
           />
-          {state.fieldErrors?.password ? (
-            <p id={`${id}-password-error`} className="auth-field-error">
-              {state.fieldErrors.password}
-            </p>
-          ) : null}
-        </div>
+        )}
+      </FormField>
+      {signIn ? (
+        <FormField id={`${id}-password`} label="Password" error={state.fieldErrors?.password}>
+          {(a11y) => (
+            <Input
+              {...a11y}
+              name="password"
+              type="password"
+              autoComplete="current-password"
+              required
+            />
+          )}
+        </FormField>
       ) : null}
       {state.fieldErrors ? (
-        <p role="alert" className="auth-alert">
-          Correct the highlighted fields and try again.
-        </p>
+        <FormFeedback kind="error">Correct the highlighted fields and try again.</FormFeedback>
       ) : null}
-      {state.error ? (
-        <p role="alert" className="auth-alert">
-          {state.error}
-        </p>
-      ) : null}
-      {state.confirmation ? (
-        <p role="status" className="auth-confirmation">
-          {state.confirmation}
-        </p>
-      ) : null}
-      <button type="submit" disabled={pending}>
+      {state.error ? <FormFeedback kind="error">{state.error}</FormFeedback> : null}
+      {state.confirmation ? <FormFeedback kind="success">{state.confirmation}</FormFeedback> : null}
+      <Button type="submit" disabled={pending}>
         {signIn
           ? 'Sign in'
           : state.error || state.confirmation
             ? 'Try again'
             : 'Send recovery link'}
-      </button>
-      {pending ? <p role="status">{signIn ? 'Signing in…' : 'Sending recovery link…'}</p> : null}
+      </Button>
+      {pending ? (
+        <FormFeedback kind="status">
+          {signIn ? 'Signing in…' : 'Sending recovery link…'}
+        </FormFeedback>
+      ) : null}
       {signIn ? (
         <Link href="/forgot-password">Forgot password?</Link>
       ) : (

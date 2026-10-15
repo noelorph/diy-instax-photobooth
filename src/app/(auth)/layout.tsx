@@ -1,7 +1,6 @@
-export default function AuthLayout({ children }: { children: React.ReactNode }) {
-  return (
-    <main className="public-auth">
-      <section className="auth-panel">{children}</section>
-    </main>
-  );
+import type { ReactNode } from 'react';
+import { AuthFrame } from '@/components/layout/auth-frame';
+
+export default function AuthLayout({ children }: { children: ReactNode }) {
+  return <AuthFrame>{children}</AuthFrame>;
 }

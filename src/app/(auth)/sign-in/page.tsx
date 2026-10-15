@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { FormFeedback } from '@/components/shared/form-feedback';
 import { signIn } from '@/features/admin/auth/actions';
 import { SignInForm } from '@/features/admin/auth/forms';
 
@@ -7,7 +8,9 @@ type Props = { searchParams: Promise<{ reason?: string | string[] }> };
 async function SessionFeedback({ searchParams }: Props) {
   const { reason } = await searchParams;
   return reason === 'session-ended' ? (
-    <p role="status">Your session is no longer available. Sign in again to continue.</p>
+    <FormFeedback kind="status">
+      Your session is no longer available. Sign in again to continue.
+    </FormFeedback>
   ) : null;
 }
 

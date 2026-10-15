@@ -20,8 +20,19 @@ describe('Public password reset form', () => {
     expect(confirmation.value).toBe('different');
     expect(confirmation.getAttribute('aria-invalid')).toBe('true');
     expect(
-      document.getElementById(confirmation.getAttribute('aria-describedby')!)?.textContent
+      confirmation
+        .getAttribute('aria-describedby')
+        ?.split(' ')
+        .map((id) => document.getElementById(id)?.textContent)
+        .join(' ')
     ).toMatch(/must match/);
+    const description = confirmation
+      .getAttribute('aria-describedby')
+      ?.split(' ')
+      .map((id) => document.getElementById(id)?.textContent)
+      .join(' ');
+    expect(description).toMatch(/12–128 characters/);
+    expect(document.activeElement).toBe(screen.getByRole('alert'));
     fireEvent.change(confirmation, { target: { value: 'edited' } });
     expect(screen.getByRole('alert').textContent).toMatch(/highlighted/);
   });
@@ -38,20 +49,25 @@ describe('Public password reset form', () => {
 
   it('blocks duplicate submission, then replaces the form with success and fresh sign-in', async () => {
     let done!: (value: { confirmation: string }) => void;
+    let attempts = 0;
     const view = render(
       <ResetPasswordForm
-        action={() =>
-          new Promise((resolve) => {
+        action={() => {
+          attempts++;
+          return new Promise((resolve) => {
             done = resolve;
-          })
-        }
+          });
+        }}
       />
     );
     fireEvent.click(screen.getByRole('button', { name: 'Set new password' }));
     await screen.findByText('Saving password and ending sessions…');
     expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText(/Password changed/)).toBeNull();
+    fireEvent.submit((screen.getByLabelText('New password') as HTMLInputElement).form!);
     done({ confirmation: 'Password changed. Sign in with your new password.' });
     await screen.findByText('Password changed. Sign in with your new password.');
+    expect(attempts).toBe(1);
     view.rerender(<ResetPasswordForm action={vi.fn()} invalidLink />);
     expect(screen.getByRole('status').textContent).toMatch(/Password changed/);
     expect(screen.getByRole('link', { name: 'Sign in' }).getAttribute('href')).toBe('/sign-in');

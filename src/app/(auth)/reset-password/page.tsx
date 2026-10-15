@@ -1,4 +1,5 @@
 import { Suspense } from 'react';
+import { FormFeedback } from '@/components/shared/form-feedback';
 import { unstable_rethrow } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { recoverySession } from '@/features/admin/auth/recovery-session';
@@ -20,7 +21,7 @@ export default function ResetPasswordPage(props: Props) {
   return (
     <>
       <h1>Set a new password</h1>
-      <Suspense fallback={<p role="status">Checking recovery link…</p>}>
+      <Suspense fallback={<FormFeedback kind="status">Checking recovery link…</FormFeedback>}>
         <Recovery {...props} />
       </Suspense>
     </>

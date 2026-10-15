@@ -63,6 +63,7 @@ body {
   --color-success-soft: #e5f2e9;
 }
 
+/* Public auth layout; legacy form selectors below still serve Profile and Drafts. */
 .public-auth {
   box-sizing: border-box;
   display: grid;
@@ -74,7 +75,7 @@ body {
   color: var(--color-text);
   font-family: var(--font-geist-sans), system-ui, sans-serif;
   font-size: 1rem;
-  line-height: 1.5;
+  line-height: 1.375;
 }
 
 .auth-panel {
@@ -88,6 +89,17 @@ body {
   background: var(--color-surface);
 }
 
+.auth-photo-frame {
+  display: block;
+  width: 2rem;
+  height: 2.5rem;
+  margin-bottom: 1.5rem;
+  border: 1px solid var(--color-primary);
+  border-bottom-width: 0.5rem;
+  border-radius: 0.125rem;
+  background: var(--color-primary-soft);
+}
+
 .auth-panel h1 {
   margin: 0 0 0.5rem;
   font-size: 1.75rem;
@@ -96,8 +108,30 @@ body {
 }
 
 .auth-panel > p {
-  margin: 0 0 2rem;
+  margin: 0 0 1.5rem;
   color: var(--color-text-muted);
+}
+
+.public-auth-form {
+  display: grid;
+  gap: 1rem;
+  margin-top: 1.5rem;
+  overflow-wrap: anywhere;
+}
+
+.public-auth-form > a {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.public-auth-form > a:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 2px;
 }
 
 .auth-form,
@@ -178,20 +212,11 @@ body {
   line-height: 1.4;
 }
 
-.auth-alert,
-.auth-confirmation {
+.auth-alert {
   padding: 1rem;
   border-radius: 0.5rem;
-}
-
-.auth-alert {
   color: var(--color-danger);
   background: var(--color-danger-soft);
-}
-
-.auth-confirmation {
-  color: var(--color-info);
-  background: var(--color-info-soft);
 }
 
 @media (min-width: 640px) {
