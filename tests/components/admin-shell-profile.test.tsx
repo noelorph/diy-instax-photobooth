@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { AppShell } from '@/features/admin/app-shell';
 import { Profile } from '@/features/admin/profile/profile';
@@ -34,7 +34,7 @@ it('associates the phone helper and current inline error with its control', asyn
     'Optional. Include your country code.',
     'Enter a valid phone number.',
   ]);
-  expect(document.activeElement).toBe(screen.getByRole('alert'));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('alert')));
 });
 it('keeps Profile last and marks the current destination', () => {
   render(

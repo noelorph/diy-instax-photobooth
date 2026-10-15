@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Give every implemented Admin route a cohesive, accessible interface with root-level reusable components and Geist typography shared with future Booth screens.
+**Goal:** Give every implemented Admin route a cohesive, accessible interface with reusable components under `src/components/` and Geist typography shared with future Booth screens.
 
-**Architecture:** Put reusable shadcn/ui primitives in root `components/ui`, product-neutral compositions in `components/shared`, and auth/Admin layouts in `components/layout`. Keep actions, validation, and route-specific form state in `src/features/admin`; bridge existing semantic theme variables into Tailwind CSS 4 utilities. Migrate one UI area at a time without changing server-action or authorization contracts.
+**Architecture (current after owner update):** Put reusable shadcn/ui primitives in `src/components/ui`, product-neutral compositions in `src/components/shared`, and auth/Admin layouts in `src/components/layout`. Keep actions, validation, and route-specific form state in `src/features/admin`; bridge existing semantic theme variables into Tailwind CSS 4 utilities. Migrate one UI area at a time without changing server-action or authorization contracts.
 
 **Tech Stack:** Next.js 16.4, React 19.3, TypeScript, Tailwind CSS 4, shadcn/ui, Lucide, Geist, React Hook Form, Vitest/Testing Library, Playwright.
 
@@ -18,7 +18,7 @@
 - Cover `/sign-in`, `/forgot-password`, `/reset-password`, the Admin shell, `/dashboard`, `/events`, `/events/new`, `/events/[eventId]`, `/history`, `/profile`, and their implemented loading, empty, error, pending, and success states.
 - Preserve Admin access, Draft Event, Profile, reset, authorization, validation, and server-action behavior. Dashboard and History remain truthful foundation pages; do not add Booth features or fabricated data.
 - Use Geist Sans Variable across Admin and future Booth, the existing light/dark semantic palettes, 14/18 px secondary and 16/22 px Admin body rhythm, and larger Booth instruction/countdown roles.
-- Use root `components/{ui,shared,layout}` and the specific `@/components/*` path mapping alongside the existing `@/*` to `src/*`; keep feature rules in `src/features/admin`.
+- Use `src/components/{ui,shared,layout}` and the ordinary `@/*` to `src/*` path mapping; keep feature rules in `src/features/admin`.
 - At 1024 px and above use a 240 px sidebar and content no wider than 1280 px; at 640–1023 px use a collapsible rail; at compact widths use a labeled menu with Escape focus restoration and 16 px page inset.
 - Preserve visible labels, 44 CSS px touch targets, long actionable text, native select/date-time behavior, keyboard access, and valid link/button semantics; use Lucide outline icons at 16 px in dense rows and 20 px in standard controls/navigation.
 - Work in the existing isolated worktree. Leave the pre-existing untracked `supabase/snippets/` untouched. Use TDD for interaction changes, sequential implementers with independent task reviews, then an independent whole-branch review and final verification. Do not push or merge.

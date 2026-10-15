@@ -8,8 +8,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,css,json}\" \"*.{js,jsx,ts,tsx,mjs,mts,json}\" \"components/**/*.{ts,tsx}\"",
-    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,css,json}\" \"*.{js,jsx,ts,tsx,mjs,mts,json}\" \"components/**/*.{ts,tsx}\"",
+    "format": "prettier --write \"src/**/*.{js,jsx,ts,tsx,css,json}\" \"*.{js,jsx,ts,tsx,mjs,mts,json}\"",
+    "format:check": "prettier --check \"src/**/*.{js,jsx,ts,tsx,css,json}\" \"*.{js,jsx,ts,tsx,mjs,mts,json}\"",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test"
