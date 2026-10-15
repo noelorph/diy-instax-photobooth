@@ -139,6 +139,36 @@ describe('supervised iPhone qualification page', () => {
     expect(screen.queryByText('Print complete')).toBeNull();
   });
 
+  it('shows a running UTC clock aligned with logged status timestamps', async () => {
+    const { services } = fixture();
+    await enterTrial(services);
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    await screen.findByRole('button', { name: 'Print' });
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date('2026-10-15T09:59:46.500Z'));
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Print' }));
+      await Promise.resolve();
+    });
+
+    const clock = screen.getByText('09:59:46.500 UTC') as HTMLTimeElement;
+    expect(clock.dateTime).toBe('2026-10-15T09:59:46.500Z');
+
+    act(() => {
+      vi.mocked(services.observe).mock.calls[0][1]({
+        opcode: INSTAX_OPCODES.supportFunctionInfo,
+        payload: new Uint8Array([0, 2, 2, 0x12, 0x7f, 0x0b]),
+      });
+    });
+    expect(screen.getByText('Response at 09:59:46.500 UTC')).toBeDefined();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(150);
+    });
+    expect(clock.textContent).toBe('09:59:46.650 UTC');
+    expect(clock.dateTime).toBe('2026-10-15T09:59:46.650Z');
+  });
+
   it('shows live status field changes without confirming ejection', async () => {
     const { services } = fixture();
     await enterTrial(services);

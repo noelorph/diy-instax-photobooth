@@ -133,6 +133,27 @@
   font-size: 1rem;
   line-height: 1.5rem;
 }
+.clockPanel {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-canvas);
+  display: grid;
+  gap: 4px;
+}
+.clockPanel span {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.clockPanel time {
+  color: var(--color-text);
+  font-size: clamp(1.5rem, 7vw, 2.25rem);
+  line-height: 1.2;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
 .signalPanel {
   padding: 12px;
   border: 1px solid var(--color-border);

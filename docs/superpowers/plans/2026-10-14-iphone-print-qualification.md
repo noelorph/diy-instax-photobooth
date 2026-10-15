@@ -204,4 +204,4 @@ Each TypeScript module gets a colocated `.test.ts` or `.test.tsx` file where the
 
 ## Final verification
 
-Run `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run format:check`, and `npm run build` after code tasks. The iPhone dry run and physical trial are separate required checks; simulated tests cannot pass the development gate. Before reporting completion, review the branch diff, the trial report, issue #17, and the Next.js agent-feedback instructions in `AGENTS.md`.
+Run `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run format:check`, and `npm run build` after code tasks. The iPhone dry run and physical trial are separate evidence checks: simulation does not establish physical ejection or pass the printer-backed completion checkpoint, while integrated development may proceed with a simulated printer under ADR-0014. Before reporting completion, review the branch diff, the trial report, issue #17, and the Next.js agent-feedback instructions in `AGENTS.md`.

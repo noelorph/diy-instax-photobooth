@@ -55,6 +55,31 @@ function hex(bytes: Uint8Array): string {
   return [...bytes.subarray(0, 128)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
 }
 
+function LiveUtcClock() {
+  const clockRef = useRef<HTMLTimeElement>(null);
+
+  useEffect(() => {
+    const update = () => {
+      const iso = new Date().toISOString();
+      if (!clockRef.current) return;
+      clockRef.current.dateTime = iso;
+      clockRef.current.textContent = `${iso.slice(11, 23)} UTC`;
+    };
+    update();
+    const interval = setInterval(update, 50);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className={styles.clockPanel}>
+      <span>Phone clock</span>
+      <time ref={clockRef} aria-live="off">
+        Syncing…
+      </time>
+    </div>
+  );
+}
+
 export function QualificationClient({ services }: { services?: QualificationServices }) {
   const [mounted, setMounted] = useState(Boolean(services));
   const [cameraReady, setCameraReady] = useState(false);
@@ -505,6 +530,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
           <div className={styles.pendingFrame}>
             <strong>Waiting for film ejection</strong>
             <p>Watch the sheet. Printer status is diagnostic only.</p>
+            <LiveUtcClock />
             <div className={styles.signalPanel} role="group" aria-label="Live printer status">
               <span className={styles.signalHeading}>Live printer status</span>
               <span className={styles.signalValue}>{statusFieldLabel}</span>
