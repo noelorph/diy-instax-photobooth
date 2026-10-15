@@ -4,6 +4,7 @@ import { redirect, unstable_rethrow } from 'next/navigation';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { createClient } from '@/lib/supabase/server';
 import type { ProfileState } from './state';
+import { validatePasswordConfirmation } from '../password-schema';
 
 export async function saveProfile(_state: ProfileState, data: FormData): Promise<ProfileState> {
   try {
@@ -42,17 +43,10 @@ export async function saveProfile(_state: ProfileState, data: FormData): Promise
 export async function changePassword(_state: ProfileState, data: FormData): Promise<ProfileState> {
   try {
     await requireAdmin();
-    const password = data.get('password');
-    const fieldErrors = {
-      password:
-        typeof password !== 'string' || password.length < 12 || password.length > 128
-          ? 'Use 12–128 characters.'
-          : undefined,
-      confirmation: password !== data.get('confirmation') ? 'The passwords must match.' : undefined,
-    };
-    if (fieldErrors.password || fieldErrors.confirmation) return { fieldErrors };
+    const validation = validatePasswordConfirmation(data.get('password'), data.get('confirmation'));
+    if (!validation.success) return { fieldErrors: validation.fieldErrors };
     const client = await createClient();
-    const { error } = await client.auth.updateUser({ password: password as string });
+    const { error } = await client.auth.updateUser({ password: validation.data.password });
     if (error)
       return {
         error:

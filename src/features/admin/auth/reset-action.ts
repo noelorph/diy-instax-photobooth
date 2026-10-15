@@ -3,6 +3,7 @@ import { unstable_rethrow } from 'next/navigation';
 import { createClient } from '@/lib/supabase/server';
 import { recoverySession } from './recovery-session';
 import { invalidRecoveryLink, type ResetState } from './reset-state';
+import { validatePasswordConfirmation } from '../password-schema';
 
 const incompleteReset =
   'Your password was saved, but Admin sessions could not all be ended. The reset is incomplete. Enter a different password and submit again to retry.';
@@ -10,18 +11,9 @@ const uncertainReset =
   'Your password was saved, but we could not confirm whether all Admin sessions ended. Request another recovery link to finish the reset.';
 
 export async function resetPassword(_state: ResetState, data: FormData): Promise<ResetState> {
-  const password = data.get('password');
-  const confirmation = data.get('confirmation');
-  const fieldErrors = {
-    password:
-      typeof password !== 'string' || password.length < 12
-        ? 'Use at least 12 characters.'
-        : password.length > 128
-          ? 'Use no more than 128 characters.'
-          : undefined,
-    confirmation: password !== confirmation ? 'The passwords must match.' : undefined,
-  };
-  if (fieldErrors.password || fieldErrors.confirmation) return { fieldErrors };
+  const validation = validatePasswordConfirmation(data.get('password'), data.get('confirmation'));
+  if (!validation.success) return { fieldErrors: validation.fieldErrors };
+  const { password } = validation.data;
   let saved = false;
   try {
     const client = await createClient();
@@ -31,7 +23,7 @@ export async function resetPassword(_state: ResetState, data: FormData): Promise
     const { data: sessionData, error: sessionError } = await client.auth.getSession();
     if (sessionError || !sessionData.session)
       return { invalidLink: true, error: invalidRecoveryLink };
-    const { error } = await client.auth.updateUser({ password: password as string });
+    const { error } = await client.auth.updateUser({ password });
     if (error?.code === 'same_password') {
       return { fieldErrors: { password: 'Use a different password from the one currently set.' } };
     }
