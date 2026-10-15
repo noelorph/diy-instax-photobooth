@@ -40,6 +40,8 @@ The public authentication pages are `/sign-in`, `/forgot-password`, and `/reset-
 
 Keep domain rules for Event transitions, allowance, stock, and Print Attempt outcomes separate from UI and printer protocol code. The printer adapter exposes a small interface so tests can substitute a simulated printer without changing the Guest flow.
 
+Reusable interface code lives at repository-root `components/`: customized shadcn/ui primitives in `ui/`, product-neutral compositions in `shared/`, and reusable page shells in `layout/`. Feature state and page-specific compositions stay in `src/features/`. The shared layer consumes [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md)'s semantic tokens across Admin themes and later Booth Mode; see [ADR-0016](docs/adr/0016-share-ui-primitives-at-repository-root.md).
+
 ## 3. Identity and access
 
 ### Admin

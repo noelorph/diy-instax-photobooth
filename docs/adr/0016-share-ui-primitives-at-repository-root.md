@@ -1,0 +1,7 @@
+# Share UI primitives at the repository root
+
+The Admin foundation currently repeats native form controls and styles them through broad global selectors, even though [DESIGN_SYSTEM.md](../../DESIGN_SYSTEM.md) calls for Tailwind CSS 4, customized shadcn/ui primitives, and Lucide icons. The owner approved a cohesive refresh of every implemented Admin screen, with project-wide reusable components under root `/components`.
+
+Store selectively installed and customized shadcn/ui primitives in `components/ui/`, product-neutral compositions in `components/shared/`, and reusable auth/Admin layouts in `components/layout/`. Keep feature state, validation, data access, and page-specific compositions in `src/features/admin/`. Configure import aliases for root `components/` without changing the existing `@/*` mapping for `src/*`. Map component styling to the design system's semantic tokens; remove global element selectors when component styles replace them. Use Lucide only where an icon improves scanning or identifies a control, with accessible text and names.
+
+This decision makes shared UI behavior and styling reviewable in one place while letting Admin and later Booth Mode use the same primitives at different sizes. It implements the component guidance of [ADR-0010](0010-one-design-system-for-admin-and-booth.md) without changing that decision or the PRD's behavior and development gates. The [Admin UI refresh spec](../superpowers/specs/2026-10-15-admin-ui-refresh-design.md) defines the initial migration and verification scope.
