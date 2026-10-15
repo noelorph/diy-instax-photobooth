@@ -220,6 +220,8 @@ body {
   --color-danger: #ff999c;
   --color-danger-hover: #ffb3b5;
   --color-on-danger: #101b1b;
+  --color-warning: #ffd27d;
+  --color-warning-soft: #4a3619;
   --color-danger-soft: #4a292b;
   --color-info: #8cc8e8;
   --color-info-soft: #1e3a48;
@@ -468,14 +470,6 @@ body {
   }
 }
 
-.admin-shell {
-  --color-warning: #805300;
-  --color-warning-soft: #fff1d6;
-}
-.admin-shell[data-theme='dark'] {
-  --color-warning: #ffd27d;
-  --color-warning-soft: #4a3619;
-}
 .draft-content {
   container-type: inline-size;
   max-width: 64rem;
