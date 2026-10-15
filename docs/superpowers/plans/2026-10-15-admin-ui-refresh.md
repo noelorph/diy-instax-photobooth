@@ -10,6 +10,8 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-15-admin-ui-refresh-design.md`
 
+**Owner update (after Tasks 1–6):** Move the shared component library from repository-root `components/` into `src/components/`. Task 7 supersedes the earlier root-location constraint; the completed tasks remain recorded as originally approved.
+
 ## Global Constraints
 
 - Read the relevant installed `node_modules/next/dist/docs/` guides before product code changes, and follow `AGENTS.md`, `PRD.md`, `ARCHITECTURE.md`, and `DESIGN_SYSTEM.md`.
@@ -102,3 +104,15 @@
 - [ ] **Step 3: Fix only observed issues, then inspect screenshots at compact, medium, and wide widths in light/dark Admin and ordinary public auth, including 200% zoom, long text, invalid/pending/success states.** Use semantic tokens, consistent 4 px rhythm, 44 px touch targets, and the single photo-frame cue.
 - [ ] **Step 4: Run `npm test`, `npm run lint`, `npx tsc --noEmit`, `npx prettier --check components docs/superpowers/plans/2026-10-15-admin-ui-refresh.md`, `npm run format:check`, `npm run build`, and `npm run test:e2e`; expect all applicable gates to pass.** Review the diff for raw palette leakage, dead broad selectors, fake dashboard data, and unintended behavior changes.
 - [ ] **Step 5: Commit Task 6 files as `test: verify cohesive Admin UI refresh`.** Request an independent whole-branch code review against the spec and design system, fix any findings with targeted RED/GREEN verification, rerun affected tests and final gates, and report evidence. Do not push or merge.
+
+### Task 7: Move reusable components into `src/components/` (owner update)
+
+**Files:** Move `components/ui/*` to `src/components/ui/*`, `components/shared/*` to `src/components/shared/*`, and `components/layout/*` to `src/components/layout/*`; modify `tsconfig.json`, `package.json`, `README.md`, `ARCHITECTURE.md`, `DESIGN_SYSTEM.md`, `docs/superpowers/specs/2026-10-15-admin-ui-refresh-design.md`, and this plan; create `docs/adr/0018-place-shared-ui-components-under-src.md`; annotate superseded `docs/adr/0016-share-ui-primitives-at-repository-root.md`. Modify imports/configuration only where resolution actually requires it.
+
+**Interfaces:** Keep all exported component names, props, and `@/components/...` import specifiers stable. The existing `@/*` → `./src/*` mapping resolves them after the move, so remove the now-obsolete special `@/components/*` → `./components/*` mapping. Keep `components.json` aliases pointing to `@/components` and `@/components/ui`; shadcn additions then land under `src/components/`.
+
+- [ ] **Step 1: Record the pre-move passing import/behavior baseline** with `npm test -- tests/components/admin-ui-primitives.test.tsx tests/components/admin-shell-profile.test.tsx tests/components/draft-event-ui.test.tsx`. This is a location-only refactor; do not invent a behavioral RED or a test that merely asserts a file path.
+- [ ] **Step 2: Move the existing library to `src/components/` and remove the special root path alias.** Keep root `components/` absent and make `rg` confirm no source/configuration references to the old physical location. Keep relative CSS Module imports working. Avoid duplicate component trees.
+- [ ] **Step 3: Update the decision record and every affected current guide.** ADR-0018 states the owner-directed `src/components/{ui,shared,layout}` decision and links ADR-0016; ADR-0016 identifies ADR-0018 as superseding its location choice. Update the spec, architecture, design system, README, and this plan to describe the current path and ordinary `@/*` alias without rewriting historical execution evidence. Do not change product behavior.
+- [ ] **Step 4: Run `npm test`, `npm run lint`, `npx tsc --noEmit`, `npm run format:check`, `npx prettier --check src/components README.md ARCHITECTURE.md DESIGN_SYSTEM.md docs/adr/0016-share-ui-primitives-at-repository-root.md docs/adr/0018-place-shared-ui-components-under-src.md docs/superpowers/specs/2026-10-15-admin-ui-refresh-design.md docs/superpowers/plans/2026-10-15-admin-ui-refresh.md`, `npm run build`, and `npm run test:e2e`; expect pass.** Inspect git diff for import resolution, duplicate components, and unrelated changes.
+- [ ] **Step 5: Commit as `refactor: place shared components under src`, then request an independent Task 7 review.** After its gate, run the independent whole-branch review against the revised spec and final verification. Do not push or merge.
