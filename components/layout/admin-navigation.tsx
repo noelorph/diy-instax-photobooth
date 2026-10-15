@@ -11,7 +11,7 @@ import {
   UserRound,
   X,
 } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import styles from './admin-shell.module.css';
 
@@ -39,18 +39,19 @@ export function AdminNavigation({ pathname }: { pathname: string }) {
   const [open, setOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const trigger = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    function closeOnEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setOpen(false);
+        trigger.current?.focus();
+      }
+    }
+    document.addEventListener('keydown', closeOnEscape);
+    return () => document.removeEventListener('keydown', closeOnEscape);
+  }, [open]);
   return (
-    <div
-      className={styles.navigation}
-      data-menu-open={open}
-      data-rail-expanded={expanded}
-      onKeyDown={(event) => {
-        if (event.key === 'Escape' && open) {
-          setOpen(false);
-          trigger.current?.focus();
-        }
-      }}
-    >
+    <div className={styles.navigation} data-menu-open={open} data-rail-expanded={expanded}>
       <header className={styles.mobileHeader}>
         <Brand />
         <Button

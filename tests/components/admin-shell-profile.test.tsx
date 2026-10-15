@@ -44,6 +44,23 @@ it('opens the compact menu and Escape restores focus to its trigger', () => {
   expect(menu.getAttribute('aria-expanded')).toBe('false');
   expect(document.activeElement).toBe(menu);
 });
+it('closes the open compact menu with Escape from main content and restores trigger focus', () => {
+  render(
+    <AppShell theme="light">
+      <button type="button">Save changes</button>
+    </AppShell>
+  );
+  const menu = screen.getByRole('button', { name: 'Open navigation menu' });
+  fireEvent.click(menu);
+  const contentControl = screen.getByRole('button', { name: 'Save changes' });
+  contentControl.focus();
+  fireEvent.keyDown(contentControl, { key: 'Escape' });
+  expect(menu.getAttribute('aria-expanded')).toBe('false');
+  expect(document.activeElement).toBe(menu);
+  contentControl.focus();
+  fireEvent.keyDown(contentControl, { key: 'Escape' });
+  expect(document.activeElement).toBe(contentControl);
+});
 it.each(['/events/new', '/events/draft-123'])('selects Events on %s', (pathname) => {
   route.pathname = pathname;
   render(
