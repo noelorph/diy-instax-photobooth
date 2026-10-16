@@ -95,3 +95,24 @@ describe('operation input boundary', () => {
     );
   });
 });
+it('uses a validated configured origin despite an internal runtime hostname, and rejects cross-site', () => {
+  vi.stubEnv('ADMIN_AUTH_ORIGIN', 'http://127.0.0.1:1439');
+  try {
+    const request = (origin: string, site = 'same-origin') =>
+      new Request('http://localhost:1439/api/op', { headers: { origin, 'sec-fetch-site': site } });
+    expect(() => requireSameOrigin(request('http://127.0.0.1:1439'))).not.toThrow();
+    expect(() => requireSameOrigin(request('http://127.0.0.1:1439', 'cross-site'))).toThrow();
+    expect(() => requireSameOrigin(request('http://localhost:1439'))).toThrow();
+    for (const value of [
+      'not a URL',
+      'https://example.test/path',
+      'https://user:pass@example.test',
+      'https://example.test?x=y',
+    ]) {
+      vi.stubEnv('ADMIN_AUTH_ORIGIN', value);
+      expect(() => requireSameOrigin(request('http://127.0.0.1:1439'))).toThrow();
+    }
+  } finally {
+    vi.unstubAllEnvs();
+  }
+});

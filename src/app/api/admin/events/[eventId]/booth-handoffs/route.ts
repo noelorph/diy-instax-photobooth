@@ -1,3 +1,4 @@
+import { boothReturnCookie } from '@/features/admin/auth/booth-return';
 import { createClient } from '@/lib/supabase/server';
 import { requireAdminRequest } from '@/lib/operations/admin-authority';
 import {
@@ -67,6 +68,7 @@ export async function POST(request: Request, context: { params: Promise<{ eventI
       handoffId: result.handoff_id,
     });
     response.cookies.set(deviceCookie, device, { ...cookieOptions, maxAge: 172800 });
+    response.cookies.set(boothReturnCookie, eventId, { ...cookieOptions, maxAge: 172800 });
     return response;
   } catch (error) {
     return operationErrorResponse(error);

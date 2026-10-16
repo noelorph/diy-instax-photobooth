@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { OperationError } from './types';
+import { recoveryCallbackUrl } from '@/features/admin/auth/config';
 export const operationSchema = z.strictObject({ operationKey: z.uuid() });
 export const prepareHandoffSchema = operationSchema.extend({
   expectedRevision: z.number().int().positive().max(2147483647),
@@ -12,8 +13,19 @@ export const prepareHandoffSchema = operationSchema.extend({
 });
 export const confirmHandoffSchema = operationSchema.extend({ handoffId: z.uuid() });
 export function requireSameOrigin(request: Request) {
+  let expectedOrigin: string;
+  try {
+    // Next may construct an internal localhost URL behind the public origin.
+    // Reuse the deployment-origin validator; never trust forwarded headers.
+    expectedOrigin =
+      process.env.ADMIN_AUTH_ORIGIN !== undefined
+        ? new URL(recoveryCallbackUrl()).origin
+        : new URL(request.url).origin;
+  } catch {
+    throw new OperationError('forbidden');
+  }
   if (
-    request.headers.get('origin') !== new URL(request.url).origin ||
+    request.headers.get('origin') !== expectedOrigin ||
     request.headers.get('sec-fetch-site') === 'cross-site'
   )
     throw new OperationError('forbidden');

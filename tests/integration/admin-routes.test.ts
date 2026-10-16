@@ -83,6 +83,10 @@ describe('Admin page responses with local Auth sessions', () => {
         } else if (destination.startsWith('/events/')) {
           expect(body).toContain('Draft not found.');
           expect(body).not.toContain('Client email');
+        } else if (destination === '/history') {
+          expect(body).toContain(
+            'Completed and Cancelled Events retain anonymous operational totals.'
+          );
         } else {
           expect(body).toContain('Admin foundation');
           expect(body).toContain('not available yet');
@@ -160,7 +164,9 @@ describe('Admin page responses with local Auth sessions', () => {
       .map((value) => value.split(';')[0])
       .join('; ');
     const revisit = await routes.request('/history', cookie);
-    expect(await revisit.text()).toContain('Admin foundation');
+    expect(await revisit.text()).toContain(
+      'Completed and Cancelled Events retain anonymous operational totals.'
+    );
   });
 
   it('sends root requests to the public or protected entry for the current session', async () => {

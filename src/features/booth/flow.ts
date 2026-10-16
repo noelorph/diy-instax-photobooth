@@ -24,6 +24,8 @@ export type Phase =
   | 'confirmed'
   | 'connection-hold'
   | 'uncertain'
+  | 'pausing'
+  | 'pause-retry'
   | 'paused'
   | 'unavailable';
 export type View = { phase: Phase; title?: string; photoUrl?: string; message?: string };
@@ -58,6 +60,8 @@ export class BoothFlow {
   private resumeBeforePhoto?: 'welcome' | 'preview';
   private sent = false;
   private pauseRequested = false;
+  private pauseOperationKey?: string;
+  private pauseUnconfirmed = false;
   private connectionEpoch = 0;
   private reservationInFlight = false;
   private recovering = false;
@@ -80,10 +84,14 @@ export class BoothFlow {
     };
   };
   private show(phase: Phase, message?: string) {
+    if (this.pauseUnconfirmed && ['paused', 'unavailable', 'uncertain'].includes(phase))
+      phase = 'pause-retry';
     this.view = {
       phase,
       message,
-      title: ['paused', 'uncertain', 'unavailable'].includes(phase) ? undefined : this.view.title,
+      title: ['paused', 'pausing', 'pause-retry', 'uncertain', 'unavailable'].includes(phase)
+        ? undefined
+        : this.view.title,
       photoUrl: this.photo?.url,
     };
     this.listeners.forEach((l) => l());
@@ -417,6 +425,14 @@ export class BoothFlow {
       throw error;
     }
     if (this.pauseRequested && result.state !== 'Accepted') {
+      // An acknowledged Uncertain outcome itself commits the server stop.
+      if (result.state === 'Uncertain') this.pauseUnconfirmed = false;
+      if (this.pauseUnconfirmed) {
+        this.discard();
+        this.clearAttempt();
+        this.show('pause-retry');
+        return;
+      }
       this.discard();
       this.clearAttempt();
       this.stopped = true;
@@ -449,7 +465,8 @@ export class BoothFlow {
   private async uncertain() {
     this.stopped = true;
     this.discard();
-    this.show('uncertain');
+    this.show(this.pauseUnconfirmed ? 'pause-retry' : 'uncertain');
+    if (this.pauseUnconfirmed) this.stopped = false;
     if (this.journal.attemptId) {
       try {
         await this.report('uncertain');
@@ -459,27 +476,43 @@ export class BoothFlow {
     }
   }
   async requestPause() {
-    if (this.stopped || this.pauseRequested) return;
+    if ((this.stopped || this.pauseRequested) && this.view.phase !== 'pause-retry') return;
+    if (this.view.phase === 'pause-retry') this.stopped = false;
     this.pauseRequested = true;
+    this.pauseUnconfirmed = true;
+    this.pauseOperationKey ??= crypto.randomUUID();
     if (!this.sent) {
       this.discard();
-      this.show('paused');
+      this.show('pausing');
     }
     try {
       if (this.journal.capture) await this.acknowledgeCapture();
       if (this.stopped) return;
-      await this.post('pauses');
-      if (!this.journal.attemptId && !this.journal.reservation) this.stopped = true;
-    } catch {
-      if (this.sent) await this.uncertain();
-      else {
+      const result = await this.post('pauses', { operationKey: this.pauseOperationKey });
+      this.pauseUnconfirmed = !['Paused', 'PauseRequested'].includes(result.state ?? '');
+      if (!this.sent && result.state === 'Paused') {
         this.stopped = true;
         this.show('paused');
+      } else if (!this.sent && !this.journal.attemptId && !this.journal.reservation) {
+        this.show('pause-retry');
       }
+    } catch (error) {
+      if (
+        typeof error === 'object' &&
+        error !== null &&
+        'status' in error &&
+        error.status === 401 &&
+        !this.sent
+      ) {
+        this.pauseUnconfirmed = false;
+        this.stopped = true;
+        this.show('paused');
+      } else this.show('pause-retry');
     }
   }
   async printTimedOut() {
-    if (this.view.phase === 'printing') await this.uncertain();
+    if (this.view.phase === 'printing' || (this.view.phase === 'pause-retry' && this.sent))
+      await this.uncertain();
   }
   async connectionChanged() {
     this.stopped = true;
@@ -494,6 +527,10 @@ export class BoothFlow {
     }
   }
   offline() {
+    if (this.pauseRequested && ['pausing', 'pause-retry'].includes(this.view.phase)) {
+      this.connected = false;
+      return;
+    }
     if (['welcome', 'preview', 'countdown'].includes(this.view.phase))
       this.resumeBeforePhoto = this.view.phase === 'welcome' ? 'welcome' : 'preview';
     this.connectionEpoch++;

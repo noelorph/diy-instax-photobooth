@@ -121,7 +121,7 @@ export function BoothClient({
     return () => clearInterval(timer);
   }, [view.phase, flow]);
   useEffect(() => {
-    if (view.phase !== 'printing') return;
+    if (view.phase !== 'printing' && view.phase !== 'pause-retry') return;
     const timer = setTimeout(() => {
       void flow.printTimedOut();
     }, 60000);
@@ -146,6 +146,8 @@ export function BoothClient({
     confirmed: 'Your print is ready',
     'connection-hold': 'Connection lost',
     uncertain: 'Please ask the Admin for help',
+    pausing: 'Pausing Booth Mode',
+    'pause-retry': 'Pause not confirmed',
     paused: 'Booth paused',
     unavailable: 'Printing is unavailable right now',
   };
@@ -242,6 +244,9 @@ export function BoothClient({
               </button>
             </>
           )}
+          {view.phase === 'pause-retry' && (
+            <button onClick={() => void flow.requestPause()}>Retry pause</button>
+          )}
           {neutral && <a href="/sign-in?from=booth">Admin sign in</a>}
         </div>
         {['preview', 'review'].includes(view.phase) && idle >= 75 && (
@@ -257,7 +262,7 @@ export function BoothClient({
             </button>
           </aside>
         )}
-        {!neutral && (
+        {!neutral && view.phase !== 'pausing' && view.phase !== 'pause-retry' && (
           <button
             className={styles.adminPause}
             aria-label="Admin pause"

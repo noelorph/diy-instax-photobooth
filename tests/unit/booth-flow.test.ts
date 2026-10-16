@@ -541,7 +541,7 @@ it.each(['pause', 'reconnect'] as const)(
     }));
     await vi.waitFor(() => expect(calls.some((path) => path.endsWith('/captures'))).toBe(true));
     const stop = action === 'pause' ? flow.requestPause() : flow.connectionChanged();
-    expect(flow.getSnapshot().phase).toBe('paused');
+    expect(flow.getSnapshot().phase).toBe(action === 'pause' ? 'pausing' : 'paused');
     expect(
       calls.filter((path) => path.endsWith('/pauses') || path.endsWith('/connection-changes'))
     ).toHaveLength(0);
@@ -704,4 +704,29 @@ it('retries failed Capture metadata through polling before any cookie-clearing b
   expect(inputs).toHaveLength(2);
   expect(inputs[1]).toEqual(inputs[0]);
   expect(flow.getSnapshot().phase).toBe('paused');
+});
+it('a failed pause while sending does not claim committed pause after ejection', async () => {
+  const s = setup();
+  let finish!: (value: import('@/features/booth/printer/contract').PrinterObservation[]) => void;
+  const flow = new BoothFlow({
+    storage: sessionStorage,
+    printer: {
+      sendOnce: () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
+    },
+    transport: async (path, body) => {
+      if (path.endsWith('/pauses')) throw new TypeError('Response lost');
+      return s.transport(path, body);
+    },
+  });
+  await review({ ...s, flow });
+  const printing = flow.print();
+  await vi.waitFor(() => expect(finish).toBeTypeOf('function'));
+  await flow.requestPause();
+  expect(flow.getSnapshot().phase).toBe('pause-retry');
+  finish([{ attemptId: 'attempt', monotonicMs: 2, kind: 'physicalEjectionVerified' }]);
+  await printing;
+  expect(flow.getSnapshot().phase).toBe('pause-retry');
 });

@@ -1,3 +1,5 @@
+import { boothReturnCookie } from '@/features/admin/auth/booth-return';
+import { cookieOptions } from '@/lib/operations/booth-authority';
 import {
   boothErrorResponse,
   clearBoothCookie,
@@ -27,6 +29,7 @@ export async function POST(request: Request) {
       state: value.state,
       revision: value.revision,
     });
+    response.cookies.set(boothReturnCookie, booth.eventId, { ...cookieOptions, maxAge: 172800 });
     return value.state === 'Paused' ? clearBoothCookie(response) : response;
   } catch (error) {
     return boothErrorResponse(error);

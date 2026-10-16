@@ -163,3 +163,86 @@ it('a completed long press requests protected pause', async () => {
   });
   expect(s.flow.getSnapshot().phase).toBe('paused');
 });
+it('withholds sign-in during pause and transient failure, then retries the same operation', async () => {
+  let release!: () => void;
+  let fail = true;
+  const paused = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const keys: unknown[] = [];
+  const flow = new BoothFlow({
+    storage: sessionStorage,
+    printer: new SimulatedPrinter(),
+    transport: async (path, body) => {
+      if (path.endsWith('/pauses')) {
+        keys.push(body?.operationKey);
+        await paused;
+        if (fail) throw new TypeError('offline');
+        return { state: 'Paused' };
+      }
+      return {
+        state: 'Active',
+        runId: 'run',
+        display: { title: 'Private Event' },
+        availability: available,
+      };
+    },
+  });
+  render(
+    <BoothClient
+      flow={flow}
+      camera={{
+        start: async () => {},
+        stop: () => {},
+        capture: async () => ({
+          bytes: new Uint8Array([1]),
+          url: 'blob:temporary',
+          discard: () => {},
+        }),
+      }}
+    />
+  );
+  await flush();
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Admin pause' }), { key: 'Enter' });
+  expect(screen.queryByRole('link', { name: 'Admin sign in' })).toBeNull();
+  expect(screen.getByRole('heading', { name: 'Pausing Booth Mode' })).toBeTruthy();
+  await act(async () => {
+    release();
+  });
+  expect(screen.queryByRole('link', { name: 'Admin sign in' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Retry pause' })).toBeTruthy();
+  fail = false;
+  fireEvent.click(screen.getByRole('button', { name: 'Retry pause' }));
+  await flush();
+  expect(screen.getByRole('link', { name: 'Admin sign in' })).toBeTruthy();
+  expect(keys[1]).toBe(keys[0]);
+});
+it('does not interpret an unexplained forbidden pause response as a committed pause', async () => {
+  const flow = new BoothFlow({
+    storage: sessionStorage,
+    printer: new SimulatedPrinter(),
+    transport: async (path) => {
+      if (path.endsWith('/pauses')) throw Object.assign(new Error('forbidden'), { status: 403 });
+      return { state: 'Active', runId: 'run', availability: available };
+    },
+  });
+  render(
+    <BoothClient
+      flow={flow}
+      camera={{
+        start: async () => {},
+        stop: () => {},
+        capture: async () => ({
+          bytes: new Uint8Array([1]),
+          url: 'blob:temporary',
+          discard: () => {},
+        }),
+      }}
+    />
+  );
+  await flush();
+  fireEvent.keyDown(screen.getByRole('button', { name: 'Admin pause' }), { key: 'Enter' });
+  await flush();
+  expect(screen.queryByRole('link', { name: 'Admin sign in' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Retry pause' })).toBeTruthy();
+});

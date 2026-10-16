@@ -9,6 +9,7 @@ import { localSupabase, localSupabaseStatus, readProfile } from '../fixtures/loc
 
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
 vi.mock('server-only', () => ({}));
+vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => undefined }) }));
 
 function credentials(email: string, password: string) {
   const data = new FormData();

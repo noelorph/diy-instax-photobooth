@@ -300,7 +300,21 @@ describe('Client Redaction and Draft deletion', { timeout: 30000 }, () => {
       vi.mocked(createPrivilegedClient).mockReturnValue(
         local.service as ReturnType<typeof createPrivilegedClient>
       );
-      const retried = await deleteDraft(request(body), context(f.id));
+      const pendingRead = await listPendingMediaRemovals();
+      if (pendingRead.status !== 'success') throw new Error('Pending read failed');
+      const retryBody = {
+        operationKey: randomUUID(),
+        expectedRevision: pendingRead.removals[0].revision,
+      };
+      expect(
+        (
+          await deleteDraft(
+            request({ ...retryBody, replacementTitle: 'Must not change identity' }),
+            context(f.id)
+          )
+        ).status
+      ).toBe(400);
+      const retried = await deleteDraft(request(retryBody), context(f.id));
       expect(await retried.json()).toMatchObject({
         eventId: f.id,
         mediaRemovalState: 'complete',
@@ -392,4 +406,42 @@ describe('Client Redaction and Draft deletion', { timeout: 30000 }, () => {
       await local.service.storage.deleteBucket('event_media');
     }
   }, 60000);
+  it('resumes pending Client Redaction with the DAL revision and a fresh key without replacing the erased identity', async () => {
+    const f = await fixture();
+    sql(`update public.events set state='Completed',revision=revision+1 where id='${f.id}'`);
+    expect(
+      (
+        await rpc('begin_event_redaction', {
+          ...begin(f, 'redact_client', 2),
+          replacement_title: 'Anonymous booking',
+        })
+      ).error
+    ).toBeNull();
+    const pending = await listPendingMediaRemovals();
+    if (pending.status !== 'success') throw new Error('Pending work unavailable');
+    const row = pending.removals.find((value) => value.eventId === f.id)!;
+    const changed = await redactClient(
+      request({
+        operationKey: randomUUID(),
+        expectedRevision: row.revision,
+        replacementTitle: 'Changed again',
+      }),
+      context(f.id)
+    );
+    expect(changed.status).toBe(409);
+    const retry = { operationKey: randomUUID(), expectedRevision: row.revision };
+    expect(await (await redactClient(request(retry), context(f.id))).json()).toMatchObject({
+      mediaRemovalState: 'complete',
+    });
+    expect(
+      sql(`select title,client_name,media_removal_state from public.events where id='${f.id}'`)[0]
+    ).toMatchObject({
+      title: 'Anonymous booking',
+      client_name: null,
+      media_removal_state: 'complete',
+    });
+    expect(
+      sql(`select operation_kind from public.activity_events where event_id='${f.id}'`)
+    ).toHaveLength(2);
+  });
 });
