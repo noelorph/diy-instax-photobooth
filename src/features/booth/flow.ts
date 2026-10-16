@@ -54,6 +54,7 @@ export class BoothFlow {
   private photo?: Photo;
   private stopped = false;
   private connected = true;
+  private resumeBeforePhoto?: 'welcome' | 'preview';
   private sent = false;
   private pauseRequested = false;
   private connectionEpoch = 0;
@@ -173,13 +174,21 @@ export class BoothFlow {
       this.show('capturing');
       // capture() draws the frame synchronously before its encoding promise yields.
       const pendingPhoto = capture();
+      // Own both promise outcomes before any storage operation can throw.
+      let journalSaved = false;
+      const ownedPhoto = pendingPhoto.then((photo) => {
+        if (!journalSaved) photo.discard();
+        return photo;
+      });
+      void ownedPhoto.catch(() => {});
       this.journal.capture = {
         operationKey: crypto.randomUUID(),
         capturedAt: new Date().toISOString(),
       };
       this.save();
+      journalSaved = true;
       const [photo, acknowledgement] = await Promise.allSettled([
-        pendingPhoto,
+        ownedPhoto,
         this.acknowledgeCapture(),
       ]);
       if (photo.status === 'fulfilled') {
@@ -228,6 +237,13 @@ export class BoothFlow {
     try {
       const result = await this.bootstrap();
       if (this.stopped) return;
+      if (this.resumeBeforePhoto && ready(result.availability)) {
+        const phase = this.resumeBeforePhoto;
+        this.resumeBeforePhoto = undefined;
+        this.connected = true;
+        this.view = { ...this.view, title: result.display?.title };
+        this.show(phase);
+      }
       if (this.view.phase === 'connection-hold' && this.photo && ready(result.availability)) {
         this.connected = true;
         this.show('review');
@@ -452,6 +468,8 @@ export class BoothFlow {
     }
   }
   offline() {
+    if (['welcome', 'preview', 'countdown'].includes(this.view.phase))
+      this.resumeBeforePhoto = this.view.phase === 'welcome' ? 'welcome' : 'preview';
     this.connectionEpoch++;
     this.connected = false;
     if (this.sent) {

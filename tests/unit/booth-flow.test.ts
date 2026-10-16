@@ -362,3 +362,107 @@ it('an explicit new Admin handoff starts its new run without replaying the prior
   expect(flow.getSnapshot().phase).toBe('welcome');
   expect(s.calls.some((c) => c.path.includes('old-attempt'))).toBe(false);
 });
+
+it.each(['welcome', 'preview', 'countdown'] as const)(
+  'recovers %s after network interruption without firing a shutter',
+  async (phase) => {
+    const s = setup();
+    await s.flow.initialize();
+    if (phase !== 'welcome') await s.flow.start();
+    if (phase === 'countdown') s.flow.countdown();
+    s.flow.offline();
+    await s.flow.online();
+    expect(s.flow.getSnapshot().phase).toBe(phase === 'welcome' ? 'welcome' : 'preview');
+    expect(s.calls.filter((c) => c.path.endsWith('/captures'))).toHaveLength(0);
+    if (phase === 'countdown') {
+      s.flow.countdown();
+      expect(s.flow.getSnapshot().phase).toBe('countdown');
+    }
+  }
+);
+
+it('owns and discards the pending photo when Capture journal storage fails', async () => {
+  const s = setup();
+  let fail = false;
+  const flow = new BoothFlow({
+    transport: s.transport,
+    printer: s.printer,
+    storage: {
+      getItem: () => null,
+      removeItem: () => {},
+      setItem: () => {
+        if (fail) throw new Error('storage unavailable');
+      },
+    },
+  });
+  await flow.initialize();
+  await flow.start();
+  flow.countdown();
+  fail = true;
+  const discard = vi.fn();
+  let finish!: (photo: { bytes: Uint8Array; url: string; discard: () => void }) => void;
+  const photo = new Promise<{ bytes: Uint8Array; url: string; discard: () => void }>((resolve) => {
+    finish = resolve;
+  });
+  const shutter = flow.shutter(() => photo);
+  await vi.waitFor(() => expect(flow.getSnapshot().phase).toBe('paused'));
+  finish({ bytes: new Uint8Array(), url: 'blob:ephemeral', discard });
+  await shutter;
+  await vi.waitFor(() => expect(discard).toHaveBeenCalledOnce());
+  expect(s.calls.filter((c) => c.path.endsWith('/captures'))).toHaveLength(0);
+  expect(flow.getSnapshot().photoUrl).toBeUndefined();
+});
+
+it.each(['before-draw', 'encoding'] as const)(
+  'counts only a completed shutter when failure occurs during %s',
+  async (failure) => {
+    const s = setup();
+    await s.flow.initialize();
+    await s.flow.start();
+    s.flow.countdown();
+    await s.flow.shutter(() => {
+      if (failure === 'before-draw') throw new Error('Camera unavailable or draw failed');
+      return Promise.reject(new Error('Encoding failed after draw'));
+    });
+    expect(s.calls.filter((c) => c.path.endsWith('/captures'))).toHaveLength(
+      failure === 'encoding' ? 1 : 0
+    );
+    expect(s.calls.filter((c) => c.path.endsWith('/print-attempts'))).toHaveLength(0);
+    expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  }
+);
+
+it('does not resume pre-photo work until readiness is authoritative', async () => {
+  const s = setup();
+  await s.flow.initialize();
+  await s.flow.start();
+  s.flow.offline();
+  s.busy();
+  await s.flow.online();
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  s.flow.countdown();
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+});
+
+it('settles an encoding rejection even when Capture journal storage throws', async () => {
+  const s = setup();
+  let fail = false;
+  const flow = new BoothFlow({
+    transport: s.transport,
+    printer: s.printer,
+    storage: {
+      getItem: () => null,
+      removeItem: () => {},
+      setItem: () => {
+        if (fail) throw new Error('storage unavailable');
+      },
+    },
+  });
+  await flow.initialize();
+  await flow.start();
+  flow.countdown();
+  fail = true;
+  await flow.shutter(() => Promise.reject(new Error('encoding failed')));
+  expect(flow.getSnapshot().phase).toBe('paused');
+  expect(s.calls.filter((c) => c.path.endsWith('/captures'))).toHaveLength(0);
+});

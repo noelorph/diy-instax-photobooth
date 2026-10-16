@@ -2,6 +2,7 @@ import { capturePrintableFrame } from '@/features/qualification/image';
 import type { Photo } from './flow';
 export interface BoothCamera {
   start(video: HTMLVideoElement, disconnected: () => void): Promise<void>;
+  /** Throws synchronously before a successful draw; returned promise only encodes that shutter. */
   capture(): Promise<Photo>;
   stop(): void;
 }
@@ -31,17 +32,16 @@ export class BrowserBoothCamera implements BoothCamera {
     video.srcObject = stream;
     await video.play();
   }
-  async capture(): Promise<Photo> {
+  capture(): Promise<Photo> {
     if (!this.video || !this.stream?.active) throw new Error('Camera unavailable');
-    const frame = await capturePrintableFrame(this.video);
-    return {
+    return capturePrintableFrame(this.video).then((frame) => ({
       bytes: frame.jpeg,
       url: frame.previewUrl,
       discard: () => {
         frame.jpeg.fill(0);
         URL.revokeObjectURL(frame.previewUrl);
       },
-    };
+    }));
   }
   stop() {
     this.generation++;
