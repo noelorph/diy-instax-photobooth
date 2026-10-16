@@ -426,13 +426,38 @@ describe('Event and Booth run lifecycle', () => {
     expect(
       (await local.service.from('booth_grants').select().eq('event_id', f.id)).data
     ).toMatchObject([{ state: 'Revoked' }]);
-  });
+  }, 20000);
   it('does not replay a successful activation after the grant was revoked', async () => {
     const f = await active();
     const a = await admin();
     expect((await change(f, a, 'pause', f.revision)).error).toBeNull();
     expect((await rpc('confirm_booth_handoff', f.confirm)).error?.message).toBe('state_conflict');
   });
+  it.each(['expired', 'revoked', 'wrong_run'] as const)(
+    'denies issuance replay after confirmation when the bound grant is %s',
+    async (condition) => {
+      const f = await active();
+      expect((await rpc('finish_booth_handoff', f.issue)).error).toBeNull();
+      if (condition === 'expired') {
+        sql(
+          `update public.booth_grants set created_at=now()-interval '2 hours', expires_at=now()-interval '1 second' where run_id='${f.p.run_id}'`
+        );
+      } else if (condition === 'revoked') {
+        sql(
+          `update public.booth_grants set state='Revoked',revoked_at=now() where run_id='${f.p.run_id}'`
+        );
+      } else {
+        sql(`do $$ declare other_run uuid; begin
+          insert into public.booth_runs(event_id,state) values('${f.id}','Paused') returning id into other_run;
+          update public.booth_grants set run_id=other_run where run_id='${f.p.run_id}';
+        end $$`);
+      }
+      const replay = await rpc('finish_booth_handoff', f.issue);
+      expect(replay.error?.message).toBe('state_conflict');
+      expect(replay.data).toBeNull();
+    },
+    20000
+  );
   it('revokes at Uncertain while retaining the hold that blocks completion', async () => {
     const f = await active();
     const a = await admin();

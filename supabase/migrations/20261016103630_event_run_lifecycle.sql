@@ -214,6 +214,7 @@ declare
   v_h public.booth_handoffs%rowtype;
   v_event public.events%rowtype;
   v_run public.booth_runs%rowtype;
+  v_grant public.booth_grants%rowtype;
   v_receipt public.operation_receipts%rowtype;
   v_actor text:='handoff:'||handoff_id::text;
   v_digest text;
@@ -227,13 +228,15 @@ begin
   select * into v_event from public.events where id=v_h.event_id for update;
   select * into v_h from public.booth_handoffs h where h.id=handoff_id for update;
   select * into strict v_run from public.booth_runs where id=v_h.run_id for update;
+  select * into strict v_grant from public.booth_grants where id=v_h.grant_id for update;
+  if v_grant.event_id<>v_h.event_id or v_grant.run_id<>v_h.run_id or v_run.event_id<>v_h.event_id then raise exception 'state_conflict'; end if;
   if grant_hash is null or grant_hash !~ '^[0-9a-f]{64}$' or expires_at is null or not isfinite(expires_at)  or expires_at>statement_timestamp()+interval '48 hours' then raise exception 'validation_error'; end if;
   v_digest:=encode(sha256(convert_to(jsonb_build_object('handoff_id',handoff_id,'device_token_hash',device_token_hash,'grant_hash',grant_hash,'expires_at',expires_at)::text,'UTF8')),'hex');
   select * into v_receipt from public.operation_receipts r where r.actor_scope=v_actor and r.operation_kind='finish_booth_handoff' and r.operation_key=finish_booth_handoff.operation_key;
   if found and v_receipt.input_digest<>v_digest then raise exception 'idempotency_conflict'; end if;
   -- Expiry is authority validation, so it precedes successful receipt replay.
   if v_h.state in ('Prepared','Issued') and v_run.state='Prepared' and
-    (v_h.expires_at<=statement_timestamp() or exists(select 1 from public.booth_grants where id=v_h.grant_id and booth_grants.expires_at<=statement_timestamp())) then
+    (v_h.expires_at<=statement_timestamp() or v_grant.expires_at<=statement_timestamp()) then
     perform private.fail_booth_handoff(v_h.id);
     select * into strict v_event from public.events where id=v_h.event_id;
     v_result:=jsonb_build_object('event_id',v_event.id,'event_state',v_event.state,'run_id',v_run.id,'run_state','Paused','revision',v_event.revision,'handoff_id',v_h.id,'error','handoff_expired');
@@ -244,7 +247,13 @@ begin
     return private.record_run_operation(v_event.id,v_actor,'finish_booth_handoff',operation_key,v_digest,v_result);
   end if;
   if v_receipt.id is not null then
-    if v_receipt.result->>'error' is null and (v_h.state not in ('Issued','Confirmed') or v_run.state not in ('Prepared','Active')) then raise exception 'state_conflict'; end if;
+    -- A prior receipt cannot restore authority after grant expiry or revocation.
+    if v_receipt.result->>'error' is null and (
+      v_event.state<>'Live' or v_grant.expires_at<=statement_timestamp()
+      or v_grant.revoked_at is not null or v_grant.secret_hash is distinct from grant_hash
+      or not ((v_h.state='Issued' and v_run.state='Prepared' and v_grant.state='Inactive')
+        or (v_h.state='Confirmed' and v_run.state='Active' and v_grant.state='Active'))
+    ) then raise exception 'state_conflict'; end if;
     return v_receipt.result;
   end if;
   if expires_at<=statement_timestamp() then raise exception 'validation_error'; end if;
