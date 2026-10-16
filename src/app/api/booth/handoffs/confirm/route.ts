@@ -1,3 +1,4 @@
+import { requireSimulator } from '@/lib/operations/printer-gate';
 import {
   boothErrorResponse,
   InvalidBoothGrantError,
@@ -15,6 +16,7 @@ export async function POST(request: Request) {
     requireSameOrigin(request);
     const input = await parseOperation(request, confirmHandoffSchema);
     const { grantHash: hash } = await requireBoothGrant(request);
+    requireSimulator();
     const { data, error } = await createPrivilegedClient().rpc('confirm_booth_handoff', {
       handoff_id: input.handoffId,
       grant_hash: hash,

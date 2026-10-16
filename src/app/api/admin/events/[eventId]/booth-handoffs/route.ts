@@ -9,7 +9,7 @@ import {
 } from '@/lib/operations/booth-authority';
 import { createPrivilegedClient } from '@/lib/operations/privileged-client';
 import { operationErrorResponse, operationResponse } from '@/lib/operations/responses';
-import { OperationError } from '@/lib/operations/types';
+import { requireSimulator } from '@/lib/operations/printer-gate';
 import {
   operationId,
   parseOperation,
@@ -22,8 +22,7 @@ export async function POST(request: Request, context: { params: Promise<{ eventI
     const admin = await requireAdminRequest(request),
       eventId = operationId((await context.params).eventId);
     const input = await parseOperation(request, prepareHandoffSchema);
-    if (process.env.NODE_ENV === 'production' || process.env.BOOTH_SIMULATOR_ENABLED !== 'true')
-      throw new OperationError('state_conflict');
+    requireSimulator();
     const device = readSecret(request, deviceCookie) ?? newSecret();
     const { data, error } = await createPrivilegedClient().rpc('prepare_booth_handoff', {
       admin_user_id: admin.userId,

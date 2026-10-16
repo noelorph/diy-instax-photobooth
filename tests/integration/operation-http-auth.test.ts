@@ -139,6 +139,36 @@ describe('HTTP authority and handoff with real local Auth/database', { timeout: 
     if (active) expect((await confirm(req(confirmation, grant))).status).toBe(200);
     return { ...f, grant, confirmation };
   }
+  it.each(['production', 'disabled'])(
+    'blocks inactive simulator handoff activation when runtime is %s',
+    async (mode) => {
+      const f = await issuedGrant(false);
+      try {
+        if (mode === 'production') vi.stubEnv('NODE_ENV', 'production');
+        else vi.stubEnv('BOOTH_SIMULATOR_ENABLED', 'false');
+        const response = await confirm(req(f.confirmation, f.grant));
+        expect(response.status).toBe(409);
+        expect(await response.json()).toMatchObject({ code: 'state_conflict' });
+        expect(response.headers.get('set-cookie')).toBeNull();
+        expect(
+          (await local.service.from('booth_runs').select('state').eq('id', f.data.runId).single())
+            .data?.state
+        ).toBe('Prepared');
+        expect(
+          (
+            await local.service
+              .from('booth_grants')
+              .select('state')
+              .eq('run_id', f.data.runId)
+              .single()
+          ).data?.state
+        ).toBe('Inactive');
+      } finally {
+        vi.stubEnv('NODE_ENV', 'test');
+        vi.stubEnv('BOOTH_SIMULATOR_ENABLED', 'true');
+      }
+    }
+  );
   it.each(['booth_grants', 'booth_runs', 'events', 'film_stock_balance'])(
     'preserves a valid cookie after temporary bootstrap %s read failure',
     async (table) => {
