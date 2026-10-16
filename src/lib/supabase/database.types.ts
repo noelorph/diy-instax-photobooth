@@ -503,6 +503,7 @@ export type Database = {
           created_at: string;
           evidence_kind: string | null;
           id: string;
+          observed_at: string | null;
           reason: string | null;
           state: string;
         };
@@ -513,6 +514,7 @@ export type Database = {
           created_at?: string;
           evidence_kind?: string | null;
           id?: string;
+          observed_at?: string | null;
           reason?: string | null;
           state: string;
         };
@@ -522,6 +524,7 @@ export type Database = {
           created_at?: string;
           evidence_kind?: string | null;
           id?: string;
+          observed_at?: string | null;
           reason?: string | null;
           state?: string;
         };
@@ -543,6 +546,7 @@ export type Database = {
           created_at: string;
           event_id: string;
           id: string;
+          initiating_admin_session_id: string | null;
           kind: string;
           request_key: string;
           resolved_at: string | null;
@@ -558,6 +562,7 @@ export type Database = {
           created_at?: string;
           event_id: string;
           id?: string;
+          initiating_admin_session_id?: string | null;
           kind: string;
           request_key: string;
           resolved_at?: string | null;
@@ -572,6 +577,7 @@ export type Database = {
           created_at?: string;
           event_id?: string;
           id?: string;
+          initiating_admin_session_id?: string | null;
           kind?: string;
           request_key?: string;
           resolved_at?: string | null;
@@ -595,6 +601,22 @@ export type Database = {
             referencedColumns: ['id'];
           },
         ];
+      };
+      printer_completion_policy: {
+        Row: {
+          id: boolean;
+          mode: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          id?: boolean;
+          mode?: string;
+        };
+        Update: {
+          id?: boolean;
+          mode?: string;
+        };
+        Relationships: [];
       };
     };
     Views: {
@@ -685,6 +707,29 @@ export type Database = {
         };
         Returns: Json;
       };
+      report_booth_observation: {
+        Args: {
+          attempt_id: string;
+          evidence_code: string;
+          grant_hash: string;
+          observation_kind: string;
+          observed_at: string;
+          operation_key: string;
+        };
+        Returns: Json;
+      };
+      report_test_observation: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          attempt_id: string;
+          evidence_code: string;
+          observation_kind: string;
+          observed_at: string;
+          operation_key: string;
+        };
+        Returns: Json;
+      };
       reserve_guest_attempt: {
         Args: {
           capture_id: string;
@@ -692,6 +737,17 @@ export type Database = {
           operation_key: string;
           run_id: string;
           session_id: string;
+        };
+        Returns: Json;
+      };
+      resolve_uncertain_print: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          attempt_id: string;
+          inspection_reason: string;
+          operation_key: string;
+          outcome: string;
         };
         Returns: Json;
       };
