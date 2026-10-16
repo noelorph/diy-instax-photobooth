@@ -1,6 +1,6 @@
-import { clearBoothCookie, requireBoothRequest } from '@/lib/operations/booth-authority';
+import { boothErrorResponse, requireBoothRequest } from '@/lib/operations/booth-authority';
 import { createPrivilegedClient } from '@/lib/operations/privileged-client';
-import { operationErrorResponse, operationResponse } from '@/lib/operations/responses';
+import { operationResponse } from '@/lib/operations/responses';
 import { OperationError } from '@/lib/operations/types';
 async function additionalPrints(
   client: ReturnType<typeof createPrivilegedClient>,
@@ -64,6 +64,6 @@ export async function GET(request: Request) {
       },
     });
   } catch (error) {
-    return clearBoothCookie(operationErrorResponse(error));
+    return boothErrorResponse(error);
   }
 }

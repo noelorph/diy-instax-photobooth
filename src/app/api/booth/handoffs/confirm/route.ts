@@ -1,6 +1,10 @@
-import { clearBoothCookie, grantHash } from '@/lib/operations/booth-authority';
+import {
+  boothErrorResponse,
+  InvalidBoothGrantError,
+  requireBoothGrant,
+} from '@/lib/operations/booth-authority';
 import { createPrivilegedClient } from '@/lib/operations/privileged-client';
-import { operationErrorResponse, operationResponse } from '@/lib/operations/responses';
+import { operationResponse } from '@/lib/operations/responses';
 import {
   confirmHandoffSchema,
   parseOperation,
@@ -9,8 +13,8 @@ import {
 export async function POST(request: Request) {
   try {
     requireSameOrigin(request);
-    const hash = grantHash(request),
-      input = await parseOperation(request, confirmHandoffSchema);
+    const input = await parseOperation(request, confirmHandoffSchema);
+    const { grantHash: hash } = await requireBoothGrant(request);
     const { data, error } = await createPrivilegedClient().rpc('confirm_booth_handoff', {
       handoff_id: input.handoffId,
       grant_hash: hash,
@@ -24,6 +28,7 @@ export async function POST(request: Request) {
       event_id: string;
       error?: string;
     };
+    if (result.error === 'handoff_expired') throw new InvalidBoothGrantError('grant_expired');
     if (result.error) throw { message: result.error };
     return operationResponse({
       state: result.run_state,
@@ -32,6 +37,6 @@ export async function POST(request: Request) {
       eventId: result.event_id,
     });
   } catch (error) {
-    return clearBoothCookie(operationErrorResponse(error));
+    return boothErrorResponse(error);
   }
 }

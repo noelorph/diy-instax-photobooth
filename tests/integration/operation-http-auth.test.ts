@@ -128,6 +128,115 @@ async function prepared() {
   return { ...f, data, device: cookiePair(response, '__Host-booth-device') };
 }
 describe('HTTP authority and handoff with real local Auth/database', { timeout: 20000 }, () => {
+  async function issuedGrant(active = true) {
+    const f = await prepared();
+    const response = await issue(req({ operationKey: randomUUID() }, f.device), {
+      params: Promise.resolve({ handoffId: f.data.handoffId }),
+    });
+    expect(response.status).toBe(200);
+    const grant = cookiePair(response, '__Host-booth-grant');
+    const confirmation = { operationKey: randomUUID(), handoffId: f.data.handoffId };
+    if (active) expect((await confirm(req(confirmation, grant))).status).toBe(200);
+    return { ...f, grant, confirmation };
+  }
+  it.each(['booth_grants', 'booth_runs', 'events', 'film_stock_balance'])(
+    'preserves a valid cookie after temporary bootstrap %s read failure',
+    async (table) => {
+      const f = await issuedGrant(),
+        originalFetch = globalThis.fetch;
+      const fault = vi
+        .spyOn(globalThis, 'fetch')
+        .mockImplementation((input, init) =>
+          String(input).includes('/rest/v1/' + table + '?')
+            ? Promise.resolve(
+                new Response('{}', { status: 503, headers: { 'content-type': 'application/json' } })
+              )
+            : originalFetch(input, init)
+        );
+      const failed = await bootstrap(req(undefined, f.grant));
+      expect(failed.status).toBeGreaterThanOrEqual(400);
+      expect(await failed.text()).not.toContain('Safe title');
+      expect(failed.headers.get('cache-control')).toContain('private, no-store');
+      expect(failed.headers.get('set-cookie')).toBeNull();
+      fault.mockRestore();
+      expect((await bootstrap(req(undefined, f.grant))).status).toBe(200);
+    }
+  );
+  it.each([false, true])(
+    'preserves cookie for confirmation retry when RPC committed=%s',
+    async (committed) => {
+      const f = await issuedGrant(false),
+        originalFetch = globalThis.fetch;
+      const fault = vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+        if (!String(input).includes('/rest/v1/rpc/confirm_booth_handoff'))
+          return originalFetch(input, init);
+        if (committed) {
+          const response = await originalFetch(input, init);
+          expect(response.ok).toBe(true);
+        }
+        return new Response('{}', { status: 503, headers: { 'content-type': 'application/json' } });
+      });
+      const failed = await confirm(req(f.confirmation, f.grant));
+      expect(failed.status).toBeGreaterThanOrEqual(400);
+      expect(failed.headers.get('cache-control')).toContain('private, no-store');
+      expect(failed.headers.get('set-cookie')).toBeNull();
+      fault.mockRestore();
+      expect(
+        (await local.service.from('booth_grants').select('state').eq('event_id', f.eventId)).data
+      ).toEqual([{ state: committed ? 'Active' : 'Inactive' }]);
+      expect((await confirm(req(f.confirmation, f.grant))).status).toBe(200);
+      expect((await bootstrap(req(undefined, f.grant))).status).toBe(200);
+    }
+  );
+  it('preserves inactive cookies after bootstrap denial, invalid confirmation input and mismatched handoff', async () => {
+    const f = await issuedGrant(false);
+    const responses = [
+      await bootstrap(req(undefined, f.grant)),
+      await confirm(req({ ...f.confirmation, photo: 'not accepted' }, f.grant)),
+      await confirm(req({ ...f.confirmation, handoffId: randomUUID() }, f.grant)),
+      await confirm(req(f.confirmation, f.grant, 'https://evil.test')),
+    ];
+    for (const response of responses) {
+      expect(response.status).toBeGreaterThanOrEqual(400);
+      expect(response.headers.get('set-cookie')).toBeNull();
+    }
+    expect((await confirm(req(f.confirmation, f.grant))).status).toBe(200);
+  });
+  it('preserves the inactive cookie when confirmation grant lookup fails temporarily', async () => {
+    const f = await issuedGrant(false),
+      originalFetch = globalThis.fetch;
+    const fault = vi
+      .spyOn(globalThis, 'fetch')
+      .mockImplementation((input, init) =>
+        String(input).includes('/rest/v1/booth_grants?')
+          ? Promise.resolve(
+              new Response('{}', { status: 503, headers: { 'content-type': 'application/json' } })
+            )
+          : originalFetch(input, init)
+      );
+    const response = await confirm(req(f.confirmation, f.grant));
+    expect(response.status).toBeGreaterThanOrEqual(400);
+    expect(response.headers.get('set-cookie')).toBeNull();
+    fault.mockRestore();
+    expect(
+      (await local.service.from('booth_grants').select('state').eq('event_id', f.eventId)).data
+    ).toEqual([{ state: 'Inactive' }]);
+    expect((await confirm(req(f.confirmation, f.grant))).status).toBe(200);
+  });
+  it('clears definitively unknown grant proof on bootstrap and confirmation', async () => {
+    for (const response of [
+      await bootstrap(req(undefined, '__Host-booth-grant=' + 'a'.repeat(64))),
+      await confirm(
+        req(
+          { operationKey: randomUUID(), handoffId: randomUUID() },
+          '__Host-booth-grant=' + 'a'.repeat(64)
+        )
+      ),
+    ]) {
+      expect(response.status).toBe(403);
+      expect(response.headers.get('set-cookie')).toContain('Max-Age=0');
+    }
+  });
   it.each(['Confirmed', 'AdminResolvedEjected'])(
     'restores bootstrap allowance for a historical %s Wasted Film journal',
     async (state) => {
