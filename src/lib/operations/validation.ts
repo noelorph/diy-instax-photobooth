@@ -1,0 +1,54 @@
+import { z } from 'zod';
+import { OperationError } from './types';
+export const operationSchema = z.strictObject({ operationKey: z.uuid() });
+export const prepareHandoffSchema = operationSchema.extend({
+  expectedRevision: z.number().int().positive().max(2147483647),
+  connectionId: z.uuid(),
+  setupEvidence: z.strictObject({
+    cameraReady: z.literal(true),
+    printerReady: z.literal(true),
+    guidedAccessReady: z.literal(true),
+  }),
+});
+export const confirmHandoffSchema = operationSchema.extend({ handoffId: z.uuid() });
+export function requireSameOrigin(request: Request) {
+  if (
+    request.headers.get('origin') !== new URL(request.url).origin ||
+    request.headers.get('sec-fetch-site') === 'cross-site'
+  )
+    throw new OperationError('forbidden');
+}
+export function operationId(value: string) {
+  const parsed = z.uuid().safeParse(value);
+  if (!parsed.success) throw new OperationError('validation_error');
+  return parsed.data;
+}
+export async function parseOperation<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
+  if (request.headers.get('content-type')?.split(';')[0].trim() !== 'application/json')
+    throw new OperationError('validation_error');
+  // Bound reads even when a caller omits or lies about Content-Length.
+  const reader = request.body?.getReader();
+  if (!reader) throw new OperationError('validation_error');
+  let length = 0;
+  const chunks: Uint8Array[] = [];
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > 8192) {
+        await reader.cancel();
+        throw new OperationError('validation_error');
+      }
+      chunks.push(value);
+    }
+    const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+    if (!operationSchema.safeParse({ operationKey: body?.operationKey }).success)
+      throw new OperationError('validation_error');
+    const result = schema.safeParse(body);
+    if (!result.success) throw new OperationError('validation_error');
+    return result.data;
+  } catch {
+    throw new OperationError('validation_error');
+  }
+}
