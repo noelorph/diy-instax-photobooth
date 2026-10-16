@@ -54,7 +54,7 @@ Profile **Sign out** uses Supabase Auth's local scope and clears only the curren
 
 The recovery action uses Auth's token-scoped global revocation call, preserving its local recovery cookie if the remote call fails. After confirmed global revocation, it clears that cookie. A different-password retry is available only when the live-session RLS boundary confirms that the recovery session remains active.
 
-Starting Booth Mode validates readiness, makes the Event Live, prepares an inactive Booth Access Grant, and signs the Admin out **locally on the iPad** using Supabase's local sign-out scope. The server activates the grant and sets its cookie only after sign-out succeeds; the response clears Admin cookies as it sets the booth cookie. A failed handoff leaves the Event Live but paused, with no usable grant, so the Admin can sign in and recover. Local sign-out preserves an Admin session on a second device. Returning to Admin pages requires sign-in. Profile password changes use Supabase Auth's authenticated flow.
+Starting Booth Mode validates readiness, makes the Event Live, prepares an inactive Booth Access Grant, and signs the Admin out **locally on the iPad** using Supabase's local sign-out scope. After sign-out succeeds, the server clears Admin cookies and issues an inactive Booth cookie. The grant activates only after the booth browser confirms receipt; Guests cannot enter before that confirmation. A failed handoff leaves the Event Live but paused, with no usable grant, so the Admin can sign in and recover. Local sign-out preserves an Admin session on a second device. Returning to Admin pages requires sign-in. Profile password changes use Supabase Auth's authenticated flow.
 
 ### Booth Access Grant
 
@@ -62,7 +62,11 @@ The grant is a random opaque secret in a `Secure`, `HttpOnly`, `SameSite` cookie
 
 The booth sends no direct Supabase table requests. Server-only credentials invoke narrow Postgres operations for booth mutations; their grants and input checks must prevent general table access by the booth. Do not expose a privileged key to the browser or make privileged database functions callable by `anon` or ordinary `authenticated` clients.
 
+For the [issue #9 accounting and access contract](docs/superpowers/specs/2026-10-16-accounting-access-printer-contracts-design.md), server handlers verify Admin or Booth authority, then invoke restricted accounting operations that recheck the actor and transition inside the transaction. Admin RLS continues to govern reads and Draft edits. These operations are the only path for Live Event, reservation, stock, and Print Attempt mutations; see [ADR-0022](docs/adr/0022-centralize-accounting-transitions-and-persist-pause-requests.md).
+
 An ordinary reload or short connection loss keeps the grant. Once a pause or completion takes effect, including from another Admin device, the grant is revoked and its cookie is cleared on the iPad when it next contacts the server. A pause requested during printing waits for the attempt's result before revocation. A paused Event remains Live; the Admin signs in and issues a new grant to resume. A Completed Event cannot resume. Expired or revoked grants fail closed. Guided Access and the target-device navigation trial provide the physical kiosk boundary.
+
+The booth run persists `PauseRequested` while a reserved attempt finishes or becomes Uncertain. New Guest work is refused during that state. The run becomes `Paused` and the grant is revoked after the attempt outcome is recorded; Admin resolution of an Uncertain Print then uses Admin authority. This state makes a remote stop durable across browser reloads.
 
 ## 4. Data model
 
@@ -134,7 +138,7 @@ The physical Bluetooth command cannot join a Postgres transaction. The reservati
 1. The Admin signs in, creates a Draft Event, and enters its Client contact snapshot, venue-local schedule, Film Packages, and original Print Allowance. The server validates the time zone and converts the schedule to UTC instants.
 2. Optional Event Media goes to private Storage under an Event ID-based path. The Admin records stock additions. The iPad checks camera, internet, and printer connection; the Admin confirms power, loaded film, and Guided Access.
 3. The browser prints a generated calibration image. The Test Print gets a Film Reservation and consumes stock on ejection; the Admin confirms that the output is usable before readiness passes. A printer reconnection requires a new successful Test Print.
-4. A transactional start checks readiness and the single-Live-Event rule, marks the Event Live, creates a booth run and inactive grant, and records activity. The iPad's Admin session is signed out locally, then the grant activates and the booth cookie is set before Guests take over.
+4. A transactional start checks readiness and the single-Live-Event rule, marks the Event Live, creates a booth run and inactive grant, and records activity. The iPad's Admin session is signed out locally; the server sets an inactive Booth cookie; the booth confirms receipt to activate the grant before Guests take over.
 
 ### Guest capture and print
 

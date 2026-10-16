@@ -198,3 +198,4 @@ The first release is ready for an Event only when:
 - [Complete Admin reset only after password change and session revocation](docs/adr/0015-complete-admin-reset-only-after-password-change-and-revocation.md)
 - [Stop Booth Mode safely before a Print Reservation](docs/adr/0014-stop-booth-before-print-reservation.md)
 - [Keep operational history when deleting a Draft](docs/adr/0016-keep-history-when-deleting-draft.md)
+- [Centralize accounting transitions and persist Booth pause requests](docs/adr/0022-centralize-accounting-transitions-and-persist-pause-requests.md)
