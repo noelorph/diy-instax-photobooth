@@ -1,6 +1,7 @@
 import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
 import { NextRequest, type NextResponse } from 'next/server';
+import { requireSimulator } from './printer-gate';
 import { createPrivilegedClient } from './privileged-client';
 import { OperationError, type BoothAuthority } from './types';
 import { operationErrorResponse } from './responses';
@@ -50,6 +51,7 @@ export async function requireBoothGrant(request: Request) {
 }
 export async function requireBoothRequest(request: Request): Promise<BoothAuthority> {
   const grant = await requireBoothGrant(request);
+  requireSimulator();
   // Inactive proof is still needed to confirm; PauseRequested proof may still
   // report a pending attempt through its separate database-guarded operation.
   if (grant.state !== 'Active') throw new OperationError('forbidden');

@@ -699,6 +699,10 @@ export type Database = {
         Args: { grant_hash: string; operation_key: string; run_id: string };
         Returns: Json;
       };
+      pause_booth_for_reconnect: {
+        Args: { grant_hash: string; operation_key: string; run_id: string };
+        Returns: Json;
+      };
       prepare_booth_handoff: {
         Args: {
           admin_session_id: string;
