@@ -76,6 +76,7 @@ describe('Guest sessions and reservations', { timeout: 20000 }, () => {
           event_id: id,
           kind: 'Test',
           state: 'Confirmed',
+          test_output_usable: true,
           request_key: randomUUID(),
           connection_id: connection,
         })

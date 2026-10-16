@@ -553,6 +553,7 @@ export type Database = {
           run_id: string | null;
           session_id: string | null;
           state: string;
+          test_output_usable: boolean | null;
         };
         ComputedFields: never;
         Insert: {
@@ -569,6 +570,7 @@ export type Database = {
           run_id?: string | null;
           session_id?: string | null;
           state?: string;
+          test_output_usable?: boolean | null;
         };
         Update: {
           accepted_at?: string | null;
@@ -584,6 +586,7 @@ export type Database = {
           run_id?: string | null;
           session_id?: string | null;
           state?: string;
+          test_output_usable?: boolean | null;
         };
         Relationships: [
           {
@@ -662,6 +665,16 @@ export type Database = {
         Args: { grant_hash: string; handoff_id: string; operation_key: string };
         Returns: Json;
       };
+      confirm_test_output: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          attempt_id: string;
+          operation_key: string;
+          usable: boolean;
+        };
+        Returns: Json;
+      };
       finish_booth_handoff: {
         Args: {
           device_token_hash: string;
@@ -669,6 +682,16 @@ export type Database = {
           grant_hash: string;
           handoff_id: string;
           operation_key: string;
+        };
+        Returns: Json;
+      };
+      mark_wasted_film: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          attempt_id: string;
+          operation_key: string;
+          reason: string;
         };
         Returns: Json;
       };
@@ -737,6 +760,16 @@ export type Database = {
           operation_key: string;
           run_id: string;
           session_id: string;
+        };
+        Returns: Json;
+      };
+      reserve_test_attempt: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          connection_id: string;
+          event_id: string;
+          operation_key: string;
         };
         Returns: Json;
       };

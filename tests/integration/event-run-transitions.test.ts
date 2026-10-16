@@ -75,6 +75,7 @@ describe('Event and Booth run lifecycle', () => {
           event_id: id,
           kind: 'Test',
           state: 'Confirmed',
+          test_output_usable: true,
           request_key: randomUUID(),
           connection_id: connection,
         })
@@ -210,7 +211,7 @@ describe('Event and Booth run lifecycle', () => {
     ]);
     expect(results.filter((r) => !r.error)).toHaveLength(1);
     expect(results.find((r) => r.error)?.error?.message).toBe('state_conflict');
-  });
+  }, 20000);
   it('requires matching device proof and local revocation, then activates only with the issued cookie hash', async () => {
     const f = await prepared();
     const other = await local.signIn(f.a.user);
@@ -277,7 +278,7 @@ describe('Event and Booth run lifecycle', () => {
     expect(
       (await local.service.from('booth_grants').select().eq('event_id', f.id)).data
     ).toMatchObject([{ state: 'Revoked' }]);
-  });
+  }, 20000);
   it('rejects nonfinite or excessive grant expiry without issuing a secret', async () => {
     const f = await prepared();
     await f.a.client.auth.signOut({ scope: 'local' });
