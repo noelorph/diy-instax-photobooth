@@ -137,7 +137,7 @@ Profile shows the Admin email and lets the Admin update a phone number and light
 
 ### Enter and leave
 
-Starting Booth Mode from `/events/[eventId]` changes the Event to Live, presents the guest interface fullscreen, and ends the iPad's Admin session. iPad Guided Access is part of the Admin's physical setup. A discreet long press, with a keyboard/assistive-input equivalent, requests a pause and leads to Admin sign-in after an in-progress Print Attempt has finished and its result has been recorded; an interrupted attempt becomes an Uncertain Print for Admin resolution. The alternative never bypasses Admin sign-in. A pause before a Print Reservation discards the unprinted photo but keeps completed Capture counts; resuming starts at welcome. Ending Guided Access separately requires the iPad passcode. Guests must not be able to navigate to Admin pages.
+Starting Booth Mode from `/events/[eventId]` changes the Event to Live and ends the iPad's Admin session. The iPad then opens `/booth`; after the browser confirms its Booth Access Grant, that page presents the guest interface fullscreen. The grant, rather than an Event ID in the URL, identifies the Live Event. An absent, expired, or revoked grant shows only the neutral paused/sign-in handoff. iPad Guided Access is part of the Admin's physical setup. A discreet long press, with a keyboard/assistive-input equivalent, requests a pause and leads to Admin sign-in after an in-progress Print Attempt has finished and its result has been recorded; an interrupted attempt becomes an Uncertain Print for Admin resolution. The alternative never bypasses Admin sign-in. A pause before a Print Reservation discards the unprinted photo but keeps completed Capture counts; resuming starts at welcome. Ending Guided Access separately requires the iPad passcode. Guests must not be able to navigate to Admin pages. See [ADR-0023](docs/adr/0023-use-a-single-booth-page-route.md).
 
 ### Guest flow
 
@@ -199,3 +199,4 @@ The first release is ready for an Event only when:
 - [Stop Booth Mode safely before a Print Reservation](docs/adr/0014-stop-booth-before-print-reservation.md)
 - [Keep operational history when deleting a Draft](docs/adr/0016-keep-history-when-deleting-draft.md)
 - [Centralize accounting transitions and persist Booth pause requests](docs/adr/0022-centralize-accounting-transitions-and-persist-pause-requests.md)
+- [Use `/booth` as the guest-facing page route](docs/adr/0023-use-a-single-booth-page-route.md)

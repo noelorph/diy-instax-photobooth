@@ -8,6 +8,7 @@ A web-based Event photo booth with an Admin application and Guest-facing Booth M
 - [Design system](DESIGN_SYSTEM.md): visual language, interaction patterns, responsive layouts, and accessibility
 - [Architecture](ARCHITECTURE.md): proposed system design and technical boundaries
 - [Accounting, access, and provisional printer contract](docs/superpowers/specs/2026-10-16-accounting-access-printer-contracts-design.md): issue #9 design for transitions, database operations, endpoint shapes, and simulated printer outcomes
+- [Booth user flow and route map](docs/booth-user-flow.md): Admin starts from `/events/[eventId]`, and the iPad enters the agreed guest route `/booth` after handoff
 - [Glossary](GLOSSARY.md): canonical product language
 - [Decision records](docs/adr/): durable product and technical decisions
 - [Admin foundation specs (implemented)](docs/superpowers/specs/2026-10-13-admin-access-and-shell-design.md): Admin access and shell, followed by [Draft Event management](docs/superpowers/specs/2026-10-13-draft-event-management-design.md)
