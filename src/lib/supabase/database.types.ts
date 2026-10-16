@@ -147,8 +147,71 @@ export type Database = {
           },
         ];
       };
+      booth_handoffs: {
+        Row: {
+          admin_session_id: string;
+          admin_user_id: string;
+          created_at: string;
+          device_token_hash: string;
+          event_id: string;
+          expires_at: string;
+          grant_id: string;
+          id: string;
+          run_id: string;
+          state: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          admin_session_id: string;
+          admin_user_id: string;
+          created_at?: string;
+          device_token_hash: string;
+          event_id: string;
+          expires_at: string;
+          grant_id: string;
+          id?: string;
+          run_id: string;
+          state?: string;
+        };
+        Update: {
+          admin_session_id?: string;
+          admin_user_id?: string;
+          created_at?: string;
+          device_token_hash?: string;
+          event_id?: string;
+          expires_at?: string;
+          grant_id?: string;
+          id?: string;
+          run_id?: string;
+          state?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'booth_handoffs_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: false;
+            referencedRelation: 'events';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'booth_handoffs_grant_id_fkey';
+            columns: ['grant_id'];
+            isOneToOne: true;
+            referencedRelation: 'booth_grants';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'booth_handoffs_run_id_event_id_fkey';
+            columns: ['run_id', 'event_id'];
+            isOneToOne: false;
+            referencedRelation: 'booth_runs';
+            referencedColumns: ['id', 'event_id'];
+          },
+        ];
+      };
       booth_runs: {
         Row: {
+          connection_id: string | null;
           created_at: string;
           ended_at: string | null;
           event_id: string;
@@ -157,6 +220,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          connection_id?: string | null;
           created_at?: string;
           ended_at?: string | null;
           event_id: string;
@@ -164,6 +228,7 @@ export type Database = {
           state: string;
         };
         Update: {
+          connection_id?: string | null;
           created_at?: string;
           ended_at?: string | null;
           event_id?: string;
@@ -536,7 +601,100 @@ export type Database = {
       [_ in never]: never;
     };
     Functions: {
-      [_ in never]: never;
+      abandon_guest_session: {
+        Args: { grant_hash: string; operation_key: string; session_id: string };
+        Returns: Json;
+      };
+      add_event_prints: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          event_id: string;
+          operation_key: string;
+          quantity: number;
+        };
+        Returns: Json;
+      };
+      add_film_stock: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          operation_key: string;
+          reason: string;
+          sheets: number;
+        };
+        Returns: Json;
+      };
+      change_event_run: {
+        Args: {
+          action: string;
+          admin_session_id: string;
+          admin_user_id: string;
+          event_id: string;
+          expected_revision: number;
+          operation_key: string;
+        };
+        Returns: Json;
+      };
+      confirm_booth_handoff: {
+        Args: { grant_hash: string; handoff_id: string; operation_key: string };
+        Returns: Json;
+      };
+      finish_booth_handoff: {
+        Args: {
+          device_token_hash: string;
+          expires_at: string;
+          grant_hash: string;
+          handoff_id: string;
+          operation_key: string;
+        };
+        Returns: Json;
+      };
+      open_guest_session: {
+        Args: { grant_hash: string; operation_key: string; run_id: string };
+        Returns: Json;
+      };
+      prepare_booth_handoff: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          connection_id: string;
+          event_id: string;
+          expected_revision: number;
+          operation_key: string;
+          setup_evidence: Json;
+        };
+        Returns: Json;
+      };
+      reconcile_film_stock: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          observed_sheets: number;
+          operation_key: string;
+          reason: string;
+        };
+        Returns: Json;
+      };
+      record_capture: {
+        Args: {
+          captured_at: string;
+          grant_hash: string;
+          operation_key: string;
+          session_id: string;
+        };
+        Returns: Json;
+      };
+      reserve_guest_attempt: {
+        Args: {
+          capture_id: string;
+          grant_hash: string;
+          operation_key: string;
+          run_id: string;
+          session_id: string;
+        };
+        Returns: Json;
+      };
     };
     Enums: {
       [_ in never]: never;
