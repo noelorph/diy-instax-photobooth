@@ -757,6 +757,10 @@ export type Database = {
         };
         Returns: Json;
       };
+      request_booth_pause: {
+        Args: { grant_hash: string; operation_key: string; run_id: string };
+        Returns: Json;
+      };
       reserve_guest_attempt: {
         Args: {
           capture_id: string;
