@@ -80,3 +80,39 @@ export async function requireBoothRequest(request: Request): Promise<BoothAuthor
   if (run.state !== 'Active') throw new OperationError('forbidden');
   return { grantHash: grant.grantHash, runId: grant.runId, eventId: grant.eventId };
 }
+
+/** Capture-only preflight; the locked record_capture RPC validates Session and timestamp scope. */
+export async function captureGrantHash(request: Request) {
+  const hash = grantHash(request);
+  requireSimulator();
+  // One database snapshot avoids combining a pre-pause grant with a post-pause run.
+  const { data: grant, error } = await createPrivilegedClient()
+    .from('booth_grants')
+    .select(
+      'state,expires_at,revoked_at,run:booth_runs!booth_grants_run_id_event_id_fkey(state),event:events!booth_grants_event_id_fkey(state,deleted_at)'
+    )
+    .eq('secret_hash', hash)
+    .maybeSingle();
+  if (error) throw error;
+  if (!grant) throw new InvalidBoothGrantError('forbidden');
+  const now = Date.now();
+  if (Date.parse(grant.expires_at) <= now) throw new InvalidBoothGrantError('grant_expired');
+  if (!grant.run || !grant.event || grant.event.deleted_at)
+    throw new InvalidBoothGrantError('forbidden');
+  if (
+    grant.state === 'Active' &&
+    !grant.revoked_at &&
+    grant.run.state === 'Active' &&
+    grant.event.state === 'Live'
+  )
+    return hash;
+  if (
+    grant.state === 'Revoked' &&
+    grant.revoked_at &&
+    ['Paused', 'Ended'].includes(grant.run.state) &&
+    now <= Date.parse(grant.revoked_at) + 120_000
+  )
+    return hash;
+  // PauseRequested proof may still report a pending print, so keep its cookie.
+  throw new OperationError('forbidden');
+}

@@ -466,3 +466,242 @@ it('settles an encoding rejection even when Capture journal storage throws', asy
   expect(flow.getSnapshot().phase).toBe('paused');
   expect(s.calls.filter((c) => c.path.endsWith('/captures'))).toHaveLength(0);
 });
+
+it('keeps the proof available while a fired shutter awaits its late Capture acknowledgement', async () => {
+  const s = setup();
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let captureStarted = false;
+  let bootstrapAfterShutter = 0;
+  const flow = new BoothFlow({
+    printer: s.printer,
+    storage: sessionStorage,
+    transport: async (path, body) => {
+      if (path.endsWith('/captures')) {
+        captureStarted = true;
+        await pending;
+        return { captureId: 'capture', sessionState: 'Abandoned' };
+      }
+      if (path.endsWith('/bootstrap') && captureStarted) bootstrapAfterShutter++;
+      return s.transport(path, body);
+    },
+  });
+  await flow.initialize();
+  await flow.start();
+  flow.countdown();
+  const discard = vi.fn();
+  const shutter = flow.shutter(async () => ({
+    bytes: new Uint8Array(),
+    url: 'blob:temporary',
+    discard,
+  }));
+  await vi.waitFor(() => expect(captureStarted).toBe(true));
+  await flow.refresh();
+  expect(bootstrapAfterShutter).toBe(0);
+  release();
+  await shutter;
+  expect(discard).toHaveBeenCalledOnce();
+  expect(flow.getSnapshot().phase).toBe('paused');
+  expect(flow.getSnapshot().photoUrl).toBeUndefined();
+  await flow.print();
+  expect(s.printer.commandCount).toBe(0);
+});
+
+it.each(['pause', 'reconnect'] as const)(
+  'settles shutter metadata before %s can clear its proof',
+  async (action) => {
+    const s = setup();
+    let release!: () => void;
+    const pending = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const calls: string[] = [];
+    const flow = new BoothFlow({
+      printer: s.printer,
+      storage: sessionStorage,
+      transport: async (path, body) => {
+        calls.push(path);
+        if (path.endsWith('/captures')) {
+          await pending;
+          return { captureId: 'capture' };
+        }
+        return s.transport(path, body);
+      },
+    });
+    await flow.initialize();
+    await flow.start();
+    flow.countdown();
+    const discard = vi.fn();
+    const shutter = flow.shutter(async () => ({
+      bytes: new Uint8Array(),
+      url: 'blob:temporary',
+      discard,
+    }));
+    await vi.waitFor(() => expect(calls.some((path) => path.endsWith('/captures'))).toBe(true));
+    const stop = action === 'pause' ? flow.requestPause() : flow.connectionChanged();
+    expect(flow.getSnapshot().phase).toBe('paused');
+    expect(
+      calls.filter((path) => path.endsWith('/pauses') || path.endsWith('/connection-changes'))
+    ).toHaveLength(0);
+    release();
+    await Promise.all([shutter, stop]);
+    expect(discard).toHaveBeenCalledOnce();
+    expect(calls.filter((path) => path.endsWith('/captures'))).toHaveLength(1);
+    expect(
+      calls.filter((path) => path.endsWith(action === 'pause' ? '/pauses' : '/connection-changes'))
+    ).toHaveLength(1);
+  }
+);
+
+it('reload recovers a queued late Capture before any revoked bootstrap or abandonment', async () => {
+  sessionStorage.setItem(
+    'booth-operation',
+    JSON.stringify({
+      runId: 'run',
+      sessionId: 'session',
+      capture: { operationKey: 'stable', capturedAt: '2026-10-16T12:00:00Z' },
+    })
+  );
+  const calls: { path: string; body?: Record<string, unknown> }[] = [];
+  const flow = new BoothFlow({
+    printer: new SimulatedPrinter(),
+    storage: sessionStorage,
+    transport: async (path, body) => {
+      calls.push({ path, body });
+      return { captureId: 'capture', sessionState: 'Abandoned' };
+    },
+  });
+  await flow.initialize();
+  expect(calls).toHaveLength(1);
+  expect(calls[0].body?.operationKey).toBe('stable');
+  expect(flow.getSnapshot().phase).toBe('paused');
+  expect(sessionStorage.getItem('booth-operation')).not.toContain('capturedAt');
+});
+
+it('retries queued metadata after a lost late acknowledgement using its original key', async () => {
+  const s = setup();
+  let failures = 1;
+  const inputs: Record<string, unknown>[] = [];
+  const flow = new BoothFlow({
+    printer: s.printer,
+    storage: sessionStorage,
+    transport: async (path, body) => {
+      if (path.endsWith('/captures')) {
+        inputs.push(body!);
+        if (failures-- > 0) throw new Error('connection lost after commit');
+        return { captureId: 'capture', sessionState: 'Abandoned' };
+      }
+      return s.transport(path, body);
+    },
+  });
+  await flow.initialize();
+  await flow.start();
+  flow.countdown();
+  const discard = vi.fn();
+  await flow.shutter(async () => ({ bytes: new Uint8Array(), url: 'blob:temporary', discard }));
+  await flow.online();
+  expect(inputs).toHaveLength(2);
+  expect(inputs[1]).toEqual(inputs[0]);
+  expect(discard).toHaveBeenCalledOnce();
+  expect(flow.getSnapshot().phase).toBe('paused');
+  expect(s.printer.commandCount).toBe(0);
+});
+
+it('serializes concurrent readiness polls before allowing the shutter', async () => {
+  const s = setup();
+  let hold = false;
+  let release!: () => void;
+  const pending = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  let polls = 0;
+  const flow = new BoothFlow({
+    printer: s.printer,
+    storage: sessionStorage,
+    transport: async (path, body) => {
+      if (path.endsWith('/bootstrap') && hold) {
+        polls++;
+        await pending;
+      }
+      return s.transport(path, body);
+    },
+  });
+  await flow.initialize();
+  await flow.start();
+  flow.countdown();
+  hold = true;
+  const poll = flow.refresh();
+  const capture = vi.fn(async () => ({
+    bytes: new Uint8Array(),
+    url: 'blob:temporary',
+    discard: () => {},
+  }));
+  const shutter = flow.shutter(capture);
+  expect(polls).toBe(1);
+  expect(capture).not.toHaveBeenCalled();
+  release();
+  await Promise.all([poll, shutter]);
+  expect(capture).toHaveBeenCalledOnce();
+});
+
+it('poll recovery of a lost reservation response completes without a recursive readiness wait', async () => {
+  const s = setup();
+  let failures = 1;
+  const flow = new BoothFlow({
+    printer: s.printer,
+    storage: sessionStorage,
+    transport: async (path, body) => {
+      if (path.endsWith('/print-attempts') && failures-- > 0) throw new Error('response lost');
+      return s.transport(path, body);
+    },
+  });
+  await flow.initialize();
+  await flow.start();
+  flow.countdown();
+  await flow.shutter(async () => ({
+    bytes: new Uint8Array(),
+    url: 'blob:temporary',
+    discard: () => {},
+  }));
+  await flow.print();
+  expect(flow.getSnapshot().phase).toBe('connection-hold');
+  let complete = false;
+  void flow.refresh().then(() => {
+    complete = true;
+  });
+  await vi.waitFor(() => expect(complete).toBe(true));
+  expect(flow.getSnapshot().phase).toBe('review');
+  expect(s.printer.commandCount).toBe(0);
+});
+
+it('retries failed Capture metadata through polling before any cookie-clearing bootstrap', async () => {
+  const s = setup();
+  let failures = 1;
+  const inputs: Record<string, unknown>[] = [];
+  const flow = new BoothFlow({
+    printer: s.printer,
+    storage: sessionStorage,
+    transport: async (path, body) => {
+      if (path.endsWith('/captures')) {
+        inputs.push(body!);
+        if (failures-- > 0) throw new Error('temporary service failure');
+        return { captureId: 'capture', sessionState: 'Abandoned' };
+      }
+      return s.transport(path, body);
+    },
+  });
+  await flow.initialize();
+  await flow.start();
+  flow.countdown();
+  await flow.shutter(async () => ({
+    bytes: new Uint8Array(),
+    url: 'blob:temporary',
+    discard: () => {},
+  }));
+  await flow.refresh();
+  expect(inputs).toHaveLength(2);
+  expect(inputs[1]).toEqual(inputs[0]);
+  expect(flow.getSnapshot().phase).toBe('paused');
+});

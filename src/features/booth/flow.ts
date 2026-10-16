@@ -4,6 +4,7 @@ type Reply = {
   runId?: string;
   sessionId?: string;
   captureId?: string;
+  sessionState?: 'Abandoned';
   attemptId?: string;
   state?: string;
   display?: { title: string };
@@ -61,6 +62,8 @@ export class BoothFlow {
   private reservationInFlight = false;
   private recovering = false;
   private initialized?: Promise<void>;
+  private refreshInFlight?: Promise<void>;
+  private captureInFlight?: Promise<Reply>;
   private reportKeys = new Map<string, { operationKey: string; observedAt: string }>();
   constructor(
     private readonly dependencies: {
@@ -119,6 +122,7 @@ export class BoothFlow {
       }
       // Recover metadata before starting another session. Never infer unsent from a reload.
       if (this.journal.capture && this.journal.sessionId) await this.acknowledgeCapture();
+      if (this.stopped) return;
       if (this.journal.reservation && !this.journal.attemptId) {
         const result = await this.post(
           `guest-sessions/${this.journal.sessionId}/print-attempts`,
@@ -214,26 +218,44 @@ export class BoothFlow {
       this.show('paused');
     }
   }
-  private async acknowledgeCapture() {
-    const result = await this.post(
+  private acknowledgeCapture(): Promise<Reply> {
+    if (this.captureInFlight) return this.captureInFlight;
+    if (!this.journal.capture) return Promise.resolve({});
+    this.captureInFlight = this.post(
       `guest-sessions/${this.journal.sessionId}/captures`,
       this.journal.capture
-    );
-    this.journal.captureId = result.captureId;
-    delete this.journal.capture;
-    this.save();
+    )
+      .then((result) => {
+        this.journal.captureId = result.captureId;
+        delete this.journal.capture;
+        if (result.sessionState === 'Abandoned') {
+          this.stopped = true;
+          this.discard();
+          this.show('paused');
+        }
+        this.save();
+        return result;
+      })
+      .finally(() => {
+        this.captureInFlight = undefined;
+      });
+    return this.captureInFlight;
   }
   retake() {
     if (this.view.phase !== 'review' || this.stopped) return;
     this.discard();
     this.show('preview');
   }
-  async refresh() {
+  refresh(): Promise<void> {
+    // A revoked bootstrap clears the cookie. Settle queued shutter metadata first.
+    if (this.journal.capture) return this.captureInFlight ? Promise.resolve() : this.online();
+    if (this.view.phase === 'connection-hold' && this.journal.reservation) return this.online();
+    return (this.refreshInFlight ??= this.refreshAuthority().finally(() => {
+      this.refreshInFlight = undefined;
+    }));
+  }
+  private async refreshAuthority() {
     if (this.stopped || this.pauseRequested) return;
-    if (this.view.phase === 'connection-hold' && this.journal.reservation) {
-      await this.online();
-      return;
-    }
     try {
       const result = await this.bootstrap();
       if (this.stopped) return;
@@ -444,6 +466,8 @@ export class BoothFlow {
       this.show('paused');
     }
     try {
+      if (this.journal.capture) await this.acknowledgeCapture();
+      if (this.stopped) return;
       await this.post('pauses');
       if (!this.journal.attemptId && !this.journal.reservation) this.stopped = true;
     } catch {
@@ -462,6 +486,8 @@ export class BoothFlow {
     this.discard();
     this.show(this.journal.attemptId || this.journal.reservation ? 'uncertain' : 'paused');
     try {
+      if (this.journal.capture && (await this.acknowledgeCapture()).sessionState === 'Abandoned')
+        return;
       await this.post('connection-changes');
     } catch {
       if (this.journal.attemptId) await this.uncertain();
@@ -484,6 +510,19 @@ export class BoothFlow {
     if (this.reservationInFlight || this.recovering) return;
     this.recovering = true;
     try {
+      if (this.journal.capture) {
+        try {
+          const result = await this.acknowledgeCapture();
+          if (result.sessionState !== 'Abandoned') await this.post('pauses');
+        } catch {
+          // Retain the stable Capture metadata for another bounded retry or reload.
+        } finally {
+          this.stopped = true;
+          this.discard();
+          this.show('paused');
+        }
+        return;
+      }
       if (this.stopped) {
         if (this.journal.attemptId) await this.uncertain();
         return;

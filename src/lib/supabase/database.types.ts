@@ -251,6 +251,7 @@ export type Database = {
           created_at: string;
           event_id: string;
           id: string;
+          reported_after_stop: boolean;
           run_id: string;
           session_id: string;
         };
@@ -260,6 +261,7 @@ export type Database = {
           created_at?: string;
           event_id: string;
           id?: string;
+          reported_after_stop?: boolean;
           run_id: string;
           session_id: string;
         };
@@ -268,6 +270,7 @@ export type Database = {
           created_at?: string;
           event_id?: string;
           id?: string;
+          reported_after_stop?: boolean;
           run_id?: string;
           session_id?: string;
         };
