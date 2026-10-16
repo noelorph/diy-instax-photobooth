@@ -198,7 +198,7 @@ describe('Draft Event storage through local Auth and the Data API', () => {
       expect((await client.from('events').insert(payload({ state }))).error?.code).toBe('23514');
       expect(
         (await client.from('events').update({ state, revision: 2 }).eq('id', event.id)).error?.code
-      ).toBe('23514');
+      ).toBe('42501');
       expect((await client.from('events').select().eq('id', event.id).single()).data).toMatchObject(
         { state: 'Draft', revision: 1 }
       );
