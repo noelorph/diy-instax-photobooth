@@ -314,7 +314,7 @@ describe('accounting ledger operations', () => {
       ).toBe('state_conflict');
     const id = await event();
     sql(
-      `update public.events set deleted_at=now(),title=null,client_name=null,client_email=null,client_phone=null,venue_address=null,time_zone=null,starts_at=null,ends_at=null,revision=revision+1 where id='${id}'`
+      `update public.events set deleted_at=now(),media_removal_state='pending',title=null,client_name=null,client_email=null,client_phone=null,venue_address=null,time_zone=null,starts_at=null,ends_at=null,revision=revision+1 where id='${id}'`
     );
     expect(
       (await rpc('add_event_prints', { ...a.args, event_id: id, quantity: 1 })).error?.message

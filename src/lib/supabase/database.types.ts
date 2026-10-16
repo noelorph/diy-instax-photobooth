@@ -300,7 +300,9 @@ export type Database = {
           ends_at: string | null;
           film_package_count: number;
           id: string;
+          media_removal_state: string;
           original_print_allowance: number;
+          redacted_at: string | null;
           revision: number;
           starts_at: string | null;
           state: string;
@@ -317,7 +319,9 @@ export type Database = {
           ends_at?: string | null;
           film_package_count: number;
           id?: string;
+          media_removal_state?: string;
           original_print_allowance: number;
+          redacted_at?: string | null;
           revision?: number;
           starts_at?: string | null;
           state?: string;
@@ -333,7 +337,9 @@ export type Database = {
           ends_at?: string | null;
           film_package_count?: number;
           id?: string;
+          media_removal_state?: string;
           original_print_allowance?: number;
+          redacted_at?: string | null;
           revision?: number;
           starts_at?: string | null;
           state?: string;
@@ -653,6 +659,18 @@ export type Database = {
         };
         Returns: Json;
       };
+      begin_event_redaction: {
+        Args: {
+          action: string;
+          admin_session_id: string;
+          admin_user_id: string;
+          event_id: string;
+          expected_revision: number;
+          operation_key: string;
+          replacement_title?: string;
+        };
+        Returns: Json;
+      };
       change_event_run: {
         Args: {
           action: string;
@@ -660,6 +678,15 @@ export type Database = {
           admin_user_id: string;
           event_id: string;
           expected_revision: number;
+          operation_key: string;
+        };
+        Returns: Json;
+      };
+      complete_event_redaction: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          event_id: string;
           operation_key: string;
         };
         Returns: Json;

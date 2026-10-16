@@ -148,6 +148,7 @@ describe('operational schema and browser boundary', () => {
           .from('events')
           .update({
             deleted_at: new Date().toISOString(),
+            media_removal_state: 'pending',
             title: null,
             client_name: null,
             client_email: null,

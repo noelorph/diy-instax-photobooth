@@ -225,7 +225,7 @@ describe('bounded late Capture metadata', { timeout: 45000 }, () => {
     }
     if (reason === 'deleted')
       sql(
-        `update public.events set deleted_at=clock_timestamp(),revision=revision+1,state='Draft',title=null,client_name=null,client_email=null,client_phone=null,venue_address=null,time_zone=null,starts_at=null,ends_at=null where id='${f.eventId}'`
+        `update public.events set deleted_at=clock_timestamp(),media_removal_state='pending',revision=revision+1,state='Draft',title=null,client_name=null,client_email=null,client_phone=null,venue_address=null,time_zone=null,starts_at=null,ends_at=null where id='${f.eventId}'`
       );
     if (reason === 'unresolved' || reason === 'printed') {
       const captureId = randomUUID();
