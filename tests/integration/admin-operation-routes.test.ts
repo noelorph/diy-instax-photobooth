@@ -368,6 +368,41 @@ describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeo
       sql(`select signed_sheets from public.film_stock_entries where attempt_id='${attempt}'`)
     ).toEqual([{ signed_sheets: -1 }]);
   });
+  it('resolves an Uncertain print as unused without consuming stock and replays its entry IDs', async () => {
+    const f = await fixture(),
+      run = randomUUID(),
+      session = randomUUID(),
+      capture = randomUUID(),
+      attempt = randomUUID();
+    sql(
+      `insert into public.booth_runs(id,event_id,state) values('${run}','${f.eventId}','Paused');insert into public.guest_sessions(id,event_id,run_id) values('${session}','${f.eventId}','${run}');insert into public.captures(id,event_id,run_id,session_id,captured_at) values('${capture}','${f.eventId}','${run}','${session}',now());insert into public.print_attempts(id,event_id,run_id,session_id,capture_id,kind,state,request_key,connection_id) values('${attempt}','${f.eventId}','${run}','${session}','${capture}','Guest','Uncertain','${randomUUID()}','${f.connectionId}')`
+    );
+    const body = {
+      ...operation(),
+      outcome: 'unused',
+      inspectionReason: 'Inspected printer; no sheet used',
+    };
+    const resolved = await result(await settle(req(body), attemptContext(attempt)));
+    expect(resolved).toMatchObject({
+      attemptId: attempt,
+      state: 'AdminResolvedUnused',
+      allowanceHold: 0,
+      filmHold: 0,
+      onHand: f.stock,
+      journalEntryId: expect.any(String),
+      stockEntryId: null,
+      availability: { guestPrints: 10, filmSheets: f.stock, printerBusy: false },
+    });
+    expect(
+      sql(
+        `select id from public.print_attempt_events where attempt_id='${attempt}' and state='AdminResolvedUnused'`
+      )
+    ).toEqual([{ id: resolved.journalEntryId }]);
+    expect(sql(`select id from public.film_stock_entries where attempt_id='${attempt}'`)).toEqual(
+      []
+    );
+    expect(await result(await settle(req(body), attemptContext(attempt)))).toEqual(resolved);
+  });
   it.each(['production', 'disabled'])(
     'keeps Test reservation and confirmation closed when %s',
     async (mode) => {
