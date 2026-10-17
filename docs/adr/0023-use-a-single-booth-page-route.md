@@ -1,0 +1,7 @@
+# Use `/booth` as the guest-facing page route
+
+The Admin starts or resumes Booth Mode from the protected Event page at `/events/[eventId]`. After the iPad's Admin session ends locally, the iPad opens `/booth`. That page confirms receipt of its Booth Access Grant before showing the Guest welcome, capture, review, and print flow. The URL has no Event ID: the server determines the one Live Event and Booth run from the validated grant, then returns only that run's non-sensitive display configuration.
+
+`/booth` cannot expose Guest actions before grant confirmation. An absent, expired, revoked, or wrong-run grant leads to the neutral paused/sign-in handoff without Event name, Client contact, or printer diagnostics. After Admin sign-in on the same paused iPad, management returns to `/events/[eventId]`; the Admin explicitly chooses **Resume Booth Mode** and receives a new grant. Sign-in alone never resumes Guest access.
+
+This names the page route left open by the [approved issue #9 contract](../superpowers/specs/2026-10-16-accounting-access-printer-contracts-design.md). It extends [ADR-0002](0002-isolate-booth-access-from-admin.md), [ADR-0007](0007-route-booth-requests-through-server.md), and [ADR-0022](0022-centralize-accounting-transitions-and-persist-pause-requests.md) without changing their access or printer gates. No guest-facing Booth route is implemented yet.

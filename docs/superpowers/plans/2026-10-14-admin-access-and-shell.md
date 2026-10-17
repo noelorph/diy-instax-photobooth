@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Deliver the pre-gate sole-Admin sign-in, recovery, Profile, and protected navigation foundation.
+**Goal:** Deliver the sole-Admin sign-in, recovery, Profile, and protected navigation foundation.
 
 **Architecture:** Supabase Auth supplies cookie-based sessions. A single authorization predicate checks the provisioned Admin identity and live Auth session at the data boundary; Next.js pages and actions call a shared server guard. Public forms and the protected AppShell use one design system, while Dashboard, Events, and History begin as protected foundation pages.
 
 **Tech Stack:** Next.js 16.4 App Router, React 19, TypeScript, Supabase Auth/Postgres/RLS, Vitest, React Testing Library, Playwright.
 
-**Spec:** [Pre-gate Admin access and shell](../specs/2026-10-13-admin-access-and-shell-design.md)
+**Historical spec:** [Admin access and shell](../specs/2026-10-13-admin-access-and-shell-design.md)
 
 ## Global Constraints
 

@@ -1,10 +1,10 @@
-# Pre-gate Draft Event management
+# Draft Event management (implemented; original pre-gate spec)
 
 **Status:** Approved by the owner on 2026-10-14; implemented and verified against the isolated local Supabase stack. Hosted staging verification and promotion remain pending until a separate staging project is identified. The approved scope and decisions below are unchanged.
 
 ## Intent and dependency
 
-Deliver the persistent Draft Event creation and editing allowed by [issue #14](https://github.com/noelorph/diy-instax-photobooth/issues/14), [PRD section 3](../../../PRD.md#3-development-and-launch-feasibility-gates), and [ADR-0012](../../adr/0012-qualify-development-on-iphone-before-ipad-launch.md). This is the second pre-gate Admin spec and depends on [Admin access and shell](2026-10-13-admin-access-and-shell-design.md). Success means the authenticated Admin can save, find, inspect, and update booking details as Drafts without making an Event Live or consuming any print resource.
+Deliver the persistent Draft Event creation and editing allowed by [issue #14](https://github.com/noelorph/diy-instax-photobooth/issues/14), [PRD section 3](../../../PRD.md#3-development-and-launch-feasibility-gates), and [ADR-0012](../../adr/0012-qualify-development-on-iphone-before-ipad-launch.md). This was the second Admin foundation spec and depends on [Admin access and shell](2026-10-13-admin-access-and-shell-design.md). Success means the authenticated Admin can save, find, inspect, and update booking details as Drafts without making an Event Live or consuming any print resource.
 
 This work proceeds independently of the isolated iPhone printing trial in [issue #17](https://github.com/noelorph/diy-instax-photobooth/issues/17). A saved Draft is a booking record, not a readiness or printing claim.
 
@@ -39,7 +39,7 @@ Use pure validation tests, database integration tests for constraints and author
 
 ## Exclusions and completion
 
-Draft deletion waits for [issue #8](https://github.com/noelorph/diy-instax-photobooth/issues/8). Live transitions, Booth Mode and grants, Event Media, printer-backed readiness and Test Prints, Print or Film Reservations, Film Stock changes, Additional Prints, Confirmed Print accounting, and completed History belong to later contract and build work in [issues #9 and #10](https://github.com/noelorph/diy-instax-photobooth/issues/9). No gated operation should appear as an enabled control or callable mutation in this stage.
+Draft deletion follows the resolved decision in [issue #8](https://github.com/noelorph/diy-instax-photobooth/issues/8), recorded in [ADR-0016](../../adr/0016-keep-history-when-deleting-draft.md). Live transitions, Booth Mode and grants, Event Media, printer-backed readiness and Test Prints, Print or Film Reservations, Film Stock changes, Additional Prints, Confirmed Print accounting, and completed History belong to later contract and build work in [issues #9 and #10](https://github.com/noelorph/diy-instax-photobooth/issues/9). No gated operation should appear as an enabled control or callable mutation in this stage.
 
 Before claiming issue #14 complete, review the combined Admin change against both specs, resolve code-review findings, run fresh lint, type, unit/integration, and browser checks, and record deferred integrated and cross-device cases. The Admin foundation is optional parallel work and never blocks issue #17's physical trial.
 

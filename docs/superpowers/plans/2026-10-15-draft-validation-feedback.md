@@ -8,7 +8,7 @@
 
 **Tech Stack:** Next.js 16.4, React 19, React Hook Form 7, Zod 4, Temporal polyfill, TypeScript, Vitest, React Testing Library, Playwright.
 
-**Spec:** [Pre-gate Draft Event management](../specs/2026-10-13-draft-event-management-design.md), especially validation and accessible form feedback; [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md) invalid input and inline validation rules.
+**Spec:** [Draft Event management (implemented)](../specs/2026-10-13-draft-event-management-design.md), especially validation and accessible form feedback; [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md) invalid input and inline validation rules.
 
 ## Global Constraints
 

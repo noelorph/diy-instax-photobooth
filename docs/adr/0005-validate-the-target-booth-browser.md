@@ -7,3 +7,5 @@ Bluefy on the iPad A16 is the first release's target browser because it exposes 
 ## Current status
 
 [ADR-0012](0012-qualify-development-on-iphone-before-ipad-launch.md) supersedes this decision's requirement to finish the iPad trial **before the full build**: a passed fresh-film iPhone trial may now unlock integrated development. The iPad trial remains mandatory **before first-release launch**; iPhone evidence cannot establish iPad support. The printer-adapter boundary still applies.
+
+[ADR-0021](0021-move-print-qualification-to-integration-checkpoint.md) subsequently supersedes the remaining pre-build iPhone qualification requirement. Integrated development may begin against a simulated printer; the physical completion approach must be decided and validated before printer-backed Booth Mode and Confirmed Print accounting are completed or enabled. The actual-iPad release gate and adapter boundary still apply.

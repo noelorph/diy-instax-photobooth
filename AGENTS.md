@@ -30,6 +30,10 @@ Read the root `PRD.md` for the agreed product scope, behavior, and launch constr
 
 Read the root `ARCHITECTURE.md` for the proposed system design and technical boundaries.
 
+### Current printer qualification status
+
+Before work on Booth Mode, printer feedback, print accounting, or hardware gates, read [ADR-0021](docs/adr/0021-move-print-qualification-to-integration-checkpoint.md) and the [issue #17 evidence report](docs/qualification/issue-17-trial-report.md). Integrated development is authorized with a simulated printer. Seven fresh-film prints matched the review; a separate three-used-sheet run demonstrated Retake and local allowance exhaustion. Automatic full-ejection feedback and the original complete fresh-film sequence remain unproven. Printer-backed Booth Mode and Confirmed Print accounting need an explicit, physically validated completion approach before they are completed or enabled; the actual-iPad release gate remains open. Do not treat the printer-reported film count as physical inventory.
+
 ### UI/UX
 
 Read the root `DESIGN_SYSTEM.md` before designing or changing an interface. It governs visual language, interaction presentation, responsive layouts, components, and accessibility; `PRD.md` governs product behavior.
