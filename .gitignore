@@ -2,6 +2,8 @@
 
 # dependencies
 /node_modules
+/.worktrees/
+/.superpowers/
 /.pnp
 .pnp.*
 .yarn/*
@@ -23,6 +25,7 @@
 # misc
 .DS_Store
 *.pem
+/certificates/
 
 # debug
 npm-debug.log*
@@ -39,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+/playwright-report/
+/test-results/

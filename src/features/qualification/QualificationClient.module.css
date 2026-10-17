@@ -1,0 +1,392 @@
+.shell {
+  --color-canvas: #101b1b;
+  --color-surface: #1a2929;
+  --color-surface-muted: #223333;
+  --color-text: #eff5f1;
+  --color-text-muted: #b5c7c2;
+  --color-border: #708a84;
+  --color-primary: #6fb7ae;
+  --color-primary-hover: #8acac1;
+  --color-primary-soft: #24413e;
+  --color-on-primary: #101b1b;
+  --color-focus: #8acac1;
+  --color-warning: #ffd27d;
+  --color-danger: #ff999c;
+  box-sizing: border-box;
+  min-height: 100dvh;
+  padding: max(16px, env(safe-area-inset-top)) 16px max(16px, env(safe-area-inset-bottom));
+  background: var(--color-canvas);
+  color: var(--color-text);
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+.shell * {
+  box-sizing: border-box;
+}
+.topline {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  color: var(--color-text-muted);
+  font-size: 0.75rem;
+  line-height: 1rem;
+}
+.heading h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  line-height: 2.25rem;
+  font-weight: 600;
+}
+.heading p {
+  margin: 4px 0 0;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.count {
+  align-self: flex-start;
+  padding: 8px 12px;
+  background: var(--color-surface-muted);
+  border-radius: 999px;
+  font-variant-numeric: tabular-nums;
+}
+.alert {
+  margin: 0;
+  padding: 12px 16px;
+  background: var(--color-surface);
+  border-left: 3px solid var(--color-danger);
+  color: var(--color-text);
+  line-height: 1.5;
+}
+.stage {
+  flex: 1 1 320px;
+  min-height: 220px;
+  max-height: 55dvh;
+  display: grid;
+  grid-template-rows: minmax(0, 1fr);
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid var(--color-border);
+  border-radius: 12px;
+  background: var(--color-surface);
+}
+.camera,
+.review {
+  display: block;
+  width: auto;
+  height: 100%;
+  max-width: 100%;
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+}
+.camera {
+  transform: scaleX(-1);
+}
+.hidden {
+  display: none;
+}
+.emptyFrame {
+  min-height: 180px;
+  width: min(70%, 240px);
+  padding: 20px;
+  border: 8px solid var(--color-text);
+  border-bottom-width: 32px;
+  background: var(--color-surface-muted);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+}
+.emptyFrame strong {
+  color: var(--color-warning);
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+}
+.emptyFrame small {
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.pendingStage {
+  flex: 0 0 auto;
+  min-height: 0;
+  max-height: none;
+}
+.pendingFrame {
+  width: 100%;
+  padding: 16px;
+  display: grid;
+  gap: 8px;
+}
+.pendingFrame strong {
+  color: var(--color-warning);
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+}
+.pendingFrame p {
+  margin: 0;
+  color: var(--color-text-muted);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.clockPanel {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-canvas);
+  display: grid;
+  gap: 4px;
+}
+.clockPanel span {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.clockPanel time {
+  color: var(--color-text);
+  font-size: clamp(1.5rem, 7vw, 2.25rem);
+  line-height: 1.2;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+.signalPanel {
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-canvas);
+  display: grid;
+  gap: 4px;
+  font-size: 1rem;
+  line-height: 1.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.signalHeading {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.signalValue {
+  color: var(--color-text);
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+.signalPanel time {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.controls {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.pendingActions {
+  display: grid;
+  gap: 12px;
+}
+.shell button {
+  min-height: 60px;
+  padding: 12px 18px;
+  border: 2px solid var(--color-primary);
+  border-radius: 8px;
+  background: var(--color-primary-soft);
+  color: var(--color-text);
+  font: inherit;
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+.shell button:hover:not(:disabled) {
+  border-color: var(--color-primary-hover);
+  background: var(--color-surface-muted);
+}
+.shell button:active:not(:disabled) {
+  background: var(--color-surface-muted);
+}
+.shell button:focus-visible,
+.shell input:focus-visible,
+.shell textarea:focus-visible,
+.shell a:focus-visible,
+.shell summary:focus-visible {
+  outline: 3px solid var(--color-focus);
+  outline-offset: 3px;
+}
+.shell button:disabled {
+  opacity: 1;
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
+  background: var(--color-surface-muted);
+  cursor: not-allowed;
+}
+.shell .primary {
+  min-height: 64px;
+  background: var(--color-primary);
+  color: var(--color-on-primary);
+  border-color: var(--color-primary);
+}
+.shell .primary:hover:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+.shell .primary:active:not(:disabled) {
+  background: var(--color-primary-hover);
+}
+.shell .primary:disabled {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+}
+.setupRow {
+  display: grid;
+  gap: 8px;
+}
+.setupRow span {
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.setupRow button {
+  width: 100%;
+}
+.detail {
+  margin: 0;
+  color: var(--color-text);
+  font-size: 1rem;
+  line-height: 1.5rem;
+}
+.actionRow {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+.shell .shutter {
+  align-self: center;
+  min-width: 140px;
+  min-height: 88px;
+}
+.reconcile {
+  padding: 12px;
+  background: var(--color-surface);
+  border-radius: 8px;
+  display: grid;
+  gap: 12px;
+}
+.reconcile label {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  line-height: 1.5;
+}
+.reconcile input {
+  width: 24px;
+  height: 24px;
+  accent-color: var(--color-primary);
+}
+.diagnostics {
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.25rem;
+}
+.diagnostics summary {
+  min-height: 44px;
+  padding: 12px 0;
+  cursor: pointer;
+}
+.diagnostics > button {
+  width: 100%;
+}
+.diagnostics p {
+  margin: 8px 0;
+}
+.exportPanel {
+  display: grid;
+  gap: 10px;
+  margin-top: 12px;
+  padding: 12px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-surface);
+}
+.exportPanel p {
+  margin: 0;
+  line-height: 1.5;
+}
+.exportActions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+.exportActions a {
+  display: grid;
+  min-height: 60px;
+  padding: 12px 18px;
+  place-items: center;
+  border: 2px solid var(--color-primary);
+  border-radius: 8px;
+  background: var(--color-primary-soft);
+  color: var(--color-text);
+  font-size: 1.125rem;
+  line-height: 1.75rem;
+  font-weight: 700;
+  text-align: center;
+  text-decoration: none;
+}
+.exportActions a:hover {
+  border-color: var(--color-primary-hover);
+  background: var(--color-surface-muted);
+}
+.exportPanel textarea {
+  width: 100%;
+  min-height: 120px;
+  padding: 10px;
+  border: 1px solid var(--color-border);
+  border-radius: 8px;
+  background: var(--color-canvas);
+  color: var(--color-text);
+  font: 0.75rem/1.5 monospace;
+  resize: vertical;
+}
+.diagnostics ol {
+  max-height: 120px;
+  overflow: auto;
+  overflow-wrap: anywhere;
+  padding-left: 24px;
+  font-variant-numeric: tabular-nums;
+}
+.diagnostics li {
+  padding: 4px 0;
+}
+
+@media (min-width: 700px) {
+  .shell {
+    max-width: 720px;
+    margin: 0 auto;
+    padding-inline: 32px;
+  }
+  .stage {
+    max-height: 640px;
+  }
+}
+
+@media (max-height: 700px) {
+  .shell {
+    gap: 8px;
+  }
+  .stage {
+    min-height: 180px;
+    max-height: 43dvh;
+  }
+  .pendingStage {
+    min-height: 0;
+    max-height: none;
+  }
+  .emptyFrame {
+    min-height: 140px;
+  }
+}

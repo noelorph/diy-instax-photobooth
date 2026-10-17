@@ -1,0 +1,163 @@
+.content {
+  container-type: inline-size;
+  min-width: 0;
+  max-width: 64rem;
+  overflow-wrap: anywhere;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+  color: var(--color-primary);
+  text-decoration: underline;
+  text-underline-offset: 0.2em;
+}
+
+.content > .link {
+  margin-bottom: 1rem;
+}
+
+.form {
+  display: grid;
+  gap: 2rem;
+}
+
+.form fieldset {
+  min-width: 0;
+  margin: 0;
+  padding: 1rem 0 0;
+  border: 0;
+  border-top: 1px solid var(--color-border-subtle);
+}
+
+.form legend {
+  padding: 0 0.75rem 0 0;
+  font-size: 1.25rem;
+  line-height: 1.75rem;
+  font-weight: 600;
+}
+
+.fields {
+  display: grid;
+  gap: 1rem;
+}
+
+.fields input {
+  max-width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+
+.form .help {
+  margin: 0 0 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+}
+
+.actions {
+  display: grid;
+  gap: 1rem;
+}
+
+.table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.table caption {
+  text-align: left;
+  padding-bottom: 1rem;
+  color: var(--color-text-muted);
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+}
+
+.table th,
+.table td {
+  text-align: left;
+  vertical-align: top;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+
+.table th {
+  font-weight: 500;
+}
+
+.table td,
+.table th p,
+.table thead {
+  font-size: 0.875rem;
+  line-height: 1.125rem;
+}
+
+.table th p {
+  font-weight: 400;
+  color: var(--color-text-muted);
+  margin: 0;
+}
+
+.table thead {
+  background: var(--color-surface-muted);
+  color: var(--color-text-muted);
+}
+
+.table .overdue {
+  margin: 0.5rem 0 0;
+  color: var(--color-warning);
+}
+
+.cellLabel {
+  display: none;
+}
+
+@container (max-width: 40rem) {
+  .table,
+  .table caption,
+  .table tbody,
+  .table tr,
+  .table th,
+  .table td {
+    display: block;
+  }
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+  .table tr {
+    padding-block: 0.75rem;
+    border-top: 1px solid var(--color-border-subtle);
+  }
+  .table th,
+  .table td {
+    padding: 0.5rem 0;
+    border: 0;
+  }
+  .cellLabel {
+    display: block;
+    margin-bottom: 0.25rem;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    line-height: 1.125rem;
+  }
+}
+
+@container (min-width: 36rem) {
+  .fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+  .actions button {
+    min-width: 10rem;
+  }
+}
