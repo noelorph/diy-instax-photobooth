@@ -362,8 +362,11 @@ describe('HTTP authority and handoff with real local Auth/database', { timeout: 
     const response = await issue(req({ operationKey: randomUUID() }, f.device), {
       params: Promise.resolve({ handoffId: f.data.handoffId }),
     });
-    expect(response.status).toBe(409);
-    expect(await response.clone().json()).toMatchObject({ current: { state: 'Paused' } });
+    expect(response.status).toBe(503);
+    expect(await response.clone().json()).toMatchObject({
+      code: 'operation_unavailable',
+      current: { state: 'Paused' },
+    });
     expect(cookiePair(response, '__Host-booth-grant')).toBe('');
     expect(
       (await local.service.from('booth_runs').select('state').eq('event_id', f.eventId)).data

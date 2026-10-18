@@ -56,13 +56,17 @@ for (const width of [320, 768, 1440]) {
         expect(await page.locator('body').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(
           /geist/i
         );
-        expect(
-          await page.evaluate(() =>
-            [...document.fonts].some(
-              (font) => /geist/i.test(font.family) && font.status === 'loaded'
-            )
+        await expect
+          .poll(
+            () =>
+              page.evaluate(() =>
+                [...document.fonts].some(
+                  (font) => /geist/i.test(font.family) && font.status === 'loaded'
+                )
+              ),
+            { timeout: 10_000 }
           )
-        ).toBe(true);
+          .toBe(true);
         await noOverflow(page);
         await capture(page, info, 'public-sign-in');
         await page.getByLabel('Email', { exact: true }).fill(admin.email);

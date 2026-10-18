@@ -112,9 +112,13 @@ for (const width of [390, 1440]) {
       await expect(
         page.getByText('Draft', { exact: true }).filter({ visible: true })
       ).toBeVisible();
-      await expect(
-        page.getByRole('button', { name: /delete|booth|test print|stock/i })
-      ).toHaveCount(0);
+      await expect(page.getByRole('button', { name: 'Delete Draft', exact: true })).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Add Film Stock', exact: true })).toBeVisible();
+      for (const name of ['Start Booth Mode', 'Test Print']) {
+        const control = page.getByRole('button', { name, exact: true });
+        await expect(control).toBeVisible();
+        await expect(control).toBeDisabled();
+      }
       const stale = await context.newPage();
       await stale.goto(`/events/${eventId}`);
       await expect(stale.getByLabel('Event name').filter({ visible: true })).toHaveValue(title);

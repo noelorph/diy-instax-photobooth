@@ -122,7 +122,8 @@ describe('protected Booth pause', { timeout: 30000 }, () => {
     const key = op();
     const response = await pause(request(f.secret, key));
     expect((await result(response)).state).toBe('PauseRequested');
-    expect(response.headers.get('set-cookie')).toBeNull();
+    expect(response.headers.get('set-cookie')).toContain(`__Host-booth-return=${f.eventId}`);
+    expect(response.headers.get('set-cookie')).not.toContain('__Host-booth-grant=');
     expect((await result(await pause(request(f.secret, key)))).state).toBe('PauseRequested');
     expect(
       sql(`select state from public.print_attempts where id='${attempt.attemptId}'`)[0].state
@@ -150,13 +151,11 @@ describe('protected Booth pause', { timeout: 30000 }, () => {
     const f = fixture();
     expect(
       (
-        await local
-          .client()
-          .rpc('request_booth_pause', {
-            grant_hash: f.hash,
-            run_id: f.runId,
-            operation_key: randomUUID(),
-          })
+        await local.client().rpc('request_booth_pause', {
+          grant_hash: f.hash,
+          run_id: f.runId,
+          operation_key: randomUUID(),
+        })
       ).error
     ).not.toBeNull();
     expect((await pause(request('a'.repeat(64), op()))).status).toBe(403);
