@@ -8,9 +8,16 @@ import { getDraft } from '@/lib/events/drafts';
 import { DraftForm } from '@/features/admin/events/draft-form';
 import { createDraftAction, updateDraftAction } from '@/features/admin/events/actions';
 
-export default async function EventPage({ params }: { params: Promise<{ eventId: string }> }) {
+export default async function EventPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ eventId: string }>;
+  searchParams?: Promise<{ attemptPage?: string }>;
+}) {
   const { eventId } = await params;
-  const operations = await getOperationalEvent(eventId);
+  const page = Number((await searchParams)?.attemptPage ?? 0);
+  const operations = await getOperationalEvent(eventId, page);
   const result = await getDraft(eventId);
   const panel =
     operations.status === 'success' ? (

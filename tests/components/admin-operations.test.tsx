@@ -18,6 +18,10 @@ const event = {
   runState: 'Paused',
   connectionId: null,
   attempts: [],
+  eventUnresolved: 1,
+  attemptsPage: 0,
+  hasOlderAttempts: false,
+  usableTestConnectionIds: [],
   redacted: false,
   mediaRemovalState: 'none',
 };
@@ -146,7 +150,13 @@ it('runs a simulated Test Print through generated calibration and offers inspect
   );
   render(
     <OperationsPanel
-      event={{ ...event, state: 'Draft', stockReserved: 0, allowanceReserved: 0 }}
+      event={{
+        ...event,
+        state: 'Draft',
+        stockReserved: 0,
+        allowanceReserved: 0,
+        eventUnresolved: 0,
+      }}
       simulatorEnabled
     />
   );
@@ -180,7 +190,13 @@ it('retries a lost observation response with identical metadata and no second re
   );
   render(
     <OperationsPanel
-      event={{ ...event, state: 'Draft', stockReserved: 0, allowanceReserved: 0 }}
+      event={{
+        ...event,
+        state: 'Draft',
+        stockReserved: 0,
+        allowanceReserved: 0,
+        eventUnresolved: 0,
+      }}
       simulatorEnabled
     />
   );
@@ -205,6 +221,7 @@ it('keeps setup visible when readiness preparation conflicts, before sign-out', 
         stockReserved: 0,
         allowanceReserved: 0,
         connectionId: 'c',
+        usableTestConnectionIds: ['c'],
         attempts: [
           {
             id: 't',
@@ -263,7 +280,13 @@ it('does not report deletion complete while media is pending', async () => {
   );
   render(
     <OperationsPanel
-      event={{ ...event, state: 'Draft', stockReserved: 0, allowanceReserved: 0 }}
+      event={{
+        ...event,
+        state: 'Draft',
+        stockReserved: 0,
+        allowanceReserved: 0,
+        eventUnresolved: 0,
+      }}
       simulatorEnabled
     />
   );
@@ -276,3 +299,79 @@ it('does not report deletion complete while media is pending', async () => {
     expect(screen.getByRole('status').textContent).toMatch(/Media removal pending/)
   );
 });
+
+it.each(['Draft', 'Live', 'Completed'])(
+  'allows Event-local actions for %s despite another Event hold',
+  (state) => {
+    render(
+      <OperationsPanel
+        event={{ ...event, state, eventUnresolved: 0, allowanceReserved: 0, stockReserved: 1 }}
+        simulatorEnabled
+      />
+    );
+    const name =
+      state === 'Draft' ? 'Delete Draft' : state === 'Completed' ? 'Redact Client' : 'Cancel Event';
+    expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(false);
+    if (state !== 'Completed')
+      expect(
+        (screen.getByRole('button', { name: 'Reconcile Film Stock' }) as HTMLButtonElement).disabled
+      ).toBe(true);
+  }
+);
+it('offers older attempts and derives readiness independently of the displayed page', () => {
+  render(
+    <OperationsPanel
+      event={{
+        ...event,
+        stockReserved: 0,
+        allowanceReserved: 0,
+        connectionId: 'c',
+        usableTestConnectionIds: ['c'],
+        attemptsPage: 0,
+        hasOlderAttempts: true,
+        attempts: [],
+      }}
+      simulatorEnabled
+    />
+  );
+  expect(screen.getByRole('link', { name: 'Older print attempts' }).getAttribute('href')).toContain(
+    'attemptPage=1'
+  );
+  fireEvent.click(screen.getByRole('checkbox'));
+  expect(
+    (screen.getByRole('button', { name: 'Resume Booth Mode' }) as HTMLButtonElement).disabled
+  ).toBe(false);
+});
+it.each(['lost', 'server'])(
+  'retains stock addition identity after %s response and an interleaved action',
+  async (failure) => {
+    const requests: { path: string; body: Record<string, unknown> }[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path, options) => {
+        requests.push({ path: String(path), body: JSON.parse(options.body) });
+        if (requests.length === 1) {
+          if (failure === 'lost') throw new TypeError('Lost response');
+          return Response.json({ message: 'Unavailable' }, { status: 503 });
+        }
+        return Response.json({ entryId: 'entry' });
+      })
+    );
+    render(
+      <OperationsPanel
+        event={{ ...event, stockReserved: 0, allowanceReserved: 0 }}
+        simulatorEnabled
+      />
+    );
+    fireEvent.change(screen.getByLabelText('Stock reason'), {
+      target: { value: 'Counted sheets' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Film Stock' }));
+    await screen.findByRole('alert');
+    fireEvent.click(screen.getByRole('button', { name: 'Add guest prints' }));
+    await screen.findByRole('status');
+    fireEvent.click(screen.getByRole('button', { name: 'Add Film Stock' }));
+    await waitFor(() => expect(requests).toHaveLength(3));
+    expect(requests[2]).toEqual(requests[0]);
+  }
+);

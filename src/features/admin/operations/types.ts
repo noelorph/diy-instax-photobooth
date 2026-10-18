@@ -16,6 +16,10 @@ export type OperationalEvent = {
   captures: number;
   allowanceReserved: number;
   stockReserved: number;
+  eventUnresolved: number;
+  attemptsPage: number;
+  hasOlderAttempts: boolean;
+  usableTestConnectionIds: string[];
   onHand: number;
   runState: string | null;
   connectionId: string | null;

@@ -25,6 +25,10 @@ vi.mock('@/features/admin/operations/read', () => ({
       runState: 'Paused',
       connectionId: null,
       attempts: [],
+      eventUnresolved: 1,
+      attemptsPage: 0,
+      hasOlderAttempts: false,
+      usableTestConnectionIds: [],
       redacted: false,
       mediaRemovalState: 'none',
     },
@@ -48,6 +52,9 @@ vi.mock('@/lib/events/history', () => ({
         state: 'Completed',
         redacted_at: null,
         venue_address: 'Celebration Hall',
+        starts_at: '2026-11-01T02:00:00Z',
+        ends_at: '2026-11-01T03:00:00Z',
+        time_zone: 'Asia/Manila',
         client_name: 'Retained client',
         client_email: 'retained@example.test',
         film_package_count: 2,
@@ -67,6 +74,7 @@ it('shows History and opaque pending cleanup retries', async () => {
   expect(screen.getByRole('link', { name: 'Past celebration' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Retry media removal' })).toBeTruthy();
   expect(screen.getByText('Celebration Hall')).toBeTruthy();
+  expect(screen.getByText(/11:00:00 AM/)).toBeTruthy();
   expect(screen.getByText('retained@example.test')).toBeTruthy();
   expect(screen.getByText('3 non-cancelled Events')).toBeTruthy();
   expect(screen.getByText('7 Captures')).toBeTruthy();

@@ -77,7 +77,8 @@ export default async function HistoryPage() {
               </div>
               {event.starts_at && (
                 <p>
-                  {new Date(event.starts_at).toLocaleString('en', { timeZone: event.time_zone })} ·{' '}
+                  {new Date(event.starts_at).toLocaleString('en', { timeZone: event.time_zone })} –{' '}
+                  {new Date(event.ends_at).toLocaleString('en', { timeZone: event.time_zone })} ·{' '}
                   {event.time_zone}
                 </p>
               )}

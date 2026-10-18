@@ -1,4 +1,5 @@
 'use client';
+import Link from 'next/link';
 import { useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from 'radix-ui';
@@ -42,7 +43,7 @@ export function OperationsPanel({
     index: number;
   } | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
-  const pending = useRef<{ signature: string; key: string } | null>(null);
+  const pending = useRef(new Map<string, string>());
   const base = `/api/admin/events/${event.id}`;
   const available =
     event.originalAllowance +
@@ -50,19 +51,20 @@ export function OperationsPanel({
     event.confirmedPrints -
     event.allowanceReserved;
   const holds = event.stockReserved > 0;
+  const eventHolds = event.eventUnresolved > 0;
   const terminal = ['Completed', 'Cancelled'].includes(event.state);
   async function post(path: string, body: Record<string, unknown>) {
     const signature = JSON.stringify([path, body]);
-    if (!pending.current || pending.current.signature !== signature)
-      pending.current = { signature, key: crypto.randomUUID() };
+    if (!pending.current.has(signature)) pending.current.set(signature, crypto.randomUUID());
     const response = await fetch(path, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...body, operationKey: pending.current.key }),
+      body: JSON.stringify({ ...body, operationKey: pending.current.get(signature) }),
     });
     const data = await response.json();
     if (!response.ok) {
-      pending.current = null;
+      // A server failure may follow a committed operation. Retain its retry identity.
+      if (response.status < 500) pending.current.delete(signature);
       throw new Error(
         data.code === 'state_conflict'
           ? 'The Event changed or is not ready. Reload current state before trying again.'
@@ -71,7 +73,7 @@ export function OperationsPanel({
             : (data.message ?? 'Unable to record this operation.')
       );
     }
-    pending.current = null;
+    pending.current.delete(signature);
     return data;
   }
   async function act(path: string, body: Record<string, unknown>) {
@@ -173,11 +175,7 @@ export function OperationsPanel({
     setReview(value);
   }
   const revision = { expectedRevision: event.revision };
-  const usable =
-    connectionId &&
-    event.attempts.some(
-      (a) => a.kind === 'Test' && a.connection_id === connectionId && a.test_output_usable === true
-    );
+  const usable = connectionId && event.usableTestConnectionIds.includes(connectionId);
   return (
     <section className={styles.panel} aria-label="Event operations">
       <h2>Event operations</h2>
@@ -220,9 +218,9 @@ export function OperationsPanel({
           be validated. The actual-iPad release gate remains open.
         </p>
       )}
-      {holds && (
+      {eventHolds && (
         <p>
-          Unresolved reservations block finish, deletion and stock reconciliation.{' '}
+          This Event has unresolved reservations blocking finish and deletion.{' '}
           <a href="#print-attempts">Review unresolved prints</a>
         </p>
       )}
@@ -344,7 +342,7 @@ export function OperationsPanel({
                   Pause Booth Mode
                 </Button>
                 <Button
-                  disabled={busy || holds}
+                  disabled={busy || eventHolds}
                   onClick={() =>
                     ask({
                       label: 'Finish Event',
@@ -361,7 +359,7 @@ export function OperationsPanel({
             )}
             <Button
               variant="quiet"
-              disabled={busy || holds}
+              disabled={busy || eventHolds}
               onClick={() =>
                 ask({
                   label: 'Cancel Event',
@@ -441,6 +439,18 @@ export function OperationsPanel({
       )}
       <section id="print-attempts">
         <h3>Print Attempts</h3>
+        <nav aria-label="Print Attempt pages" className={styles.actions}>
+          {event.attemptsPage > 0 && (
+            <Link href={`/events/${event.id}?attemptPage=${event.attemptsPage - 1}#print-attempts`}>
+              Newer print attempts
+            </Link>
+          )}
+          {event.hasOlderAttempts && (
+            <Link href={`/events/${event.id}?attemptPage=${event.attemptsPage + 1}#print-attempts`}>
+              Older print attempts
+            </Link>
+          )}
+        </nav>
         {event.attempts.length === 0 && <p>No Print Attempts yet.</p>}
         {event.attempts.map((a) => (
           <article key={a.id} className={styles.attempt}>
@@ -542,7 +552,7 @@ export function OperationsPanel({
       {event.state === 'Draft' && (
         <Button
           variant="quiet"
-          disabled={busy || holds}
+          disabled={busy || eventHolds}
           onClick={() =>
             ask({
               label: 'Delete Draft',
@@ -564,7 +574,7 @@ export function OperationsPanel({
           </label>
           <Button
             variant="destructive"
-            disabled={busy || holds}
+            disabled={busy || eventHolds}
             onClick={() =>
               ask({
                 label: 'Redact Client',
