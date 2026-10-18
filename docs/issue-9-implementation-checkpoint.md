@@ -1,8 +1,10 @@
-# Issue #9 implementation checkpoint
+# Issue #9 historical implementation checkpoint — 2026-10-17
 
-**Status:** Paused at the owner's request on branch `codex/issue9-accounting-access-printer`. This is a committed work in progress, not a completed or fully reviewed implementation. The approved [contract spec](superpowers/specs/2026-10-16-accounting-access-printer-contracts-design.md) remains unchanged.
+**Historical status at 2026-10-17:** Paused at the owner's request on branch `codex/issue9-accounting-access-printer`. This is a committed work in progress, not a completed or fully reviewed implementation. The approved [contract spec](superpowers/specs/2026-10-16-accounting-access-printer-contracts-design.md) remains unchanged.
 
 The branch contains the operational schema, restricted accounting functions, Admin and Booth handlers, simulated printer and `/booth` flow, redaction and Draft deletion, and Admin operations/History/return UI. Tasks 1–11 received scoped independent reviews. Task 12 was saved in checkpoint commit `b256266` before its independent review. No hosted database or physical printer was changed.
+
+Work resumed on 2026-10-18. This document preserves the evidence and unresolved state at the pause; its remaining-work list is historical. See the [README](../README.md), [current Booth guide](booth-user-flow.md), and final verification report for subsequent status.
 
 ## Verification at pause
 
