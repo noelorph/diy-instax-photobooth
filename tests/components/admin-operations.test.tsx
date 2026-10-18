@@ -1,3 +1,4 @@
+import { operationErrorResponse } from '@/lib/operations/responses';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { OperationsPanel } from '@/features/admin/operations/panel';
@@ -373,5 +374,54 @@ it.each(['lost', 'server'])(
     fireEvent.click(screen.getByRole('button', { name: 'Add Film Stock' }));
     await waitFor(() => expect(requests).toHaveLength(3));
     expect(requests[2]).toEqual(requests[0]);
+  }
+);
+it.each(['stock', 'additional'])(
+  'retains an explicit %s retry with its original payload after another action and edits',
+  async (kind) => {
+    const bodies: Record<string, unknown>[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (_url, options) => {
+        bodies.push(JSON.parse(options.body));
+        return bodies.length === 1
+          ? operationErrorResponse({ message: 'Upstream transport failed' })
+          : Response.json({});
+      })
+    );
+    render(<OperationsPanel event={event} simulatorEnabled />);
+    fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '3' } });
+    fireEvent.change(screen.getByLabelText('Stock reason'), { target: { value: 'New pack' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: kind === 'stock' ? 'Add Film Stock' : 'Add guest prints' })
+    );
+    await screen.findByRole('alert');
+    fireEvent.change(screen.getByLabelText('Quantity'), { target: { value: '7' } });
+    fireEvent.click(
+      screen.getByRole('button', { name: kind === 'stock' ? 'Add guest prints' : 'Add Film Stock' })
+    );
+    await screen.findByRole('status');
+    fireEvent.click(screen.getByRole('button', { name: 'Retry pending operation' }));
+    await waitFor(() => expect(bodies).toHaveLength(3));
+    expect(bodies[2]).toEqual(bodies[0]);
+  }
+);
+it.each(['Guest', 'Test'])(
+  'offers reasoned Admin recovery for an older %s pending attempt with the printer gate closed',
+  (kind) => {
+    render(
+      <OperationsPanel
+        event={{
+          ...event,
+          attempts: [
+            { id: 'older', kind, state: 'Accepted', connection_id: 'c', test_output_usable: null },
+          ],
+        }}
+        simulatorEnabled={false}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Recover interrupted print' }));
+    expect(screen.getByRole('dialog').textContent).toMatch(/holds.*remain/i);
+    expect(screen.getByLabelText('Recovery reason')).toBeTruthy();
   }
 );

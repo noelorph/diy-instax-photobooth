@@ -128,6 +128,158 @@ describe('Print outcome accounting', { timeout: 30000 }, () => {
     sql("update public.printer_completion_policy set mode='simulated'");
   }
 
+  it.each(['Guest', 'Test'] as const)(
+    'blocks inspected ejected consumption under disabled policy for %s',
+    async (kind) => {
+      const f = await fixture(kind);
+      expect((await report(f, 'uncertain')).error).toBeNull();
+      const before = snapshot(f);
+      expect((await rpc('resolve_uncertain_print', resolution(f, 'ejected'))).error?.message).toBe(
+        'invalid_evidence'
+      );
+      expect(snapshot(f)).toEqual(before);
+      expect((await rpc('resolve_uncertain_print', resolution(f, 'unused'))).error).toBeNull();
+    }
+  );
+  it.each(['Guest', 'Test'] as const)(
+    'consumes inspected simulated %s ejection once and rejects changed or revoked replay',
+    async (kind) => {
+      const f = await fixture(kind);
+      expect((await report(f, 'uncertain')).error).toBeNull();
+      simulated();
+      const request = resolution(f, 'ejected');
+      const results = await Promise.all([
+        rpc('resolve_uncertain_print', request),
+        rpc('resolve_uncertain_print', request),
+      ]);
+      results.forEach((r) => expect(r.error).toBeNull());
+      expect(results[0].data).toEqual(results[1].data);
+      expect(snapshot(f)).toMatchObject({
+        state: 'AdminResolvedEjected',
+        consumption: 1,
+        on_hand: f.initialStock - 1,
+        availability: { remaining_allowance: kind === 'Guest' ? 9 : 10, printer_busy: false },
+      });
+      expect(
+        (await rpc('resolve_uncertain_print', { ...request, inspection_reason: 'Changed reason' }))
+          .error?.message
+      ).toBe('idempotency_conflict');
+      await f.signed.client.auth.signOut({ scope: 'local' });
+      expect((await rpc('resolve_uncertain_print', request)).error?.message).toBe('forbidden');
+    }
+  );
+  it.each([
+    ['Guest', 'expired'],
+    ['Guest', 'lost'],
+    ['Test', 'expired'],
+    ['Test', 'revoked'],
+  ] as const)('recovers interrupted %s after originating authority is %s', async (kind, loss) => {
+    const f = await fixture(kind);
+    if (loss !== 'lost') expect((await report(f, 'commandAccepted')).error).toBeNull();
+    if (kind === 'Guest' && loss === 'expired')
+      sql(
+        `update public.booth_grants set created_at=now()-interval '2 hours',expires_at=now()-interval '1 hour' where run_id='${f.run}'`
+      );
+    else if (kind === 'Test' && loss === 'expired')
+      sql(
+        `update auth.sessions set not_after=now()-interval '1 second' where id='${f.admin.admin_session_id}'`
+      );
+    else if (kind === 'Test') await f.signed.client.auth.signOut({ scope: 'local' });
+    const user = await local.provisionUser();
+    await local.allowlist(user.id);
+    const signed = await local.signIn(user);
+    const authority = {
+      admin_user_id: user.id,
+      admin_session_id: JSON.parse(
+        Buffer.from(signed.session.access_token.split('.')[1], 'base64url').toString()
+      ).session_id,
+    };
+    const request = {
+      ...authority,
+      attempt_id: f.attempt,
+      operation_key: randomUUID(),
+      reason: 'Originating browser cannot report',
+    };
+    const [recovered, duplicate] = await Promise.all([
+      rpc('recover_interrupted_print', request),
+      rpc('recover_interrupted_print', request),
+    ]);
+    expect(duplicate.error).toBeNull();
+    expect(duplicate.data).toEqual(recovered.data);
+    expect(recovered.error).toBeNull();
+    expect((await rpc('recover_interrupted_print', request)).data).toEqual(recovered.data);
+    expect(
+      (await rpc('recover_interrupted_print', { ...request, reason: 'Changed' })).error?.message
+    ).toBe('idempotency_conflict');
+    expect(snapshot(f)).toMatchObject({
+      state: 'Uncertain',
+      consumption: 0,
+      on_hand: f.initialStock,
+      availability: {
+        remaining_allowance: kind === 'Guest' ? 9 : 10,
+        available_stock: f.initialStock - 1,
+        printer_busy: true,
+      },
+    });
+    if (kind === 'Guest')
+      expect(snapshot(f)).toMatchObject({ run_state: 'Paused', grant_state: 'Revoked' });
+    expect(
+      sql(
+        `select id from public.operation_receipts where event_id='${f.id}' and operation_kind='recover_interrupted_print'`
+      )
+    ).toHaveLength(1);
+    expect(
+      sql(
+        `select id from public.activity_events where attempt_id='${f.attempt}' and operation_kind='recover_interrupted_print'`
+      )
+    ).toHaveLength(1);
+    expect(
+      sql(
+        `select id from public.print_attempt_events where attempt_id='${f.attempt}' and state='Uncertain'`
+      )
+    ).toHaveLength(1);
+    for (const client of [local.client(), signed.client])
+      expect((await client.rpc('recover_interrupted_print', request)).error).not.toBeNull();
+    expect(
+      (await rpc('resolve_uncertain_print', { ...resolution(f, 'unused'), ...authority })).error
+    ).toBeNull();
+    expect(snapshot(f)).toMatchObject({
+      state: 'AdminResolvedUnused',
+      consumption: 0,
+      availability: { printer_busy: false, remaining_allowance: 10 },
+    });
+    await signed.client.auth.signOut({ scope: 'local' });
+    expect((await rpc('recover_interrupted_print', request)).error?.message).toBe('forbidden');
+  });
+  it('serializes a late ejection against Admin recovery without releasing or double consuming a hold', async () => {
+    const f = await fixture();
+    simulated();
+    const [late, recovery] = await Promise.all([
+      report(f, 'physicalEjectionVerified'),
+      rpc('recover_interrupted_print', {
+        ...f.admin,
+        attempt_id: f.attempt,
+        operation_key: randomUUID(),
+        reason: 'Browser interrupted',
+      }),
+    ]);
+    const state = snapshot(f);
+    if (state.state === 'Confirmed') {
+      expect(late.error).toBeNull();
+      expect(recovery.error?.message).toBe('state_conflict');
+      expect(state).toMatchObject({ consumption: 1, availability: { printer_busy: false } });
+    } else {
+      expect(recovery.error).toBeNull();
+      expect(late.error?.message).toBe('forbidden');
+      expect(state).toMatchObject({
+        state: 'Uncertain',
+        consumption: 0,
+        availability: { printer_busy: true },
+      });
+      expect((await rpc('resolve_uncertain_print', resolution(f, 'ejected'))).error).toBeNull();
+      expect(snapshot(f).consumption).toBe(1);
+    }
+  });
   it('acknowledgement preserves both holds, stock, and the open session', async () => {
     const f = await fixture();
     const result = await report(f, 'commandAccepted');
@@ -254,6 +406,7 @@ describe('Print outcome accounting', { timeout: 30000 }, () => {
       expect(
         (await rpc('resolve_uncertain_print', resolution(f, outcome, ' \n\t '))).error?.message
       ).toBe('validation_error');
+      if (outcome === 'ejected') simulated();
       const request = resolution(f, outcome);
       const result = await rpc('resolve_uncertain_print', request);
       expect(result.error).toBeNull();

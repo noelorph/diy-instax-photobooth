@@ -11,6 +11,7 @@ import type { PrinterObservation } from '@/features/booth/printer/contract';
 import type { OperationalEvent } from './types';
 import styles from './panel.module.css';
 
+type PendingOperation = { key: string; path: string; body: Record<string, unknown> };
 type Review = {
   label: string;
   effect: string;
@@ -43,7 +44,8 @@ export function OperationsPanel({
     index: number;
   } | null>(null);
   const returnFocus = useRef<HTMLElement | null>(null);
-  const pending = useRef(new Map<string, string>());
+  const pending = useRef(new Map<string, PendingOperation>());
+  const [pendingRequests, setPendingRequests] = useState<PendingOperation[]>([]);
   const base = `/api/admin/events/${event.id}`;
   const available =
     event.originalAllowance +
@@ -55,26 +57,40 @@ export function OperationsPanel({
   const terminal = ['Completed', 'Cancelled'].includes(event.state);
   async function post(path: string, body: Record<string, unknown>) {
     const signature = JSON.stringify([path, body]);
-    if (!pending.current.has(signature)) pending.current.set(signature, crypto.randomUUID());
-    const response = await fetch(path, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...body, operationKey: pending.current.get(signature) }),
-    });
-    const data = await response.json();
-    if (!response.ok) {
-      // A server failure may follow a committed operation. Retain its retry identity.
-      if (response.status < 500) pending.current.delete(signature);
-      throw new Error(
-        data.code === 'state_conflict'
-          ? 'The Event changed or is not ready. Reload current state before trying again.'
-          : data.code === 'pending_attempt'
-            ? 'Resolve the pending print first. Review unresolved prints below.'
-            : (data.message ?? 'Unable to record this operation.')
+    if (!pending.current.has(signature))
+      pending.current.set(signature, {
+        key: crypto.randomUUID(),
+        path,
+        body: structuredClone(body),
+      });
+    try {
+      const response = await fetch(path, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...body, operationKey: pending.current.get(signature)!.key }),
+      });
+      const data = await response.json();
+      if (!response.ok) {
+        // A server failure may follow a committed operation. Retain its retry identity.
+        if (response.status < 500) pending.current.delete(signature);
+        throw new Error(
+          data.code === 'state_conflict'
+            ? 'The Event changed or is not ready. Reload current state before trying again.'
+            : data.code === 'pending_attempt'
+              ? 'Resolve the pending print first. Review unresolved prints below.'
+              : (data.message ?? 'Unable to record this operation.')
+        );
+      }
+      pending.current.delete(signature);
+      return data;
+    } finally {
+      setPendingRequests(
+        [...pending.current.values()].filter(
+          (operation) =>
+            operation.path.endsWith('/additions') || operation.path.endsWith('/additional-prints')
+        )
       );
     }
-    pending.current.delete(signature);
-    return data;
   }
   async function act(path: string, body: Record<string, unknown>) {
     if (busy) return;
@@ -211,6 +227,29 @@ export function OperationsPanel({
           </Button>
         </FormFeedback>
       )}
+      {pendingRequests.map((operation) => (
+        <div key={operation.key}>
+          <p>
+            Unconfirmed operation:{' '}
+            {operation.path.endsWith('/additions')
+              ? 'Add Film Stock'
+              : operation.path.endsWith('/additional-prints')
+                ? 'Add guest prints'
+                : 'Record operation'}
+            .{' '}
+            {typeof operation.body.sheets === 'number'
+              ? `${operation.body.sheets} sheets. `
+              : typeof operation.body.quantity === 'number'
+                ? `${operation.body.quantity} guest prints. `
+                : ''}
+            {typeof operation.body.reason === 'string' ? operation.body.reason : ''} Retry uses the
+            original request.
+          </p>
+          <Button disabled={busy} onClick={() => act(operation.path, operation.body)}>
+            Retry pending operation
+          </Button>
+        </div>
+      ))}
       {notice && <FormFeedback kind="status">{notice}</FormFeedback>}
       {!simulatorEnabled && (
         <p className={styles.warning}>
@@ -491,22 +530,23 @@ export function OperationsPanel({
                 ))}
               </div>
             )}
-            {a.kind === 'Test' &&
-              ['Reserved', 'Accepted'].includes(a.state) &&
-              simulatorEnabled && (
-                <Button
-                  disabled={busy}
-                  onClick={() =>
-                    act(`/api/admin/print-attempts/${a.id}/observations`, {
-                      observationKind: 'uncertain',
-                      evidenceCode: 'ambiguous_outcome',
-                      observedAt: new Date().toISOString(),
-                    })
-                  }
-                >
-                  Report interrupted Test as uncertain
-                </Button>
-              )}
+            {['Reserved', 'Accepted'].includes(a.state) && (
+              <Button
+                disabled={busy}
+                onClick={() =>
+                  ask({
+                    label: 'Recover interrupted print',
+                    effect:
+                      'Mark the outcome Uncertain when the originating browser cannot report. All holds and the printer slot remain until inspection. The matching Guest run pauses and its access is revoked. No command is sent.',
+                    path: `/api/admin/print-attempts/${a.id}/recover`,
+                    body: {},
+                    reason: 'Recovery reason',
+                  })
+                }
+              >
+                Recover interrupted print
+              </Button>
+            )}
             {a.kind === 'Test' &&
               ['Confirmed', 'AdminResolvedEjected'].includes(a.state) &&
               a.test_output_usable === null && (

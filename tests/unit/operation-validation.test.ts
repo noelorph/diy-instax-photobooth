@@ -89,7 +89,8 @@ describe('operation input boundary', () => {
   });
   it('never returns unknown database diagnostics', async () => {
     const response = operationErrorResponse({ message: 'secret database relation' });
-    expect(await response.text()).not.toContain('secret database relation');
+    expect(response.status).toBe(503);
+    expect(await response.json()).toMatchObject({ code: 'operation_unavailable' });
     expect(operationResponse({ state: 'Prepared' }).headers.get('cache-control')).toContain(
       'private, no-store'
     );

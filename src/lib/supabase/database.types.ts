@@ -764,6 +764,16 @@ export type Database = {
         };
         Returns: Json;
       };
+      recover_interrupted_print: {
+        Args: {
+          admin_session_id: string;
+          admin_user_id: string;
+          attempt_id: string;
+          operation_key: string;
+          reason: string;
+        };
+        Returns: Json;
+      };
       report_booth_observation: {
         Args: {
           attempt_id: string;

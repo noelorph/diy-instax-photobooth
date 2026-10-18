@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { OperationError, operationCodes, type OperationCode } from './types';
 const messages: Record<OperationCode, string> = {
+  operation_unavailable: 'The result could not be confirmed. Retry the same operation.',
   unauthorized: 'Sign in to continue.',
   forbidden: 'This request is not permitted.',
   grant_expired: 'Booth access has expired. Sign in to resume.',
@@ -38,15 +39,17 @@ export function operationErrorResponse(
     ? (raw as OperationCode)
     : raw === 'handoff_expired'
       ? 'grant_expired'
-      : 'state_conflict';
+      : 'operation_unavailable';
   const status =
-    code === 'unauthorized' || code === 'grant_expired'
-      ? 401
-      : code === 'forbidden'
-        ? 403
-        : code === 'validation_error' || code === 'invalid_evidence'
-          ? 400
-          : 409;
+    code === 'operation_unavailable'
+      ? 503
+      : code === 'unauthorized' || code === 'grant_expired'
+        ? 401
+        : code === 'forbidden'
+          ? 403
+          : code === 'validation_error' || code === 'invalid_evidence'
+            ? 400
+            : 409;
   return operationResponse(
     {
       code,

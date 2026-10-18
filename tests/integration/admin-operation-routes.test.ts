@@ -5,6 +5,42 @@ import { resolve } from 'node:path';
 import { createServerClient } from '@supabase/ssr';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
 import { localSupabase, localSupabaseStatus } from '../fixtures/local-supabase';
+const fault = vi.hoisted(() => ({ rpc: false, projection: false }));
+vi.mock('@/lib/operations/privileged-client', async (original) => {
+  const actual = await original<typeof import('@/lib/operations/privileged-client')>();
+  return {
+    createPrivilegedClient: () => {
+      const client = actual.createPrivilegedClient();
+      const rpc = client.rpc.bind(client) as unknown as (
+        name: string,
+        args?: unknown,
+        options?: unknown
+      ) => PromiseLike<{ data: unknown; error: unknown }>;
+      client.rpc = ((...args: Parameters<typeof rpc>) => {
+        if (!fault.rpc) return rpc(...args);
+        fault.rpc = false;
+        return Promise.resolve(rpc(...args)).then((result) => {
+          if (result.error) return result;
+          return { data: null, error: { message: 'Upstream connection lost: secret diagnostic' } };
+        });
+      }) as unknown as typeof client.rpc;
+      const from = client.from.bind(client) as unknown as (table: string) => unknown;
+      client.from = ((table: string) => {
+        if (fault.projection && table === 'print_attempt_events') {
+          fault.projection = false;
+          const query = {
+            select: () => query,
+            eq: () => query,
+            single: async () => ({ data: null, error: { message: 'Projection connection lost' } }),
+          };
+          return query;
+        }
+        return from(table as never);
+      }) as unknown as typeof client.from;
+      return client;
+    },
+  };
+});
 const jar = vi.hoisted(() => new Map<string, string>());
 vi.mock('server-only', () => ({}));
 vi.mock('next/headers', () => ({
@@ -24,6 +60,7 @@ import { POST as reserve } from '@/app/api/admin/events/[eventId]/test-attempts/
 import { POST as additional } from '@/app/api/admin/events/[eventId]/additional-prints/route';
 import { POST as observe } from '@/app/api/admin/print-attempts/[attemptId]/observations/route';
 import { POST as inspect } from '@/app/api/admin/print-attempts/[attemptId]/test-output/route';
+import { POST as recover } from '@/app/api/admin/print-attempts/[attemptId]/recover/route';
 import { POST as settle } from '@/app/api/admin/print-attempts/[attemptId]/resolve/route';
 import { POST as waste } from '@/app/api/admin/print-attempts/[attemptId]/wasted-film/route';
 import { POST as add } from '@/app/api/admin/film-stock/additions/route';
@@ -139,6 +176,7 @@ function routes(eventId = randomUUID(), attemptId = randomUUID()) {
     (body: object, origin?: string) => waste(req(body, origin), attemptContext(attemptId)),
     (body: object, origin?: string) => add(req(body, origin)),
     (body: object, origin?: string) => reconcile(req(body, origin)),
+    (body: object, origin?: string) => recover(req(body, origin), attemptContext(attemptId)),
   ];
 }
 describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeout: 30000 }, () => {
@@ -178,6 +216,7 @@ describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeo
       { reason: 'Damaged' },
       { sheets: 1, reason: 'New' },
       { observedSheets: 1, reason: 'Counted' },
+      { reason: 'Lost originating browser' },
     ];
     for (const [index, route] of routes().entries()) {
       expect((await result(await route(valid[index]), 400)).code).toBe('validation_error');
@@ -192,6 +231,161 @@ describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeo
         ).toBe('validation_error');
     }
   });
+  it.each(['stock', 'additional'])(
+    'retries committed %s additions after upstream response loss once',
+    async (kind) => {
+      const f = await fixture();
+      const body = {
+        ...operation(),
+        ...(kind === 'stock' ? { sheets: 3, reason: 'New pack' } : { quantity: 3 }),
+      };
+      const invoke = () =>
+        kind === 'stock' ? add(req(body)) : additional(req(body), eventContext(f.eventId));
+      fault.rpc = true;
+      const failed = await result(await invoke(), 503);
+      expect(failed.code).toBe('operation_unavailable');
+      expect(JSON.stringify(failed)).not.toContain('secret');
+      await result(await invoke());
+      const actor = `admin:${f.user.id}`;
+      expect(
+        sql(
+          `select id from public.operation_receipts where actor_scope='${actor}' and operation_key='${body.operationKey}'`
+        )
+      ).toHaveLength(1);
+      expect(
+        sql(`select id from public.activity_events where actor_scope='${actor}'`)
+      ).toHaveLength(1);
+      const table = kind === 'stock' ? 'film_stock_entries' : 'additional_print_entries';
+      expect(
+        sql(
+          `select id from public.${table} where ${kind === 'stock' ? `actor_scope='${actor}'` : `actor_id='${f.user.id}'`}`
+        )
+      ).toHaveLength(1);
+    }
+  );
+  it('returns retryable ambiguity when resolution projection fails after commit', async () => {
+    const f = await fixture(),
+      a = await testAttempt(f);
+    await result(
+      await observe(req(observation('uncertain', 'ambiguous_outcome')), attemptContext(a.attemptId))
+    );
+    const body = { ...operation(), outcome: 'ejected', inspectionReason: 'Inspected' };
+    fault.projection = true;
+    expect((await result(await settle(req(body), attemptContext(a.attemptId)), 503)).code).toBe(
+      'operation_unavailable'
+    );
+    await result(await settle(req(body), attemptContext(a.attemptId)));
+    expect(
+      sql(`select id from public.film_stock_entries where attempt_id='${a.attemptId}'`)
+    ).toHaveLength(1);
+  });
+  it('recovers a Test from a fresh Admin session without weakening observation authority', async () => {
+    const f = await fixture(),
+      a = await testAttempt(f);
+    await f.client.auth.signOut({ scope: 'local' });
+    await admin();
+    expect(
+      (await result(await observe(req(observation()), attemptContext(a.attemptId)), 403)).code
+    ).toBe('forbidden');
+    const body = { ...operation(), reason: 'Old session was revoked' };
+    const recovered = await result(await recover(req(body), attemptContext(a.attemptId)));
+    expect(recovered).toMatchObject({ state: 'Uncertain', filmHold: 1, allowanceHold: 0 });
+    expect(await result(await recover(req(body), attemptContext(a.attemptId)))).toEqual(recovered);
+    await result(
+      await settle(
+        req({ ...operation(), outcome: 'unused', inspectionReason: 'Printer inspected' }),
+        attemptContext(a.attemptId)
+      )
+    );
+  });
+  it('recovers a Guest attempt with lost expired proof through the Admin route', async () => {
+    const f = await fixture(),
+      run = randomUUID(),
+      session = randomUUID(),
+      capture = randomUUID(),
+      attempt = randomUUID();
+    sql(`update public.events set state='Live',revision=revision+1 where id='${f.eventId}';
+      insert into public.booth_runs(id,event_id,state) values('${run}','${f.eventId}','Active');
+      insert into public.booth_grants(event_id,run_id,secret_hash,state,created_at,expires_at) values('${f.eventId}','${run}','${'a'.repeat(64)}','Active',now()-interval '2 hours',now()-interval '1 hour');
+      insert into public.guest_sessions(id,event_id,run_id) values('${session}','${f.eventId}','${run}');
+      insert into public.captures(id,event_id,run_id,session_id,captured_at) values('${capture}','${f.eventId}','${run}','${session}',now());
+      insert into public.print_attempts(id,event_id,run_id,session_id,capture_id,kind,state,request_key,connection_id) values('${attempt}','${f.eventId}','${run}','${session}','${capture}','Guest','Reserved','${randomUUID()}','${f.connectionId}')`);
+    const body = { ...operation(), reason: 'Browser cookie lost and proof expired' };
+    const recovered = await result(await recover(req(body), attemptContext(attempt)));
+    expect(recovered).toMatchObject({
+      state: 'Uncertain',
+      filmHold: 1,
+      allowanceHold: 1,
+      onHand: f.stock,
+    });
+    expect(sql(`select state from public.booth_grants where run_id='${run}'`)).toEqual([
+      { state: 'Revoked' },
+    ]);
+    await result(
+      await settle(
+        req({ ...operation(), outcome: 'unused', inspectionReason: 'Printer inspected' }),
+        attemptContext(attempt)
+      )
+    );
+    const revision = sql(`select revision from public.events where id='${f.eventId}'`)[0].revision;
+    expect(
+      await result(
+        await complete(req({ ...operation(), expectedRevision: revision }), eventContext(f.eventId))
+      )
+    ).toMatchObject({ state: 'Completed' });
+  });
+  it.each([
+    ['Guest', 'simulated'],
+    ['Guest', 'disabled'],
+    ['Test', 'simulated'],
+    ['Test', 'disabled'],
+  ])(
+    'blocks production inspected %s ejection with %s policy but allows unused recovery',
+    async (kind, policy) => {
+      const f = await fixture(),
+        a = await testAttempt(f);
+      await result(
+        await observe(
+          req(observation('uncertain', 'ambiguous_outcome')),
+          attemptContext(a.attemptId)
+        )
+      );
+      if (kind === 'Guest') {
+        const run = randomUUID(),
+          session = randomUUID(),
+          capture = randomUUID();
+        sql(`insert into public.booth_runs(id,event_id,state) values('${run}','${f.eventId}','Paused');
+        insert into public.guest_sessions(id,event_id,run_id) values('${session}','${f.eventId}','${run}');
+        insert into public.captures(id,event_id,run_id,session_id,captured_at) values('${capture}','${f.eventId}','${run}','${session}',now());
+        update public.print_attempts set kind='Guest',run_id='${run}',session_id='${session}',capture_id='${capture}',initiating_admin_session_id=null where id='${a.attemptId}'`);
+      }
+      sql(`update public.printer_completion_policy set mode='${policy}'`);
+      vi.stubEnv('NODE_ENV', 'production');
+      expect(
+        (
+          await result(
+            await settle(
+              req({ ...operation(), outcome: 'ejected', inspectionReason: 'Inspected' }),
+              attemptContext(a.attemptId)
+            ),
+            400
+          )
+        ).code
+      ).toBe('invalid_evidence');
+      expect(sql(`select state from public.print_attempts where id='${a.attemptId}'`)).toEqual([
+        { state: 'Uncertain' },
+      ]);
+      expect(
+        sql(`select id from public.film_stock_entries where attempt_id='${a.attemptId}'`)
+      ).toHaveLength(0);
+      await result(
+        await settle(
+          req({ ...operation(), outcome: 'unused', inspectionReason: 'Inspected' }),
+          attemptContext(a.attemptId)
+        )
+      );
+    }
+  );
   it('returns stock entries, stable duplicate results and zero difference reconciliation', async () => {
     const f = await fixture(),
       body = { ...operation(), sheets: 4, reason: 'New pack' };

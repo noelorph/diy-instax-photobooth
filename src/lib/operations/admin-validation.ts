@@ -14,6 +14,7 @@ export const resolutionSchema = operationSchema.extend({
   outcome: z.enum(['ejected', 'unused']),
   inspectionReason: reason,
 });
+export const recoverySchema = operationSchema.extend({ reason });
 export const wastedFilmSchema = operationSchema.extend({ reason });
 export const testOutputSchema = operationSchema.extend({ usable: z.boolean() });
 export const testObservationSchema = operationSchema.extend({

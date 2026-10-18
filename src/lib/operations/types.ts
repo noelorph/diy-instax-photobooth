@@ -1,4 +1,5 @@
 export const operationCodes = [
+  'operation_unavailable',
   'unauthorized',
   'forbidden',
   'grant_expired',
