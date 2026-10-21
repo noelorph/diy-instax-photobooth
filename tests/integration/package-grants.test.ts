@@ -196,7 +196,7 @@ it('activates a one-use initial handoff only after local sign-out and cannot ove
   }
 }, 30000);
 
-it('does not replay an issued handoff after Pause or Finish', async () => {
+it('replays a confirmed handoff receipt during Pause without reactivating the run', async () => {
   const f = await createPackageFixture();
   try {
     const setup = await f.reportSetup();
@@ -221,7 +221,8 @@ it('does not replay an issued handoff after Pause or Finish', async () => {
     expect((await issue()).error).toBeNull();
     const confirmKey = randomUUID();
     const confirmBody = { handoffId, deviceHash: f.deviceHash };
-    expect((await f.booth('confirm_handoff', confirmBody, confirmKey)).error).toBeNull();
+    const confirmed = await f.booth('confirm_handoff', confirmBody, confirmKey);
+    expect(confirmed.error).toBeNull();
     const signed = await f.local.signIn(f.adminUser);
     const newSessionId = JSON.parse(
       Buffer.from(signed.session.access_token.split('.')[1], 'base64url').toString()
@@ -244,15 +245,60 @@ it('does not replay an issued handoff after Pause or Finish', async () => {
     const paused = await admin('pause', revision);
     expect(paused.error).toBeNull();
     expect((await issue()).error?.message).toBe('access_required');
-    expect((await f.booth('confirm_handoff', confirmBody, confirmKey)).error?.message).toBe(
-      'access_required'
+    const replay = await f.booth('confirm_handoff', confirmBody, confirmKey);
+    expect(replay.error).toBeNull();
+    expect(replay.data.replayed).toBe(true);
+    expect(replay.data.receipt).toEqual(confirmed.data.receipt);
+    expect(localOwnerSql(`select state from public.booth_runs where id='${runId}'`)[0].state).toBe(
+      'Paused'
     );
+    expect((await f.booth('confirm_handoff', confirmBody)).error).not.toBeNull();
+    localOwnerSql(
+      `update public.booth_handoffs set expires_at=clock_timestamp()-interval '1 second' where id='${handoffId}'`
+    );
+    const lateReplay = await f.booth('confirm_handoff', confirmBody, confirmKey);
+    expect(lateReplay.error).toBeNull();
+    expect(lateReplay.data.receipt).toEqual(confirmed.data.receipt);
     const finished = await admin('finish', paused.data.revision);
     expect(finished.error).toBeNull();
     expect((await issue()).error?.message).toBe('access_required');
     expect((await f.booth('confirm_handoff', confirmBody, confirmKey)).error?.message).toBe(
       'access_required'
     );
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('denies an unconfirmed initial handoff after Admin pauses Prepared', async () => {
+  const f = await createPackageFixture();
+  try {
+    const setup = await f.reportSetup();
+    const started = await f.admin('start', {
+      expectedRevision: 1,
+      readinessWindowId: setup.data.readinessWindowId,
+      deviceHash: f.deviceHash,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+    });
+    expect(started.error).toBeNull();
+    const { handoffId, runId } = started.data.receipt.result;
+    const paused = await f.admin('pause', { runId, expectedRevision: started.data.revision });
+    expect(paused.error).toBeNull();
+    localOwnerSql(`delete from auth.sessions where id='${f.adminSessionId}'`);
+    expect(
+      (
+        await f.local.service.rpc('package_issue_handoff', {
+          p_handoff_id: handoffId,
+          p_device_hash: f.deviceHash,
+          p_operation_id: randomUUID(),
+          p_grant_hash: f.grantHash,
+        })
+      ).error?.message
+    ).toBe('access_required');
+    expect(
+      (await f.booth('confirm_handoff', { handoffId, deviceHash: f.deviceHash })).error?.message
+    ).toBe('access_required');
   } finally {
     await f.dispose();
   }
