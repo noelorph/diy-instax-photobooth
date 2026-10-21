@@ -117,3 +117,10 @@ it('uses a validated configured origin despite an internal runtime hostname, and
     vi.unstubAllEnvs();
   }
 });
+it('lets each schema own its operation identifier while legacy schemas require operationKey', async () => {
+  const target = z.strictObject({ operationId: z.uuid() });
+  expect(await parseOperation(request({ operationId: key }), target)).toEqual({ operationId: key });
+  await expect(
+    parseOperation(request({ operationId: key, expectedRevision: 1 }), schema)
+  ).rejects.toMatchObject({ code: 'validation_error' });
+});

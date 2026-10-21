@@ -55,8 +55,6 @@ export async function parseOperation<T>(request: Request, schema: z.ZodType<T>):
       chunks.push(value);
     }
     const body = JSON.parse(Buffer.concat(chunks).toString('utf8'));
-    if (!operationSchema.safeParse({ operationKey: body?.operationKey }).success)
-      throw new OperationError('validation_error');
     const result = schema.safeParse(body);
     if (!result.success) throw new OperationError('validation_error');
     return result.data;
