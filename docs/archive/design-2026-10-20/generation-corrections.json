@@ -1,0 +1,10 @@
+[
+  {
+    "name": "setup-fix",
+    "prompt": "Edit only the Shared film stock explanatory line in the attached Booth setup page. Replace \"Film sheets available on this device.\" with exactly \"Admin-recorded sheets shared across events.\" Preserve all other text, layout, style, icons and colors. This is shared physical inventory, not a device-reported film count. Return the same full-page image."
+  },
+  {
+    "name": "responsive-fix2",
+    "prompt": "Edit the attached responsive study with only two exact changes. In the LEFT DESKTOP panel's \"Upcoming Events\" list, DELETE the bottom \"Garcia Corporate\" row dated Oct31 with Completed badge, leaving whitespace; Completed events cannot be upcoming. In the LEFT DESKTOP panel's Recent Activity, under \"Booth started\", change \"Santos Wedding is now live\" to \"Studio evening is now live\". Preserve every other element and the fullcomposition."
+  }
+]

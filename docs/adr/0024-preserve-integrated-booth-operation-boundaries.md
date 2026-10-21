@@ -1,5 +1,7 @@
 # Preserve integrated Booth operation boundaries
 
+> **Current scope (2026-10-21):** Historical implementation at issue #9 only. Old test/stock/refund/redaction and reconnect revocation are superseded; metadata-only journaling, one-send, origin checks and bounded Capture reconciliation remain as specified in the replacement contract. [ADR-0025](0025-package-accounting-and-booth-recovery.md) and the [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) control conflicting behavior. The original decision below is retained as history.
+
 **Date:** 2026-10-18. Implemented for local simulated operation; physical printer completion remains gated.
 
 A detected printer connection change stops browser sends and invalidates setup evidence. The server conservatively changes a pending Reserved or Accepted attempt to Uncertain, retains its holds, pauses the run, and revokes its grant. Recovery requires Admin sign-in, resolution of pending reservations, a fresh Test Print and usable-output inspection for the new connection, and an explicit Resume with a new grant. A deliberate protected pause instead records `PauseRequested` while a reserved attempt finishes: new Guest work stops, but the matching attempt may still report its outcome. The run pauses and its grant revokes after that outcome, including uncertainty. This distinction preserves pending feedback without treating reconnection as proof that a command was unused.

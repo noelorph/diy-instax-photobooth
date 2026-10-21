@@ -1,5 +1,7 @@
 > **Historical input.** This is the original request that informed the product interview. It is not the current product specification. Follow the [PRD](../../PRD.md), [architecture](../../ARCHITECTURE.md), [design system](../../DESIGN_SYSTEM.md), [glossary](../../GLOSSARY.md), and [decision records](../adr/) when implementing the product. Where this prompt differs, those current documents take precedence.
 
+> **Historical source prompt — DO NOT EXECUTE as current requirements (superseded scope, 2026-10-21).** The [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) and current root documents govern new work. Package accounting, recovery, access lifecycle, test/quality/inventory controls and retention in this original text may conflict with the approved target. Preserve it as history; do not implement superseded instructions or infer a current pass from old checklists. Unchanged presentation/security details are carried into the active guides.
+
 Let's make a product requirement document. Store it in [PRD.md](http://PRD.md).
 
 

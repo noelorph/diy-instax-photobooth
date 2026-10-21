@@ -1,78 +1,118 @@
-# Booth user flow after issue #9 implementation
+# Project routes and Booth user flow
 
-This diagram shows the intended Admin and Guest flow defined by the [accounting, access, and provisional printer contract](superpowers/specs/2026-10-16-accounting-access-printer-contracts-design.md). It describes the current local simulated implementation as of 2026-10-18; final combined verification is tracked separately. Integrated development may use a simulated printer; real printer-backed Booth Mode and Confirmed Print accounting remain gated by the physical-ejection decision and validation in [ADR-0021](adr/0021-move-print-qualification-to-integration-checkpoint.md). The actual iPad trial is a separate release gate.
+**Approved target, 2026-10-21; not yet implemented.** Current code still follows the historical issue #9 flow. Use the [replacement contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) for exact transitions and API shapes, and [PRD](../PRD.md) for product scope.
 
-## Route map
+## Page routes
 
-| Step                                                                         | Route                                                                                                                                                                                                                                                                        |
-| ---------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Admin opens the Event and chooses **Start Booth Mode**                       | `/events/[eventId]` — the agreed Admin entry in the [PRD](../PRD.md#enter-and-leave).                                                                                                                                                                                        |
-| Server prepares the Live Event, run, and inactive grant                      | `POST /api/admin/events/{eventId}/booth-handoffs`.                                                                                                                                                                                                                           |
-| Server signs out the iPad Admin session and issues the inactive Booth cookie | `POST /api/admin/booth-handoffs/{handoffId}/issue`.                                                                                                                                                                                                                          |
-| iPad opens the guest-facing page and confirms the grant                      | `/booth`; it calls `POST /api/booth/handoffs/confirm` before showing Guest actions. The implemented route is recorded in [ADR-0023](adr/0023-use-a-single-booth-page-route.md). A one-use opaque `handoff` query reference is removed promptly; the URL carries no Event ID. |
-| Pause or failed handoff requires Admin sign-in                               | `/sign-in`, then `/events/[eventId]` after successful same-device sign-in; the Admin explicitly selects **Resume Booth Mode**.                                                                                                                                               |
+| Route                         | Who uses it                      | Purpose                                                                                                                                          |
+| ----------------------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/`                           | Visitor                          | Redirect to the appropriate entry; no independent product screen                                                                                 |
+| `/sign-in`                    | Admin                            | Email/password sign-in; ordinary success opens Dashboard; validated exceptional setup context may open Event detail                              |
+| `/forgot-password`            | Admin                            | Neutral recovery request                                                                                                                         |
+| `/auth/callback`              | Auth redirect                    | Exchange recovery code; not a navigation destination                                                                                             |
+| `/reset-password`             | Admin with valid recovery link   | Change password and confirm global Admin-session revocation                                                                                      |
+| `/dashboard`                  | Signed-in Admin                  | Month/upcoming/next Event and paginated activity                                                                                                 |
+| `/events`                     | Signed-in Admin                  | Draft/Live list and Upcoming annotation                                                                                                          |
+| `/events/new`                 | Signed-in Admin                  | Create Draft with packages and derived print total                                                                                               |
+| `/events/[eventId]`           | Signed-in Admin                  | Draft editing/setup; Live management; phone packages, reload/inspection, pause/resume/finish and separate completion; terminal records read-only |
+| `/history`                    | Signed-in Admin                  | Retained Completed/Cancelled Events; no redaction or deletion                                                                                    |
+| `/profile`                    | Signed-in Admin                  | Phone/theme/password and local Sign out                                                                                                          |
+| `/booth`                      | Device with limited grant        | Guest welcome/capture/review/printing, temporary failure recovery, paused and finished states                                                    |
+| `/qualification/iphone-print` | Supervised developer/Admin trial | Existing isolated historical qualification harness; never a production Guest entry or proof of automatic completion                              |
+
+The existing harness route is a development aid. Confirm its environment restrictions before running any physical trial. It retains old controls for evidence collection; these controls are not the target product UI. No new `/stock`, `/test-print`, `/redaction` or separate guest Event-ID page belongs in the target navigation. APIs under `/api/admin/…` and `/api/booth/…` are server contracts, not pages.
+
+## How the Admin starts Booth Mode
 
 ```mermaid
 flowchart TD
-    A["Admin creates Draft Event<br/>and records Print Allowance and Film Stock"] --> B["Admin prepares iPad and printer"]
-    B --> C["Test Print ejects;<br/>Admin confirms it is usable"]
-    C --> D{"Readiness passes?"}
-    D -- No --> B
-    D -- Yes --> E["Event becomes Live;<br/>Booth run and inactive grant are prepared"]
-    E --> F["Admin signs out locally on iPad"]
-    F --> G["Booth receives inactive grant cookie<br/>and confirms receipt"]
-    G --> H["Booth Active: Guest taps Start"]
-
-    H --> I["Preview → countdown → Capture"]
-    I --> J{"Guest chooses"}
-    J -- Retake --> I
-    J -- Print --> K["Reserve one guest print<br/>and one film sheet"]
-    K --> L["Browser sends one printer command"]
-    L --> M["Wait for physical outcome<br/>Command acknowledgement does not count as a print"]
-    M --> N{"Outcome"}
-
-    N -- Ejection verified --> O["Consume both holds;<br/>close session and discard photo"]
-    O --> H
-
-    N -- Clearly unused --> P["Release both holds"]
-    P --> Q{"Booth Active and ready,<br/>photo still in memory?"}
-    Q -- Yes, Guest explicitly retries --> J
-    Q -- No --> R["Pause and request Admin help"]
-
-    N -- Uncertain --> S["Keep both holds;<br/>pause Booth and prohibit resend"]
-    S --> T["Admin signs in and inspects printer"]
-    T --> U{"Admin records reason<br/>and resolves outcome"}
-    U -- Ejected --> V["Consume holds;<br/>close Guest Session"]
-    U -- Unused --> W["Release holds;<br/>close Guest Session"]
-    V --> X["If sheet was unusable, Admin marks Wasted Film;<br/>allowance is restored, stock stays reduced"]
-    W --> Y["Signed-in Admin restores readiness<br/>and explicitly resumes"]
-    X --> Y
-    R --> Y
-    Y --> Z["Prepare a new Booth grant<br/>for the still-Live Event"]
-    Z --> F
+  A[Admin signs in on booth iPad] --> E[Open /events/eventId]
+  E --> S[Check camera, server, printer and loaded film]
+  S --> G[Confirm power and Guided Access; show test reminder]
+  G --> R{All readiness checks and booked prints available?}
+  R -->|No| E
+  R -->|Yes| H[Start Booth Mode; prepare run and device grant]
+  H --> O[Sign Admin out locally on iPad]
+  O --> B[Open /booth and confirm handoff receipt]
+  B --> W[Welcome]
+  P[Admin remains signed in on phone] --> M[Manage same Event from phone]
+  M --> X[Packages, reload, inspection, pause, resume, finish]
 ```
 
-An Admin pause or remote stop before reservation ends preview or review and discards the unprinted photo. A completed Capture remains counted. If reservation wins the race, the Booth run enters `PauseRequested`: new Guest work stops while the matching attempt finishes or becomes Uncertain. Event completion or cancellation waits until all Print and Film Reservations are resolved. A resumed Booth starts at welcome with a new grant; it never restores a Guest photo.
+Starting is an iPad setup action from `/events/[eventId]`. Remote Resume is a phone action on the same Event; it retains the valid booth grant and returns the iPad to welcome. Physical loading is separate from adding purchased packages. Initial handoff failure or genuine access expiry may need local sign-in/setup; ordinary disconnections and pause do not. Exceptional local recovery replaces access on the same unfinished run, keeps it Paused and requires explicit phone Resume. Finishing/Finished runs cannot regain guest access.
 
-## Integrated stop and recovery paths
+## Guest flow
 
-The protected Admin management page is `/events/[eventId]`; `/booth` is the Guest page. An invalid or revoked grant presents only a neutral paused surface and sign-in link, without Event or Client details or printer diagnostics. The server validates the same-device return context after authentication before returning to Event management. Sign-in alone never resumes; the Admin reviews readiness and explicitly selects **Resume Booth Mode**.
+```mermaid
+flowchart TD
+  W[Welcome: montage / image / default] -->|Start| C[Live camera preview]
+  C -->|Take Photo| D[3-2-1 countdown]
+  D --> R[Captured photo review]
+  R -->|Retake| C
+  R -->|Print| V[Reserve one booked print]
+  V --> A[Authorize one dispatch]
+  A --> P[Printing: no duplicate send]
+  P -->|Confirmed full ejection and recorded outcome| S[Print complete for 3 seconds]
+  S --> Q{Active, ready, no pending attempt, capacity left?}
+  Q -->|Yes| W
+  Q -->|No| U[Show applicable unavailable / paused / finished state]
+```
 
-A deliberate protected pause uses `PauseRequested` if a Print Attempt is reserved. It stops new Guest work and preserves the matching attempt's final or uncertain outcome reporting before revocation. A detected printer connection change instead conservatively makes a pending attempt Uncertain, keeps its holds, and pauses/revokes immediately. Admin recovery resolves uncertainty, obtains a fresh Test Print and immutable usable-output inspection tied to the new connection, and creates a new handoff. These paths do not restore a Guest photo. A fired shutter's delayed metadata may still be counted under the bounded two-minute exception in [ADR-0024](adr/0024-preserve-integrated-booth-operation-boundaries.md).
+Retake uses no print. Count one completed shutter per Capture. The review matches the unmirrored physical crop. At 75 seconds of capture/review inactivity show Continue; at 90 discard and return to welcome if available. A fault ends the old interaction and discards the photo; no same-photo retry after repair.
 
-## Additional operation routes
+## Failure recovery
 
-This contextual inventory supplements the frozen approved spec. Bodies are strict JSON; `operationKey` and path IDs are UUIDs. Requests require same-origin validation and the appropriate active Admin or Booth authority. Simulator operation remains explicitly gated outside production.
+```mermaid
+flowchart TD
+  F[Fault or page reload] --> D{Could command have reached printer?}
+  D -->|Definitely no| N[End session; discard photo; cancel unsent reservation]
+  D -->|Yes or unknown| P[Keep attempt unresolved and block new work]
+  P --> O{Reliable attempt outcome available?}
+  O -->|Yes| T[Record Printed or NotPrinted once]
+  O -->|No| I[Phone Admin inspects; reason and Printed / Not printed]
+  I --> K{Outcome and old-job clearance established?}
+  K -->|No| P
+  K -->|Yes| T
+  N --> R[Restore every equipment / connection blocker]
+  T --> R
+  R --> G{Active run, valid grant, ready printer/camera/server, capacity?}
+  G -->|Yes| W[New interaction at welcome]
+  G -->|Paused| A[Booth paused; phone Resume required]
+  G -->|Other blocker| U[Stay unavailable with appropriate action]
+```
 
-| Route                                                    | Request body                        | Result and boundary                                                                                                                                                                                                                                       |
-| -------------------------------------------------------- | ----------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `POST /api/admin/print-attempts/{attemptId}/recover`     | `{ operationKey, reason }`          | Current Admin recovery of a Reserved/Accepted Guest or Test attempt; returns `attemptId`, `state`, `diagnostic`, `allowanceHold`, `filmHold`, `availability`, `onHand`, `revision`. Retains holds as Uncertain and pauses/revokes the matching Guest run. |
-| `POST /api/admin/print-attempts/{attemptId}/test-output` | `{ operationKey, usable: boolean }` | Admin-only immutable inspection of ejected Test output; returns `attemptId`, `state`, `connectionId`, `usable`. The connection is obtained from the attempt, not caller-selected.                                                                         |
-| `POST /api/booth/connection-changes`                     | `{ operationKey }`                  | Grant-authorized reconnect stop; returns `runId`, `state`, nullable `attemptId`/`attemptState`, `revision`, `availability`, and clears the Booth cookie on success.                                                                                       |
-| `POST /api/booth/pauses`                                 | `{ operationKey }`                  | Protected pause for an Active run; returns `runId`, `state`, `revision`, records the same-device Admin return hint, and clears the grant cookie immediately only when already Paused. A pending attempt retains outcome reporting during PauseRequested.  |
+A physical send already in progress may finish; cancelling it is not guaranteed. With network loss, retain non-photo result metadata for idempotent reporting. If a reservation/dispatch response was lost, query its original receipt. A scoped reconciliation operation releases Reserved only if dispatch never committed; a competing committed dispatch remains pending. Never resend using replayed authorization. Reconnection cannot clear a pending attempt by itself.
 
-Neither the simulated outcome path nor these routes establish physical ejection. Printer-backed operation remains subject to ADR-0021 and the actual-iPad trial.
+| Failure                              | Booth message and allowed action                                                    | Phone Admin role                                                                                                 |
+| ------------------------------------ | ----------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| Bluetooth                            | Bluetooth disconnected. Please inform the Admin. / **Connect to Instax** only       | Help reconnect; inspect only if outcome cannot be established                                                    |
+| Camera                               | Camera disconnected. Please inform the Admin. / **Enable Camera**                   | Restore permission/live feed; during printing let outcome settle first                                           |
+| Offline                              | Wi-Fi disconnected. Please inform the Admin.                                        | Restore connectivity; app rechecks server before welcome                                                         |
+| Service failure, Wi-Fi cause unknown | Connection unavailable. Please inform the Admin.                                    | Resolve service issue; do not diagnose from timeout alone                                                        |
+| No film, reliably established        | Printer is out of film. Please inform the Admin.                                    | Event panel: Film reload needed → load physically → Confirm film loaded                                          |
+| Unknown print/other fault            | Booth is temporarily unavailable. Please inform the Admin.                          | Inspect exceptional Pending as Printed / Not printed with reason; if old job not safely cleared stay unavailable |
+| All booked prints used               | All booked prints have been used. Please ask the Admin to add another Film Package. | Add whole packages; +10 each; ensure actual printer readiness                                                    |
 
-If the originating browser cannot report because its cookie is lost, its grant expires, or a Test Admin session ends, sign in as Admin and open the pending Print Attempt (including older attempts). Choose **Recover interrupted print**, review the retained holds, and record a recovery reason. The attempt becomes Uncertain; its holds and printer slot remain, and the matching Guest run pauses with revoked access. Inspect the printer before resolving separately as unused or, only with the nonproduction simulator enabled, ejected. Ejected resolution remains blocked under the production completion gate. After resolution, refresh readiness and explicitly resume or finish the Event.
+The phone only asks Printed / Not printed when the old outcome is unknown. Loading alone never changes an old outcome, purchased capacity or confirmed total. Simultaneous faults remain separate, and recovery never overrides an explicit pause.
 
-An unconfirmed stock or Additional Prints addition displays **Retry pending operation**. It preserves the original quantity, reason and operation key even if another action or form edit intervenes. Use that retry to reconcile an ambiguous response before leaving the page; the pending request is held in browser memory.
+## Pause, finish and completion
+
+```mermaid
+flowchart TD
+  A[Active Booth run] -->|Phone Pause Booth| P[Paused: stop new guest actions]
+  P -->|Phone Resume; ready and no pending attempt| A
+  A -->|Phone Finish Booth Mode| F[Finishing: stop new work]
+  P -->|Phone Finish Booth Mode| F
+  F --> R{All attempts terminal?}
+  R -->|No| U[Wait for reliable outcome or phone inspection]
+  U --> R
+  R -->|Yes| E[Finished: revoke grant; show Sign in]
+  E --> C[Phone Complete Event]
+  C --> H[Completed Event retained in History]
+```
+
+Pause takes effect immediately but does not cancel a dispatched print; let it settle while blocking new work. A stop committed before dispatch denies it; dispatch authorized first may still eject. The iPad stays in `/booth` for Pause and Finish status. Complete Event is never a shortcut around an unresolved print. If the Event remains Live after a finished run, another run needs a new explicit local start/handoff; it keeps the same Event totals.
+
+## Implementation and evidence
+
+These diagrams describe the approved future flow. The current branch's simulator, old inspection/test controls and pause sign-in behavior are historical implementation, documented in [ADR-0024](adr/0024-preserve-integrated-booth-operation-boundaries.md). Hardware release requires the [proof checklist](qualification/booth-recovery-proof-checklist.md), including automatic normal completion and actual-iPad Guided Access trials.

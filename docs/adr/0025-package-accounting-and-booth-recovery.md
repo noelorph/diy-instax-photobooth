@@ -1,0 +1,48 @@
+# ADR-0025: Use package accounting and keep recovery in Booth Mode
+
+**Status:** Accepted target design; implementation pending.
+**Date:** 2026-10-21
+**Contract:** [Package accounting, access and Booth recovery](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md).
+
+## Context
+
+The earlier model required inventory bookkeeping, test-output inspection, print-quality corrections and repeated Admin sign-in on the booth device. The owner wants ordinary booth operation with physical equipment help and authenticated recovery from a phone. The printer's reported count is not trustworthy physical inventory. Ending a guest interaction cannot establish whether an already-delivered command printed.
+
+## Decision
+
+- Each original or Additional Film Package gives an Event ten prints. Hold one while attempting a print; count once on confirmed full ejection, even if the image is unusable. Unknown outcomes remain pending and block another guest.
+- Remove the separate editable Print Allowance, Additional Prints, shared Film Stock, Wasted Film, in-app Test Print, Client Redaction and past-Event deletion. Setup retains only the sentence “Always test the printer before starting Booth Mode.”
+- Keep the iPad in `/booth` through faults and explicit pauses. Separate the Admin pause state from equipment/network readiness. Bluetooth recovery offers one **Connect to Instax** action; camera recovery offers **Enable Camera**. New guest work resumes at welcome only after readiness and old-attempt resolution, and never overrides an explicit pause.
+- The authenticated phone Event page supports package purchases, reload confirmation, Pause, Resume and Finish Booth Mode. Exceptional unknown outcomes require inspection and a reason with **Printed / Not printed**; reloading alone never settles an old attempt or adds Event capacity.
+- Finish Booth Mode before Complete Event. Delete never-started Drafts after safe cleanup; retain Completed and Cancelled Events with their details and media.
+- Keep accounting mutations inside private transactional functions called by trusted server handlers, plus Admin RLS for reads/Draft edits. Retain scoped booth grants through recoverable faults/pauses; revoke at finish/security termination and fail closed on genuine expiry/loss. Retain one-send, idempotency, metadata-only journaling and guest-photo privacy boundaries.
+- Require physically validated **automatic** normal full-ejection completion before enabling real Booth printing. Inspection is exceptional recovery, never a routine confirmation button after every print. Actual iPad end-to-end release qualification is still mandatory.
+
+## Supersession map
+
+The linked originals retain their historical text. The replacement contract controls current behavior wherever they differ.
+
+| Earlier decision             | Change                                                                                                                                                                                         |
+| ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| ADR-0002                     | Replace pause/fault grant revocation and local sign-in recovery; retain Admin isolation                                                                                                        |
+| ADR-0003                     | Replace accounting model and quality refund; retain pending holds/no resend                                                                                                                    |
+| ADR-0004                     | Replace retained-photo/retry recovery; retain internet requirement                                                                                                                             |
+| ADR-0005, ADR-0012, ADR-0021 | Keep physical evidence and staged development; require automatic normal completion and the actual iPad gate                                                                                    |
+| ADR-0006                     | Supersede shared physical inventory entirely                                                                                                                                                   |
+| ADR-0007, ADR-0008           | Retain server authority and transactions; replace stock/allowance operations                                                                                                                   |
+| ADR-0009                     | Supersede Client Redaction entirely                                                                                                                                                            |
+| ADR-0011                     | Retain separate password recovery authority; replace pause/sign-in return policy                                                                                                               |
+| ADR-0014                     | Replace same-photo retry and local sign-in recovery; define stop-versus-dispatch race                                                                                                          |
+| ADR-0016                     | Retain Draft cleanup/audit preservation; remove new Test/stock work and all past-Event redaction/deletion                                                                                      |
+| ADR-0017                     | Replace independent package/print counts; retain field, schedule and revision validation                                                                                                       |
+| ADR-0022                     | Retain private transactions and idempotency; replace pause grant lifecycle and accounting model                                                                                                |
+| ADR-0023                     | Retain `/booth`; replace handoff on ordinary pause/failure                                                                                                                                     |
+| ADR-0024                     | Historical implementation reference; replace tests, quality corrections, reconnect revocation and old recovery flow; preserve bounded metadata reconciliation, one-send and origin protections |
+
+Unaffected decisions remain in force: photo privacy (0001), visual system (0010), local HTTPS (0013), Auth reset safety (0015), component placement (0020) and Geist typography (0019). ADR-0018 remains superseded by 0020. [ADR index](README.md) links every decision and its current scope.
+
+## Consequences
+
+The product tracks booked output and exceptional attempts without pretending to know physical inventory. The Admin still loads film and inspects genuinely unknown outcomes. Unresolvable hardware ambiguity can keep the booth unavailable; it cannot be hidden by resetting counters. Manual loading confirmation is the fallback if automatic reload detection cannot be proven. Missing reliable automatic normal completion keeps printer-backed operation disabled.
+
+Existing code and database behavior do not change with this ADR. Later implementation must remove obsolete mutation paths, preserve legacy accounting snapshots and review Draft capacity conversion. See contract section 8. The [proof checklist](../qualification/booth-recovery-proof-checklist.md) separates actual observations from pending work.

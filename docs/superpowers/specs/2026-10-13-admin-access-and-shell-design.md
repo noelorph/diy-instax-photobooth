@@ -1,5 +1,7 @@
 # Admin access and shell (implemented; original pre-gate spec)
 
+> **Historical specification (superseded scope, 2026-10-21).** The [replacement contract](2026-10-21-package-accounting-booth-recovery-design.md) and current root documents govern new work. Package accounting, recovery, access lifecycle, test/quality/inventory controls and retention in this original text may conflict with the approved target. Preserve it as history; do not implement superseded instructions or infer a current pass from old checklists. Unchanged presentation/security details are carried into the active guides.
+
 **Status:** Approved by the owner on 2026-10-14; implemented and verified against the isolated local Supabase stack. Hosted staging verification and promotion remain pending until a separate staging project is identified. The approved scope and decisions below are unchanged.
 
 ## Intent and boundary
@@ -39,7 +41,7 @@ Implement each behavior with a failing test first, observe the failure, make the
 5. Profile phone and theme persist; authenticated password change reports success or a recoverable failure; local Sign out affects only the current device.
 6. The shell works at compact, medium, and wide layouts, including keyboard focus, accessible names, light/dark contrast, loading/error states, and 200% zoom. Placeholder routes remain protected and contain no fake data or gated controls.
 
-Use unit/component tests for form and shell states, Auth/database integration tests for authorization and revocation, and browser tests for the public-to-protected journeys. Follow the verification approach in [ARCHITECTURE.md section 8](../../../ARCHITECTURE.md#8-verification-and-delivery). Recovery email delivery needs a controlled test mailbox locally and configured production SMTP before release; a mocked request alone does not prove delivery.
+Use unit/component tests for form and shell states, Auth/database integration tests for authorization and revocation, and browser tests for the public-to-protected journeys. Follow the verification approach in [ARCHITECTURE.md section 8](../../../ARCHITECTURE.md#7-verification-and-delivery). Recovery email delivery needs a controlled test mailbox locally and configured production SMTP before release; a mocked request alone does not prove delivery.
 
 ## Completion and handoff
 
@@ -47,6 +49,6 @@ This spec is complete when its tested flows work independently of the printer tr
 
 ## Local implementation handoff — 2026-10-14
 
-The combined Admin and Draft foundation implements this spec locally. Regression coverage includes expired/revoked protected access with persistent sign-in-again feedback, real local Auth and database boundaries, and native Chromium 200% page zoom for shell navigation, Profile, and Draft form/list/validation flows with keyboard access. See the [README verification instructions](../../../README.md#profile-and-browser-verification) for reproducible checks and the native zoom method.
+The combined Admin and Draft foundation implements this spec locally. Regression coverage includes expired/revoked protected access with persistent sign-in-again feedback, real local Auth and database boundaries, and native Chromium 200% page zoom for shell navigation, Profile, and Draft form/list/validation flows with keyboard access. See the [README verification instructions](../../implementation/issue9-local-development.md#profile-and-browser-verification) for reproducible checks and the native zoom method.
 
 The connected hosted project's environment is unconfirmed; no hosted promotion is included in this handoff. Identify the separate staging project, apply and verify migrations there, then follow the documented production promotion process. Deferred #10 Booth and physical-device cases and all exclusions in this spec remain pending.
