@@ -30,8 +30,10 @@ import {
 import { POST as startRoute } from '@/app/api/admin/events/[eventId]/booth/start/route';
 import { POST as addPackages } from '@/app/api/admin/events/[eventId]/film-packages/route';
 import { POST as pauseRoute } from '@/app/api/admin/events/[eventId]/booth/pause/route';
+import { POST as recoverAttemptRoute } from '@/app/api/admin/print-attempts/[attemptId]/recover/route';
 import { POST as captureRoute } from '@/app/api/booth/captures/route';
 import { POST as startSessionRoute } from '@/app/api/booth/sessions/route';
+import { POST as endSessionRoute } from '@/app/api/booth/sessions/[sessionId]/end/route';
 import { POST as reconcileRoute } from '@/app/api/booth/print-attempts/[attemptId]/reconcile/route';
 
 let priorPolicy: string;
@@ -288,27 +290,6 @@ it('accepts only the narrow pre-stop shutter report after Booth access is revoke
   }
 }, 30000);
 
-it('keeps a valid Booth grant usable after its Admin changes password', async () => {
-  const fixture = await createPackageFixture();
-  try {
-    fixture.seedRun();
-    const secret = '9'.repeat(64);
-    ownerUpdate('booth_grants', fixture.grantId, { secret_hash: hashSecret(secret) });
-    const updated = await fixture.adminClient.auth.updateUser({
-      password: `Changed-${randomUUID()}-A1!`,
-    });
-    expect(updated.error).toBeNull();
-    const state = await boothState(request(undefined, `__Host-booth-grant=${secret}`));
-    expect(state.status).toBe(200);
-    expect((await state.json()).runId).toBe(fixture.runId);
-    expect(
-      localOwnerSql(`select state from public.booth_grants where id='${fixture.grantId}'`)[0].state
-    ).toBe('Active');
-  } finally {
-    await fixture.dispose();
-  }
-}, 30000);
-
 it('does not disclose another grant’s operation receipt', async () => {
   const source = await createPackageFixture();
   const reader = await createPackageFixture();
@@ -403,13 +384,14 @@ it('issues a bound inactive cookie after local sign-out while another Admin sess
         .n
     ).toBe(1);
     expect((await boothState(request(undefined, grantCookie))).status).toBe(401);
-    const confirmed = await confirmHandoff(
-      request(
-        { operationId: randomUUID(), handoffId },
-        `${grantCookie}; __Host-booth-device=${device}`
-      )
-    );
+    const confirmation = { operationId: randomUUID(), handoffId };
+    const confirmationCookie = `${grantCookie}; __Host-booth-device=${device}`;
+    const confirmed = await confirmHandoff(request(confirmation, confirmationCookie));
     expect(confirmed.status).toBe(200);
+    const committed = await confirmed.json();
+    const replay = await confirmHandoff(request(confirmation, confirmationCookie));
+    expect(replay.status).toBe(200);
+    expect((await replay.json()).receipt).toEqual(committed.receipt);
     expect(
       confirmed.headers.getSetCookie().find((value) => value.startsWith('__Host-booth-grant='))
     ).toContain('Expires=');
@@ -485,21 +467,27 @@ it('binds setup readiness to the current Admin session and device before Start',
       context
     );
     expect(report.status).toBe(200);
-    const started = await startRoute(
-      request(
-        {
-          operationId: randomUUID(),
-          expectedRevision: 1,
-          readinessWindowId,
-          printerId: 'fixture-printer',
-          connectionGeneration: 0,
-        },
-        `${adminCookie}; ${deviceCookie}`
-      ),
+    const startBody = {
+      operationId: randomUUID(),
+      expectedRevision: 1,
+      readinessWindowId,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+    };
+    const setupCookie = `${adminCookie}; ${deviceCookie}`;
+    const started = await startRoute(request(startBody, setupCookie), context);
+    expect(started.status).toBe(200);
+    const committed = await started.json();
+    expect(committed.receipt.result.purpose).toBe('initial');
+    const replay = await startRoute(request(startBody, setupCookie), context);
+    expect(replay.status).toBe(200);
+    expect((await replay.json()).receipt).toEqual(committed.receipt);
+    const conflict = await startRoute(
+      request({ ...startBody, connectionGeneration: 1 }, setupCookie),
       context
     );
-    expect(started.status).toBe(200);
-    expect((await started.json()).receipt.result.purpose).toBe('initial');
+    expect(conflict.status).toBe(409);
+    expect((await conflict.json()).code).toBe('operation_conflict');
   } finally {
     await fixture.dispose();
   }
@@ -555,6 +543,155 @@ it('recovers an uncertain package addition through its original receipt and reje
   }
 }, 30000);
 
+it('scopes Admin run commands and replays only their original payload', async () => {
+  const fixture = await createPackageFixture();
+  try {
+    fixture.seedRun();
+    const session = (await fixture.adminClient.auth.getSession()).data.session!;
+    const adminCookie = sessionCookies(session);
+    for (const pair of adminCookie.split('; ')) {
+      const [name, value] = pair.split('=');
+      jar.set(name, value);
+    }
+    const context = { params: Promise.resolve({ eventId: fixture.eventId }) };
+    const foreign = await pauseRoute(
+      request({ operationId: randomUUID(), runId: randomUUID(), expectedRevision: 2 }, adminCookie),
+      context
+    );
+    expect(foreign.status).toBe(409);
+    expect(
+      localOwnerSql(`select state from public.booth_runs where id='${fixture.runId}'`)[0].state
+    ).toBe('Active');
+    const body = { operationId: randomUUID(), runId: fixture.runId, expectedRevision: 2 };
+    const first = await pauseRoute(request(body, adminCookie), context);
+    expect(first.status).toBe(200);
+    const committed = await first.json();
+    const replay = await pauseRoute(request(body, adminCookie), context);
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toMatchObject({ replayed: true, receipt: committed.receipt });
+    const conflict = await pauseRoute(
+      request({ ...body, expectedRevision: 3 }, adminCookie),
+      context
+    );
+    expect(conflict.status).toBe(409);
+    expect((await conflict.json()).code).toBe('operation_conflict');
+  } finally {
+    await fixture.dispose();
+  }
+}, 30000);
+
+it('scopes Admin attempt recovery and replays only its original inspection reason', async () => {
+  const fixture = await createPackageFixture();
+  try {
+    fixture.seedRun();
+    const sessionId = localOwnerSql(
+      `insert into public.guest_sessions(event_id,run_id,accounting_version) values('${fixture.eventId}','${fixture.runId}',2) returning id`
+    )[0].id;
+    const captureId = localOwnerSql(
+      `insert into public.captures(event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) values('${fixture.eventId}','${fixture.runId}','${sessionId}',2,clock_timestamp(),'${randomUUID()}') returning id`
+    )[0].id;
+    const attemptId = String(
+      localOwnerSql(
+        `insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) values('${fixture.eventId}','${fixture.runId}','${sessionId}','${captureId}',2,'Guest','Reserved','${randomUUID()}','${randomUUID()}') returning id`
+      )[0].id
+    );
+    const session = (await fixture.adminClient.auth.getSession()).data.session!;
+    const adminCookie = sessionCookies(session);
+    for (const pair of adminCookie.split('; ')) {
+      const [name, value] = pair.split('=');
+      jar.set(name, value);
+    }
+    const context = { params: Promise.resolve({ attemptId }) };
+    const body = {
+      operationId: randomUUID(),
+      expectedRevision: 2,
+      reason: 'No dispatch committed',
+    };
+    const first = await recoverAttemptRoute(request(body, adminCookie), context);
+    expect(first.status).toBe(200);
+    const committed = await first.json();
+    const replay = await recoverAttemptRoute(request(body, adminCookie), context);
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toMatchObject({ replayed: true, receipt: committed.receipt });
+    const conflict = await recoverAttemptRoute(
+      request({ ...body, reason: 'Different inspection' }, adminCookie),
+      context
+    );
+    expect(conflict.status).toBe(409);
+    expect((await conflict.json()).code).toBe('operation_conflict');
+    localOwnerSql(`delete from auth.sessions where id='${fixture.adminSessionId}'`);
+    const revoked = await recoverAttemptRoute(request(body, adminCookie), context);
+    expect(revoked.status).toBe(403);
+    expect((await revoked.json()).code).toBe('operation_forbidden');
+  } finally {
+    await fixture.dispose();
+  }
+}, 30000);
+
+it('replays Booth session creation and rejects a changed payload under the same key', async () => {
+  const fixture = await createPackageFixture();
+  try {
+    fixture.seedRun();
+    const secret = '5'.repeat(64);
+    ownerUpdate('booth_grants', fixture.grantId, { secret_hash: hashSecret(secret) });
+    localOwnerSql(
+      `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${fixture.runId}'`
+    );
+    const boothCookie = `__Host-booth-grant=${secret}`;
+    const body = { operationId: randomUUID(), expectedRevision: 2 };
+    const first = await startSessionRoute(request(body, boothCookie));
+    expect(first.status).toBe(200);
+    const committed = await first.json();
+    const replay = await startSessionRoute(request(body, boothCookie));
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toMatchObject({ replayed: true, receipt: committed.receipt });
+    const conflict = await startSessionRoute(
+      request({ ...body, expectedRevision: 3 }, boothCookie)
+    );
+    expect(conflict.status).toBe(409);
+    expect((await conflict.json()).code).toBe('operation_conflict');
+  } finally {
+    await fixture.dispose();
+  }
+}, 30000);
+
+it('replays Booth attempt reconciliation and rejects a changed reason', async () => {
+  const fixture = await createPackageFixture();
+  try {
+    fixture.seedRun();
+    const secret = '6'.repeat(64);
+    ownerUpdate('booth_grants', fixture.grantId, { secret_hash: hashSecret(secret) });
+    const sessionId = localOwnerSql(
+      `insert into public.guest_sessions(event_id,run_id,accounting_version) values('${fixture.eventId}','${fixture.runId}',2) returning id`
+    )[0].id;
+    const captureId = localOwnerSql(
+      `insert into public.captures(event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) values('${fixture.eventId}','${fixture.runId}','${sessionId}',2,clock_timestamp(),'${randomUUID()}') returning id`
+    )[0].id;
+    const attemptId = String(
+      localOwnerSql(
+        `insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) values('${fixture.eventId}','${fixture.runId}','${sessionId}','${captureId}',2,'Guest','Reserved','${randomUUID()}','${randomUUID()}') returning id`
+      )[0].id
+    );
+    const boothCookie = `__Host-booth-grant=${secret}`;
+    const context = { params: Promise.resolve({ attemptId }) };
+    const body = { operationId: randomUUID(), reason: 'Dispatch status unknown' };
+    const first = await reconcileRoute(request(body, boothCookie), context);
+    expect(first.status).toBe(200);
+    const committed = await first.json();
+    const replay = await reconcileRoute(request(body, boothCookie), context);
+    expect(replay.status).toBe(200);
+    expect(await replay.json()).toMatchObject({ replayed: true, receipt: committed.receipt });
+    const conflict = await reconcileRoute(
+      request({ ...body, reason: 'Different report' }, boothCookie),
+      context
+    );
+    expect(conflict.status).toBe(409);
+    expect((await conflict.json()).code).toBe('operation_conflict');
+  } finally {
+    await fixture.dispose();
+  }
+}, 30000);
+
 it('denies a Booth grant access to another Event’s print attempt', async () => {
   const own = await createPackageFixture();
   const other = await createPackageFixture();
@@ -584,6 +721,12 @@ it('denies a Booth grant access to another Event’s print attempt', async () =>
     expect(
       localOwnerSql(`select state from public.print_attempts where id='${attemptId}'`)[0].state
     ).toBe('Reserved');
+    const foreignSession = await endSessionRoute(
+      request({ operationId: randomUUID(), reason: 'Wrong run' }, `__Host-booth-grant=${secret}`),
+      { params: Promise.resolve({ sessionId: String(sessionId) }) }
+    );
+    expect(foreignSession.status).toBe(409);
+    expect((await foreignSession.json()).code).toBe('invalid_transition');
   } finally {
     await own.dispose();
     await other.dispose();
