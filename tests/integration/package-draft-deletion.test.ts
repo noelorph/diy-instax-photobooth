@@ -150,3 +150,36 @@ it('denies deletion of a Live Event without erasing its details', async () => {
     await fixture.dispose();
   }
 }, 30000);
+
+it('denies Draft deletion after the Event becomes terminal', async () => {
+  const fixture = await createPackageFixture();
+  try {
+    const cancelled = await fixture.admin('cancel', { expectedRevision: 1 });
+    expect(cancelled.error).toBeNull();
+    const session = (await fixture.adminClient.auth.getSession()).data.session!;
+    const cookie = sessionCookies(session);
+    for (const pair of cookie.split('; ')) {
+      const [name, value] = pair.split('=');
+      jar.set(name, value);
+    }
+    const response = await deleteDraft(
+      new Request('https://booth.test/api/admin/delete-draft', {
+        method: 'POST',
+        headers: { origin: 'https://booth.test', cookie, 'content-type': 'application/json' },
+        body: JSON.stringify({
+          operationId: randomUUID(),
+          expectedRevision: cancelled.data.revision,
+        }),
+      }),
+      { params: Promise.resolve({ eventId: fixture.eventId }) }
+    );
+    expect(response.status).toBe(409);
+    expect((await response.json()).code).toBe('invalid_transition');
+    expect(
+      localOwnerSql(`select state,deleted_at from public.events where id='${fixture.eventId}'`)[0]
+    ).toMatchObject({ state: 'Cancelled', deleted_at: null });
+  } finally {
+    jar.clear();
+    await fixture.dispose();
+  }
+}, 30000);

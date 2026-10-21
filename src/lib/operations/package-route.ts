@@ -1,7 +1,15 @@
 import 'server-only';
+import type { NextResponse } from 'next/server';
 import type { z } from 'zod';
 import { requireAdminRequest } from './admin-authority';
-import { boothCookie, deviceCookie, grantHash, hashSecret, readSecret } from './booth-authority';
+import {
+  boothCookie,
+  cookieOptions,
+  deviceCookie,
+  grantHash,
+  hashSecret,
+  readSecret,
+} from './booth-authority';
 import { PackageError, packageErrorStatus, type PackageErrorCode } from './package-contract';
 import { parsePackageOperation } from './package-validation';
 import { packageRpc } from './package-rpc';
@@ -45,6 +53,27 @@ function simulatorOnly() {
   } catch {
     throw new PackageError('qualification_required');
   }
+}
+
+/** Match the browser proof's expiry to the grant after an authorized database call. */
+export async function refreshPackageBoothCookie(request: Request, response: NextResponse) {
+  if (!response.ok) return response;
+  const secret = readSecret(request, boothCookie);
+  if (!secret) return response;
+  try {
+    const { data, error } = await createPrivilegedClient()
+      .from('booth_grants')
+      .select('state,revoked_at,expires_at')
+      .eq('secret_hash', hashSecret(secret))
+      .maybeSingle();
+    if (error || data?.state !== 'Active' || data.revoked_at) return response;
+    const expiry = Date.parse(data.expires_at);
+    if (!Number.isFinite(expiry) || expiry <= Date.now()) return response;
+    response.cookies.set(boothCookie, secret, { ...cookieOptions, expires: new Date(expiry) });
+  } catch {
+    // The committed operation response is still recoverable by its receipt.
+  }
+  return response;
 }
 export type AdminPackageAction =
   | 'start'
@@ -144,7 +173,7 @@ export async function runPackageBoothOperation<T extends { operationId: string }
       p_operation_id: key,
       p_payload: payload as never,
     });
-    return operationResponse(result);
+    return refreshPackageBoothCookie(request, operationResponse(result));
   } catch (error) {
     return packageErrorResponse(error);
   }

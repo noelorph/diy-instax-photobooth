@@ -31,6 +31,8 @@ vi.mock('@/lib/operations/privileged-client', () => ({
   }),
 }));
 import { packageActionSchemas } from '@/lib/operations/package-validation';
+import { hashSecret } from '@/lib/operations/booth-authority';
+import { PackageError } from '@/lib/operations/package-contract';
 import { OperationError } from '@/lib/operations/types';
 import { POST as start } from '@/app/api/admin/events/[eventId]/booth/start/route';
 import { POST as recoverAccess } from '@/app/api/admin/events/[eventId]/booth/recover-access/route';
@@ -71,10 +73,10 @@ const readyObservation = {
   printerReady: true,
   oldJobCleared: true,
 };
-function request(body: object, origin = 'https://booth.test') {
+function request(body: object, origin = 'https://booth.test', requestCookie = cookie) {
   return new Request('https://booth.test/api/test', {
     method: 'POST',
-    headers: { origin, cookie, 'content-type': 'application/json' },
+    headers: { origin, cookie: requestCookie, 'content-type': 'application/json' },
     body: JSON.stringify(body),
   });
 }
@@ -213,23 +215,103 @@ const boothRows = [
   ],
 ] as const;
 
+const actionByRoute: Record<string, string> = {
+  start: 'start',
+  'recover-access': 'recover_access',
+  pause: 'pause',
+  resume: 'resume',
+  finish: 'finish',
+  complete: 'complete',
+  cancel: 'cancel',
+  'film-packages': 'add_packages',
+  'reload-requests': 'request_reload',
+  'reload-confirmations': 'confirm_reload',
+  'recover-attempt': 'recover_attempt',
+  'resolve-attempt': 'resolve_attempt',
+  'confirm-handoff': 'confirm_handoff',
+  sessions: 'start_session',
+  captures: 'record_capture',
+  'end-session': 'end_session',
+  reserve: 'reserve',
+  dispatch: 'dispatch',
+  reconcile: 'reconcile',
+  observe: 'observe',
+  readiness: 'report_readiness',
+};
+
 describe.each([...adminRows, ...boothRows])(
   '%s HTTP boundary',
-  (_name, handler, fields, key, resourceId) => {
-    const call = (body: object, origin?: string) =>
+  (name, handler, fields, key, resourceId) => {
+    const isAdmin = adminRows.some(([route]) => route === name);
+    const call = (body: object, origin?: string, requestCookie?: string) =>
       key
         ? (handler as (request: Request, context: ReturnType<typeof ctx>) => Promise<Response>)(
-            request(body, origin),
+            request(body, origin, requestCookie),
             ctx(key, resourceId!)
           )
-        : (handler as (request: Request) => Promise<Response>)(request(body, origin));
+        : (handler as (request: Request) => Promise<Response>)(
+            request(body, origin, requestCookie)
+          );
     it('returns a scoped receipt and rejects extra fields', async () => {
       const body = { operationId: id, ...fields };
       expect((await call(body)).status).toBe(200);
-      expect((await (await call(body)).json()).receipt.operationId).toBe(id);
+      const expectedPayload = {
+        ...(isAdmin ? { eventId } : {}),
+        ...fields,
+        ...(key === 'attemptId' ? { attemptId: resourceId } : {}),
+        ...(key === 'sessionId' ? { sessionId: resourceId } : {}),
+        ...(name === 'start' || name === 'recover-access' || name === 'confirm-handoff'
+          ? { deviceHash: hashSecret('b'.repeat(64)) }
+          : {}),
+      };
+      expect(mocks.rpc).toHaveBeenCalledExactlyOnceWith(
+        isAdmin ? 'package_admin_operation' : 'package_booth_operation',
+        isAdmin
+          ? {
+              p_admin_user_id: id,
+              p_admin_session_id: sessionId,
+              p_operation: actionByRoute[name],
+              p_operation_id: id,
+              p_payload: expectedPayload,
+            }
+          : {
+              p_grant_hash: hashSecret('a'.repeat(64)),
+              p_operation: actionByRoute[name],
+              p_operation_id: id,
+              p_payload: expectedPayload,
+            }
+      );
+      const replay = {
+        receipt: { operationId: id, kind: 'ok', committedRevision: 2, result: {} },
+        revision: 2,
+        replayed: true,
+      };
+      mocks.rpc.mockResolvedValueOnce(replay);
+      expect(await (await call(body)).json()).toEqual(replay);
+      expect(mocks.rpc).toHaveBeenCalledTimes(2);
       const invalid = await call({ ...body, actorId: randomUUID() });
       expect(invalid.status).toBe(400);
       expect((await invalid.json()).code).toBe('invalid_input');
+      expect(mocks.rpc).toHaveBeenCalledTimes(2);
+    });
+    it('denies missing authority and surfaces scoped ownership and conflict errors', async () => {
+      const body = { operationId: id, ...fields };
+      if (isAdmin) mocks.admin.mockRejectedValueOnce(new OperationError('unauthorized'));
+      const denied = await call(body, undefined, isAdmin ? cookie : '');
+      expect(denied.status).toBe(401);
+      expect(mocks.rpc).not.toHaveBeenCalled();
+      mocks.rpc.mockRejectedValueOnce(new PackageError('operation_forbidden'));
+      const foreign = await call(body);
+      expect(foreign.status).toBe(403);
+      expect((await foreign.json()).code).toBe('operation_forbidden');
+      mocks.rpc.mockRejectedValueOnce(new PackageError('operation_conflict'));
+      const conflict = await call(body);
+      expect(conflict.status).toBe(409);
+      expect((await conflict.json()).code).toBe('operation_conflict');
+      mocks.rpc.mockRejectedValueOnce(new PackageError('stale_revision'));
+      const stale = await call(body);
+      expect(stale.status).toBe(409);
+      expect((await stale.json()).code).toBe('stale_revision');
     });
     it('rejects cross-origin and oversized bodies', async () => {
       expect((await call({ operationId: id, ...fields }, 'https://evil.test')).status).toBe(403);

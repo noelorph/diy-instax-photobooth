@@ -175,6 +175,9 @@ it('Booth state and receipt reads stay scoped, private, and terminal-neutral', a
     const boothCookie = `__Host-booth-grant=${secret}`;
     const state = await boothState(request(undefined, boothCookie));
     expect(state.status).toBe(200);
+    expect(
+      state.headers.getSetCookie().find((value) => value.startsWith('__Host-booth-grant='))
+    ).toContain('Expires=');
     expect(state.headers.get('cache-control')).toContain('no-store');
     const body = await state.json();
     expect(body.runId).toBe(fixture.runId);
@@ -186,6 +189,9 @@ it('Booth state and receipt reads stay scoped, private, and terminal-neutral', a
       params: Promise.resolve({ operationId: randomUUID() }),
     });
     expect(receipt.status).toBe(200);
+    expect(
+      receipt.headers.getSetCookie().find((value) => value.startsWith('__Host-booth-grant='))
+    ).toContain('Expires=');
     expect((await receipt.json()).receipt).toBeNull();
 
     const session = (await fixture.adminClient.auth.getSession()).data.session!;
@@ -209,6 +215,7 @@ it('Booth state and receipt reads stay scoped, private, and terminal-neutral', a
     ownerUpdate('booth_runs', fixture.runId, { state: 'Finished' });
     const finished = await boothState(request(undefined, boothCookie));
     expect(await finished.json()).toEqual({ state: 'Finished' });
+    expect(finished.headers.getSetCookie()).toEqual([]);
     const noRenewal = await boothReceipt(request(undefined, boothCookie), {
       params: Promise.resolve({ operationId: randomUUID() }),
     });
@@ -236,6 +243,11 @@ it('accepts only the narrow pre-stop shutter report after Booth access is revoke
       request({ operationId: randomUUID(), expectedRevision: 2 }, boothCookie)
     );
     expect(sessionResponse.status).toBe(200);
+    expect(
+      sessionResponse.headers
+        .getSetCookie()
+        .find((value) => value.startsWith('__Host-booth-grant='))
+    ).toContain('Expires=');
     const session = await sessionResponse.json();
     const shutterAt = new Date().toISOString();
     const finished = await fixture.admin('finish', {
@@ -255,6 +267,7 @@ it('accepts only the narrow pre-stop shutter report after Booth access is revoke
       )
     );
     expect(first.status).toBe(200);
+    expect(first.headers.getSetCookie()).toEqual([]);
     expect(await (await boothState(request(undefined, boothCookie))).json()).toEqual({
       state: 'Finished',
     });
@@ -272,6 +285,58 @@ it('accepts only the narrow pre-stop shutter report after Booth access is revoke
     expect(future.status).toBe(401);
   } finally {
     await fixture.dispose();
+  }
+}, 30000);
+
+it('keeps a valid Booth grant usable after its Admin changes password', async () => {
+  const fixture = await createPackageFixture();
+  try {
+    fixture.seedRun();
+    const secret = '9'.repeat(64);
+    ownerUpdate('booth_grants', fixture.grantId, { secret_hash: hashSecret(secret) });
+    const updated = await fixture.adminClient.auth.updateUser({
+      password: `Changed-${randomUUID()}-A1!`,
+    });
+    expect(updated.error).toBeNull();
+    const state = await boothState(request(undefined, `__Host-booth-grant=${secret}`));
+    expect(state.status).toBe(200);
+    expect((await state.json()).runId).toBe(fixture.runId);
+    expect(
+      localOwnerSql(`select state from public.booth_grants where id='${fixture.grantId}'`)[0].state
+    ).toBe('Active');
+  } finally {
+    await fixture.dispose();
+  }
+}, 30000);
+
+it('does not disclose another grant’s operation receipt', async () => {
+  const source = await createPackageFixture();
+  const reader = await createPackageFixture();
+  try {
+    source.seedRun();
+    const sourceSecret = '7'.repeat(64);
+    ownerUpdate('booth_grants', source.grantId, { secret_hash: hashSecret(sourceSecret) });
+    localOwnerSql(
+      `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${source.runId}'`
+    );
+    const operationId = randomUUID();
+    const committed = await startSessionRoute(
+      request({ operationId, expectedRevision: 2 }, `__Host-booth-grant=${sourceSecret}`)
+    );
+    expect(committed.status).toBe(200);
+    ownerUpdate('events', source.eventId, { state: 'Completed', revision: 4 });
+    reader.seedRun();
+    const readerSecret = '8'.repeat(64);
+    ownerUpdate('booth_grants', reader.grantId, { secret_hash: hashSecret(readerSecret) });
+    const response = await boothReceipt(request(undefined, `__Host-booth-grant=${readerSecret}`), {
+      params: Promise.resolve({ operationId }),
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('cache-control')).toContain('no-store');
+    expect((await response.json()).receipt).toBeNull();
+  } finally {
+    await source.dispose();
+    await reader.dispose();
   }
 }, 30000);
 
@@ -347,7 +412,7 @@ it('issues a bound inactive cookie after local sign-out while another Admin sess
     expect(confirmed.status).toBe(200);
     expect(
       confirmed.headers.getSetCookie().find((value) => value.startsWith('__Host-booth-grant='))
-    ).toContain('Max-Age=86400');
+    ).toContain('Expires=');
   } finally {
     await fixture.dispose();
   }
