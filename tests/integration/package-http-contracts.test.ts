@@ -42,6 +42,7 @@ import { POST as finish } from '@/app/api/admin/events/[eventId]/booth/finish/ro
 import { POST as complete } from '@/app/api/admin/events/[eventId]/complete/route';
 import { POST as cancel } from '@/app/api/admin/events/[eventId]/cancel/route';
 import { POST as addPackages } from '@/app/api/admin/events/[eventId]/film-packages/route';
+import { POST as reviewDraftBooking } from '@/app/api/admin/events/[eventId]/review-draft-booking/route';
 import { POST as requestReload } from '@/app/api/admin/events/[eventId]/reload-requests/route';
 import { POST as confirmReload } from '@/app/api/admin/events/[eventId]/reload-confirmations/route';
 import { POST as recoverAttempt } from '@/app/api/admin/print-attempts/[attemptId]/recover/route';
@@ -93,6 +94,23 @@ beforeEach(() => {
 });
 
 describe('package HTTP request contracts', () => {
+  it('requires an exact Draft booking acknowledgement', () => {
+    expect(
+      packageActionSchemas.reviewDraftBooking.safeParse({
+        operationId: id,
+        expectedRevision: 2,
+        acknowledgedPackages: 2,
+      }).success
+    ).toBe(true);
+    expect(
+      packageActionSchemas.reviewDraftBooking.safeParse({
+        operationId: id,
+        expectedRevision: 2,
+        acknowledgedPackages: 2,
+        originalPrintAllowance: 20,
+      }).success
+    ).toBe(false);
+  });
   it('accepts the start command without caller-selected authority', () => {
     expect(
       packageActionSchemas.start.safeParse({
@@ -124,6 +142,13 @@ const adminRows = [
     'film-packages',
     addPackages,
     { packages: 1, clientRequestNote: 'One more' },
+    'eventId',
+    eventId,
+  ],
+  [
+    'review-draft-booking',
+    reviewDraftBooking,
+    { expectedRevision: 2, acknowledgedPackages: 2 },
     'eventId',
     eventId,
   ],
@@ -224,6 +249,7 @@ const actionByRoute: Record<string, string> = {
   complete: 'complete',
   cancel: 'cancel',
   'film-packages': 'add_packages',
+  'review-draft-booking': 'review_draft_booking',
   'reload-requests': 'request_reload',
   'reload-confirmations': 'confirm_reload',
   'recover-attempt': 'recover_attempt',

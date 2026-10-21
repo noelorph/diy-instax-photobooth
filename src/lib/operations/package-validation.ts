@@ -78,6 +78,9 @@ export const packageActionSchemas = {
   complete: eventRevisionSchema,
   cancel: eventRevisionSchema,
   deleteDraft: eventRevisionSchema,
+  reviewDraftBooking: eventRevisionSchema.extend({
+    acknowledgedPackages: originalPackagesSchema,
+  }),
   confirmReload: eventRevisionSchema.extend({
     reloadRequestId: z.uuid(),
     printerId,
