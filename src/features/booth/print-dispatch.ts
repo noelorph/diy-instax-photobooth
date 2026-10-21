@@ -31,6 +31,7 @@ export type DispatchDependencies = {
     Pick<DispatchResult, 'sendAllowed' | 'replayed'> & { authorization?: DispatchAuthorization }
   >;
   reconcile: (entries: readonly JournalEntry[]) => Promise<'clear' | 'pending'>;
+  canSendNow: () => boolean;
   releaseImage: () => void;
 };
 
@@ -55,14 +56,23 @@ export async function dispatchReservedAttempt(
   const session = JSON.stringify([input.runId, input.sessionId]);
   if (active.has(session)) throw new Error('Session already dispatched or pending');
   active.add(session);
+  let released = false;
+  const release = () => {
+    if (!released) {
+      released = true;
+      deps.releaseImage();
+    }
+  };
   try {
     const old = deps.journal.readOperations();
     if (old.length && (await deps.reconcile(old)) !== 'clear')
       throw new Error('Previous operation pending');
     if (old.length) throw new Error('Previous journal requires acknowledgement');
     if ((await deps.reconcile([])) !== 'clear') throw new Error('Previous operation pending');
+    if (!deps.canSendNow()) throw new Error('Local dispatch stopped');
     if (!input.image.byteLength || !ready(await deps.printer.readReadiness(), input))
       throw new Error('Printer not ready');
+    if (!deps.canSendNow()) throw new Error('Local dispatch stopped');
     const recordedAt = Date.now();
     deps.journal.putOperation({
       kind: 'reservation',
@@ -74,6 +84,7 @@ export async function dispatchReservedAttempt(
     });
     const { attemptId } = await deps.reserve(input.reservationOperationId);
     if (!ready(await deps.printer.readReadiness(), input)) throw new Error('Printer not ready');
+    if (!deps.canSendNow()) throw new Error('Local dispatch stopped');
     const intent: JournalEntry = {
       kind: 'dispatch_intent',
       operationId: input.dispatchOperationId,
@@ -86,6 +97,7 @@ export async function dispatchReservedAttempt(
     };
     deps.journal.putOperation(intent);
     const result = await deps.authorizeDispatch(attemptId, input.dispatchOperationId);
+    if (!deps.canSendNow()) throw new Error('Local dispatch stopped');
     if (!result.sendAllowed || result.replayed || !result.authorization)
       throw new Error('No live dispatch authorization');
     const grant = result.authorization;
@@ -107,22 +119,28 @@ export async function dispatchReservedAttempt(
       persisted.dispatchId !== grant.dispatchId
     )
       throw new Error('Dispatch intent not durable');
+    // No await between the last local stop check and the transport call.
+    if (!deps.canSendNow()) throw new Error('Local dispatch stopped');
     await deps.printer.sendOnce(grant, input.image);
   } catch (error) {
-    let entries: readonly JournalEntry[] = [];
     try {
-      entries = deps.journal.readOperations();
-    } catch {
-      // A corrupt journal cannot prove no command was sent.
-    }
-    try {
-      await deps.reconcile(entries);
-    } catch {
-      // A later receipt read must settle an ambiguous operation.
+      release();
+    } finally {
+      let entries: readonly JournalEntry[] = [];
+      try {
+        entries = deps.journal.readOperations();
+      } catch {
+        // A corrupt journal cannot prove no command was sent.
+      }
+      try {
+        await deps.reconcile(entries);
+      } catch {
+        // A later receipt read must settle an ambiguous operation.
+      }
     }
     throw error;
   } finally {
-    deps.releaseImage();
+    release();
   }
 }
 

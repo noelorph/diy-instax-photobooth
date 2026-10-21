@@ -48,6 +48,7 @@ async function rig() {
       },
     })),
     reconcile: vi.fn(async () => 'clear' as const),
+    canSendNow: () => true,
     releaseImage: vi.fn(),
   };
   return { input, deps, storage, values, journal, printer };
@@ -102,6 +103,7 @@ it('journals before reserve and sends one live authorized command', async () => 
         };
       },
       reconcile: async () => 'clear',
+      canSendNow: () => true,
       releaseImage: () => {},
     }
   );
@@ -151,6 +153,7 @@ it('reconciles a lost reservation response without authorizing a send', async ()
           reconciled.push(entries.map((entry) => entry.kind));
           return entries.length ? 'pending' : 'clear';
         },
+        canSendNow: () => true,
         releaseImage: () => {},
       }
     )
@@ -224,6 +227,103 @@ it('keeps intent and reconciles a lost dispatch response without sending', async
   });
   expect(deps.reconcile).toHaveBeenCalledTimes(2);
   expect(printer.commandCount).toBe(0);
+});
+
+it('releases the photo before waiting on offline reconciliation', async () => {
+  const { input, deps, printer } = await rig();
+  deps.authorizeDispatch = async () => {
+    throw new Error('dispatch response lost');
+  };
+  let finishReconcile!: () => void;
+  let reconciliationStarted!: () => void;
+  const started = new Promise<void>((resolve) => {
+    reconciliationStarted = resolve;
+  });
+  const pending = new Promise<void>((resolve) => {
+    finishReconcile = resolve;
+  });
+  let calls = 0;
+  deps.reconcile = async () => {
+    calls++;
+    if (calls === 1) return 'clear';
+    reconciliationStarted();
+    await pending;
+    return 'pending';
+  };
+  const dispatching = dispatchReservedAttempt(input, deps).then(
+    () => null,
+    (error: unknown) => error
+  );
+  await started;
+  try {
+    expect(deps.releaseImage).toHaveBeenCalledOnce();
+    expect(printer.commandCount).toBe(0);
+  } finally {
+    finishReconcile();
+  }
+  expect(await dispatching).toBeInstanceOf(Error);
+  expect(deps.releaseImage).toHaveBeenCalledOnce();
+});
+
+it('does not send when a local stop arrives during dispatch authorization', async () => {
+  const { input, deps, printer, journal } = await rig();
+  let allowed = true;
+  deps.canSendNow = () => allowed;
+  const authorize = deps.authorizeDispatch;
+  deps.authorizeDispatch = async (attemptId, operationId) => {
+    const result = await authorize(attemptId, operationId);
+    allowed = false;
+    return result;
+  };
+  await expect(dispatchReservedAttempt(input, deps)).rejects.toThrow('Local dispatch stopped');
+  expect(printer.commandCount).toBe(0);
+  expect(deps.releaseImage).toHaveBeenCalledOnce();
+  expect(deps.reconcile).toHaveBeenCalledTimes(2);
+  expect(journal.readOperations().at(-1)).toMatchObject({
+    kind: 'dispatch_intent',
+    phase: 'requested',
+  });
+});
+
+it('does not reserve after a stop during the first readiness read', async () => {
+  const { input, deps, printer } = await rig();
+  let allowed = true;
+  deps.canSendNow = () => allowed;
+  deps.printer = {
+    connect: printer.connect.bind(printer),
+    readReadiness: async () => {
+      const snapshot = await printer.readReadiness();
+      allowed = false;
+      return snapshot;
+    },
+    observe: printer.observe.bind(printer),
+    sendOnce: printer.sendOnce.bind(printer),
+  };
+  await expect(dispatchReservedAttempt(input, deps)).rejects.toThrow('Local dispatch stopped');
+  expect(deps.reserve).not.toHaveBeenCalled();
+  expect(printer.commandCount).toBe(0);
+  expect(deps.releaseImage).toHaveBeenCalledOnce();
+});
+
+it('checks a local stop after the final awaited readiness read', async () => {
+  const { input, deps, printer } = await rig();
+  let allowed = true;
+  let reads = 0;
+  deps.canSendNow = () => allowed;
+  deps.printer = {
+    connect: printer.connect.bind(printer),
+    readReadiness: async () => {
+      const snapshot = await printer.readReadiness();
+      if (++reads === 3) allowed = false;
+      return snapshot;
+    },
+    observe: printer.observe.bind(printer),
+    sendOnce: printer.sendOnce.bind(printer),
+  };
+  await expect(dispatchReservedAttempt(input, deps)).rejects.toThrow('Local dispatch stopped');
+  expect(reads).toBe(3);
+  expect(printer.commandCount).toBe(0);
+  expect(deps.releaseImage).toHaveBeenCalledOnce();
 });
 
 it('does not send a replayed authorization even if a caller supplies a grant', async () => {
@@ -340,6 +440,8 @@ it('blocks concurrent helpers for the same session before either can send twice'
 
 it('holds photo bytes only until an already authorized transport finishes', async () => {
   const { input, deps } = await rig();
+  let allowed = true;
+  deps.canSendNow = () => allowed;
   let finishWrite!: () => void;
   let startedWrite!: () => void;
   const started = new Promise<void>((resolve) => {
@@ -349,6 +451,7 @@ it('holds photo bytes only until an already authorized transport finishes', asyn
     finishWrite = resolve;
   });
   const printer = new SimulatedPrinterV2('printer', async () => {
+    allowed = false;
     startedWrite();
     await writing;
   });
