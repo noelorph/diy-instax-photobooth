@@ -1,9 +1,22 @@
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
-import { expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createPackageFixture } from '../fixtures/package-contract';
 import { localOwnerSql } from '../fixtures/local-supabase';
+
+let priorPolicy: unknown;
+beforeAll(() => {
+  priorPolicy = localOwnerSql('select mode from public.printer_completion_policy where id')[0].mode;
+  localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+});
+afterAll(() => {
+  localOwnerSql(`update public.printer_completion_policy set mode='${priorPolicy}' where id`);
+});
+
+function captureTime() {
+  return localOwnerSql('select clock_timestamp() as captured_at')[0].captured_at as string;
+}
 
 function ready(runId: string) {
   localOwnerSql(
@@ -107,7 +120,7 @@ async function reserved(f: Awaited<ReturnType<typeof createPackageFixture>>) {
   const capture = await f.booth('record_capture', {
     sessionId,
     captureId,
-    capturedAt: new Date().toISOString(),
+    capturedAt: captureTime(),
   });
   expect(capture.error).toBeNull();
   ready(f.runId);
@@ -151,7 +164,7 @@ it('records one completed shutter by its stable operation ID', async () => {
       .sessionId;
     const captureId = randomUUID();
     const operationId = randomUUID();
-    const input = { sessionId, captureId, capturedAt: new Date().toISOString() };
+    const input = { sessionId, captureId, capturedAt: captureTime() };
     const first = await f.booth('record_capture', input, operationId);
     expect(first.error).toBeNull();
     expect((await f.booth('record_capture', input, operationId)).data.replayed).toBe(true);
@@ -179,7 +192,7 @@ it('reserves only the newest acknowledged Capture and holds one unit', async () 
         await f.booth('record_capture', {
           sessionId,
           captureId: firstCapture,
-          capturedAt: new Date().toISOString(),
+          capturedAt: captureTime(),
         })
       ).error
     ).toBeNull();
@@ -188,7 +201,7 @@ it('reserves only the newest acknowledged Capture and holds one unit', async () 
         await f.booth('record_capture', {
           sessionId,
           captureId: currentCapture,
-          capturedAt: new Date().toISOString(),
+          capturedAt: captureTime(),
         })
       ).error
     ).toBeNull();
@@ -442,7 +455,7 @@ it('dispatches the final reserved unit when available capacity is zero', async (
     const capture = await f.booth('record_capture', {
       sessionId,
       captureId,
-      capturedAt: new Date().toISOString(),
+      capturedAt: captureTime(),
     });
     expect(capture.error).toBeNull();
     ready(f.runId);
@@ -545,7 +558,7 @@ it('rejects a delayed reservation after session end wins the guard', async () =>
     const captured = await f.booth('record_capture', {
       sessionId,
       captureId,
-      capturedAt: new Date().toISOString(),
+      capturedAt: captureTime(),
     });
     expect(captured.error).toBeNull();
     ready(f.runId);

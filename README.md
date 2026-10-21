@@ -4,7 +4,7 @@ An Event photo booth with an Admin application and Guest-facing `/booth`. The ta
 
 ## Current status
 
-**The 2026-10-21 package-accounting and recovery design is approved; implementation is pending.** This branch changes documentation only. Existing issue #9 code still contains the old independent print count, inventory/test/quality-correction/redaction controls and pause recovery. Those screens are not the new requirements. No application tests or hardware trials were run for this documentation pass.
+**The 2026-10-21 package-accounting and recovery design is approved.** Version-2 database contracts, trusted handlers and a provisional simulator/one-send path are implemented for local verification. The existing Admin and Booth screens still use legacy flows; issue #10 must connect them to these contracts and remove retired controls. The [issue #9 verification record](docs/implementation/issue-9-package-contracts-review.md) separates tested behavior from remaining checks. No hosted cutover or new hardware trial has occurred.
 
 The target gives ten prints per booked/additional Film Package, counts confirmed full ejection once and keeps unknown attempts pending. Equipment recovery and phone Admin pause/resume keep the iPad in Booth Mode. Physical reload confirmation is separate from buying packages. Finish Booth Mode precedes Complete Event. See the [full route and flow guide](docs/booth-user-flow.md).
 
@@ -18,13 +18,13 @@ Real printer-backed Booth Mode remains disabled until automatic normal full-ejec
 - [Proof checklist](docs/qualification/booth-recovery-proof-checklist.md): known observations, unproven work, pass criteria and fallbacks.
 - [Approved design mockups](docs/design/2026-10-21-package-recovery/index.html): the current visual reference for Admin, phone recovery and portrait Booth; [screen notes](docs/design/2026-10-21-package-recovery/screen-map.md).
 - [Documentation index](docs/README.md): active guides versus historical artifacts.
-- [Documentation review](docs/documentation-review.md): change scope and verification.
+- [Documentation review](docs/documentation-review.md): historical approval record; [implementation review](docs/implementation/issue-9-package-contracts-review.md): current software evidence and #10 handoff.
 - [GitHub issue update drafts](docs/github-issue-update-drafts.md): local only, not published.
 
 ## Local development of existing code
 
-The [existing implementation guide](docs/implementation/issue9-local-development.md) retains the local Auth/Supabase setup, simulator flags, provisioning and verification commands for the unchanged issue #9 code. It explicitly distinguishes that model from the new target. Start with `npm ci`, configure the local environment/stack as documented there, then `npm run dev`. Optional trusted-device HTTPS uses `npm run dev:https`; never commit certificate keys or credentials.
+The [existing implementation guide](docs/implementation/issue9-local-development.md) documents the inherited local Auth/Supabase and UI setup; its old product controls are historical. Start with `npm ci`, configure the local environment/stack as documented there, then `npm run dev`. Optional trusted-device HTTPS uses `npm run dev:https`; never commit certificate keys or credentials.
 
-Current development uses Next.js/React/TypeScript and Supabase; shared UI lives in `src/components/{ui,shared,layout}`. Read installed framework guides before code changes. This documentation task did not install dependencies, alter migrations, configure hosted services or deploy anything.
+Current development uses Next.js/React/TypeScript and Supabase; shared UI lives in `src/components/{ui,shared,layout}`. Read installed framework guides before code changes. Local version-2 migrations have not been activated on a hosted database; the physical release gate remains closed.
 
 The [archived design proposals](docs/archive/design-2026-10-20/README.md) retain the newer reference images from `development`. Their old controls and alternate fonts/colors are historical; active presentation remains in DESIGN_SYSTEM.md.

@@ -9,17 +9,14 @@ import {
 } from '@/lib/operations/admin-route';
 import { resolutionSchema } from '@/lib/operations/admin-validation';
 import { isPackageAttempt } from '@/lib/operations/package-version';
-import { packageErrorResponse, runPackageAdminOperation } from '@/lib/operations/package-route';
-import { PackageError } from '@/lib/operations/package-contract';
+import {
+  packageVersionErrorResponse,
+  runPackageAdminOperation,
+} from '@/lib/operations/package-route';
 import { packageActionSchemas } from '@/lib/operations/package-validation';
 export async function POST(request: Request, context: { params: Promise<{ attemptId: string }> }) {
   const { attemptId: id } = await context.params;
   try {
-    try {
-      requireSimulator();
-    } catch {
-      throw new PackageError('qualification_required');
-    }
     if (await isPackageAttempt(request, id))
       return runPackageAdminOperation(
         request,
@@ -40,6 +37,6 @@ export async function POST(request: Request, context: { params: Promise<{ attemp
       return { ...attemptResult(data), ...(await resolutionEntries(id, input.outcome)) };
     });
   } catch (error) {
-    return packageErrorResponse(error);
+    return packageVersionErrorResponse(error, 'attempt', id);
   }
 }

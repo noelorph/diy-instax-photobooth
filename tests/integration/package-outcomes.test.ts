@@ -682,9 +682,9 @@ it('late no-film evidence after inspected Not printed still invalidates film rea
   }
 }, 30000);
 
-function seedNinePrinted(f: PackageFixture) {
+function seedPrinted(f: PackageFixture, count = 9) {
   localOwnerSql(`do $$ declare sid uuid; cid uuid; begin
-    for i in 1..9 loop
+    for i in 1..${count} loop
       sid:=gen_random_uuid(); cid:=gen_random_uuid();
       insert into public.guest_sessions(id,event_id,run_id,accounting_version,state,closed_at) values(sid,'${f.eventId}','${f.runId}',2,'Printed',clock_timestamp());
       insert into public.captures(id,event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) values(cid,'${f.eventId}','${f.runId}',sid,2,clock_timestamp(),gen_random_uuid());
@@ -697,7 +697,7 @@ it('the last held unit becomes exhaustion after Printed and availability after N
   const f = await createPackageFixture();
   try {
     const attemptId = await attempt(f);
-    seedNinePrinted(f);
+    seedPrinted(f);
     expect((await f.readAdmin()).data.counts).toMatchObject({
       printed: 9,
       unresolved: 1,
@@ -718,7 +718,7 @@ it('a held last unit returns to availability after inspected Not printed', async
   const f = await createPackageFixture();
   try {
     const attemptId = await attempt(f);
-    seedNinePrinted(f);
+    seedPrinted(f);
     expect((await observation(f, attemptId, 'outcome_unknown')).error).toBeNull();
     const resolved = await f.admin('resolve_attempt', {
       attemptId,
@@ -730,6 +730,37 @@ it('a held last unit returns to availability after inspected Not printed', async
     expect(resolved.error).toBeNull();
     expect((await f.readAdmin()).data.counts).toMatchObject({
       printed: 9,
+      unresolved: 0,
+      printsAvailable: 1,
+    });
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('keeps 49 Printed and one Pending at zero availability until the outcome settles', async () => {
+  const f = await createPackageFixture({ originalPackages: 5 });
+  try {
+    const attemptId = await attempt(f);
+    seedPrinted(f, 49);
+    expect((await observation(f, attemptId, 'outcome_unknown')).error).toBeNull();
+    expect((await f.readAdmin()).data.counts).toMatchObject({
+      totalBookedPrints: 50,
+      printed: 49,
+      unresolved: 1,
+      printsAvailable: 0,
+    });
+    expect((await f.readBooth()).data.readiness.blockers).toContain('print_pending');
+    const resolved = await f.admin('resolve_attempt', {
+      attemptId,
+      outcome: 'not_printed',
+      inspectionReason: 'No output and old job cleared',
+      oldJobCleared: true,
+      expectedRevision: (await f.readAdmin()).data.revision,
+    });
+    expect(resolved.error).toBeNull();
+    expect((await f.readAdmin()).data.counts).toMatchObject({
+      printed: 49,
       unresolved: 0,
       printsAvailable: 1,
     });

@@ -1,6 +1,6 @@
 # Booth printing and recovery — proof checklist
 
-**Status:** Approved acceptance checklist, 2026-10-21. No new physical trial or implementation verification was performed for this documentation change.
+**Status:** Approved acceptance checklist, 2026-10-21. Version-2 software contract work is tracked in the [issue #9 verification record](../implementation/issue-9-package-contracts-review.md). No new physical trial has been performed; every physical proof below remains open.
 **Authority:** [Replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md), [ADR-0025](../adr/0025-package-accounting-and-booth-recovery.md), [PRD](../../PRD.md).
 
 ## What the existing evidence establishes
@@ -40,7 +40,7 @@ Physical release needs P1, P2 and P12 plus a validated safe outcome for every re
 
 ## Software proof before physical release
 
-Later implementation must verify these against the new contract, with simulator results explicitly labeled:
+The version-2 server/database and provisional simulator tests map to these requirements in the [issue #9 verification record](../implementation/issue-9-package-contracts-review.md). These boxes cover the combined software and #10 UI/browser acceptance; they stay open until the full relevant journey is verified. Simulator results are software evidence only.
 
 - [ ] Package formulas/limits, positive whole additions, immutable receipt/payload checks, final-print concurrency and pending holds; dispatch of the last reserved unit at zero available; stage-specific setup/Resume guards and stale-readiness rejection.
 - [ ] Validated Draft saves, explicit legacy capacity review, no mixing old/new live accounting, terminal retention and private-media cleanup for Draft deletion.

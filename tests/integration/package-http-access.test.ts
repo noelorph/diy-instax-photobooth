@@ -31,7 +31,11 @@ import { POST as startRoute } from '@/app/api/admin/events/[eventId]/booth/start
 import { POST as addPackages } from '@/app/api/admin/events/[eventId]/film-packages/route';
 import { POST as reviewDraftBooking } from '@/app/api/admin/events/[eventId]/review-draft-booking/route';
 import { POST as pauseRoute } from '@/app/api/admin/events/[eventId]/booth/pause/route';
+import { POST as completeRoute } from '@/app/api/admin/events/[eventId]/complete/route';
+import { POST as cancelRoute } from '@/app/api/admin/events/[eventId]/cancel/route';
+import { POST as deleteDraftRoute } from '@/app/api/admin/events/[eventId]/delete-draft/route';
 import { POST as recoverAttemptRoute } from '@/app/api/admin/print-attempts/[attemptId]/recover/route';
+import { POST as resolveAttemptRoute } from '@/app/api/admin/print-attempts/[attemptId]/resolve/route';
 import { POST as captureRoute } from '@/app/api/booth/captures/route';
 import { POST as startSessionRoute } from '@/app/api/booth/sessions/route';
 import { POST as endSessionRoute } from '@/app/api/booth/sessions/[sessionId]/end/route';
@@ -60,6 +64,72 @@ function request(body?: object, cookie = '', origin = 'https://booth.test') {
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 }
+
+it.each([
+  [
+    'complete',
+    'event',
+    (req: Request, id: string) => completeRoute(req, { params: Promise.resolve({ eventId: id }) }),
+  ],
+  [
+    'cancel',
+    'event',
+    (req: Request, id: string) => cancelRoute(req, { params: Promise.resolve({ eventId: id }) }),
+  ],
+  [
+    'delete Draft',
+    'event',
+    (req: Request, id: string) =>
+      deleteDraftRoute(req, { params: Promise.resolve({ eventId: id }) }),
+  ],
+  [
+    'recover attempt',
+    'attempt',
+    (req: Request, id: string) =>
+      recoverAttemptRoute(req, { params: Promise.resolve({ attemptId: id }) }),
+  ],
+  [
+    'resolve attempt',
+    'attempt',
+    (req: Request, id: string) =>
+      resolveAttemptRoute(req, { params: Promise.resolve({ attemptId: id }) }),
+  ],
+] as const)(
+  'maps a revoked Admin to the v2 error on shared %s',
+  async (_name, resource, invoke) => {
+    const fixture = await createPackageFixture();
+    try {
+      let id: string = fixture.eventId;
+      if (resource === 'attempt') {
+        fixture.seedRun();
+        const sessionId = localOwnerSql(
+          `insert into public.guest_sessions(event_id,run_id,accounting_version) values('${fixture.eventId}','${fixture.runId}',2) returning id`
+        )[0].id;
+        const captureId = localOwnerSql(
+          `insert into public.captures(event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) values('${fixture.eventId}','${fixture.runId}','${sessionId}',2,clock_timestamp(),'${randomUUID()}') returning id`
+        )[0].id;
+        id = String(
+          localOwnerSql(
+            `insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) values('${fixture.eventId}','${fixture.runId}','${sessionId}','${captureId}',2,'Guest','Reserved','${randomUUID()}','${randomUUID()}') returning id`
+          )[0].id
+        );
+      }
+      const session = (await fixture.adminClient.auth.getSession()).data.session!;
+      const adminCookie = sessionCookies(session);
+      for (const pair of adminCookie.split('; ')) {
+        const [name, value] = pair.split('=');
+        jar.set(name, value);
+      }
+      localOwnerSql(`delete from auth.sessions where id='${fixture.adminSessionId}'`);
+      const response = await invoke(request({ operationId: randomUUID() }, adminCookie), id);
+      expect(response.status).toBe(403);
+      expect((await response.json()).code).toBe('operation_forbidden');
+    } finally {
+      await fixture.dispose();
+    }
+  },
+  30000
+);
 
 it('a failed local handoff issue leaves the initial run Paused', async () => {
   const fixture = await createPackageFixture();

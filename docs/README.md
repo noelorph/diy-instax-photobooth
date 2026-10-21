@@ -1,6 +1,6 @@
 # Documentation map and authority
 
-**Current approved target:** package accounting and Booth recovery, 2026-10-21. **Implementation status:** existing issue #9 application/schema/tests still implement the previous contract. This branch is documentation only and leaves changes uncommitted for review.
+**Current approved target:** package accounting and Booth recovery, 2026-10-21. **Implementation status:** version-2 database contracts, trusted handlers and provisional simulator code exist; legacy Admin/Booth UI consumers remain until #10. See the [issue #9 verification and #10 handoff record](implementation/issue-9-package-contracts-review.md) for actual test outcomes. Hosted activation and physical qualification remain open.
 
 ## Active documentation
 
@@ -9,7 +9,7 @@
 3. Root [PRD](../PRD.md), [architecture](../ARCHITECTURE.md), [glossary](../GLOSSARY.md), [design system](../DESIGN_SYSTEM.md), [README](../README.md) and [agent instructions](../AGENTS.md): aligned requirements and working context.
 4. [Routes and user-flow diagrams](booth-user-flow.md), [development/release diagram](diagrams/printing-to-deployment-flow.md).
 5. [Proof checklist](qualification/booth-recovery-proof-checklist.md): what evidence supports, what remains unproven and what to do if a capability cannot be proven.
-6. [Approved documentation plan](superpowers/plans/2026-10-21-package-accounting-booth-recovery-docs.md), [review record](documentation-review.md), [unpublished issue drafts](github-issue-update-drafts.md).
+6. [Approved documentation plan](superpowers/plans/2026-10-21-package-accounting-booth-recovery-docs.md), [historical documentation review](documentation-review.md), [issue #9 implementation review](implementation/issue-9-package-contracts-review.md), [unpublished issue drafts](github-issue-update-drafts.md).
 7. [Approved mockup gallery](design/2026-10-21-package-recovery/index.html), [screen notes](design/2026-10-21-package-recovery/screen-map.md) and [design index](design/README.md): Admin and Booth visual references approved by the user on 21 October 2026; implementation pending.
 8. [Domain guidance](agents/domain.md), [issue workflow](agents/issue-tracker.md), [triage labels](agents/triage-labels.md).
 

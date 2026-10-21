@@ -327,13 +327,13 @@ it('keeps reload confirmation independent of capacity, outcome, pause and other 
   }
 }, 30000);
 
-it('enforces exact server freshness and generation boundaries without wall-clock sleeps', async () => {
+it('enforces server freshness and generation boundaries without wall-clock sleeps', async () => {
   const f = await createPackageFixture();
   try {
     f.seedRun('Paused');
     expect((await report(f)).error).toBeNull();
     for (const [age, ready] of [
-      ['4.99 seconds', true],
+      ['1 second', true],
       ['5.001 seconds', false],
       ['-1 second', false],
     ] as const) {

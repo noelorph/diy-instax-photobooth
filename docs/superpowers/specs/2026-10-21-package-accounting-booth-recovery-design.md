@@ -1,6 +1,6 @@
 # Package accounting, access and Booth recovery contract
 
-**Status:** Approved target design, 2026-10-21. Implementation pending. This documentation change does not change the running application.
+**Status:** Approved target design, 2026-10-21. Version-2 database contracts, handlers and a provisional simulator path are implemented for local verification; [issue #9 review](../../implementation/issue-9-package-contracts-review.md) records results. Existing UI remains on legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
 **Decision:** [ADR-0025](../../adr/0025-package-accounting-and-booth-recovery.md).
 **Replaces:** [2026-10-16 contract](2026-10-16-accounting-access-printer-contracts-design.md) and conflicting behavior in older specs/plans. [Documentation index](../../README.md) identifies authority and history.
 
@@ -239,7 +239,7 @@ The server's release policy must reject simulated evidence in production and phy
 
 Completed/Cancelled Events retain their Client contact, media and operational history under Admin access, with no product redaction/deletion action. Draft deletion removes identifying fields and private media, retaining only opaque audit/legacy operational references; show cleanup pending until private removal succeeds. Existing already-deleted/redacted data is not reconstructed. No Guest image retention is added.
 
-This change edits documentation only. Existing issue #9 source, schema and tests still implement the superseded model, including old controls. Keep it isolated/nonproduction until a later implementation and migration review. Do not treat a current simulator screen as evidence that this target is implemented.
+At approval this design was documentation only. Version-2 records, functions, handlers and provisional simulator code are now installed for local testing; legacy UI consumers, old controls and the version-1 creation default remain until coordinated #10 cutover. Keep the simulator isolated/nonproduction. The [issue #9 review](../../implementation/issue-9-package-contracts-review.md) separates tested software contracts from pending integration, hosted activation and physical proof; a simulator screen is not evidence of printer qualification.
 
 Later migration requirements:
 

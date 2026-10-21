@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth — Architecture
 
-**Status:** Approved target architecture, revised 2026-10-21; existing code implements the previous contract. No schema or runtime change accompanies this document.
+**Status:** Approved target architecture, revised 2026-10-21. Version-2 schema, trusted handlers and provisional simulator code are installed for local verification; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records actual results. Existing Admin/Booth UI remains on legacy flows until #10. No hosted activation or physical qualification has occurred.
 **Behavior:** [PRD](PRD.md). **Normative transitions, access, data and APIs:** [replacement contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). **Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md).
 
 ## 1. System boundary
@@ -44,7 +44,7 @@ The recovery action uses Auth's token-scoped global revocation call, preserving 
 
 ## 4. Booth access and transactions
 
-The [contract sections 5–6](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md#5-database-and-access-rules) define records, lock order, grant renewal, operation receipts and endpoint shapes. They are target APIs, not promises about current route implementations.
+The [contract sections 5–6](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md#5-database-and-access-rules) define records, lock order, grant renewal, operation receipts and endpoint shapes. Their version-2 server contracts are implemented for local verification; existing UI consumers remain on legacy flows until #10.
 
 - Handlers authenticate Admin or scoped device proof and enforce same-origin/CSRF. Private, no-store responses; server-only secrets never go to the browser.
 - Admin RLS permits authorized reads, Profile edits and validated Draft edits. Accounting, package additions, lifecycle, grants, reload confirmation and print transitions go through private database functions; functions recheck authority/state inside the transaction.
@@ -70,12 +70,12 @@ Private Event Media uses opaque Event-ID object paths and short-lived URLs issue
 
 Draft saves reject invalid/ambiguous venue-local times, non-whole/negative package counts and stale revisions. Original booking fields freeze when Live. Additional package entries are positive whole units with Client-request note and audit identity. No Client-redaction or terminal Event-delete route exists in the target. Draft deletion removes private media and identifying details, reports cleanup pending on failure, and retains opaque audit references. Completed/Cancelled records and their media remain under Admin access.
 
-Existing code/data uses the old accounting model. Contract section 8 requires later forward migrations, legacy snapshots, resolution of old pending work before conversion, explicit review of Draft capacity changes, and retirement of obsolete mutation paths. Do not alter applied migrations or pretend historical refunds/counts followed the new rules.
+Existing UI consumers, records and the local creation default still use the old accounting model. Version-2 schema and handlers are installed without global activation. Contract section 8 requires a later coordinated cutover, legacy snapshots, resolution of old pending work before conversion, explicit review of Draft capacity changes, and retirement of obsolete mutation paths. Do not alter applied migrations or pretend historical refunds/counts followed the new rules.
 
 ## 7. Verification and delivery
 
-This revision is documentation only. Future implementation checks must cover transactions/concurrency, package limits, idempotency, stale state, RLS/denials, active-session revocation, grant handoff/expiry, receipt recovery, one-send journal, stop/dispatch races, camera/Bluetooth/network/reload cases and phone lifecycle/recovery. Use unit and database tests plus simulated browser journeys before physical trials. Simulation must remain visibly nonproduction.
+The [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records local contract-test evidence for transactions/concurrency, package limits, idempotency, stale state, RLS/denials, active-session revocation, grant handoff/expiry, receipt recovery, one-send journal and stop/dispatch races. Issue #10 still owns integrated camera/Bluetooth/network/reload presentation and phone/Guest browser journeys. Simulation remains nonproduction and cannot establish physical printer completion.
 
-The [proof checklist](docs/qualification/booth-recovery-proof-checklist.md) controls hardware work. Normal automatic full-ejection completion is mandatory; exceptional phone inspection cannot substitute. The actual iPad A16 end-to-end gate remains mandatory. The [#17 report](docs/qualification/issue-17-trial-report.md) preserves the partial iPhone evidence, including the misleading printer count. No fresh hardware or application verification is claimed by this doc change.
+The [proof checklist](docs/qualification/booth-recovery-proof-checklist.md) controls hardware work. Normal automatic full-ejection completion is mandatory; exceptional phone inspection cannot substitute. The actual iPad A16 end-to-end gate remains mandatory. The [#17 report](docs/qualification/issue-17-trial-report.md) preserves the partial iPhone evidence, including the misleading printer count. No fresh hardware trial has occurred.
 
-Later delivery uses versioned migrations and Storage policies in a confirmed separate staging Supabase project before production. GitHub Actions should run lint, types, unit/integration and browser checks. Vercel previews use staging configuration; Vercel Pro production uses separate production secrets/data. Keep schema rollout compatible until old paths are retired. Docker supports local Supabase development. No deployment or hosted changes are authorized by this documentation task.
+Later delivery uses versioned migrations and Storage policies in a confirmed separate staging Supabase project before production. GitHub Actions should run lint, types, unit/integration and browser checks. Vercel previews use staging configuration; Vercel Pro production uses separate production secrets/data. Keep schema rollout compatible until old paths are retired. Docker supports local Supabase development. No hosted deployment or activation occurred in this review.

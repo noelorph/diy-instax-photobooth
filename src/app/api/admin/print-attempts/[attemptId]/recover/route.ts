@@ -3,7 +3,10 @@ import { operationId } from '@/lib/operations/validation';
 import { adminOperation, adminArgs, attemptResult } from '@/lib/operations/admin-route';
 import { recoverySchema } from '@/lib/operations/admin-validation';
 import { isPackageAttempt } from '@/lib/operations/package-version';
-import { packageErrorResponse, runPackageAdminOperation } from '@/lib/operations/package-route';
+import {
+  packageVersionErrorResponse,
+  runPackageAdminOperation,
+} from '@/lib/operations/package-route';
 import { packageActionSchemas } from '@/lib/operations/package-validation';
 export async function POST(request: Request, context: { params: Promise<{ attemptId: string }> }) {
   const { attemptId } = await context.params;
@@ -26,6 +29,6 @@ export async function POST(request: Request, context: { params: Promise<{ attemp
       return attemptResult(data);
     });
   } catch (error) {
-    return packageErrorResponse(error);
+    return packageVersionErrorResponse(error, 'attempt', attemptId);
   }
 }

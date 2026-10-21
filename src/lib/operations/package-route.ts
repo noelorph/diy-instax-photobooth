@@ -14,7 +14,7 @@ import { PackageError, packageErrorStatus, type PackageErrorCode } from './packa
 import { parsePackageOperation } from './package-validation';
 import { packageRpc } from './package-rpc';
 import { requireSameOrigin, operationId } from './validation';
-import { operationResponse } from './responses';
+import { operationErrorResponse, operationResponse } from './responses';
 import { requireSimulator } from './printer-gate';
 import { createPrivilegedClient } from './privileged-client';
 import { OperationError } from './types';
@@ -46,6 +46,25 @@ export function packageErrorResponse(error: unknown) {
               : 'operation_unavailable'
         : 'operation_unavailable';
   return operationResponse({ code, message: messages[code] }, packageErrorStatus[code]);
+}
+/** Resolve shared-route authority errors without changing either version's response contract. */
+export async function packageVersionErrorResponse(
+  error: unknown,
+  resource: 'event' | 'attempt',
+  resourceId: string
+) {
+  if (!(error instanceof OperationError)) return packageErrorResponse(error);
+  try {
+    const { data, error: lookupError } = await createPrivilegedClient()
+      .from(resource === 'event' ? 'events' : 'print_attempts')
+      .select('accounting_version')
+      .eq('id', operationId(resourceId))
+      .maybeSingle();
+    if (!lookupError && data?.accounting_version === 2) return packageErrorResponse(error);
+  } catch {
+    // An authority failure still has its legacy response when version lookup is unavailable.
+  }
+  return operationErrorResponse(error);
 }
 function simulatorOnly() {
   try {

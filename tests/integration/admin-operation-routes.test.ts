@@ -56,6 +56,7 @@ vi.mock('next/server', async (original) => ({
 import { POST as pause } from '@/app/api/admin/events/[eventId]/pause/route';
 import { POST as complete } from '@/app/api/admin/events/[eventId]/complete/route';
 import { POST as cancel } from '@/app/api/admin/events/[eventId]/cancel/route';
+import { POST as deleteDraft } from '@/app/api/admin/events/[eventId]/delete-draft/route';
 import { POST as reserve } from '@/app/api/admin/events/[eventId]/test-attempts/route';
 import { POST as additional } from '@/app/api/admin/events/[eventId]/additional-prints/route';
 import { POST as observe } from '@/app/api/admin/print-attempts/[attemptId]/observations/route';
@@ -180,6 +181,15 @@ function routes(eventId = randomUUID(), attemptId = randomUUID()) {
   ];
 }
 describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeout: 30000 }, () => {
+  it.each([
+    ['complete', (request: Request) => complete(request, eventContext(randomUUID()))],
+    ['cancel', (request: Request) => cancel(request, eventContext(randomUUID()))],
+    ['delete Draft', (request: Request) => deleteDraft(request, eventContext(randomUUID()))],
+    ['recover attempt', (request: Request) => recover(request, attemptContext(randomUUID()))],
+    ['resolve attempt', (request: Request) => settle(request, attemptContext(randomUUID()))],
+  ])('keeps the legacy %s missing-auth response before version lookup', async (_name, invoke) => {
+    expect((await result(await invoke(req(operation())), 401)).code).toBe('unauthorized');
+  });
   it('requires live provisioned Admin authority and same origin on every route', async () => {
     for (const route of routes())
       expect((await result(await route(operation()), 401)).code).toBe('unauthorized');
