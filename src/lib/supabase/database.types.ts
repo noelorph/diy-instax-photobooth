@@ -943,6 +943,25 @@ export type Database = {
         Args: { grant_hash: string; operation_key: string; run_id: string };
         Returns: Json;
       };
+      package_admin_operation: {
+        Args: {
+          p_admin_session_id: string;
+          p_admin_user_id: string;
+          p_operation: string;
+          p_operation_id: string;
+          p_payload: Json;
+        };
+        Returns: Json;
+      };
+      package_admin_read: {
+        Args: {
+          p_admin_session_id: string;
+          p_admin_user_id: string;
+          p_event_id: string;
+          p_operation_id?: string;
+        };
+        Returns: Json;
+      };
       pause_booth_for_reconnect: {
         Args: { grant_hash: string; operation_key: string; run_id: string };
         Returns: Json;

@@ -56,11 +56,12 @@ export async function createPackageFixture(options: { originalPackages?: number 
           p_payload: payload,
         });
       },
-      readAdmin() {
+      readAdmin(operationId?: string) {
         return local.service.rpc('package_admin_read', {
           p_admin_user_id: adminUser.id,
           p_admin_session_id: adminSessionId,
           p_event_id: eventId,
+          ...(operationId ? { p_operation_id: operationId } : {}),
         });
       },
       readBooth() {
