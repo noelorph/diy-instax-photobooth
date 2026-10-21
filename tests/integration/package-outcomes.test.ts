@@ -20,7 +20,7 @@ function ready(f: PackageFixture, generation = 0) {
   );
 }
 
-async function attempt(f: PackageFixture) {
+async function attempt(f: PackageFixture, dispatch = true) {
   f.seedRun();
   ready(f);
   const started = await f.booth('start_session', { expectedRevision: 2 });
@@ -44,6 +44,7 @@ async function attempt(f: PackageFixture) {
   });
   expect(reserved.error).toBeNull();
   const attemptId = reserved.data.receipt.result.attemptId as string;
+  if (!dispatch) return attemptId;
   ready(f);
   const dispatched = await f.booth('dispatch', {
     attemptId,
@@ -143,6 +144,36 @@ it('does not release a hold when not-sent evidence contradicts command acceptanc
     expect(
       localOwnerSql(`select blockers from public.booth_runs where id='${f.runId}'`)[0].blockers
     ).toContain('evidence_discrepancy');
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('a reserved attempt proven unsent preserves old-job safety for the next guest', async () => {
+  const f = await createPackageFixture();
+  try {
+    const attemptId = await attempt(f, false);
+    expect((await observation(f, attemptId, 'definitely_not_sent')).error).toBeNull();
+    expect(
+      localOwnerSql(
+        `select state,dispatch_id from public.print_attempts where id='${attemptId}'`
+      )[0]
+    ).toMatchObject({ state: 'NotPrinted', dispatch_id: null });
+    expect(
+      localOwnerSql(
+        `select old_job_safety_confirmed from public.booth_runs where id='${f.runId}'`
+      )[0].old_job_safety_confirmed
+    ).toBe(true);
+    const sessionId = localOwnerSql(
+      `select session_id from public.print_attempts where id='${attemptId}'`
+    )[0].session_id;
+    expect((await f.booth('end_session', { sessionId, reason: 'page_reload' })).error).toBeNull();
+    ready(f);
+    expect((await f.readBooth()).data.readiness.blockers).not.toContain('printer_not_safe');
+    const next = await f.booth('start_session', {
+      expectedRevision: (await f.readBooth()).data.revision,
+    });
+    expect(next.error).toBeNull();
   } finally {
     await f.dispose();
   }
