@@ -6,8 +6,20 @@ import { operationResponse } from '@/lib/operations/responses';
 import { OperationError } from '@/lib/operations/types';
 import { attemptResult } from '@/lib/operations/admin-route';
 import { testObservationSchema, observationEvidence } from '@/lib/operations/admin-validation';
+import { isPackageGrant } from '@/lib/operations/package-version';
+import { runPackageBoothOperation } from '@/lib/operations/package-route';
+import { packageHttpObserveSchema } from '@/lib/operations/package-validation';
 export async function POST(request: Request, context: { params: Promise<{ attemptId: string }> }) {
   try {
+    if (await isPackageGrant(request))
+      return runPackageBoothOperation(
+        request,
+        (await context.params).attemptId,
+        'observe',
+        packageHttpObserveSchema,
+        'attempt'
+      );
+    requireSimulator();
     requireSameOrigin(request);
     const booth = await requireBoothGrant(request);
     requireSimulator();

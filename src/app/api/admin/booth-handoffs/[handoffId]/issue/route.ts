@@ -11,6 +11,10 @@ import {
 import { createPrivilegedClient } from '@/lib/operations/privileged-client';
 import { operationErrorResponse, operationResponse } from '@/lib/operations/responses';
 import { OperationError } from '@/lib/operations/types';
+import { packageOperationSchema, parsePackageOperation } from '@/lib/operations/package-validation';
+import { packageRpc } from '@/lib/operations/package-rpc';
+import { packageErrorResponse } from '@/lib/operations/package-route';
+import { PackageError, HANDOFF_TTL_MS } from '@/lib/operations/package-contract';
 import {
   operationId,
   operationSchema,
@@ -22,13 +26,12 @@ export async function POST(request: Request, context: { params: Promise<{ handof
     requireSameOrigin(request);
     const admin = await requireAdminRequest(request),
       handoffId = operationId((await context.params).handoffId);
-    const input = await parseOperation(request, operationSchema),
-      device = readSecret(request, deviceCookie);
+    const device = readSecret(request, deviceCookie);
     if (!device) throw new OperationError('forbidden');
     const client = createPrivilegedClient();
     const { data: handoff, error: lookupError } = await client
       .from('booth_handoffs')
-      .select('admin_user_id,admin_session_id,device_token_hash,state')
+      .select('admin_user_id,admin_session_id,device_token_hash,state,accounting_version')
       .eq('id', handoffId)
       .maybeSingle();
     if (
@@ -40,6 +43,53 @@ export async function POST(request: Request, context: { params: Promise<{ handof
       handoff.state !== 'Prepared'
     )
       throw new OperationError('forbidden');
+    if (handoff.accounting_version === 2) {
+      try {
+        const input = await parsePackageOperation(request, packageOperationSchema);
+        const auth = await createClient();
+        let signOutFailed = false;
+        try {
+          signOutFailed = !!(await auth.auth.signOut({ scope: 'local' })).error;
+        } catch {
+          signOutFailed = true;
+        }
+        if (signOutFailed) {
+          await packageRpc('package_fail_handoff', {
+            p_handoff_id: handoffId,
+            p_device_hash: hashSecret(device),
+          });
+          throw new PackageError('access_required');
+        }
+        const secret = newSecret();
+        // SQL verifies the initiating session is gone and the device is bound to this handoff.
+        let result: Record<string, unknown>;
+        try {
+          result = await packageRpc('package_issue_handoff', {
+            p_handoff_id: handoffId,
+            p_device_hash: hashSecret(device),
+            p_operation_id: input.operationId,
+            p_grant_hash: hashSecret(secret),
+          });
+        } catch (error) {
+          // No cookie has left this response; revoke any grant the lost reply may have issued.
+          await packageRpc('package_fail_handoff', {
+            p_handoff_id: handoffId,
+            p_device_hash: hashSecret(device),
+          });
+          throw error;
+        }
+        if (result.error) throw new PackageError('access_required');
+        const response = operationResponse(result);
+        response.cookies.set(boothCookie, secret, {
+          ...cookieOptions,
+          maxAge: HANDOFF_TTL_MS / 1000,
+        });
+        return response;
+      } catch (error) {
+        return packageErrorResponse(error);
+      }
+    }
+    const input = await parseOperation(request, operationSchema);
     const auth = await createClient();
     const signedOut = await auth.auth.signOut({ scope: 'local' });
     const secret = newSecret(),

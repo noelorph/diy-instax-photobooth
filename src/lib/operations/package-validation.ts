@@ -39,6 +39,17 @@ export const addPackagesSchema = packageOperationSchema.extend({
   clientRequestNote: reason,
 });
 export const packageActionSchemas = {
+  start: eventRevisionSchema.extend({
+    readinessWindowId: z.uuid(),
+    printerId,
+    connectionGeneration: generation,
+  }),
+  setupReadiness: readinessReportSchema.extend({
+    operationId: z.uuid(),
+    filmLoadedConfirmed: z.boolean(),
+    powerConfirmed: z.boolean(),
+    guidedAccessConfirmed: z.boolean(),
+  }),
   reportReadiness: z.union([
     readinessReportSchema.extend({ operationId: z.uuid() }),
     z.strictObject({
@@ -117,3 +128,8 @@ export async function parsePackageOperation<T>(request: Request, schema: z.ZodTy
     throw new PackageError('invalid_input');
   }
 }
+const { attemptId: _attemptId, ...httpObservationFields } = packageActionSchemas.observe.shape;
+void _attemptId;
+export const packageHttpObserveSchema = z
+  .strictObject(httpObservationFields)
+  .refine((value) => value.observationId === value.operationId);

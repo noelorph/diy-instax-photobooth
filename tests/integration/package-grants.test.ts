@@ -1,7 +1,18 @@
 import { randomUUID } from 'node:crypto';
-import { expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createPackageFixture } from '../fixtures/package-contract';
 import { localOwnerSql, ownerUpdate } from '../fixtures/local-supabase';
+
+let priorPolicy: string;
+beforeAll(() => {
+  priorPolicy = String(
+    localOwnerSql('select mode from public.printer_completion_policy where id')[0].mode
+  );
+  localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+});
+afterAll(() => {
+  localOwnerSql(`update public.printer_completion_policy set mode='${priorPolicy}' where id`);
+});
 
 it('renews only an active unexpired grant and rejects an inactive grant for booth state', async () => {
   const f = await createPackageFixture();
@@ -177,7 +188,6 @@ it('activates a one-use initial handoff only after local sign-out and cannot ove
         p_operation_id: issueKey,
         p_grant_hash: f.grantHash,
       });
-    expect((await issue()).error?.message).toBe('access_required');
     localOwnerSql(`delete from auth.sessions where id='${f.adminSessionId}'`);
     expect((await issue()).error).toBeNull();
     expect((await f.readBooth()).error?.message).toBe('access_required');

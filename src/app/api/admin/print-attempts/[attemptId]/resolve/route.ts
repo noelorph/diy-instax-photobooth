@@ -8,17 +8,38 @@ import {
   resolutionEntries,
 } from '@/lib/operations/admin-route';
 import { resolutionSchema } from '@/lib/operations/admin-validation';
+import { isPackageAttempt } from '@/lib/operations/package-version';
+import { packageErrorResponse, runPackageAdminOperation } from '@/lib/operations/package-route';
+import { PackageError } from '@/lib/operations/package-contract';
+import { packageActionSchemas } from '@/lib/operations/package-validation';
 export async function POST(request: Request, context: { params: Promise<{ attemptId: string }> }) {
   const { attemptId: id } = await context.params;
-  return adminOperation(request, resolutionSchema, async (input, admin) => {
-    if (input.outcome === 'ejected') requireSimulator('invalid_evidence');
-    const { data, error } = await createPrivilegedClient().rpc('resolve_uncertain_print', {
-      ...adminArgs(admin, input.operationKey),
-      attempt_id: operationId(id),
-      outcome: input.outcome,
-      inspection_reason: input.inspectionReason,
+  try {
+    try {
+      requireSimulator();
+    } catch {
+      throw new PackageError('qualification_required');
+    }
+    if (await isPackageAttempt(request, id))
+      return runPackageAdminOperation(
+        request,
+        id,
+        'resolve_attempt',
+        packageActionSchemas.resolveAttempt,
+        'attempt'
+      );
+    return adminOperation(request, resolutionSchema, async (input, admin) => {
+      if (input.outcome === 'ejected') requireSimulator('invalid_evidence');
+      const { data, error } = await createPrivilegedClient().rpc('resolve_uncertain_print', {
+        ...adminArgs(admin, input.operationKey),
+        attempt_id: operationId(id),
+        outcome: input.outcome,
+        inspection_reason: input.inspectionReason,
+      });
+      if (error) throw error;
+      return { ...attemptResult(data), ...(await resolutionEntries(id, input.outcome)) };
     });
-    if (error) throw error;
-    return { ...attemptResult(data), ...(await resolutionEntries(id, input.outcome)) };
-  });
+  } catch (error) {
+    return packageErrorResponse(error);
+  }
 }

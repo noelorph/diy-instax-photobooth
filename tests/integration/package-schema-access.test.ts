@@ -384,7 +384,7 @@ it('rejects direct version/count/receipt changes and private calls while retaini
     }
     expect(
       localOwnerSql(
-        "select n.nspname,p.proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='private' and p.proname like '%package%' and (has_function_privilege('anon',p.oid,'EXECUTE') or has_function_privilege('authenticated',p.oid,'EXECUTE') or (p.proname not in ('package_admin_operation','package_admin_read','package_setup_read','package_booth_read','package_booth_operation','package_issue_handoff') and has_function_privilege('service_role',p.oid,'EXECUTE')))"
+        "select n.nspname,p.proname from pg_proc p join pg_namespace n on n.oid=p.pronamespace where n.nspname='private' and p.proname like '%package%' and (has_function_privilege('anon',p.oid,'EXECUTE') or has_function_privilege('authenticated',p.oid,'EXECUTE') or (p.proname not in ('package_admin_operation','package_admin_read','package_setup_read','package_booth_read','package_booth_operation','package_issue_handoff','package_fail_handoff') and has_function_privilege('service_role',p.oid,'EXECUTE')))"
       )
     ).toEqual([]);
     expect(
