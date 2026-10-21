@@ -1,5 +1,5 @@
 import { createHash, randomUUID } from 'node:crypto';
-import { cleanupEvents, localSupabase, ownerInsert } from './local-supabase';
+import { cleanupEvents, localSupabase, ownerInsert, ownerUpdate } from './local-supabase';
 
 export async function createPackageFixture(options: { originalPackages?: number } = {}) {
   const local = localSupabase();
@@ -39,6 +39,40 @@ export async function createPackageFixture(options: { originalPackages?: number 
       grantId,
       deviceHash,
       grantHash,
+      seedRun(state = 'Active') {
+        ownerUpdate('events', eventId, { state: 'Live', revision: 2 });
+        ownerInsert('booth_runs', {
+          id: runId,
+          event_id: eventId,
+          accounting_version: 2,
+          state,
+          device_hash: deviceHash,
+          printer_id: 'fixture-printer',
+          film_loaded_confirmed: true,
+          power_confirmed: true,
+          guided_access_confirmed: true,
+        });
+        ownerInsert('booth_grants', {
+          id: grantId,
+          event_id: eventId,
+          run_id: runId,
+          accounting_version: 2,
+          state: 'Active',
+          secret_hash: grantHash,
+          device_hash: deviceHash,
+          expires_at: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
+        });
+      },
+      readSetup() {
+        return local.service.rpc('package_setup_read', {
+          p_admin_user_id: adminUser.id,
+          p_admin_session_id: adminSessionId,
+          p_event_id: eventId,
+          p_device_hash: deviceHash,
+          p_printer_id: 'fixture-printer',
+          p_connection_generation: 0,
+        });
+      },
       admin(operation: string, payload: Record<string, unknown>, operationId = randomUUID()) {
         return local.service.rpc('package_admin_operation', {
           p_admin_user_id: adminUser.id,

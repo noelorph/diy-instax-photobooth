@@ -7,6 +7,14 @@ export const GRANT_IDLE_TTL_MS = 24 * 60 * 60_000;
 export const LATE_CAPTURE_WINDOW_MS = 2 * 60_000;
 export const runStates = ['Prepared', 'Active', 'Paused', 'Finishing', 'Finished'] as const;
 export type RunState = (typeof runStates)[number];
+export const readinessStages = ['setup', 'guest', 'reserve', 'dispatch', 'resume'] as const;
+export type ReadinessStage = (typeof readinessStages)[number];
+export type PackageReadiness = {
+  ready: boolean;
+  stage: ReadinessStage;
+  blockers: string[];
+  counts: PackageCounts;
+};
 export const attemptStates = [
   'Reserved',
   'Dispatching',

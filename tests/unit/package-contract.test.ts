@@ -172,7 +172,7 @@ it('accepts opaque physical printer identities and initial generation zero', () 
       ...(schema === packageActionSchemas.confirmReload ? { reloadRequestId: id } : {}),
     };
     expect(schema.safeParse(body).success).toBe(true);
-    for (const printerId of ['', 'x'.repeat(129)])
+    for (const printerId of ['', ' ', 'x'.repeat(129)])
       expect(schema.safeParse({ ...body, printerId }).success).toBe(false);
     for (const connectionGeneration of [-1, 0.5, 2_147_483_648])
       expect(schema.safeParse({ ...body, connectionGeneration }).success).toBe(false);
@@ -226,4 +226,74 @@ it('accepts each specified action shape and rejects authority or missing operati
   }
   for (const packages of [-1, 0.5, 214_748_365, Infinity])
     expect(originalPackagesSchema.safeParse(packages).success).toBe(false);
+});
+
+it('validates readiness heartbeat, connection change and reload boundaries strictly', () => {
+  const heartbeat = {
+    operationId: id,
+    readinessWindowId: id,
+    observedAgeMs: 0,
+    printerId: 'printer',
+    connectionGeneration: 0,
+    observation: {
+      cameraPermission: true,
+      cameraLive: true,
+      serverReachable: true,
+      printerConnected: true,
+      printerReady: true,
+      oldJobCleared: true,
+    },
+  };
+  expect(packageActionSchemas.reportReadiness.safeParse(heartbeat).success).toBe(true);
+  for (const extra of [
+    { observedAt: '2099-01-01T00:00:00Z' },
+    { filmLoadedConfirmed: true },
+    { adminUserId: id },
+    { observedAgeMs: -1 },
+    { observedAgeMs: 5001 },
+  ]) {
+    expect(packageActionSchemas.reportReadiness.safeParse({ ...heartbeat, ...extra }).success).toBe(
+      false
+    );
+  }
+  const changed = {
+    operationId: id,
+    kind: 'connection_changed',
+    readinessWindowId: id,
+    printerId: 'printer',
+    connectionGeneration: 1,
+    expectedRevision: 1,
+  };
+  expect(packageActionSchemas.reportReadiness.safeParse(changed).success).toBe(true);
+  expect(
+    packageActionSchemas.reportReadiness.safeParse({ ...changed, observedAgeMs: 0 }).success
+  ).toBe(false);
+  expect(
+    packageActionSchemas.reportSetupReadiness.safeParse({
+      ...heartbeat,
+      deviceHash: 'a'.repeat(64),
+      filmLoadedConfirmed: true,
+      powerConfirmed: true,
+      guidedAccessConfirmed: true,
+    }).success
+  ).toBe(true);
+  const reload = {
+    operationId: id,
+    expectedRevision: 1,
+    runId: id,
+    printerId: 'printer',
+    connectionGeneration: 0,
+    reason: 'Physical reload',
+  };
+  expect(packageActionSchemas.requestReload.safeParse(reload).success).toBe(true);
+  for (const extra of [
+    { reason: ' ' },
+    { printerId: ' ' },
+    { expectedRevision: 0 },
+    { connectionGeneration: -1 },
+    { runId: undefined },
+  ])
+    expect(packageActionSchemas.requestReload.safeParse({ ...reload, ...extra }).success).toBe(
+      false
+    );
 });
