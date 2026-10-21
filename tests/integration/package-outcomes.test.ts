@@ -14,9 +14,9 @@ afterAll(() => {
   localOwnerSql(`update public.printer_completion_policy set mode='${priorPolicy}' where id`);
 });
 
-function ready(f: PackageFixture) {
+function ready(f: PackageFixture, generation = 0) {
   localOwnerSql(
-    `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+    `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":${generation}}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
   );
 }
 
@@ -60,7 +60,8 @@ function observation(
   attemptId: string,
   kind: string,
   metadata: Record<string, unknown> = {},
-  observationId = randomUUID()
+  observationId = randomUUID(),
+  generation = 0
 ) {
   return f.booth(
     'observe',
@@ -69,7 +70,7 @@ function observation(
       observationId,
       kind,
       evidenceVersion: 'simulator-v1',
-      connectionGeneration: 0,
+      connectionGeneration: generation,
       metadata,
     },
     observationId
@@ -147,6 +148,30 @@ it('does not release a hold when not-sent evidence contradicts command acceptanc
   }
 }, 30000);
 
+it('retains command acceptance after an unknown outcome so later not-sent evidence cannot release capacity', async () => {
+  const f = await createPackageFixture();
+  try {
+    const attemptId = await attempt(f);
+    expect((await observation(f, attemptId, 'outcome_unknown')).error).toBeNull();
+    expect((await observation(f, attemptId, 'command_accepted')).error).toBeNull();
+    expect(
+      localOwnerSql(
+        `select state,accepted_at from public.print_attempts where id='${attemptId}'`
+      )[0]
+    ).toMatchObject({ state: 'Pending', accepted_at: expect.any(String) });
+    expect((await observation(f, attemptId, 'definitely_not_sent')).error).toBeNull();
+    expect(
+      localOwnerSql(`select state from public.print_attempts where id='${attemptId}'`)[0].state
+    ).toBe('Pending');
+    expect((await f.readAdmin()).data.counts).toMatchObject({ printed: 0, unresolved: 1 });
+    expect(
+      localOwnerSql(`select blockers from public.booth_runs where id='${f.runId}'`)[0].blockers
+    ).toContain('evidence_discrepancy');
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
 it('holds capacity through Pending and inspected Not printed releases it without clearing a separate reload request', async () => {
   const f = await createPackageFixture();
   try {
@@ -193,6 +218,108 @@ it('a printed outcome still blocks a new job until qualified idle evidence arriv
     expect((await f.readBooth()).data.readiness.blockers).toContain('printer_not_safe');
     expect((await observation(f, attemptId, 'ready_for_new_job')).error).toBeNull();
     ready(f);
+    expect((await f.readBooth()).data.readiness.blockers).not.toContain('printer_not_safe');
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('an earlier attempt cannot clear the safety block after a later job settles', async () => {
+  const f = await createPackageFixture();
+  try {
+    const firstId = await attempt(f);
+    expect((await observation(f, firstId, 'full_ejection_confirmed')).error).toBeNull();
+    expect((await observation(f, firstId, 'ready_for_new_job')).error).toBeNull();
+    const firstSessionId = localOwnerSql(
+      `select session_id from public.print_attempts where id='${firstId}'`
+    )[0].session_id;
+    expect(
+      (await f.booth('end_session', { sessionId: firstSessionId, reason: 'page_reload' })).error
+    ).toBeNull();
+    ready(f);
+    const started = await f.booth('start_session', {
+      expectedRevision: (await f.readBooth()).data.revision,
+    });
+    expect(started.error).toBeNull();
+    const sessionId = started.data.receipt.result.sessionId as string;
+    const captureId = randomUUID();
+    expect(
+      (
+        await f.booth('record_capture', {
+          sessionId,
+          captureId,
+          capturedAt: new Date().toISOString(),
+        })
+      ).error
+    ).toBeNull();
+    ready(f);
+    const reserved = await f.booth('reserve', {
+      sessionId,
+      captureId,
+      expectedRevision: (await f.readBooth()).data.revision,
+    });
+    expect(reserved.error).toBeNull();
+    const secondId = reserved.data.receipt.result.attemptId as string;
+    ready(f);
+    expect(
+      (
+        await f.booth('dispatch', {
+          attemptId: secondId,
+          printerId: 'fixture-printer',
+          connectionGeneration: 0,
+          expectedRevision: reserved.data.revision,
+        })
+      ).error
+    ).toBeNull();
+    expect((await observation(f, secondId, 'full_ejection_confirmed')).error).toBeNull();
+    expect(
+      localOwnerSql(
+        `select old_job_safety_confirmed from public.booth_runs where id='${f.runId}'`
+      )[0].old_job_safety_confirmed
+    ).toBe(false);
+    expect((await observation(f, firstId, 'ready_for_new_job')).error).toBeNull();
+    expect(
+      localOwnerSql(
+        `select old_job_safety_confirmed from public.booth_runs where id='${f.runId}'`
+      )[0].old_job_safety_confirmed
+    ).toBe(false);
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('current connection idle evidence clears inspected Printed after a reconnect', async () => {
+  const f = await createPackageFixture();
+  try {
+    const attemptId = await attempt(f);
+    expect((await observation(f, attemptId, 'connection_changed')).error).toBeNull();
+    localOwnerSql(`update public.booth_runs set connection_generation=1 where id='${f.runId}'`);
+    const resolved = await f.admin('resolve_attempt', {
+      attemptId,
+      outcome: 'printed',
+      inspectionReason: 'Full sheet ejected during reconnect',
+      oldJobCleared: false,
+      expectedRevision: (await f.readAdmin()).data.revision,
+    });
+    expect(resolved.error).toBeNull();
+    expect(
+      localOwnerSql(
+        `select old_job_safety_confirmed from public.booth_runs where id='${f.runId}'`
+      )[0].old_job_safety_confirmed
+    ).toBe(false);
+    expect(
+      (await observation(f, attemptId, 'full_ejection_confirmed', {}, randomUUID(), 1)).error
+        ?.message
+    ).toBe('invalid_transition');
+    expect(
+      (await observation(f, attemptId, 'ready_for_new_job', {}, randomUUID(), 1)).error
+    ).toBeNull();
+    expect(
+      localOwnerSql(
+        `select old_job_safety_confirmed from public.booth_runs where id='${f.runId}'`
+      )[0].old_job_safety_confirmed
+    ).toBe(true);
+    ready(f, 1);
     expect((await f.readBooth()).data.readiness.blockers).not.toContain('printer_not_safe');
   } finally {
     await f.dispose();
@@ -486,6 +613,39 @@ it('a no-film outcome creates a reload request that confirmation clears independ
         `select old_job_safety_confirmed from public.booth_runs where id='${f.runId}'`
       )[0].old_job_safety_confirmed
     ).toBe(false);
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('late no-film evidence after inspected Not printed still invalidates film readiness', async () => {
+  const f = await createPackageFixture();
+  try {
+    const attemptId = await attempt(f);
+    expect((await observation(f, attemptId, 'outcome_unknown')).error).toBeNull();
+    expect(
+      (
+        await f.admin('resolve_attempt', {
+          attemptId,
+          outcome: 'not_printed',
+          inspectionReason: 'No sheet emerged; old job cleared',
+          oldJobCleared: true,
+          expectedRevision: (await f.readAdmin()).data.revision,
+        })
+      ).error
+    ).toBeNull();
+    const before = (await f.readAdmin()).data.counts;
+    expect((await observation(f, attemptId, 'no_film_rejected')).error).toBeNull();
+    expect((await f.readAdmin()).data.counts).toMatchObject(before);
+    expect(
+      localOwnerSql(`select film_loaded_confirmed from public.booth_runs where id='${f.runId}'`)[0]
+        .film_loaded_confirmed
+    ).toBe(false);
+    expect(
+      localOwnerSql(
+        `select state from public.booth_reload_requests where run_id='${f.runId}' and state='Open'`
+      )[0]
+    ).toMatchObject({ state: 'Open' });
   } finally {
     await f.dispose();
   }
