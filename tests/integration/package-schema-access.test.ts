@@ -514,3 +514,112 @@ it('cleans its Admin even when package Event disposal fails', async () => {
     await f.local.cleanup();
   }
 }, 30000);
+
+it.each(['handoff', 'activity'] as const)(
+  'requires matching v2 %s references on insert and update while retaining v1 history',
+  async (kind) => {
+    const f = await createPackageFixture();
+    const other = await createPackageFixture();
+    try {
+      const otherRun = randomUUID();
+      for (const [eventId, runId] of [
+        [f.eventId, f.runId],
+        [f.eventId, otherRun],
+        [other.eventId, other.runId],
+      ]) {
+        ownerInsert('booth_runs', {
+          id: runId,
+          event_id: eventId,
+          accounting_version: 2,
+          state: 'Finished',
+        });
+      }
+      const references: string[] = [];
+      for (const [eventId, runId, version] of [
+        [f.eventId, f.runId, 2],
+        [f.eventId, f.runId, 1],
+        [f.eventId, otherRun, 2],
+        [other.eventId, other.runId, 2],
+      ] as const) {
+        if (kind === 'handoff') {
+          references.push(
+            ownerInsert('booth_grants', {
+              event_id: eventId,
+              run_id: runId,
+              accounting_version: version,
+              expires_at: '2027-01-01T00:00:00Z',
+              device_hash: f.deviceHash,
+            }).data.id
+          );
+        } else {
+          const session = ownerInsert('guest_sessions', {
+            event_id: eventId,
+            run_id: runId,
+            accounting_version: version,
+            state: 'Abandoned',
+          }).data.id;
+          const capture = ownerInsert('captures', {
+            event_id: eventId,
+            run_id: runId,
+            session_id: session,
+            accounting_version: version,
+            captured_at: new Date().toISOString(),
+            shutter_operation_id: randomUUID(),
+          }).data.id;
+          references.push(
+            ownerInsert('print_attempts', {
+              event_id: eventId,
+              run_id: runId,
+              session_id: session,
+              capture_id: capture,
+              accounting_version: version,
+              kind: 'Guest',
+              state: version === 2 ? 'Printed' : 'Confirmed',
+              request_key: randomUUID(),
+              connection_id: randomUUID(),
+            }).data.id
+          );
+        }
+      }
+      const table = kind === 'handoff' ? 'booth_handoffs' : 'activity_events';
+      const key = kind === 'handoff' ? 'grant_id' : 'attempt_id';
+      const row =
+        kind === 'handoff'
+          ? {
+              event_id: f.eventId,
+              run_id: f.runId,
+              admin_user_id: f.adminUser.id,
+              admin_session_id: f.adminSessionId,
+              device_token_hash: f.deviceHash,
+              expires_at: '2027-01-01T00:00:00Z',
+            }
+          : { event_id: f.eventId, actor_scope: 'fixture', operation_kind: 'reference-validation' };
+      const valid = ownerInsert(table, { ...row, accounting_version: 2, [key]: references[0] }).data
+        .id;
+      // Activity is Event-scoped, so another run within the same Event is valid.
+      const invalid = kind === 'handoff' ? references.slice(1) : [references[1], references[3]];
+      for (const reference of invalid) {
+        const id = randomUUID();
+        expect
+          .soft(() => ownerInsert(table, { ...row, id, accounting_version: 2, [key]: reference }))
+          .toThrow(/23514/);
+        localOwnerSql(`delete from public.${table} where id='${id}'`);
+        expect.soft(() => ownerUpdate(table, valid, { [key]: reference })).toThrow(/23514/);
+        ownerUpdate(table, valid, { [key]: references[0] });
+      }
+      if (kind === 'activity') {
+        ownerUpdate(table, valid, { attempt_id: references[2] });
+        ownerUpdate(table, valid, { attempt_id: null });
+      }
+      localOwnerSql(`delete from public.${table} where id='${valid}'`);
+      // Historical version-1 references retain their existing permissive semantics.
+      const historical = ownerInsert(table, { ...row, accounting_version: 1, [key]: references[1] })
+        .data.id;
+      ownerUpdate(table, historical, { [key]: references[3] });
+    } finally {
+      await f.dispose();
+      await other.dispose();
+    }
+  },
+  30000
+);
