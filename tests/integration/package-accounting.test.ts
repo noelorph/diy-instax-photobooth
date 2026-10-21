@@ -1,7 +1,12 @@
 import { randomUUID } from 'node:crypto';
 import { expect, it } from 'vitest';
 import { createPackageFixture } from '../fixtures/package-contract';
-import { localOwnerSql, ownerInsert, ownerUpdate } from '../fixtures/local-supabase';
+import {
+  localOwnerSql,
+  localSupabaseStatus,
+  ownerInsert,
+  ownerUpdate,
+} from '../fixtures/local-supabase';
 
 it('counts packages and commits one immutable entry, audit and receipt across retries and concurrent additions', async () => {
   const f = await createPackageFixture({ originalPackages: 5 });
@@ -202,6 +207,48 @@ it('derives counts solely from v2 Guest outcomes and permits additions in Paused
           ?.code
       ).toBe('42501');
     }
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('normalizes whole JSON decimal packages before committing and replaying receipts', async () => {
+  const f = await createPackageFixture();
+  try {
+    ownerUpdate('events', f.eventId, { state: 'Live', revision: 2 });
+    const key = randomUUID();
+    const args = {
+      p_admin_user_id: f.adminUser.id,
+      p_admin_session_id: f.adminSessionId,
+      p_operation: 'add_packages',
+      p_operation_id: key,
+      p_payload: { eventId: f.eventId, packages: 1, clientRequestNote: 'Request' },
+    };
+    const raw = JSON.stringify(args).replace('"packages":1', '"packages":1.0');
+    const { API_URL, SERVICE_ROLE_KEY } = localSupabaseStatus();
+    const response = await fetch(`${API_URL}/rest/v1/rpc/package_admin_operation`, {
+      method: 'POST',
+      headers: {
+        apikey: SERVICE_ROLE_KEY,
+        Authorization: `Bearer ${SERVICE_ROLE_KEY}`,
+        'Content-Type': 'application/json',
+      },
+      body: raw,
+    });
+    const first = await response.json();
+    expect(response.status, JSON.stringify(first)).toBe(200);
+    const replay = await f.admin('add_packages', args.p_payload, key);
+    expect(replay.error).toBeNull();
+    expect(replay.data).toMatchObject({ receipt: first.receipt, replayed: true });
+    expect(
+      (await f.admin('add_packages', { packages: 2, clientRequestNote: 'Request' }, key)).error
+        ?.message
+    ).toBe('operation_conflict');
+    expect(
+      localOwnerSql(
+        `select count(*)::int n from public.additional_film_package_entries where event_id='${f.eventId}'`
+      )
+    ).toEqual([{ n: 1 }]);
   } finally {
     await f.dispose();
   }
