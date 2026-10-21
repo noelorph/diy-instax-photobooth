@@ -73,6 +73,32 @@ export async function createPackageFixture(options: { originalPackages?: number 
           p_connection_generation: 0,
         });
       },
+      async reportSetup() {
+        const read = await this.readSetup();
+        if (read.error) throw read.error;
+        const reported = await this.admin('report_setup_readiness', {
+          readinessWindowId: read.data.readinessWindowId,
+          deviceHash,
+          printerId: 'fixture-printer',
+          connectionGeneration: 0,
+          observedAgeMs: 0,
+          observation: {
+            cameraPermission: true,
+            cameraLive: true,
+            serverReachable: true,
+            printerConnected: true,
+            printerReady: true,
+            oldJobCleared: true,
+          },
+          filmLoadedConfirmed: true,
+          powerConfirmed: true,
+          guidedAccessConfirmed: true,
+        });
+        return {
+          ...reported,
+          data: { ...reported.data, readinessWindowId: read.data.readinessWindowId },
+        };
+      },
       admin(operation: string, payload: Record<string, unknown>, operationId = randomUUID()) {
         return local.service.rpc('package_admin_operation', {
           p_admin_user_id: adminUser.id,
