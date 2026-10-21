@@ -616,6 +616,7 @@ export type Database = {
           closed_at: string | null;
           created_at: string;
           event_id: string;
+          grant_id: string | null;
           id: string;
           run_id: string;
           state: string;
@@ -626,6 +627,7 @@ export type Database = {
           closed_at?: string | null;
           created_at?: string;
           event_id: string;
+          grant_id?: string | null;
           id?: string;
           run_id: string;
           state?: string;
@@ -635,6 +637,7 @@ export type Database = {
           closed_at?: string | null;
           created_at?: string;
           event_id?: string;
+          grant_id?: string | null;
           id?: string;
           run_id?: string;
           state?: string;
@@ -645,6 +648,13 @@ export type Database = {
             columns: ['event_id'];
             isOneToOne: false;
             referencedRelation: 'events';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'guest_sessions_grant_id_fkey';
+            columns: ['grant_id'];
+            isOneToOne: false;
+            referencedRelation: 'booth_grants';
             referencedColumns: ['id'];
           },
           {
