@@ -91,6 +91,24 @@ export const packageActionSchemas = {
     connectionGeneration: generation,
   }),
   reconcile: packageOperationSchema.extend({ reason }),
+  observe: packageOperationSchema
+    .extend({
+      attemptId: z.uuid(),
+      observationId: z.uuid(),
+      kind: z.enum([
+        'definitely_not_sent',
+        'command_accepted',
+        'full_ejection_confirmed',
+        'no_film_rejected',
+        'outcome_unknown',
+        'connection_changed',
+        'ready_for_new_job',
+      ]),
+      evidenceVersion: z.literal('simulator-v1'),
+      connectionGeneration: generation,
+      metadata: z.strictObject({}),
+    })
+    .refine((value) => value.observationId === value.operationId),
 } as const;
 export async function parsePackageOperation<T>(request: Request, schema: z.ZodType<T>): Promise<T> {
   try {

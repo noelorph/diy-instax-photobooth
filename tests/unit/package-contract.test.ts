@@ -210,6 +210,15 @@ it('accepts each specified action shape and rejects authority or missing operati
     reserve: { ...revision, sessionId: id, captureId: id },
     dispatch: { ...revision, printerId: 'printer', connectionGeneration: 0 },
     reconcile: { ...base, reason: 'reload' },
+    observe: {
+      ...base,
+      attemptId: id,
+      observationId: id,
+      kind: 'full_ejection_confirmed',
+      evidenceVersion: 'simulator-v1',
+      connectionGeneration: 0,
+      metadata: {},
+    },
   };
   for (const action of Object.keys(fixtures) as (keyof typeof fixtures)[]) {
     const schema = packageActionSchemas[action];
@@ -226,6 +235,28 @@ it('accepts each specified action shape and rejects authority or missing operati
   }
   for (const packages of [-1, 0.5, 214_748_365, Infinity])
     expect(originalPackagesSchema.safeParse(packages).success).toBe(false);
+});
+
+it('accepts only bounded safe outcome observation fields', () => {
+  const observation = {
+    operationId: id,
+    attemptId: id,
+    observationId: id,
+    kind: 'full_ejection_confirmed',
+    evidenceVersion: 'simulator-v1',
+    connectionGeneration: 0,
+    metadata: {},
+  };
+  expect(packageActionSchemas.observe.safeParse(observation).success).toBe(true);
+  for (const change of [
+    { kind: 'raw_status' },
+    { evidenceVersion: 'unknown' },
+    { metadata: { rawStatus: 'abc' } },
+    { connectionGeneration: -1 },
+  ])
+    expect(packageActionSchemas.observe.safeParse({ ...observation, ...change }).success).toBe(
+      false
+    );
 });
 
 it('validates readiness heartbeat, connection change and reload boundaries strictly', () => {

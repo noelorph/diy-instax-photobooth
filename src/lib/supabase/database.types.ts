@@ -361,6 +361,7 @@ export type Database = {
           guided_access_confirmed: boolean;
           id: string;
           observed_at: string | null;
+          old_job_safety_confirmed: boolean;
           power_confirmed: boolean;
           printer_id: string | null;
           readiness_observation: NonNullable<Json>;
@@ -384,6 +385,7 @@ export type Database = {
           guided_access_confirmed?: boolean;
           id?: string;
           observed_at?: string | null;
+          old_job_safety_confirmed?: boolean;
           power_confirmed?: boolean;
           printer_id?: string | null;
           readiness_observation?: NonNullable<Json>;
@@ -406,6 +408,7 @@ export type Database = {
           guided_access_confirmed?: boolean;
           id?: string;
           observed_at?: string | null;
+          old_job_safety_confirmed?: boolean;
           power_confirmed?: boolean;
           printer_id?: string | null;
           readiness_observation?: NonNullable<Json>;
@@ -723,9 +726,12 @@ export type Database = {
           created_at: string;
           evidence_kind: string | null;
           evidence_policy_version: string | null;
+          connection_generation: number | null;
           id: string;
+          observation_id: string | null;
           observed_at: string | null;
           reason: string | null;
+          safe_metadata: NonNullable<Json>;
           state: string;
         };
         ComputedFields: never;
@@ -737,9 +743,12 @@ export type Database = {
           created_at?: string;
           evidence_kind?: string | null;
           evidence_policy_version?: string | null;
+          connection_generation?: number | null;
           id?: string;
+          observation_id?: string | null;
           observed_at?: string | null;
           reason?: string | null;
+          safe_metadata?: NonNullable<Json>;
           state: string;
         };
         Update: {
@@ -750,9 +759,12 @@ export type Database = {
           created_at?: string;
           evidence_kind?: string | null;
           evidence_policy_version?: string | null;
+          connection_generation?: number | null;
           id?: string;
+          observation_id?: string | null;
           observed_at?: string | null;
           reason?: string | null;
+          safe_metadata?: NonNullable<Json>;
           state?: string;
         };
         Relationships: [
