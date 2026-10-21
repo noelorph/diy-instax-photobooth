@@ -7,7 +7,7 @@ const status = JSON.parse(
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 );
-if (status.API_URL !== 'http://127.0.0.1:55321') throw new Error('Isolated local stack required.');
+if (status.API_URL !== 'http://127.0.0.1:56321') throw new Error('Isolated local stack required.');
 const faultFile = resolve('test-results/events-read-fault');
 rmSync(faultFile, { force: true });
 const env = {

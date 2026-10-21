@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { localSupabase } from '../fixtures/local-supabase';
+import { localSupabase, ownerInsert } from '../fixtures/local-supabase';
 
 function sql(query: string) {
   const output = execFileSync(
@@ -51,7 +51,7 @@ describe('Guest sessions and reservations', { timeout: 20000 }, () => {
     ids.push(id);
     expect(
       (
-        await local.service.from('events').insert({
+        await ownerInsert('events', {
           id,
           state,
           title: 'Lifecycle fixture',
@@ -71,7 +71,7 @@ describe('Guest sessions and reservations', { timeout: 20000 }, () => {
     const test = randomUUID();
     expect(
       (
-        await local.service.from('print_attempts').insert({
+        await ownerInsert('print_attempts', {
           id: test,
           event_id: id,
           kind: 'Test',

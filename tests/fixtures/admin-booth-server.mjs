@@ -5,7 +5,7 @@ const local = JSON.parse(
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 );
-if (local.API_URL !== 'http://127.0.0.1:55321') throw new Error('Isolated local stack required');
+if (local.API_URL !== 'http://127.0.0.1:56321') throw new Error('Isolated local stack required');
 const child = spawn(
   process.execPath,
   ['node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1', '--port', '1439'],

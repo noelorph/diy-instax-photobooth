@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { localSupabase } from '../fixtures/local-supabase';
+import { localSupabase, ownerInsert, cleanupEvents } from '../fixtures/local-supabase';
 test('paused sign-in is neutral and returns only an authorized Event without resuming', async ({
   page,
   context,
@@ -7,23 +7,19 @@ test('paused sign-in is neutral and returns only an authorized Event without res
   const local = localSupabase();
   const admin = await local.provisionUser();
   await local.allowlist(admin.id);
-  const row = await local.service
-    .from('events')
-    .insert({
-      state: 'Live',
-      title: 'Paused private Event',
-      client_name: 'Client',
-      client_email: 'private@example.test',
-      client_phone: '123',
-      venue_address: 'Hall',
-      time_zone: 'Asia/Manila',
-      starts_at: '2026-11-01T10:00:00Z',
-      ends_at: '2026-11-01T11:00:00Z',
-      film_package_count: 1,
-      original_print_allowance: 10,
-    })
-    .select('id')
-    .single();
+  const row = await ownerInsert('events', {
+    state: 'Live',
+    title: 'Paused private Event',
+    client_name: 'Client',
+    client_email: 'private@example.test',
+    client_phone: '123',
+    venue_address: 'Hall',
+    time_zone: 'Asia/Manila',
+    starts_at: '2026-11-01T10:00:00Z',
+    ends_at: '2026-11-01T11:00:00Z',
+    film_package_count: 1,
+    original_print_allowance: 10,
+  });
   expect(row.error).toBeNull();
   const id = row.data!.id;
   try {
@@ -49,7 +45,7 @@ test('paused sign-in is neutral and returns only an authorized Event without res
     await expect(page.getByText(/#17/)).toBeVisible();
     expect((await context.cookies()).some((c) => c.name === '__Host-booth-return')).toBe(false);
   } finally {
-    await local.service.from('events').delete().eq('id', id);
+    await cleanupEvents([id]);
     await local.cleanup();
   }
 });

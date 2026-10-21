@@ -1,7 +1,7 @@
 import { chromium, expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { resolve } from 'node:path';
 import { writeFile } from 'node:fs/promises';
-import { localSupabase } from '../fixtures/local-supabase';
+import { localSupabase, cleanupEvents } from '../fixtures/local-supabase';
 
 async function keyboardActivate(page: Page, control: Locator) {
   await control.focus();
@@ -195,8 +195,11 @@ for (const width of [1000, 1440, 2400]) {
       await expect(page.getByLabel('Event name').filter({ visible: true })).toHaveValue(title);
     } finally {
       await context.close();
-      if (eventId) await local.service.from('events').delete().eq('id', eventId);
-      else await local.service.from('events').delete().eq('title', title);
+      if (eventId) await cleanupEvents([eventId]);
+      else {
+        const found = await local.service.from('events').select('id').eq('title', title);
+        cleanupEvents((found.data ?? []).map((row) => row.id));
+      }
       await local.cleanup();
     }
   });

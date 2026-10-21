@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
-import { localSupabase } from '../fixtures/local-supabase';
+import { localSupabase, ownerInsert, cleanupEvents } from '../fixtures/local-supabase';
 import { getHistorySummary, getOperationalEvent } from '@/features/admin/operations/read';
 import { createClient } from '@/lib/supabase/server';
 vi.mock('server-only', () => ({}));
@@ -51,7 +51,7 @@ it('reads authenticated Event totals and excludes deleted or inaccessible Events
       expect(result.event.confirmedPrints).toBe(0);
     }
   } finally {
-    await local.service.from('events').delete().eq('id', id);
+    await cleanupEvents([id]);
   }
   expect((await getOperationalEvent(id)).status).toBe('not_found');
 });
@@ -80,7 +80,12 @@ it('pages beyond 100 attempts and keeps readiness and accounting independent of 
   };
   try {
     expect(
-      (await local.service.from('events').insert(ids.map((id) => ({ ...booking, id })))).error
+      (
+        await ownerInsert(
+          'events',
+          ids.map((id) => ({ ...booking, id }))
+        )
+      ).error
     ).toBeNull();
     let fixture = `update public.events set state='Live',revision=2 where id='${id}';update public.events set state='Cancelled',revision=2 where id='${cancelled}';update public.events set deleted_at=now(),title=null,client_name=null,client_email=null,client_phone=null,venue_address=null,time_zone=null,starts_at=null,ends_at=null,media_removal_state='pending',revision=2 where id='${deleted}';`;
     const run = randomUUID();

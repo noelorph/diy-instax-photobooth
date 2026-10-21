@@ -3,7 +3,7 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { localSupabase } from '../fixtures/local-supabase';
+import { localSupabase, ownerInsert, ownerUpdate } from '../fixtures/local-supabase';
 
 function sql(query: string) {
   const output = execFileSync(
@@ -64,7 +64,7 @@ describe('accounting ledger operations', () => {
     events.push(id);
     expect(
       (
-        await local.service.from('events').insert({
+        await ownerInsert('events', {
           id,
           state,
           title: 'Ledger fixture',
@@ -196,7 +196,7 @@ describe('accounting ledger operations', () => {
     const attempt = randomUUID();
     expect(
       (
-        await local.service.from('print_attempts').insert({
+        await ownerInsert('print_attempts', {
           id: attempt,
           event_id: id,
           kind: 'Test',
@@ -206,9 +206,7 @@ describe('accounting ledger operations', () => {
       ).error
     ).toBeNull();
     for (const state of ['Reserved', 'Accepted', 'Uncertain']) {
-      expect(
-        (await local.service.from('print_attempts').update({ state }).eq('id', attempt)).error
-      ).toBeNull();
+      expect((await ownerUpdate('print_attempts', attempt, { state })).error).toBeNull();
       expect(
         (await rpc('reconcile_film_stock', { ...a.args, observed_sheets: 10, reason: 'Count' }))
           .error?.message
@@ -218,12 +216,7 @@ describe('accounting ledger operations', () => {
       (await rpc('add_film_stock', { ...a.args, sheets: 4, reason: null })).data
     ).toMatchObject({ on_hand: 4, available_stock: 3 });
     expect(
-      (
-        await local.service
-          .from('print_attempts')
-          .update({ state: 'RejectedUnused' })
-          .eq('id', attempt)
-      ).error
+      (await ownerUpdate('print_attempts', attempt, { state: 'RejectedUnused' })).error
     ).toBeNull();
     expect(
       (await rpc('reconcile_film_stock', { ...a.args, observed_sheets: 4, reason: 'Count' })).error

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { createServerClient } from '@supabase/ssr';
 import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from 'vitest';
-import { localSupabase, localSupabaseStatus } from '../fixtures/local-supabase';
+import { localSupabase, localSupabaseStatus, ownerInsert } from '../fixtures/local-supabase';
 const jar = vi.hoisted(() => new Map<string, string>());
 vi.mock('server-only', () => ({}));
 vi.mock('next/headers', () => ({
@@ -81,7 +81,7 @@ async function fixture() {
   ids.push(eventId);
   expect(
     (
-      await local.service.from('events').insert({
+      await ownerInsert('events', {
         id: eventId,
         title: 'Safe title',
         client_name: 'Private Client',
@@ -98,7 +98,7 @@ async function fixture() {
   ).toBeNull();
   expect(
     (
-      await local.service.from('print_attempts').insert({
+      await ownerInsert('print_attempts', {
         event_id: eventId,
         kind: 'Test',
         state: 'Confirmed',

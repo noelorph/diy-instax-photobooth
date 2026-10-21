@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { localSupabase } from '../fixtures/local-supabase';
+import { localSupabase, ownerInsert } from '../fixtures/local-supabase';
 function sql(statement: string) {
   execFileSync(
     'node_modules/.bin/supabase',
@@ -17,21 +17,19 @@ test('Admin Test Print, inspection, handoff and same-device pause return require
   await local.allowlist(admin.id);
   const id = randomUUID(),
     stockId = randomUUID();
-  const created = await local.service
-    .from('events')
-    .insert({
-      id,
-      title: 'Simulated handoff',
-      client_name: 'Client',
-      client_email: 'client@example.test',
-      client_phone: '123',
-      venue_address: 'Hall',
-      time_zone: 'Asia/Manila',
-      starts_at: '2026-11-01T10:00:00Z',
-      ends_at: '2026-11-01T11:00:00Z',
-      film_package_count: 1,
-      original_print_allowance: 10,
-    });
+  const created = await ownerInsert('events', {
+    id,
+    title: 'Simulated handoff',
+    client_name: 'Client',
+    client_email: 'client@example.test',
+    client_phone: '123',
+    venue_address: 'Hall',
+    time_zone: 'Asia/Manila',
+    starts_at: '2026-11-01T10:00:00Z',
+    ends_at: '2026-11-01T11:00:00Z',
+    film_package_count: 1,
+    original_print_allowance: 10,
+  });
   expect(created.error).toBeNull();
   try {
     sql(

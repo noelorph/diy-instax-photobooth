@@ -5,6 +5,7 @@ export type Database = {
     Tables: {
       activity_events: {
         Row: {
+          accounting_version: number;
           actor_scope: string;
           attempt_id: string | null;
           created_at: string;
@@ -14,6 +15,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          accounting_version?: number;
           actor_scope: string;
           attempt_id?: string | null;
           created_at?: string;
@@ -22,6 +24,7 @@ export type Database = {
           operation_kind: string;
         };
         Update: {
+          accounting_version?: number;
           actor_scope?: string;
           attempt_id?: string | null;
           created_at?: string;
@@ -39,6 +42,48 @@ export type Database = {
           },
           {
             foreignKeyName: 'activity_events_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: false;
+            referencedRelation: 'events';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      additional_film_package_entries: {
+        Row: {
+          accounting_version: number;
+          actor_id: string;
+          client_request_note: string;
+          created_at: string;
+          event_id: string;
+          id: string;
+          operation_key: string;
+          packages: number;
+        };
+        ComputedFields: never;
+        Insert: {
+          accounting_version?: number;
+          actor_id: string;
+          client_request_note: string;
+          created_at?: string;
+          event_id: string;
+          id?: string;
+          operation_key: string;
+          packages: number;
+        };
+        Update: {
+          accounting_version?: number;
+          actor_id?: string;
+          client_request_note?: string;
+          created_at?: string;
+          event_id?: string;
+          id?: string;
+          operation_key?: string;
+          packages?: number;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'additional_film_package_entries_event_id_fkey';
             columns: ['event_id'];
             isOneToOne: false;
             referencedRelation: 'events';
@@ -100,10 +145,14 @@ export type Database = {
       };
       booth_grants: {
         Row: {
+          accounting_version: number;
+          capabilities: string[];
           created_at: string;
+          device_hash: string | null;
           event_id: string;
           expires_at: string;
           id: string;
+          last_seen_at: string;
           revoked_at: string | null;
           run_id: string;
           secret_hash: string | null;
@@ -111,20 +160,28 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          accounting_version?: number;
+          capabilities?: string[];
           created_at?: string;
+          device_hash?: string | null;
           event_id: string;
           expires_at: string;
           id?: string;
+          last_seen_at?: string;
           revoked_at?: string | null;
           run_id: string;
           secret_hash?: string | null;
           state?: string;
         };
         Update: {
+          accounting_version?: number;
+          capabilities?: string[];
           created_at?: string;
+          device_hash?: string | null;
           event_id?: string;
           expires_at?: string;
           id?: string;
+          last_seen_at?: string;
           revoked_at?: string | null;
           run_id?: string;
           secret_hash?: string | null;
@@ -149,6 +206,7 @@ export type Database = {
       };
       booth_handoffs: {
         Row: {
+          accounting_version: number;
           admin_session_id: string;
           admin_user_id: string;
           created_at: string;
@@ -162,6 +220,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          accounting_version?: number;
           admin_session_id: string;
           admin_user_id: string;
           created_at?: string;
@@ -174,6 +233,7 @@ export type Database = {
           state?: string;
         };
         Update: {
+          accounting_version?: number;
           admin_session_id?: string;
           admin_user_id?: string;
           created_at?: string;
@@ -209,30 +269,136 @@ export type Database = {
           },
         ];
       };
-      booth_runs: {
+      booth_reload_requests: {
         Row: {
-          connection_id: string | null;
+          accounting_version: number;
+          confirmation_source: string | null;
+          confirmed_at: string | null;
+          confirmed_by: string | null;
+          connection_generation: number;
           created_at: string;
-          ended_at: string | null;
           event_id: string;
           id: string;
+          printer_id: string;
+          revision: number;
+          run_id: string;
+          state: string;
+          trigger: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          accounting_version?: number;
+          confirmation_source?: string | null;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          connection_generation: number;
+          created_at?: string;
+          event_id: string;
+          id?: string;
+          printer_id: string;
+          revision?: number;
+          run_id: string;
+          state?: string;
+          trigger: string;
+        };
+        Update: {
+          accounting_version?: number;
+          confirmation_source?: string | null;
+          confirmed_at?: string | null;
+          confirmed_by?: string | null;
+          connection_generation?: number;
+          created_at?: string;
+          event_id?: string;
+          id?: string;
+          printer_id?: string;
+          revision?: number;
+          run_id?: string;
+          state?: string;
+          trigger?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'booth_reload_requests_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: false;
+            referencedRelation: 'events';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'booth_reload_requests_run_id_event_id_fkey';
+            columns: ['run_id', 'event_id'];
+            isOneToOne: false;
+            referencedRelation: 'booth_runs';
+            referencedColumns: ['id', 'event_id'];
+          },
+        ];
+      };
+      booth_runs: {
+        Row: {
+          accounting_version: number;
+          blockers: string[];
+          connection_generation: number;
+          connection_id: string | null;
+          created_at: string;
+          device_hash: string | null;
+          ended_at: string | null;
+          event_id: string;
+          film_loaded_confirmed: boolean;
+          finish_requested_at: string | null;
+          finished_at: string | null;
+          guided_access_confirmed: boolean;
+          id: string;
+          observed_at: string | null;
+          power_confirmed: boolean;
+          printer_id: string | null;
+          readiness_observation: NonNullable<Json>;
+          received_at: string | null;
+          revision: number;
           state: string;
         };
         ComputedFields: never;
         Insert: {
+          accounting_version?: number;
+          blockers?: string[];
+          connection_generation?: number;
           connection_id?: string | null;
           created_at?: string;
+          device_hash?: string | null;
           ended_at?: string | null;
           event_id: string;
+          film_loaded_confirmed?: boolean;
+          finish_requested_at?: string | null;
+          finished_at?: string | null;
+          guided_access_confirmed?: boolean;
           id?: string;
+          observed_at?: string | null;
+          power_confirmed?: boolean;
+          printer_id?: string | null;
+          readiness_observation?: NonNullable<Json>;
+          received_at?: string | null;
+          revision?: number;
           state: string;
         };
         Update: {
+          accounting_version?: number;
+          blockers?: string[];
+          connection_generation?: number;
           connection_id?: string | null;
           created_at?: string;
+          device_hash?: string | null;
           ended_at?: string | null;
           event_id?: string;
+          film_loaded_confirmed?: boolean;
+          finish_requested_at?: string | null;
+          finished_at?: string | null;
+          guided_access_confirmed?: boolean;
           id?: string;
+          observed_at?: string | null;
+          power_confirmed?: boolean;
+          printer_id?: string | null;
+          readiness_observation?: NonNullable<Json>;
+          received_at?: string | null;
+          revision?: number;
           state?: string;
         };
         Relationships: [
@@ -247,6 +413,7 @@ export type Database = {
       };
       captures: {
         Row: {
+          accounting_version: number;
           captured_at: string;
           created_at: string;
           event_id: string;
@@ -254,9 +421,11 @@ export type Database = {
           reported_after_stop: boolean;
           run_id: string;
           session_id: string;
+          shutter_operation_id: string | null;
         };
         ComputedFields: never;
         Insert: {
+          accounting_version?: number;
           captured_at: string;
           created_at?: string;
           event_id: string;
@@ -264,8 +433,10 @@ export type Database = {
           reported_after_stop?: boolean;
           run_id: string;
           session_id: string;
+          shutter_operation_id?: string | null;
         };
         Update: {
+          accounting_version?: number;
           captured_at?: string;
           created_at?: string;
           event_id?: string;
@@ -273,6 +444,7 @@ export type Database = {
           reported_after_stop?: boolean;
           run_id?: string;
           session_id?: string;
+          shutter_operation_id?: string | null;
         };
         Relationships: [
           {
@@ -293,6 +465,8 @@ export type Database = {
       };
       events: {
         Row: {
+          accounting_version: number;
+          booking_review_required: boolean;
           client_email: string | null;
           client_name: string | null;
           client_phone: string | null;
@@ -301,7 +475,7 @@ export type Database = {
           film_package_count: number;
           id: string;
           media_removal_state: string;
-          original_print_allowance: number;
+          original_print_allowance: number | null;
           redacted_at: string | null;
           revision: number;
           starts_at: string | null;
@@ -312,6 +486,8 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          accounting_version?: number;
+          booking_review_required?: boolean;
           client_email?: string | null;
           client_name?: string | null;
           client_phone?: string | null;
@@ -320,7 +496,7 @@ export type Database = {
           film_package_count: number;
           id?: string;
           media_removal_state?: string;
-          original_print_allowance: number;
+          original_print_allowance?: number | null;
           redacted_at?: string | null;
           revision?: number;
           starts_at?: string | null;
@@ -330,6 +506,8 @@ export type Database = {
           venue_address?: string | null;
         };
         Update: {
+          accounting_version?: number;
+          booking_review_required?: boolean;
           client_email?: string | null;
           client_name?: string | null;
           client_phone?: string | null;
@@ -338,7 +516,7 @@ export type Database = {
           film_package_count?: number;
           id?: string;
           media_removal_state?: string;
-          original_print_allowance?: number;
+          original_print_allowance?: number | null;
           redacted_at?: string | null;
           revision?: number;
           starts_at?: string | null;
@@ -422,6 +600,7 @@ export type Database = {
       };
       guest_sessions: {
         Row: {
+          accounting_version: number;
           closed_at: string | null;
           created_at: string;
           event_id: string;
@@ -431,6 +610,7 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          accounting_version?: number;
           closed_at?: string | null;
           created_at?: string;
           event_id: string;
@@ -439,6 +619,7 @@ export type Database = {
           state?: string;
         };
         Update: {
+          accounting_version?: number;
           closed_at?: string | null;
           created_at?: string;
           event_id?: string;
@@ -465,7 +646,9 @@ export type Database = {
       };
       operation_receipts: {
         Row: {
+          accounting_version: number;
           actor_scope: string;
+          committed_revision: number | null;
           created_at: string;
           event_id: string | null;
           id: string;
@@ -476,7 +659,9 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          accounting_version?: number;
           actor_scope: string;
+          committed_revision?: number | null;
           created_at?: string;
           event_id?: string | null;
           id?: string;
@@ -486,7 +671,9 @@ export type Database = {
           result: NonNullable<Json>;
         };
         Update: {
+          accounting_version?: number;
           actor_scope?: string;
+          committed_revision?: number | null;
           created_at?: string;
           event_id?: string | null;
           id?: string;
@@ -507,10 +694,13 @@ export type Database = {
       };
       print_attempt_events: {
         Row: {
+          accounting_version: number;
+          actor_id: string | null;
           actor_scope: string;
           attempt_id: string;
           created_at: string;
           evidence_kind: string | null;
+          evidence_policy_version: string | null;
           id: string;
           observed_at: string | null;
           reason: string | null;
@@ -518,20 +708,26 @@ export type Database = {
         };
         ComputedFields: never;
         Insert: {
+          accounting_version?: number;
+          actor_id?: string | null;
           actor_scope: string;
           attempt_id: string;
           created_at?: string;
           evidence_kind?: string | null;
+          evidence_policy_version?: string | null;
           id?: string;
           observed_at?: string | null;
           reason?: string | null;
           state: string;
         };
         Update: {
+          accounting_version?: number;
+          actor_id?: string | null;
           actor_scope?: string;
           attempt_id?: string;
           created_at?: string;
           evidence_kind?: string | null;
+          evidence_policy_version?: string | null;
           id?: string;
           observed_at?: string | null;
           reason?: string | null;
@@ -550,13 +746,19 @@ export type Database = {
       print_attempts: {
         Row: {
           accepted_at: string | null;
+          accounting_version: number;
           capture_id: string | null;
+          connection_generation: number | null;
           connection_id: string;
           created_at: string;
+          dispatch_id: string | null;
+          dispatched_at: string | null;
           event_id: string;
+          evidence_policy_version: string | null;
           id: string;
           initiating_admin_session_id: string | null;
           kind: string;
+          printer_id: string | null;
           request_key: string;
           resolved_at: string | null;
           run_id: string | null;
@@ -567,13 +769,19 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           accepted_at?: string | null;
+          accounting_version?: number;
           capture_id?: string | null;
+          connection_generation?: number | null;
           connection_id: string;
           created_at?: string;
+          dispatch_id?: string | null;
+          dispatched_at?: string | null;
           event_id: string;
+          evidence_policy_version?: string | null;
           id?: string;
           initiating_admin_session_id?: string | null;
           kind: string;
+          printer_id?: string | null;
           request_key: string;
           resolved_at?: string | null;
           run_id?: string | null;
@@ -583,13 +791,19 @@ export type Database = {
         };
         Update: {
           accepted_at?: string | null;
+          accounting_version?: number;
           capture_id?: string | null;
+          connection_generation?: number | null;
           connection_id?: string;
           created_at?: string;
+          dispatch_id?: string | null;
+          dispatched_at?: string | null;
           event_id?: string;
+          evidence_policy_version?: string | null;
           id?: string;
           initiating_admin_session_id?: string | null;
           kind?: string;
+          printer_id?: string | null;
           request_key?: string;
           resolved_at?: string | null;
           run_id?: string | null;

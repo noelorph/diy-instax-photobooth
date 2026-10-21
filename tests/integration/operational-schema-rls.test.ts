@@ -3,7 +3,13 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { localSupabase, localSupabaseStatus } from '../fixtures/local-supabase';
+import {
+  localSupabase,
+  localSupabaseStatus,
+  ownerInsert,
+  cleanupEvents,
+  ownerUpdate,
+} from '../fixtures/local-supabase';
 
 const tables = [
   'booth_runs',
@@ -51,9 +57,7 @@ describe('operational schema and browser boundary', () => {
   const ids: string[] = [];
   afterEach(async () => {
     if (ids.length) {
-      const runs = await local.service.from('booth_runs').delete().in('event_id', ids);
-      if (runs.error && runs.error.code !== 'PGRST205') throw runs.error;
-      const events = await local.service.from('events').delete().in('id', ids.splice(0));
+      const events = await cleanupEvents(ids.splice(0));
       if (events.error) throw events.error;
     }
     await local.cleanup();
@@ -66,11 +70,7 @@ describe('operational schema and browser boundary', () => {
   async function event() {
     const id = randomUUID();
     ids.push(id);
-    const result = await local.service
-      .from('events')
-      .insert({ id, ...booking })
-      .select()
-      .single();
+    const result = await ownerInsert('events', { id, ...booking });
     expect(result.error).toBeNull();
     return id;
   }
@@ -129,9 +129,7 @@ describe('operational schema and browser boundary', () => {
         (await client.from('events').update({ state: 'Live', revision: 3 }).eq('id', id)).error
           ?.code
       ).toBe('42501');
-    expect(
-      (await local.service.from('events').update({ state: 'Live', revision: 3 }).eq('id', id)).error
-    ).toBeNull();
+    expect((await ownerUpdate('events', id, { state: 'Live', revision: 3 })).error).toBeNull();
     expect(
       (
         await owner.client
@@ -144,22 +142,19 @@ describe('operational schema and browser boundary', () => {
     const deleted = await event();
     expect(
       (
-        await local.service
-          .from('events')
-          .update({
-            deleted_at: new Date().toISOString(),
-            media_removal_state: 'pending',
-            title: null,
-            client_name: null,
-            client_email: null,
-            client_phone: null,
-            venue_address: null,
-            time_zone: null,
-            starts_at: null,
-            ends_at: null,
-            revision: 2,
-          })
-          .eq('id', deleted)
+        await ownerUpdate('events', deleted, {
+          deleted_at: new Date().toISOString(),
+          media_removal_state: 'pending',
+          title: null,
+          client_name: null,
+          client_email: null,
+          client_phone: null,
+          venue_address: null,
+          time_zone: null,
+          starts_at: null,
+          ends_at: null,
+          revision: 2,
+        })
       ).error
     ).toBeNull();
     expect((await owner.client.from('events').select().eq('id', deleted)).data).toEqual([]);
@@ -171,8 +166,7 @@ describe('operational schema and browser boundary', () => {
     const owner = await admin();
     const eventId = await event();
     expect(
-      (await local.service.from('booth_runs').insert({ event_id: eventId, state: 'Prepared' }))
-        .error
+      (await ownerInsert('booth_runs', { event_id: eventId, state: 'Prepared' })).error
     ).toBeNull();
     expect(
       (await owner.client.from('booth_runs').select().eq('event_id', eventId)).data
