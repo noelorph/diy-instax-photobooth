@@ -1,8 +1,15 @@
 // @vitest-environment node
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { expect, it } from 'vitest';
+import { expect, it, vi } from 'vitest';
 import { localOwnerSql, localSupabaseStatus } from '../fixtures/local-supabase';
+const routeMocks = vi.hoisted(() => ({ admin: vi.fn(), rpc: vi.fn() }));
+vi.mock('server-only', () => ({}));
+vi.mock('@/lib/operations/admin-authority', () => ({ requireAdminRequest: routeMocks.admin }));
+vi.mock('@/lib/operations/privileged-client', () => ({
+  createPrivilegedClient: () => ({ rpc: routeMocks.rpc }),
+}));
+import { POST as oldStockAddition } from '@/app/api/admin/film-stock/additions/route';
 
 function transaction(sql: string) {
   localSupabaseStatus();
@@ -23,7 +30,7 @@ function transaction(sql: string) {
       '-c',
       `begin; ${sql}; rollback;`,
     ],
-    { encoding: 'utf8' }
+    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
   );
   return output
     .trim()
@@ -188,10 +195,73 @@ it('creates v2 Drafts without an allowance and guards converted booking edits an
   });
 });
 
-it('leaves already redacted terminal data and deleted Draft data erased', () => {
+it('executes retired stock, Test, waste, redaction, handoff and guest RPCs under activated role', () => {
+  const [result] = transaction(`do $$ begin perform private.activate_package_accounting(); end $$;
+    set local role service_role;
+    do $$ declare command text; message text; denied integer:=0; begin
+      foreach command in array array[
+        'select public.add_film_stock(null::uuid,null::uuid,null::uuid,1,''test'')',
+        'select public.reserve_test_attempt(null::uuid,null::uuid,null::uuid,null::uuid,null::uuid)',
+        'select public.mark_wasted_film(null::uuid,null::uuid,null::uuid,null::uuid,''test'')',
+        'select public.begin_event_redaction(null::uuid,null::uuid,null::uuid,1,null::uuid,''redact_client'',null::text)',
+        'select public.prepare_booth_handoff(null::uuid,null::uuid,null::uuid,1,null::uuid,null::uuid,''{}''::jsonb)',
+        'select public.open_guest_session(null::text,null::uuid,null::uuid)'
+      ] loop
+        begin
+          execute command;
+          raise exception 'Retired RPC remained executable: %',command;
+        exception when insufficient_privilege then
+          get stacked diagnostics message=message_text;
+          if message not like 'permission denied for function %' then raise; end if;
+          denied:=denied+1;
+        end;
+      end loop;
+      if denied<>6 then raise exception 'Expected six retired RPC denials, got %',denied; end if;
+    end $$;
+    reset role;
+    select jsonb_build_object('denied',6,'version',(select active_creation_version from private.booth_contract_guard where id))::text`);
+  expect(result).toEqual({ denied: 6, version: 2 });
+  expect(
+    localOwnerSql('select active_creation_version from private.booth_contract_guard where id')[0]
+      .active_creation_version
+  ).toBe(1);
+}, 30000);
+
+it('denies an old stock HTTP route when its RPC executes in an activated disposable transaction', async () => {
+  routeMocks.admin.mockResolvedValue({ userId: randomUUID(), sessionId: randomUUID() });
+  routeMocks.rpc.mockImplementation(async (name: string) => {
+    expect(name).toBe('add_film_stock');
+    try {
+      transaction(`do $$ begin perform private.activate_package_accounting(); end $$;
+        set local role service_role;
+        select public.add_film_stock(null::uuid,null::uuid,null::uuid,1,'test')`);
+    } catch (error) {
+      const stderr = String((error as { stderr?: string | Buffer }).stderr);
+      if (!stderr.includes('permission denied for function add_film_stock')) throw error;
+      return { data: null, error: { message: 'permission denied for function add_film_stock' } };
+    }
+    throw new Error('Retired stock RPC unexpectedly executed.');
+  });
+  const response = await oldStockAddition(
+    new Request('https://booth.test/api/admin/film-stock/additions', {
+      method: 'POST',
+      headers: { origin: 'https://booth.test', 'content-type': 'application/json' },
+      body: JSON.stringify({ operationKey: randomUUID(), sheets: 1, reason: 'test' }),
+    })
+  );
+  expect(response.status).toBe(503);
+  expect((await response.json()).code).toBe('operation_unavailable');
+  expect(routeMocks.rpc).toHaveBeenCalledOnce();
+  expect(
+    localOwnerSql('select active_creation_version from private.booth_contract_guard where id')[0]
+      .active_creation_version
+  ).toBe(1);
+}, 30000);
+
+it('blocks pending legacy media cleanup, then preserves erased data after cleanup completes', () => {
   const redactedId = randomUUID(),
     deletedId = randomUUID();
-  const [report, after] = transaction(`
+  const [blocked, report, after] = transaction(`
     insert into public.events(id,state,title,client_name,client_email,client_phone,venue_address,
       time_zone,starts_at,ends_at,film_package_count,original_print_allowance,redacted_at,media_removal_state)
       values('${redactedId}','Completed','Historical',null,null,null,'Hall','Asia/Manila',
@@ -199,17 +269,30 @@ it('leaves already redacted terminal data and deleted Draft data erased', () => 
     insert into public.events(id,state,film_package_count,original_print_allowance,deleted_at,media_removal_state)
       values('${deletedId}','Draft',1,10,clock_timestamp(),'pending');
     select private.package_cutover_preflight()::text;
+    do $$ begin perform private.activate_package_accounting();
+      raise exception 'Expected pending media to block cutover';
+      exception when others then
+        if sqlerrm not like 'package_cutover_blocked:%' then raise; end if;
+    end $$;
+    update public.events set media_removal_state='complete',revision=revision+1
+      where id in ('${redactedId}','${deletedId}');
+    select private.package_cutover_preflight()::text;
     do $$ begin perform private.activate_package_accounting(); end $$;
     select jsonb_build_object('redacted',(select jsonb_build_object('version',accounting_version,'client',client_name,
       'media',media_removal_state) from public.events where id='${redactedId}'),
       'deleted',(select jsonb_build_object('version',accounting_version,'title',title,'client',client_name)
         from public.events where id='${deletedId}'))::text`);
+  expect(blocked).toMatchObject({
+    ready: false,
+    blockingLegacyWork: { pendingMediaCleanup: 2 },
+  });
   expect(report).toMatchObject({
     ready: true,
+    blockingLegacyWork: { pendingMediaCleanup: 0 },
     immutableHistory: { redactedEvents: 1, deletedDrafts: 1 },
   });
   expect(after).toEqual({
-    redacted: { version: 1, client: null, media: 'pending' },
+    redacted: { version: 1, client: null, media: 'complete' },
     deleted: { version: 1, title: null, client: null },
   });
 });
