@@ -5,7 +5,7 @@ import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createPackageFixture } from '../fixtures/package-contract';
 import { localOwnerSql } from '../fixtures/local-supabase';
 
-async function withGuardHeld<T>(work: () => Promise<T>) {
+async function withGuardHeld<T>(work: () => Promise<T>, duringHold?: () => void) {
   const child = spawn('docker', [
     'exec',
     '-i',
@@ -35,7 +35,9 @@ async function withGuardHeld<T>(work: () => Promise<T>) {
   });
   expect(child.exitCode).toBeNull();
   const pending = work();
-  await new Promise((resolve) => setTimeout(resolve, 1500));
+  await new Promise((resolve) => setTimeout(resolve, 750));
+  duringHold?.();
+  await new Promise((resolve) => setTimeout(resolve, 750));
   child.stdin.write('commit;\n\\q\n');
   const result = await pending;
   await done;
@@ -124,9 +126,114 @@ it('pauses immediately, finishes after unresolved work settles, and permits a ne
   }
 }, 30000);
 
-it('records Draft deletion as pending until private media is gone', async () => {
+it('resumes a ready Paused run but refuses to resume while a print is Pending', async () => {
   const f = await createPackageFixture();
   try {
+    f.seedRun();
+    const pause = await f.admin('pause', { runId: f.runId, expectedRevision: 2 });
+    expect(pause.error).toBeNull();
+    const fresh = () =>
+      localOwnerSql(
+        `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+      );
+    fresh();
+    const resume = await f.admin('resume', {
+      runId: f.runId,
+      expectedRevision: pause.data.revision,
+    });
+    expect(resume.error).toBeNull();
+    expect(resume.data.receipt.result.state).toBe('Active');
+    const sessionId = localOwnerSql(
+      `insert into public.guest_sessions(event_id,run_id,accounting_version) values('${f.eventId}','${f.runId}',2) returning id`
+    )[0].id;
+    const captureId = localOwnerSql(
+      `insert into public.captures(event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) values('${f.eventId}','${f.runId}','${sessionId}',2,clock_timestamp(),'${randomUUID()}') returning id`
+    )[0].id;
+    localOwnerSql(
+      `insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) values('${f.eventId}','${f.runId}','${sessionId}','${captureId}',2,'Guest','Pending','${randomUUID()}','${randomUUID()}')`
+    );
+    const secondPause = await f.admin('pause', {
+      runId: f.runId,
+      expectedRevision: resume.data.revision,
+    });
+    expect(secondPause.error).toBeNull();
+    fresh();
+    expect(
+      (await f.admin('resume', { runId: f.runId, expectedRevision: secondPause.data.revision }))
+        .error?.message
+    ).toBe('not_ready');
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('audits Finish exactly once and does not audit its receipt replay', async () => {
+  const f = await createPackageFixture();
+  try {
+    f.seedRun();
+    const key = randomUUID();
+    const body = { runId: f.runId, expectedRevision: 2 };
+    const finish = await f.admin('finish', body, key);
+    expect(finish.error).toBeNull();
+    const replay = await f.admin('finish', body, key);
+    expect(replay.error).toBeNull();
+    expect(replay.data.replayed).toBe(true);
+    expect(
+      localOwnerSql(
+        `select count(*)::integer n from public.activity_events where event_id='${f.eventId}' and operation_kind='finish'`
+      )[0].n
+    ).toBe(1);
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('rejects an Admin receipt replay when its session is revoked during the guard wait', async () => {
+  const f = await createPackageFixture();
+  try {
+    f.seedRun();
+    const key = randomUUID();
+    const body = { runId: f.runId, expectedRevision: 2 };
+    expect((await f.admin('pause', body, key)).error).toBeNull();
+    const replay = await withGuardHeld(
+      () => Promise.resolve(f.admin('pause', body, key)),
+      () => localOwnerSql(`delete from auth.sessions where id='${f.adminSessionId}'`)
+    );
+    expect(replay.error?.message).toBe('access_required');
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('rejects a deleted Draft receipt read when its Admin session expires during the guard wait', async () => {
+  const f = await createPackageFixture();
+  try {
+    const begun = await f.admin('begin_delete_draft', { expectedRevision: 1 });
+    expect(begun.error).toBeNull();
+    localOwnerSql(
+      `update auth.sessions set not_after=clock_timestamp()+interval '1 second' where id='${f.adminSessionId}'`
+    );
+    const read = await withGuardHeld(() =>
+      Promise.resolve(f.readAdmin(begun.data.receipt.operationId))
+    );
+    expect(read.error?.message).toBe('access_required');
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('records Draft deletion as pending until private media is gone', async () => {
+  const f = await createPackageFixture();
+  const mediaPath = `${f.eventId}/deletion-proof.txt`;
+  let bucketCreated = false;
+  try {
+    const bucket = await f.local.service.storage.createBucket('event_media', { public: false });
+    if (bucket.error && !bucket.error.message.includes('already exists')) throw bucket.error;
+    bucketCreated = !bucket.error;
+    const uploaded = await f.local.service.storage
+      .from('event_media')
+      .upload(mediaPath, new Blob(['pending media'], { type: 'text/plain' }));
+    expect(uploaded.error).toBeNull();
     const begun = await f.admin('begin_delete_draft', { expectedRevision: 1 });
     expect(begun.error).toBeNull();
     const receipt = await f.readAdmin(begun.data.receipt.operationId);
@@ -136,6 +243,13 @@ it('records Draft deletion as pending until private media is gone', async () => 
       localOwnerSql(`select media_removal_state from public.events where id='${f.eventId}'`)[0]
         .media_removal_state
     ).toBe('pending');
+    expect(
+      (await f.admin('complete_delete_draft', { expectedRevision: begun.data.revision })).error
+        ?.message
+    ).toBe('not_ready');
+    expect(
+      (await f.local.service.storage.from('event_media').remove([mediaPath])).error
+    ).toBeNull();
     const done = await f.admin('complete_delete_draft', { expectedRevision: begun.data.revision });
     expect(done.error).toBeNull();
     expect(
@@ -155,6 +269,8 @@ it('records Draft deletion as pending until private media is gone', async () => 
       ).error
     ).not.toBeNull();
   } finally {
+    await f.local.service.storage.from('event_media').remove([mediaPath]);
+    if (bucketCreated) await f.local.service.storage.deleteBucket('event_media');
     await f.dispose();
   }
 }, 30000);

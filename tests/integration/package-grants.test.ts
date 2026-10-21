@@ -180,6 +180,7 @@ it('activates a one-use initial handoff only after local sign-out and cannot ove
     expect((await issue()).error?.message).toBe('access_required');
     localOwnerSql(`delete from auth.sessions where id='${f.adminSessionId}'`);
     expect((await issue()).error).toBeNull();
+    expect((await f.readBooth()).error?.message).toBe('access_required');
     const body = { handoffId, deviceHash: f.deviceHash };
     expect((await f.booth('confirm_handoff', body)).error).toBeNull();
     expect(
@@ -190,6 +191,68 @@ it('activates a one-use initial handoff only after local sign-out and cannot ove
       `update public.booth_handoffs set expires_at=clock_timestamp()-interval '1 second' where id='${handoffId}'`
     );
     expect((await issue()).error?.message).toBe('access_required');
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('does not replay an issued handoff after Pause or Finish', async () => {
+  const f = await createPackageFixture();
+  try {
+    const setup = await f.reportSetup();
+    const start = await f.admin('start', {
+      expectedRevision: 1,
+      readinessWindowId: setup.data.readinessWindowId,
+      deviceHash: f.deviceHash,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+    });
+    expect(start.error).toBeNull();
+    const { handoffId, runId } = start.data.receipt.result;
+    const key = randomUUID();
+    const issue = () =>
+      f.local.service.rpc('package_issue_handoff', {
+        p_handoff_id: handoffId,
+        p_device_hash: f.deviceHash,
+        p_operation_id: key,
+        p_grant_hash: f.grantHash,
+      });
+    localOwnerSql(`delete from auth.sessions where id='${f.adminSessionId}'`);
+    expect((await issue()).error).toBeNull();
+    const confirmKey = randomUUID();
+    const confirmBody = { handoffId, deviceHash: f.deviceHash };
+    expect((await f.booth('confirm_handoff', confirmBody, confirmKey)).error).toBeNull();
+    const signed = await f.local.signIn(f.adminUser);
+    const newSessionId = JSON.parse(
+      Buffer.from(signed.session.access_token.split('.')[1], 'base64url').toString()
+    ).session_id;
+    const admin = (operation: string, expectedRevision: number) =>
+      f.local.service.rpc('package_admin_operation', {
+        p_admin_user_id: f.adminUser.id,
+        p_admin_session_id: newSessionId,
+        p_operation: operation,
+        p_operation_id: randomUUID(),
+        p_payload: { eventId: f.eventId, runId, expectedRevision },
+      });
+    const revision = (
+      await f.local.service.rpc('package_admin_read', {
+        p_admin_user_id: f.adminUser.id,
+        p_admin_session_id: newSessionId,
+        p_event_id: f.eventId,
+      })
+    ).data.revision;
+    const paused = await admin('pause', revision);
+    expect(paused.error).toBeNull();
+    expect((await issue()).error?.message).toBe('access_required');
+    expect((await f.booth('confirm_handoff', confirmBody, confirmKey)).error?.message).toBe(
+      'access_required'
+    );
+    const finished = await admin('finish', paused.data.revision);
+    expect(finished.error).toBeNull();
+    expect((await issue()).error?.message).toBe('access_required');
+    expect((await f.booth('confirm_handoff', confirmBody, confirmKey)).error?.message).toBe(
+      'access_required'
+    );
   } finally {
     await f.dispose();
   }
