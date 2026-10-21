@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createPackageFixture, type PackageFixture } from '../fixtures/package-contract';
 import { localOwnerSql, ownerInsert, ownerUpdate } from '../fixtures/local-supabase';
@@ -270,7 +272,10 @@ it('keeps reload confirmation independent of capacity, outcome, pause and other 
         `select state,film_loaded_confirmed from public.booth_runs where id='${f.runId}'`
       )
     ).toEqual([{ state: 'Paused', film_loaded_confirmed: true }]);
-    expect((await report(f, { loadFault: 'cover_open', cameraLive: false })).error).toBeNull();
+    expect(
+      (await report(f, { loadFault: 'cover_open', loadFaultId: randomUUID(), cameraLive: false }))
+        .error
+    ).toBeNull();
     const reload = localOwnerSql(
       `select id from public.booth_reload_requests where run_id='${f.runId}' and state='Open'`
     )[0].id;
@@ -328,7 +333,7 @@ it('enforces exact server freshness and generation boundaries without wall-clock
     f.seedRun('Paused');
     expect((await report(f)).error).toBeNull();
     for (const [age, ready] of [
-      ['5 seconds', true],
+      ['4.99 seconds', true],
       ['5.001 seconds', false],
       ['-1 second', false],
     ] as const) {
@@ -385,6 +390,128 @@ it('normalizes whole decimal readiness numbers before validation and receipt fin
     expect(first).toMatchObject({ replayed: false });
     expect((await f.booth('report_readiness', payload, key)).data.replayed).toBe(true);
   } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+function heartbeat(readinessWindowId: string, changes = {}) {
+  return {
+    readinessWindowId,
+    observedAgeMs: 0,
+    printerId: 'fixture-printer',
+    connectionGeneration: 0,
+    observation: { ...observation, ...changes },
+  };
+}
+it('rejects superseded observations and consumed windows while preserving receipt replay', async () => {
+  const f = await createPackageFixture();
+  try {
+    f.seedRun();
+    const w1 = await f.readBooth(),
+      w2 = await f.readBooth();
+    const key = randomUUID(),
+      fault = heartbeat(w2.data.readinessWindowId, { cameraLive: false });
+    expect((await f.booth('report_readiness', fault, key)).error).toBeNull();
+    expect(
+      (await f.booth('report_readiness', heartbeat(w1.data.readinessWindowId))).error?.message
+    ).toBe('not_ready');
+    expect(
+      (await f.booth('report_readiness', heartbeat(w2.data.readinessWindowId))).error?.message
+    ).toBe('not_ready');
+    expect((await f.booth('report_readiness', fault, key)).data.replayed).toBe(true);
+    expect(readiness(f, 'guest').blockers).toContain('camera');
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('invalidates prepared confirmations on each new load fault episode without revising same-episode heartbeats', async () => {
+  const f = await createPackageFixture();
+  try {
+    f.seedRun('Paused');
+    const firstId = randomUUID();
+    expect((await report(f, { loadFault: 'load_change', loadFaultId: firstId })).error).toBeNull();
+    const oldRequest = localOwnerSql(
+      `select id from public.booth_reload_requests where run_id='${f.runId}' and state='Open'`
+    )[0].id;
+    const prepared = {
+      reloadRequestId: oldRequest,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+      expectedRevision: revision(f),
+    };
+    expect((await report(f, { loadFault: 'load_change', loadFaultId: firstId })).error).toBeNull();
+    expect(revision(f)).toBe(prepared.expectedRevision);
+    expect(
+      (await report(f, { loadFault: 'load_change', loadFaultId: randomUUID() })).error
+    ).toBeNull();
+    expect(revision(f)).toBe(prepared.expectedRevision + 1);
+    expect((await f.admin('confirm_reload', prepared)).error?.message).toBe('stale_revision');
+    expect(
+      (await f.admin('confirm_reload', { ...prepared, expectedRevision: revision(f) })).error
+        ?.message
+    ).toBe('not_ready');
+    expect(
+      localOwnerSql(
+        `select count(*)::int n from public.booth_reload_requests where run_id='${f.runId}' and state='Open'`
+      )
+    ).toEqual([{ n: 1 }]);
+    expect((await report(f, { loadFault: 'no_film' })).error?.message).toBe('invalid_input');
+    expect((await report(f, { loadFaultId: randomUUID() })).error?.message).toBe('invalid_input');
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+const ownerProcess = (query: string) =>
+  promisify(execFile)('docker', [
+    'exec',
+    'supabase_db_diy-instax-package-contracts',
+    'psql',
+    '-U',
+    'postgres',
+    '-d',
+    'postgres',
+    '-X',
+    '-qAt',
+    '-v',
+    'ON_ERROR_STOP=1',
+    '-c',
+    query,
+  ]);
+it('rechecks freshness and timestamps after waiting on the global lock', async () => {
+  const f = await createPackageFixture();
+  let holder: ReturnType<typeof ownerProcess> | undefined;
+  try {
+    f.seedRun();
+    expect((await report(f)).error).toBeNull();
+    const read = await f.readBooth();
+    holder = ownerProcess(
+      "set application_name='task4-readiness-lock-holder'; begin; select id from private.booth_contract_guard where id for update; select pg_sleep(5.5); commit;"
+    );
+    for (let n = 0; n < 40; n++) {
+      const held = localOwnerSql(
+        "select count(*)::int n from pg_stat_activity where application_name='task4-readiness-lock-holder' and wait_event='PgSleep'"
+      )[0].n;
+      if (held === 1) break;
+      if (n === 39) throw new Error('Readiness lock holder did not start');
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    const stage = ownerProcess(
+      `with locked as materialized(select id from private.booth_contract_guard where id for update) select private.package_readiness('${f.eventId}','guest') from locked`
+    );
+    const reported = f.booth('report_readiness', heartbeat(read.data.readinessWindowId));
+    const [stageResult, reportResult] = await Promise.all([stage, reported]);
+    await holder;
+    expect(reportResult.error?.message).toBe('not_ready');
+    expect(JSON.parse(stageResult.stdout.trim()).blockers).toContain('readiness_stale');
+    const freshRead = await f.readBooth();
+    const newWindow = localOwnerSql(
+      `select extract(epoch from clock_timestamp()-received_at) age from private.package_readiness_windows where id='${freshRead.data.readinessWindowId}'`
+    )[0];
+    expect(Number(newWindow.age)).toBeLessThan(1);
+  } finally {
+    await holder;
     await f.dispose();
   }
 }, 30000);

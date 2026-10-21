@@ -10,16 +10,19 @@ const printerId = z
   .min(1)
   .max(128)
   .refine((value) => /\S/.test(value));
-export const readinessObservationSchema = z.strictObject({
-  cameraPermission: z.boolean(),
-  cameraLive: z.boolean(),
-  serverReachable: z.boolean(),
-  printerConnected: z.boolean(),
-  printerReady: z.boolean(),
-  oldJobCleared: z.boolean(),
-  mediaAvailable: z.boolean().optional(),
-  loadFault: z.enum(['no_film', 'cover_open', 'load_change']).optional(),
-});
+export const readinessObservationSchema = z
+  .strictObject({
+    cameraPermission: z.boolean(),
+    cameraLive: z.boolean(),
+    serverReachable: z.boolean(),
+    printerConnected: z.boolean(),
+    printerReady: z.boolean(),
+    oldJobCleared: z.boolean(),
+    mediaAvailable: z.boolean().optional(),
+    loadFault: z.enum(['no_film', 'cover_open', 'load_change']).optional(),
+    loadFaultId: z.uuid().optional(),
+  })
+  .refine((value) => (value.loadFault === undefined) === (value.loadFaultId === undefined));
 const readinessReportSchema = z.strictObject({
   readinessWindowId: z.uuid(),
   observedAgeMs: z.number().int().min(0).max(5_000),
