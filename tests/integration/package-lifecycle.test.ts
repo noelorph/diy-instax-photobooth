@@ -44,6 +44,142 @@ async function withGuardHeld<T>(work: () => Promise<T>, duringHold?: () => void)
   return result;
 }
 
+async function withEventHeld<T>(
+  eventId: string,
+  work: () => Promise<T>,
+  duringHold: () => void
+): Promise<T> {
+  const child = spawn('docker', [
+    'exec',
+    '-i',
+    'supabase_db_diy-instax-package-contracts',
+    'psql',
+    '-U',
+    'postgres',
+    '-d',
+    'postgres',
+    '-X',
+    '-qAt',
+    '-v',
+    'ON_ERROR_STOP=1',
+  ]);
+  const done = once(child, 'exit');
+  let output = '';
+  child.stdout.on('data', (chunk: Buffer) => {
+    output += chunk.toString();
+  });
+  child.stdin.write(
+    `begin;\nselect id from public.events where id='${eventId}' for update;\nselect 'HOLDER:'||pg_backend_pid();\n`
+  );
+  let pending: Promise<T> | undefined;
+  try {
+    const deadline = Date.now() + 10000;
+    while (!/HOLDER:\d+\r?\n/.test(output)) {
+      if (child.exitCode !== null || Date.now() > deadline)
+        throw new Error('Event holder did not acquire lock');
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    const holder = Number(output.match(/HOLDER:(\d+)/)?.[1]);
+    expect(Number.isInteger(holder)).toBe(true);
+    pending = work();
+    // Observe the actual blocker; elapsed time cannot prove the operation reached the Event lock.
+    while (
+      !localOwnerSql(
+        `select exists(select 1 from pg_stat_activity where ${holder}=any(pg_blocking_pids(pid))) waiting`
+      )[0].waiting
+    ) {
+      if (Date.now() > deadline) throw new Error('Operation did not wait on the Event holder');
+      await new Promise((resolve) => setTimeout(resolve, 25));
+    }
+    duringHold();
+  } finally {
+    child.stdin.end('rollback;\n\\q\n');
+    await done;
+    // Settle the operation before its caller removes fixtures, including barrier failures.
+    if (pending) await pending;
+  }
+  return pending!;
+}
+
+it.each([
+  ['cancel', 'revoked'],
+  ['cancel', 'expired'],
+  ['begin_delete_draft', 'revoked'],
+  ['begin_delete_draft', 'expired'],
+])(
+  'rejects lost authority while waiting for the Event lock: %s / %s',
+  async (operation, loss) => {
+    const f = await createPackageFixture();
+    try {
+      const original = localOwnerSql(
+        `select state,revision,deleted_at,client_name,client_email,client_phone,venue_address from public.events where id='${f.eventId}'`
+      )[0];
+      const result = await withEventHeld(
+        f.eventId,
+        () => Promise.resolve(f.admin(operation, { expectedRevision: original.revision })),
+        () =>
+          localOwnerSql(
+            loss === 'revoked'
+              ? `delete from auth.sessions where id='${f.adminSessionId}'`
+              : `update auth.sessions set not_after=clock_timestamp()-interval '1 second' where id='${f.adminSessionId}'`
+          )
+      );
+      expect(result.error?.message).toBe('access_required');
+      const event = localOwnerSql(
+        `select state,revision,deleted_at,client_name,client_email,client_phone,venue_address from public.events where id='${f.eventId}'`
+      )[0];
+      expect(event).toMatchObject({
+        state: 'Draft',
+        revision: original.revision,
+        deleted_at: null,
+      });
+      expect(event).toEqual(original);
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.operation_receipts where event_id='${f.eventId}'`
+        )[0].n
+      ).toBe(0);
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.activity_events where event_id='${f.eventId}'`
+        )[0].n
+      ).toBe(0);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
+
+it.each(['cancel', 'begin_delete_draft'])(
+  'allows still-authorized %s after the Event lock wait',
+  async (operation) => {
+    const f = await createPackageFixture();
+    try {
+      const result = await withEventHeld(
+        f.eventId,
+        () => Promise.resolve(f.admin(operation, { expectedRevision: 1 })),
+        () => {}
+      );
+      expect(result.error).toBeNull();
+      expect(result.data.revision).toBe(2);
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.operation_receipts where event_id='${f.eventId}'`
+        )[0].n
+      ).toBe(1);
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.activity_events where event_id='${f.eventId}'`
+        )[0].n
+      ).toBe(1);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
+
 let priorPolicy: unknown;
 beforeAll(() => {
   priorPolicy = localOwnerSql('select mode from public.printer_completion_policy where id')[0].mode;
