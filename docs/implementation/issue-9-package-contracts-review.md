@@ -143,7 +143,7 @@ Issue #10 owns the current application cutover: Draft/package/history UI, phone 
 
 | Delivery boundary | Recorded status |
 | --- | --- |
-| Implemented and tested locally | Version-2 schema, trusted operations/routes, provisional one-send simulator, rollback-only migration rehearsal, 832 passing Vitest cases, 19 passing production browser cases and 2 passing Booth simulator cases. The Admin Booth simulator passed on rerun after one 90-second timeout. |
+| Implemented and tested locally | Version-2 schema, trusted operations/routes, provisional one-send simulator, rollback-only migration rehearsal, 867 passing Vitest cases on the final commit, 19 passing production browser cases and 2 passing Booth simulator cases before the final database fixes. The Admin Booth simulator passed on rerun after one 90-second timeout. |
 | Issue #10 integration remaining | Version-2 Admin/Guest UI consumers, coordinated creation-default cutover, retirement of legacy controls in the application, new screen acceptance and hosted activation rehearsal. |
 | Issues #17/#7 physically unproven | Automatic normal full ejection, safe printer recovery and actual iPad end-to-end release. The physical proof boxes remain open. |
 
@@ -160,7 +160,7 @@ The legacy compatibility check also found direct v2 writes through individual-pr
 | Static and database checks | TypeScript, ESLint, repository/focused formatting, whitespace checks, local SQL lint and local security/performance advisors passed. |
 | Local state after verification | `active_creation_version=1`, printer completion policy `disabled`, and no remaining Package fixture Events. |
 
-The first focused post-fix run passed 25/27 cases; both remaining cases had already passed terminal receipt replay and conflict/immutability assertions, then expected the wrong revoked-session code. The expectation was corrected to the existing `access_required` contract, and the complete affected gate above passed. Initial malformed test-cookie and RPC-argument fixtures were corrected before relying on their results. The full 832-test, build and browser results earlier in this record predate these final fixes; those gates were not rerun in this scoped pass. No hosted activation or physical qualification occurred.
+The first focused post-fix run passed 25/27 cases; both remaining cases had already passed terminal receipt replay and conflict/immutability assertions, then expected the wrong revoked-session code. The expectation was corrected to the existing `access_required` contract, and the complete affected gate above passed. Initial malformed test-cookie and RPC-argument fixtures were corrected before relying on their results. The full 832-test, build and browser results earlier in this record predate these final fixes; the later full-suite/build reruns are recorded below. No hosted activation or physical qualification occurred.
 
 #### Scoped handoff expiry correction
 
@@ -168,4 +168,10 @@ Scoped re-review found that legacy handoff issuance and confirmation still compa
 
 Six deterministic regressions hold the shared guard, observe the queued RPC in `pg_stat_activity`, and arrange expiry after request start but before releasing the lock. They cover fresh issuance/confirmation, issuance replay before confirmation, issuance/confirmation replay after activation, and requested grant expiry. All six failed before the correction. After the correction, the full `event-run-transitions` suite passed **24/24**, exit 0, in 153.25 seconds. This includes the existing v1 lifecycle, authorization, replay, conflict and revocation regressions.
 
-The focused direct v2 boundary check also passed **2/2** (`package-legacy-boundary -t 'finish_booth_handoff|confirm_booth_handoff'`), exit 0, in 12.78 seconds. TypeScript, ESLint, focused formatting and whitespace checks passed. Local SQL lint exited 0 with existing warnings outside these two functions; local advisors reported no issues. Final owner read confirmed creation version 1, disabled printer policy, and zero Package/Lifecycle fixture Events. The earlier 253-test and full-suite/build/browser results predate this narrow correction and were not rerun.
+The focused direct v2 boundary check also passed **2/2** (`package-legacy-boundary -t 'finish_booth_handoff|confirm_booth_handoff'`), exit 0, in 12.78 seconds. TypeScript, ESLint, focused formatting and whitespace checks passed. Local SQL lint exited 0 with existing warnings outside these two functions; local advisors reported no issues. Final owner read confirmed creation version 1, disabled printer policy, and zero Package/Lifecycle fixture Events. These scoped checks preceded the final full-suite/build reruns below.
+
+#### Final independent review and verification
+
+Independent whole-branch spec and code-quality/Ponytail reviewers checked the full `4c583a4..c627913` range against the approved contract, issue #9 and the five Review Focus classes. Their five Important findings and one evidence-reference error were fixed in `8786474`. A scoped re-review confirmed those fixes and found the legacy handoff expiry wait described above. A second narrow scoped review approved `1be8b1f`, with no actionable residual finding. All review findings were resolved before this final verification.
+
+On `1be8b1f`, the elevated `npm test -- --reporter=dot` completed **53/53 files and 867/867 tests**, exit 0, in 2886.78 seconds. The first sandboxed attempt could not write the local Supabase CLI telemetry file and did not provide test evidence; the elevated rerun is the reported result. `npm run lint`, `npx tsc --noEmit`, `npm run format:check` and `npm run build` also exited 0 on this commit; the Turbopack build compiled and generated 29/29 static pages. The browser results in the Task 11 log predate the final database fixes and were not rerun. Hosted activation, real printer qualification and the #10 UI cutover remain open.
