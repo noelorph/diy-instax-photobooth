@@ -14,7 +14,7 @@ Real printer-backed Booth Mode remains disabled until automatic normal full-ejec
 
 - [Replacement contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md): transitions, formulas, access/database rules, target APIs and recovery.
 - [PRD](PRD.md), [architecture](ARCHITECTURE.md), [glossary](GLOSSARY.md), [design system](DESIGN_SYSTEM.md).
-- [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md): decisions and supersession map.
+- [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md): decisions and supersession map; [ADR-0026](docs/adr/0026-order-captures-by-shutter-time.md): shutter-time Capture ordering and explicitly selected ties.
 - [Proof checklist](docs/qualification/booth-recovery-proof-checklist.md): known observations, unproven work, pass criteria and fallbacks.
 - [Approved design mockups](docs/design/2026-10-21-package-recovery/index.html): the current visual reference for Admin, phone recovery and portrait Booth; [screen notes](docs/design/2026-10-21-package-recovery/screen-map.md).
 - [Documentation index](docs/README.md): active guides versus historical artifacts.

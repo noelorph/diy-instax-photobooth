@@ -90,7 +90,7 @@ Verified Admin email, optional phone, light/dark preference, authenticated passw
 
 Welcome montage/image/default with **Start** → live preview with **Take Photo** → **3–2–1** → captured-photo review with **Retake / Print** → honest printing indication until confirmed ejection and recorded outcome → **Print complete** for 3 seconds → fresh welcome.
 
-Preview is mirrored; review and print use the same unmirrored portrait crop. Retake returns to preview. At 75 seconds of capture/review inactivity, warn with Continue; at 90 seconds abandon and discard the photo. Countdown/printing are not subject to that inactivity timer. Guest photo bytes stay in browser memory/direct print transport only.
+Preview is mirrored; review and print use the same unmirrored portrait crop. Retake returns to preview for another completed shutter. Print uses the explicitly selected acknowledged Capture with the newest shutter timestamp (`captured_at`), regardless of metadata arrival order. Equal timestamps permit either selected Capture. Reservation and dispatch both enforce this rule; a newer acknowledged shutter blocks an older reserved photo without substituting another photo. See [ADR-0026](docs/adr/0026-order-captures-by-shutter-time.md). At 75 seconds of capture/review inactivity, warn with Continue; at 90 seconds abandon and discard the photo. Countdown/printing are not subject to that inactivity timer. Guest photo bytes stay in browser memory/direct print transport only.
 
 ### Recovery
 

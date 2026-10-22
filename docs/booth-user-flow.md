@@ -58,7 +58,7 @@ flowchart TD
   Q -->|No| U[Show applicable unavailable / paused / finished state]
 ```
 
-Retake uses no print. Count one completed shutter per Capture. The review matches the unmirrored physical crop. At 75 seconds of capture/review inactivity show Continue; at 90 discard and return to welcome if available. A fault ends the old interaction and discards the photo; no same-photo retry after repair.
+Retake uses no print and returns to preview for another completed shutter. Count each acknowledged Capture once. Review/Print selects the newest acknowledged shutter by `captured_at`, independent of metadata arrival order; equal timestamps permit either explicitly selected Capture. Reservation and dispatch recheck that selection. Older/tied metadata arriving after reservation does not invalidate it; a genuinely newer acknowledged shutter blocks the bound older photo, which existing unsent reconciliation settles as NotPrinted without a send or photo substitution. See [ADR-0026](adr/0026-order-captures-by-shutter-time.md). The review matches the unmirrored physical crop. At 75 seconds of capture/review inactivity show Continue; at 90 discard and return to welcome if available. A fault ends the old interaction and discards the photo; no same-photo retry after repair.
 
 ## Failure recovery
 

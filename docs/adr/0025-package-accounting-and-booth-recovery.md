@@ -41,6 +41,10 @@ The linked originals retain their historical text. The replacement contract cont
 
 Unaffected decisions remain in force: photo privacy (0001), visual system (0010), local HTTPS (0013), Auth reset safety (0015), component placement (0020) and Geist typography (0019). ADR-0018 remains superseded by 0020. [ADR index](README.md) links every decision and its current scope.
 
+## Refinement
+
+[ADR-0026](0026-order-captures-by-shutter-time.md) refines Capture eligibility at reservation and dispatch: use acknowledged shutter time, permit explicitly selected ties, and never substitute the bound photo. All other decisions here remain in force.
+
 ## Consequences
 
 The product tracks booked output and exceptional attempts without pretending to know physical inventory. The Admin still loads film and inspects genuinely unknown outcomes. Unresolvable hardware ambiguity can keep the booth unavailable; it cannot be hidden by resetting counters. Manual loading confirmation is the fallback if automatic reload detection cannot be proven. Missing reliable automatic normal completion keeps printer-backed operation disabled.

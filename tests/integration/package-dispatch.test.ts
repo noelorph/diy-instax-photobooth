@@ -240,6 +240,203 @@ it('reserves only the newest acknowledged Capture and holds one unit', async () 
   }
 }, 30000);
 
+it('reserves the newest shutter despite reversed metadata arrival', async () => {
+  const f = await createPackageFixture();
+  try {
+    f.seedRun();
+    ready(f.runId);
+    const sessionId = (await f.booth('start_session', { expectedRevision: 2 })).data.receipt.result
+      .sessionId;
+    const captureA = randomUUID();
+    const captureB = randomUUID();
+    const timeA = captureTime();
+    const timeB = captureTime();
+    expect(Date.parse(timeB)).toBeGreaterThan(Date.parse(timeA));
+    expect(
+      (await f.booth('record_capture', { sessionId, captureId: captureB, capturedAt: timeB })).error
+    ).toBeNull();
+    const older = await f.booth('record_capture', {
+      sessionId,
+      captureId: captureA,
+      capturedAt: timeA,
+    });
+    expect(older.error).toBeNull();
+    ready(f.runId);
+    expect(
+      (
+        await f.booth('reserve', {
+          sessionId,
+          captureId: captureA,
+          expectedRevision: older.data.revision,
+        })
+      ).error?.message
+    ).toBe('invalid_transition');
+    const held = await f.booth('reserve', {
+      sessionId,
+      captureId: captureB,
+      expectedRevision: older.data.revision,
+    });
+    expect(held.error).toBeNull();
+    expect(
+      localOwnerSql(
+        `select capture_id from public.print_attempts where id='${held.data.receipt.result.attemptId}'`
+      )[0].capture_id
+    ).toBe(captureB);
+    expect(
+      localOwnerSql(
+        `select count(*)::integer n from public.captures where session_id='${sessionId}'`
+      )[0].n
+    ).toBe(2);
+    expect((await f.readBooth()).data.counts).toMatchObject({ unresolved: 1, printsAvailable: 9 });
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('dispatches the selected capture after older metadata arrives', async () => {
+  const f = await createPackageFixture();
+  try {
+    f.seedRun();
+    ready(f.runId);
+    const sessionId = (await f.booth('start_session', { expectedRevision: 2 })).data.receipt.result
+      .sessionId;
+    const captureA = randomUUID();
+    const captureB = randomUUID();
+    const timeA = captureTime();
+    const newer = await f.booth('record_capture', {
+      sessionId,
+      captureId: captureB,
+      capturedAt: captureTime(),
+    });
+    expect(newer.error).toBeNull();
+    ready(f.runId);
+    const held = await f.booth('reserve', {
+      sessionId,
+      captureId: captureB,
+      expectedRevision: newer.data.revision,
+    });
+    expect(held.error).toBeNull();
+    const older = await f.booth('record_capture', {
+      sessionId,
+      captureId: captureA,
+      capturedAt: timeA,
+    });
+    expect(older.error).toBeNull();
+    ready(f.runId);
+    const operationId = randomUUID();
+    const input = {
+      attemptId: held.data.receipt.result.attemptId,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+      expectedRevision: older.data.revision,
+    };
+    const dispatched = await f.booth('dispatch', input, operationId);
+    expect(dispatched.error).toBeNull();
+    expect(dispatched.data.sendAllowed).toBe(true);
+    const replayed = await f.booth('dispatch', input, operationId);
+    expect(replayed.error).toBeNull();
+    expect(replayed.data.sendAllowed).toBe(false);
+    const boundCaptureId = localOwnerSql(
+      `select capture_id from public.print_attempts where id='${input.attemptId}'`
+    )[0].capture_id;
+    expect(boundCaptureId).toBe(captureB);
+    expect(
+      localOwnerSql(
+        `select count(*)::integer n from public.captures where session_id='${sessionId}'`
+      )[0].n
+    ).toBe(2);
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it.each([0, 1])(
+  'permits explicitly selected tied shutter %i regardless of arrival or UUID order',
+  async (selected) => {
+    const f = await createPackageFixture();
+    try {
+      f.seedRun();
+      ready(f.runId);
+      const sessionId = (await f.booth('start_session', { expectedRevision: 2 })).data.receipt
+        .result.sessionId;
+      const captures = [randomUUID(), randomUUID(), randomUUID()].sort().reverse();
+      const capturedAt = captureTime();
+      for (const captureId of captures.slice(0, 2)) {
+        expect(
+          (await f.booth('record_capture', { sessionId, captureId, capturedAt })).error
+        ).toBeNull();
+      }
+      ready(f.runId);
+      const held = await f.booth('reserve', {
+        sessionId,
+        captureId: captures[selected],
+        expectedRevision: (await f.readBooth()).data.revision,
+      });
+      expect(held.error).toBeNull();
+      const tied = await f.booth('record_capture', {
+        sessionId,
+        captureId: captures[2],
+        capturedAt,
+      });
+      expect(tied.error).toBeNull();
+      ready(f.runId);
+      const dispatched = await f.booth('dispatch', {
+        attemptId: held.data.receipt.result.attemptId,
+        printerId: 'fixture-printer',
+        connectionGeneration: 0,
+        expectedRevision: tied.data.revision,
+      });
+      expect(dispatched.error).toBeNull();
+      expect(dispatched.data.sendAllowed).toBe(true);
+      expect(
+        localOwnerSql(
+          `select capture_id from public.print_attempts where id='${held.data.receipt.result.attemptId}'`
+        )[0].capture_id
+      ).toBe(captures[selected]);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
+
+it('rejects dispatch after a genuinely newer shutter and reconciles the unsent hold', async () => {
+  const f = await createPackageFixture();
+  try {
+    const { sessionId, captureId, attemptId } = await reserved(f);
+    const newer = await f.booth('record_capture', {
+      sessionId,
+      captureId: randomUUID(),
+      capturedAt: captureTime(),
+    });
+    expect(newer.error).toBeNull();
+    ready(f.runId);
+    const dispatched = await f.booth('dispatch', {
+      attemptId,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+      expectedRevision: newer.data.revision,
+    });
+    expect(dispatched.error?.message).toBe('invalid_transition');
+    expect(dispatched.data).toBeNull();
+    expect(
+      localOwnerSql(
+        `select state,dispatch_id,capture_id from public.print_attempts where id='${attemptId}'`
+      )[0]
+    ).toMatchObject({ state: 'Reserved', dispatch_id: null, capture_id: captureId });
+    const reconciled = await f.booth('reconcile', { attemptId, reason: 'newer_capture' });
+    expect(reconciled.error).toBeNull();
+    expect(reconciled.data.receipt.result.state).toBe('NotPrinted');
+    expect(
+      localOwnerSql(`select dispatch_id from public.print_attempts where id='${attemptId}'`)[0]
+        .dispatch_id
+    ).toBeNull();
+    expect((await f.readBooth()).data.counts).toMatchObject({ unresolved: 0, printsAvailable: 10 });
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
 it('authorizes only the first dispatch response and keeps authorization out of receipts', async () => {
   const f = await createPackageFixture();
   try {

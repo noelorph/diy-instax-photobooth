@@ -5,7 +5,7 @@
 ## Active documentation
 
 1. [Replacement contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md): normative transitions, formulas, failure rules, access, database and target endpoints.
-2. [ADR-0025](adr/0025-package-accounting-and-booth-recovery.md): decision rationale and supersession map; [all ADRs](adr/README.md).
+2. [ADR-0025](adr/0025-package-accounting-and-booth-recovery.md): decision rationale and supersession map; [ADR-0026](adr/0026-order-captures-by-shutter-time.md): shutter-time Capture ordering and explicitly selected ties; [all ADRs](adr/README.md).
 3. Root [PRD](../PRD.md), [architecture](../ARCHITECTURE.md), [glossary](../GLOSSARY.md), [design system](../DESIGN_SYSTEM.md), [README](../README.md) and [agent instructions](../AGENTS.md): aligned requirements and working context.
 4. [Routes and user-flow diagrams](booth-user-flow.md), [development/release diagram](diagrams/printing-to-deployment-flow.md).
 5. [Proof checklist](qualification/booth-recovery-proof-checklist.md): what evidence supports, what remains unproven and what to do if a capability cannot be proven.
