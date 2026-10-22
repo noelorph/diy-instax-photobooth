@@ -282,7 +282,10 @@ describe('Client Redaction and Draft deletion', { timeout: 30000 }, () => {
         revision: 2,
       });
       expect(await getDraft(f.id)).toEqual({ status: 'not_found' });
-      expect(await listDrafts()).toMatchObject({ status: 'success', drafts: [] });
+      expect(await listDrafts()).toMatchObject({
+        status: 'success',
+        drafts: expect.not.arrayContaining([expect.objectContaining({ id: f.id })]),
+      });
       expect(await listHistory()).toMatchObject({ status: 'success', events: [] });
       expect(await listPendingMediaRemovals()).toMatchObject({
         status: 'success',

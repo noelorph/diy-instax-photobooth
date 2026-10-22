@@ -148,6 +148,7 @@ it('separates guest, reserve, dispatch and paused Resume predicates including th
     expect(readiness(f, 'guest').blockers).toContain('print_pending');
     expect(readiness(f, 'dispatch', own.attemptId).ready).toBe(true);
     ownerUpdate('print_attempts', own.attemptId, { state: 'NotPrinted' });
+    expect((await report(f)).error).toBeNull();
     expect(readiness(f, 'reserve').ready).toBe(true);
     ownerUpdate('guest_sessions', own.sessionId, {
       state: 'Abandoned',
@@ -155,6 +156,7 @@ it('separates guest, reserve, dispatch and paused Resume predicates including th
     });
     ownerUpdate('booth_runs', f.runId, { state: 'Paused' });
     expect(readiness(f, 'guest').ready).toBe(false);
+    expect((await report(f)).error).toBeNull();
     expect(readiness(f, 'resume').ready).toBe(true);
     ownerUpdate('booth_runs', f.runId, { state: 'Active' });
     for (let n = 0; n < 9; n++) {
