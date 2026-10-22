@@ -10,7 +10,7 @@
 
 **Spec:** [Approved replacement contract](../specs/2026-10-21-package-accounting-booth-recovery-design.md), [ADR-0025](../../adr/0025-package-accounting-and-booth-recovery.md), root [PRD](../../../PRD.md), [ARCHITECTURE](../../../ARCHITECTURE.md) and [GLOSSARY](../../../GLOSSARY.md), plus the user-approved shutter-time clarification below.
 
-**Status:** Approved by the user on 2026-10-22. All four fixes and review gates are complete. The final full Vitest run failed on one unchanged Admin Profile focus assertion; evidence commit is in progress.
+**Status:** All four fixes, reviews and evidence handoff are complete. The final full Vitest gate remains open because one unchanged Admin Profile focus assertion failed.
 
 **Review baseline:** `4c583a4..9435680`, following the [original approved implementation plan](2026-10-21-issue-9-package-contracts-implementation.md). Preserve that historical plan and the earlier dated evidence in the [implementation review record](../../implementation/issue-9-package-contracts-review.md).
 
@@ -217,7 +217,7 @@ Run these checks after the four focused test cycles pass. Database and browser s
 - [x] **Verify cleanup and boundaries.** Confirm fixture-owned records are removed, printer policy is restored, creation version remains 1, migration privileges are unchanged and no shared/hosted system was modified. Preserve unrelated worktree files, including the pre-existing untracked SQL snippet.
 - [x] **Append dated evidence** to `docs/implementation/issue-9-package-contracts-review.md`: actual migration filenames, commands, outcomes, limitations and the four resolved findings. Preserve earlier dated evidence and the #10/#17/#7 handoff boundaries.
 - [x] **Run the whole-change review.** Use the repository `code-review` skill and `ponytail:ponytail-review` against this plan, the approved contract and actual verification evidence. Do not claim a finding resolved solely because its implementation exists.
-- [ ] **Commit the final evidence update.** Suggested message: `docs: record issue 9 review fix verification`.
+- [x] **Commit the final evidence update.** Suggested message: `docs: record issue 9 review fix verification`.
 
 ## Completion Criteria
 
