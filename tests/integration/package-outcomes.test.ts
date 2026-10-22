@@ -149,6 +149,155 @@ it('does not release a hold when not-sent evidence contradicts command acceptanc
   }
 }, 30000);
 
+it.each(['definitely_not_sent', 'server_cancelled'])(
+  'blocks late acceptance after proven non-send: %s',
+  async (source) => {
+    const f = await createPackageFixture();
+    try {
+      const attemptId = await attempt(f, source !== 'server_cancelled');
+      const settled =
+        source === 'server_cancelled'
+          ? await f.booth('reconcile', { attemptId, reason: 'Reservation never dispatched' })
+          : await observation(f, attemptId, 'definitely_not_sent');
+      expect(settled.error).toBeNull();
+      const id = randomUUID();
+      const result = await observation(f, attemptId, 'command_accepted', {}, id);
+      expect(result.error).toBeNull();
+      expect(result.data.receipt.result.discrepancy).toBe(true);
+      expect(
+        localOwnerSql(`select state from public.print_attempts where id='${attemptId}'`)[0].state
+      ).toBe('NotPrinted');
+      const before = (await f.readBooth()).data;
+      expect(before.counts).toMatchObject({ printed: 0, unresolved: 0 });
+      expect(before.readiness.blockers).toContain('evidence_discrepancy');
+      const events = localOwnerSql(
+        `select count(*)::integer n from public.print_attempt_events where attempt_id='${attemptId}'`
+      )[0].n;
+      const replay = await observation(f, attemptId, 'command_accepted', {}, id);
+      expect(replay.error).toBeNull();
+      expect(replay.data).toMatchObject({ replayed: true, receipt: result.data.receipt });
+      expect((await f.readBooth()).data).toMatchObject({
+        revision: before.revision,
+        counts: before.counts,
+      });
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.print_attempt_events where attempt_id='${attemptId}'`
+        )[0].n
+      ).toBe(events);
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.print_attempt_events where attempt_id='${attemptId}' and state='Discrepancy'`
+        )[0].n
+      ).toBe(1);
+      expect(
+        (
+          await f.admin('pause', {
+            runId: f.runId,
+            expectedRevision: (await f.readAdmin()).data.revision,
+          })
+        ).error
+      ).toBeNull();
+      const requested = await f.admin('request_reload', {
+        runId: f.runId,
+        reason: 'Physical reload',
+        printerId: 'fixture-printer',
+        connectionGeneration: 0,
+        expectedRevision: (await f.readAdmin()).data.revision,
+      });
+      expect(requested.error).toBeNull();
+      expect(
+        (
+          await f.admin('confirm_reload', {
+            reloadRequestId: requested.data.receipt.result.reloadRequestId,
+            printerId: 'fixture-printer',
+            connectionGeneration: 0,
+            expectedRevision: (await f.readAdmin()).data.revision,
+          })
+        ).error
+      ).toBeNull();
+      expect((await observation(f, attemptId, 'ready_for_new_job')).error).toBeNull();
+      ready(f);
+      expect(
+        (
+          await f.admin('resume', {
+            runId: f.runId,
+            expectedRevision: (await f.readAdmin()).data.revision,
+          })
+        ).error?.message
+      ).toBe('not_ready');
+      expect(
+        (await f.booth('start_session', { expectedRevision: (await f.readBooth()).data.revision }))
+          .error?.message
+      ).toBe('not_ready');
+      const blockers = localOwnerSql(
+        `select blockers from public.booth_runs where id='${f.runId}'`
+      )[0].blockers as string[];
+      expect(blockers.filter((b) => b === 'evidence_discrepancy')).toHaveLength(1);
+      expect((await f.readBooth()).data.counts).toMatchObject(before.counts);
+      expect(
+        (await observation(f, attemptId, 'command_accepted', {}, randomUUID(), 1)).error?.message
+      ).toBe('invalid_transition');
+      localOwnerSql(
+        `update public.booth_grants set expires_at=clock_timestamp()-interval '1 second' where id='${f.grantId}'`
+      );
+      expect((await observation(f, attemptId, 'command_accepted', {}, id)).error?.message).toBe(
+        'access_required'
+      );
+      localOwnerSql(
+        `update public.booth_grants set expires_at=clock_timestamp()+interval '1 hour',state='Revoked',revoked_at=clock_timestamp() where id='${f.grantId}'`
+      );
+      expect((await observation(f, attemptId, 'command_accepted', {}, id)).error?.message).toBe(
+        'access_required'
+      );
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
+
+it.each(['no_film_rejected', 'inspected'])(
+  'keeps late acceptance diagnostic after %s without contradictory non-send evidence',
+  async (source) => {
+    const f = await createPackageFixture();
+    try {
+      const attemptId = await attempt(f);
+      if (source === 'inspected') {
+        expect((await observation(f, attemptId, 'outcome_unknown')).error).toBeNull();
+        expect(
+          (
+            await f.admin('resolve_attempt', {
+              attemptId,
+              outcome: 'not_printed',
+              inspectionReason: 'No sheet; old job cleared',
+              oldJobCleared: true,
+              expectedRevision: (await f.readAdmin()).data.revision,
+            })
+          ).error
+        ).toBeNull();
+      } else {
+        expect((await observation(f, attemptId, source)).error).toBeNull();
+      }
+      const result = await observation(f, attemptId, 'command_accepted');
+      expect(result.error).toBeNull();
+      expect(result.data.receipt.result).toMatchObject({ state: 'NotPrinted', discrepancy: false });
+      expect(
+        localOwnerSql(
+          `select state from public.print_attempt_events where attempt_id='${attemptId}' and evidence_kind='command_accepted'`
+        )[0].state
+      ).toBe('Diagnostic');
+      expect(
+        localOwnerSql(`select blockers from public.booth_runs where id='${f.runId}'`)[0].blockers
+      ).not.toContain('evidence_discrepancy');
+      expect((await f.readBooth()).data.counts).toMatchObject({ printed: 0, unresolved: 0 });
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
+
 it('a reserved attempt proven unsent preserves old-job safety for the next guest', async () => {
   const f = await createPackageFixture();
   try {
