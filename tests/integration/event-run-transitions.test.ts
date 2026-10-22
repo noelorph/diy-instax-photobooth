@@ -1,9 +1,10 @@
 // @vitest-environment node
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
+import { once } from 'node:events';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { localSupabase, ownerInsert } from '../fixtures/local-supabase';
+import { localOwnerSql, localSupabase, ownerInsert } from '../fixtures/local-supabase';
 
 function sql(query: string) {
   const output = execFileSync(
@@ -12,6 +13,58 @@ function sql(query: string) {
     { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
   );
   return output.trim().startsWith('{') ? JSON.parse(output).rows : [];
+}
+async function expireBehindGuard<T>(
+  name: string,
+  operation: () => PromiseLike<T>,
+  expire: (deadline: string) => void,
+  requestedDeadline?: string
+) {
+  const child = spawn('docker', [
+    'exec',
+    '-i',
+    'supabase_db_diy-instax-package-contracts',
+    'psql',
+    '-U',
+    'postgres',
+    '-d',
+    'postgres',
+    '-X',
+    '-qAt',
+    '-v',
+    'ON_ERROR_STOP=1',
+  ]);
+  const done = once(child, 'exit');
+  child.stdin.write(
+    "begin;\nselect id from private.booth_contract_guard where id for update;\nselect 'LOCKED';\n"
+  );
+  await new Promise<void>((resolve, reject) => {
+    child.stdout.on('data', (chunk: Buffer) => {
+      if (chunk.toString().includes('LOCKED')) resolve();
+    });
+    child.on('error', reject);
+  });
+  const pending = Promise.resolve(operation());
+  try {
+    const limit = Date.now() + 5000;
+    let queued = false;
+    while (Date.now() < limit) {
+      const rows = localOwnerSql(
+        `select (query_start + interval '1 millisecond')::text as deadline from pg_stat_activity where pid<>pg_backend_pid() and state='active' and wait_event_type='Lock' and query like '%${name}%' ${requestedDeadline ? "and query_start<'" + requestedDeadline + "'::timestamptz" : ''} and clock_timestamp()>${requestedDeadline ? "'" + requestedDeadline + "'::timestamptz" : "query_start + interval '1 millisecond'"}`
+      );
+      if (rows.length) {
+        expire(String(rows[0].deadline));
+        queued = true;
+        break;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    expect(queued).toBe(true);
+  } finally {
+    child.stdin.write('commit;\n\\q\n');
+    await done;
+  }
+  return pending;
 }
 const hash = () => randomBytes(32).toString('hex');
 describe('Event and Booth run lifecycle', () => {
@@ -151,6 +204,96 @@ describe('Event and Booth run lifecycle', () => {
       action,
     });
   }
+  it.each([
+    'finish_fresh',
+    'confirm_fresh',
+    'finish_issued_replay',
+    'finish_active_replay',
+    'confirm_active_replay',
+  ] as const)(
+    'checks current expiry after the guard wait for %s',
+    async (scenario) => {
+      const activeReplay = scenario.includes('active_replay');
+      const f: Awaited<ReturnType<typeof prepared>> &
+        Partial<Pick<Awaited<ReturnType<typeof active>>, 'issue' | 'confirm'>> = activeReplay
+        ? await active()
+        : scenario === 'finish_fresh'
+          ? await prepared()
+          : await issued();
+      if (scenario === 'finish_fresh')
+        expect((await f.a.client.auth.signOut({ scope: 'local' })).error).toBeNull();
+      const name = scenario.startsWith('finish') ? 'finish_booth_handoff' : 'confirm_booth_handoff';
+      const args =
+        name === 'finish_booth_handoff'
+          ? f.issue
+            ? f.issue
+            : {
+                handoff_id: f.p.handoff_id,
+                device_token_hash: f.args.setup_evidence.device_token_hash,
+                operation_key: randomUUID(),
+                grant_hash: hash(),
+                expires_at: new Date(Date.now() + 3600000).toISOString(),
+              }
+          : f.confirm
+            ? f.confirm
+            : {
+                handoff_id: f.p.handoff_id,
+                grant_hash: f.issue?.grant_hash ?? '',
+                operation_key: randomUUID(),
+              };
+      const result = await expireBehindGuard(
+        name,
+        () => rpc(name, args),
+        (deadline) => {
+          localOwnerSql(
+            activeReplay
+              ? `update public.booth_grants set expires_at='${deadline}' where run_id='${f.p.run_id}'`
+              : `update public.booth_handoffs set expires_at='${deadline}' where id='${f.p.handoff_id}'`
+          );
+        }
+      );
+      if (activeReplay) {
+        expect(result.error?.message).toBe('state_conflict');
+        expect(result.data).toBeNull();
+      } else {
+        expect(result.error).toBeNull();
+        expect(result.data).toMatchObject({ run_state: 'Paused', error: 'handoff_expired' });
+        expect(
+          localOwnerSql(`select state from public.booth_grants where run_id='${f.p.run_id}'`)[0]
+            .state
+        ).toBe('Revoked');
+      }
+    },
+    30000
+  );
+
+  it('rejects requested grant expiry that passes while issuance waits on the guard', async () => {
+    const f = await prepared();
+    expect((await f.a.client.auth.signOut({ scope: 'local' })).error).toBeNull();
+    const deadline = String(
+      localOwnerSql("select (clock_timestamp()+interval '2 seconds')::text as deadline")[0].deadline
+    );
+    const result = await expireBehindGuard(
+      'finish_booth_handoff',
+      () =>
+        rpc('finish_booth_handoff', {
+          handoff_id: f.p.handoff_id,
+          device_token_hash: f.args.setup_evidence.device_token_hash,
+          operation_key: randomUUID(),
+          grant_hash: hash(),
+          expires_at: deadline,
+        }),
+      () => {},
+      deadline
+    );
+    expect(result.error?.message).toBe('validation_error');
+    expect(
+      localOwnerSql(
+        `select state,secret_hash from public.booth_grants where run_id='${f.p.run_id}'`
+      )[0]
+    ).toEqual({ state: 'Inactive', secret_hash: null });
+  }, 30000);
+
   it('prepares exactly once without a usable grant and detects changed-input replay', async () => {
     const f = await prepared();
     expect(f.p).toMatchObject({ event_state: 'Live', run_state: 'Prepared', revision: 2 });
