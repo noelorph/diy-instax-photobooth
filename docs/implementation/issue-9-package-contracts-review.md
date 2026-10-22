@@ -42,7 +42,7 @@ The tests below exercise version-2 contracts in the isolated local simulator/dat
 | 8. Retention and migration | `package-migration`, `package-draft-deletion`, `package-schema-access` | Owner activation and coordinated application promotion have not occurred. |
 | 9. Acceptance | The preceding suites cover server contracts; this review's command log records results. | #10 UI acceptance and #17/#7 physical release acceptance remain open. |
 
-`package-http-contracts` is table-driven across every mutation row below for request shape, receipt mapping, origin and body-size rejection. The other suites exercise state changes and authority through real local database functions/handlers.
+`package-http-contracts` covers the mutation rows below for request shape, receipt mapping, origin and body-size rejection, except Draft deletion, whose HTTP origin, body-size and replay assertions live in `package-draft-deletion`. The other suites exercise state changes and authority through real local database functions/handlers.
 
 | Section 6 endpoint | Transition/authority evidence |
 | --- | --- |
@@ -53,7 +53,7 @@ The tests below exercise version-2 contracts in the isolated local simulator/dat
 | `POST /api/admin/events/{eventId}/booth/resume` | `package-lifecycle`, `package-readiness` |
 | `POST /api/admin/events/{eventId}/booth/finish` | `package-lifecycle`, `package-dispatch`, `package-outcomes` |
 | `POST /api/admin/events/{eventId}/complete` / `cancel` | `package-lifecycle`, `package-draft-deletion` |
-| `POST /api/admin/events/{eventId}/delete-draft` | `package-draft-deletion`, `package-http-contracts` |
+| `POST /api/admin/events/{eventId}/delete-draft` | `package-draft-deletion` |
 | `POST /api/admin/events/{eventId}/film-packages` | `package-accounting`, `package-http-access` |
 | `POST /api/admin/events/{eventId}/reload-confirmations` | `package-readiness`, `package-outcomes` |
 | `POST /api/admin/print-attempts/{attemptId}/recover` | `package-dispatch`, `package-http-access` |
@@ -146,3 +146,18 @@ Issue #10 owns the current application cutover: Draft/package/history UI, phone 
 | Implemented and tested locally | Version-2 schema, trusted operations/routes, provisional one-send simulator, rollback-only migration rehearsal, 832 passing Vitest cases, 19 passing production browser cases and 2 passing Booth simulator cases. The Admin Booth simulator passed on rerun after one 90-second timeout. |
 | Issue #10 integration remaining | Version-2 Admin/Guest UI consumers, coordinated creation-default cutover, retirement of legacy controls in the application, new screen acceptance and hosted activation rehearsal. |
 | Issues #17/#7 physically unproven | Automatic normal full ejection, safe printer recovery and actual iPad end-to-end release. The physical proof boxes remain open. |
+
+### Final whole-branch review fixes (2026-10-22)
+
+Final review reproduced six gaps: a fresh reservation could reuse a terminal Guest Session; evidence/qualification blockers could project Welcome; legacy redaction could erase v2 History; legacy Test did not share the v2 start lock or exclude Paused v2 runs; inspected-outcome receipts could not replay after Event completion; and Draft deletion HTTP evidence was attributed to the wrong suite. The forward migration `20261021233012_package_final_review_guards.sql` and the Booth state projection fix address these findings without changing the approved contract.
+
+The legacy compatibility check also found direct v2 writes through individual-print additions and legacy observation handling. The migration now rejects v2 Events in the existing legacy mutation implementations: guest operations, Test/waste, print outcomes, individual-print additions, Event lifecycle, handoff preparation/issue/confirmation, Capture recording, pause/reconnect, and redaction begin/completion. These functions take the common package guard before Event locks; new legacy Test, handoff preparation and guest admission/reservation reject unfinished v2 runs. Existing v1 receipts, current actor checks and payload conflicts remain covered. No public signature, execution grant or creation default changed.
+
+| Final fix verification | Result |
+| --- | --- |
+| Targeted RED regressions | Reproduced duplicate terminal reservation, terminal inspected-receipt rejection, incorrect Welcome projection, direct legacy v2 redaction, Paused-run Test admission, and both missing Test/start lock orderings. |
+| Affected integration gate | **253/253 tests passed across 14 files**, exit 0, in 1759.00 seconds: `package-outcomes`, `package-dispatch`, `package-http-access`, `package-legacy-boundary`, `accounting-ledger`, `event-run-transitions`, `guest-reservations`, `print-outcomes`, `test-and-wasted-film`, `redaction-and-deletion`, `booth-late-capture`, `booth-pause`, `package-schema-access`, and `package-migration`. |
+| Static and database checks | TypeScript, ESLint, repository/focused formatting, whitespace checks, local SQL lint and local security/performance advisors passed. |
+| Local state after verification | `active_creation_version=1`, printer completion policy `disabled`, and no remaining Package fixture Events. |
+
+The first focused post-fix run passed 25/27 cases; both remaining cases had already passed terminal receipt replay and conflict/immutability assertions, then expected the wrong revoked-session code. The expectation was corrected to the existing `access_required` contract, and the complete affected gate above passed. Initial malformed test-cookie and RPC-argument fixtures were corrected before relying on their results. The full 832-test, build and browser results earlier in this record predate these final fixes; those gates were not rerun in this scoped pass. No hosted activation or physical qualification occurred.

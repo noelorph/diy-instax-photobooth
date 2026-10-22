@@ -768,3 +768,97 @@ it('keeps 49 Printed and one Pending at zero availability until the outcome sett
     await f.dispose();
   }
 }, 30000);
+
+it.each(['full_ejection_confirmed', 'definitely_not_sent'])(
+  'rejects a fresh reservation after terminal %s on the same session',
+  async (kind) => {
+    const f = await createPackageFixture();
+    try {
+      const attemptId = await attempt(f);
+      const row = localOwnerSql(
+        `select session_id, capture_id from public.print_attempts where id='${attemptId}'`
+      )[0];
+      const receipt = localOwnerSql(
+        `select operation_key, committed_revision from public.operation_receipts where event_id='${f.eventId}' and operation_kind='reserve'`
+      )[0];
+      const originalRevision = Number(receipt.committed_revision) - 1;
+      expect((await observation(f, attemptId, kind)).error).toBeNull();
+      expect((await observation(f, attemptId, 'ready_for_new_job')).error).toBeNull();
+      ready(f);
+      const replay = await f.booth(
+        'reserve',
+        {
+          sessionId: row.session_id,
+          captureId: row.capture_id,
+          expectedRevision: originalRevision,
+        },
+        receipt.operation_key as ReturnType<typeof randomUUID>
+      );
+      expect(replay.error).toBeNull();
+      expect(replay.data.replayed).toBe(true);
+      const result = await f.booth('reserve', {
+        sessionId: row.session_id,
+        captureId: row.capture_id,
+        expectedRevision: (await f.readBooth()).data.revision,
+      });
+      expect(result.error?.message).toBe('invalid_transition');
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.print_attempts where session_id='${row.session_id}'`
+        )[0].n
+      ).toBe(1);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
+
+it.each(['complete', 'cancel'])(
+  'replays inspected outcome after Event %s with fresh authority',
+  async (action) => {
+    const f = await createPackageFixture();
+    try {
+      const attemptId = await attempt(f);
+      expect((await observation(f, attemptId, 'outcome_unknown')).error).toBeNull();
+      const operationId = randomUUID();
+      const payload = {
+        attemptId,
+        outcome: 'printed',
+        inspectionReason: 'Full sheet ejected',
+        oldJobCleared: false,
+        expectedRevision: (await f.readAdmin()).data.revision,
+      };
+      const resolved = await f.admin('resolve_attempt', payload, operationId);
+      expect(resolved.error).toBeNull();
+      expect(
+        (
+          await f.admin('finish', {
+            runId: f.runId,
+            expectedRevision: (await f.readAdmin()).data.revision,
+          })
+        ).error
+      ).toBeNull();
+      expect(
+        (await f.admin(action, { expectedRevision: (await f.readAdmin()).data.revision })).error
+      ).toBeNull();
+      const replay = await f.admin('resolve_attempt', payload, operationId);
+      expect(replay.error).toBeNull();
+      expect(replay.data).toMatchObject({ replayed: true, receipt: resolved.data.receipt });
+      expect(
+        (await f.admin('resolve_attempt', { ...payload, outcome: 'not_printed' }, operationId))
+          .error?.message
+      ).toBe('operation_conflict');
+      expect((await f.admin('resolve_attempt', payload)).error?.message).toBe(
+        'operation_unavailable'
+      );
+      localOwnerSql(`delete from auth.sessions where id='${f.adminSessionId}'`);
+      expect((await f.admin('resolve_attempt', payload, operationId)).error?.message).toBe(
+        'access_required'
+      );
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);

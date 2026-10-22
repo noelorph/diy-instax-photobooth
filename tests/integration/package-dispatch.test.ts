@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createPackageFixture } from '../fixtures/package-contract';
-import { localOwnerSql } from '../fixtures/local-supabase';
+import { cleanupEvents, localOwnerSql } from '../fixtures/local-supabase';
 
 let priorPolicy: unknown;
 beforeAll(() => {
@@ -715,3 +715,95 @@ it('keeps session end from cancelling a competing committed dispatch', async () 
     await f.dispose();
   }
 }, 30000);
+
+function legacyEvent(f: Awaited<ReturnType<typeof createPackageFixture>>) {
+  const id = randomUUID();
+  localOwnerSql(
+    `insert into public.events(id,title,client_name,client_email,client_phone,venue_address,time_zone,starts_at,ends_at,film_package_count,original_print_allowance) select '${id}',title,client_name,client_email,client_phone,venue_address,time_zone,starts_at,ends_at,1,10 from public.events where id='${f.eventId}'`
+  );
+  localOwnerSql(
+    `insert into public.film_stock_entries(event_id,kind,signed_sheets,actor_scope) values('${id}','Addition',10,'fixture')`
+  );
+  localOwnerSql(
+    'update public.film_stock_balance set on_hand=(select sum(signed_sheets) from public.film_stock_entries)'
+  );
+  return id;
+}
+function cleanupLegacy(id: string) {
+  cleanupEvents([id]);
+  localOwnerSql(
+    'update public.film_stock_balance set on_hand=(select coalesce(sum(signed_sheets),0) from public.film_stock_entries)'
+  );
+}
+
+it('rejects legacy Test while a v2 run is Paused', async () => {
+  const f = await createPackageFixture();
+  const id = legacyEvent(f);
+  try {
+    f.seedRun('Paused');
+    const result = await f.local.service.rpc('reserve_test_attempt', {
+      admin_user_id: f.adminUser.id,
+      admin_session_id: f.adminSessionId,
+      event_id: id,
+      connection_id: randomUUID(),
+      operation_key: randomUUID(),
+    });
+    expect(result.error?.message).toBe('state_conflict');
+    expect(
+      localOwnerSql(
+        `select count(*)::integer n from public.print_attempts where event_id='${id}'`
+      )[0].n
+    ).toBe(0);
+  } finally {
+    cleanupLegacy(id);
+    await f.dispose();
+  }
+}, 30000);
+
+it.each([true, false])(
+  'serializes legacy Test and v2 start with Test first=%s',
+  async (testFirst) => {
+    const f = await createPackageFixture();
+    const id = legacyEvent(f);
+    try {
+      const setup = await f.reportSetup();
+      expect(setup.error).toBeNull();
+      const payload = {
+        eventId: f.eventId,
+        expectedRevision: 1,
+        readinessWindowId: setup.data.readinessWindowId,
+        deviceHash: f.deviceHash,
+        printerId: 'fixture-printer',
+        connectionGeneration: 0,
+      };
+      const test = () =>
+        directRpc(
+          `select public.reserve_test_attempt('${f.adminUser.id}','${f.adminSessionId}','${id}','${randomUUID()}','${randomUUID()}');`
+        );
+      const start = () =>
+        directRpc(
+          `select public.package_admin_operation('${f.adminUser.id}','${f.adminSessionId}','start','${randomUUID()}','${JSON.stringify(payload)}'::jsonb);`
+        );
+      const [first, second] = await raceBehindGuard(
+        testFirst ? test : start,
+        testFirst ? start : test
+      );
+      expect(first.error).toBeNull();
+      expect(second.error?.message).toBe(testFirst ? 'invalid_transition' : 'state_conflict');
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.booth_runs where event_id='${f.eventId}'`
+        )[0].n
+      ).toBe(testFirst ? 0 : 1);
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.print_attempts where event_id='${id}'`
+        )[0].n
+      ).toBe(testFirst ? 1 : 0);
+    } finally {
+      cleanupLegacy(id);
+      await f.dispose();
+    }
+  },
+  30000
+);

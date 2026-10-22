@@ -17,6 +17,7 @@ import { createPackageFixture } from '../fixtures/package-contract';
 import { localOwnerSql, localSupabaseStatus, ownerUpdate } from '../fixtures/local-supabase';
 import { sessionCookies } from '../fixtures/admin-route-server';
 import { hashSecret } from '@/lib/operations/booth-authority';
+import { POST as redactClient } from '@/app/api/admin/events/[eventId]/redact-client/route';
 import { GET as boothState } from '@/app/api/booth/state/route';
 import { GET as boothReceipt } from '@/app/api/booth/operations/[operationId]/route';
 import { GET as adminState } from '@/app/api/admin/events/[eventId]/booth/state/route';
@@ -869,5 +870,64 @@ it('denies a Booth grant access to another Event’s print attempt', async () =>
   } finally {
     await own.dispose();
     await other.dispose();
+  }
+}, 30000);
+
+it.each(['evidence_discrepancy', 'qualification_required'])(
+  'projects %s as unavailable at the Booth HTTP boundary',
+  async (blocker) => {
+    const f = await createPackageFixture();
+    try {
+      f.seedRun();
+      const secret = 'd'.repeat(64);
+      ownerUpdate('booth_grants', f.grantId, { secret_hash: hashSecret(secret) });
+      localOwnerSql(
+        `update public.booth_runs set blockers=array['${blocker}'],readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+      );
+      const response = await boothState(request(undefined, `__Host-booth-grant=${secret}`));
+      expect(response.status).toBe(200);
+      const body = await response.json();
+      expect(body.blockers).toContain(blocker);
+      expect(body.principalStatus).toBe('printer_unavailable');
+      expect(body.allowedActions.startGuest).toBe(false);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
+
+it('rejects legacy client redaction of v2 History at RPC and HTTP boundaries', async () => {
+  const f = await createPackageFixture();
+  try {
+    ownerUpdate('events', f.eventId, { state: 'Cancelled', revision: 2 });
+    const args = {
+      admin_user_id: f.adminUser.id,
+      admin_session_id: f.adminSessionId,
+      event_id: f.eventId,
+      expected_revision: 2,
+      operation_key: randomUUID(),
+      action: 'redact_client',
+    };
+    expect((await f.local.service.rpc('begin_event_redaction', args)).error?.message).toBe(
+      'state_conflict'
+    );
+    const cookie = sessionCookies((await f.adminClient.auth.getSession()).data.session!);
+    for (const pair of cookie.split('; ')) {
+      const [name, value] = pair.split('=');
+      jar.set(name, value);
+    }
+    const response = await redactClient(
+      request({ operationKey: randomUUID(), expectedRevision: 2 }, cookie),
+      { params: Promise.resolve({ eventId: f.eventId }) }
+    );
+    expect(response.status).toBe(409);
+    expect(
+      localOwnerSql(
+        `select client_name,media_removal_state,redacted_at from public.events where id='${f.eventId}'`
+      )[0]
+    ).toEqual({ client_name: 'Client', media_removal_state: 'none', redacted_at: null });
+  } finally {
+    await f.dispose();
   }
 }, 30000);

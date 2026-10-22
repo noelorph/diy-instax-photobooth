@@ -75,7 +75,10 @@ export async function readPackageBoothState(hash: string, operationId?: string) 
               ? 'bluetooth_disconnected'
               : blockers.includes('camera')
                 ? 'camera_disconnected'
-                : blockers.includes('film_reload_needed') || blockers.includes('printer_not_safe')
+                : blockers.includes('film_reload_needed') ||
+                    blockers.includes('printer_not_safe') ||
+                    blockers.includes('evidence_discrepancy') ||
+                    blockers.includes('qualification_required')
                   ? 'printer_unavailable'
                   : blockers.includes('booked_prints_exhausted')
                     ? 'booked_prints_exhausted'
