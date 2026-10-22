@@ -323,7 +323,11 @@ it('accepts only the narrow pre-stop shutter report after Booth access is revoke
         .find((value) => value.startsWith('__Host-booth-grant='))
     ).toContain('Expires=');
     const session = await sessionResponse.json();
-    const shutterAt = new Date().toISOString();
+    const shutterAt = String(
+      localOwnerSql(
+        `select to_char(clock_timestamp() at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"') as captured_at`
+      )[0].captured_at
+    );
     const finished = await fixture.admin('finish', {
       runId: fixture.runId,
       expectedRevision: session.revision,
