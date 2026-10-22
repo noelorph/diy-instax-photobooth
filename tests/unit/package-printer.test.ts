@@ -13,6 +13,55 @@ const authorization: DispatchAuthorization = {
 };
 
 describe('provisional printer adapter', () => {
+  afterEach(() => vi.useRealTimers());
+  it('keeps disconnected readiness unavailable after repeated polling', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const printer = new SimulatedPrinterV2('printer');
+    const originalGeneration = (await printer.connect()).connectionGeneration;
+    printer.emit('connection_changed');
+    for (const time of [2_000, 4_000, 6_000]) {
+      vi.setSystemTime(time);
+      expect(await printer.readReadiness()).toMatchObject({
+        observedAgeMs: 0,
+        connectionGeneration: originalGeneration,
+        connected: false,
+        ready: false,
+      });
+    }
+  });
+
+  it('keeps an outstanding job unavailable across polling and reconnect until explicit readiness', async () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(0);
+    const printer = new SimulatedPrinterV2('printer');
+    const originalGeneration = (await printer.connect()).connectionGeneration;
+    const attempt = { ...authorization, connectionGeneration: originalGeneration };
+    await printer.sendOnce(attempt, new Uint8Array([1]));
+    printer.emit('full_ejection_confirmed', attempt);
+    for (const time of [2_000, 4_000, 6_000]) {
+      vi.setSystemTime(time);
+      expect(await printer.readReadiness()).toMatchObject({
+        observedAgeMs: 0,
+        connectionGeneration: originalGeneration,
+        connected: true,
+        ready: false,
+      });
+    }
+    printer.emit('connection_changed');
+    await printer.connect();
+    vi.setSystemTime(8_000);
+    expect(await printer.readReadiness()).toMatchObject({
+      observedAgeMs: 0,
+      connectionGeneration: originalGeneration + 1,
+      connected: true,
+      ready: false,
+    });
+    printer.emit('ready_for_new_job');
+    expect((await printer.readReadiness()).ready).toBe(true);
+    expect(printer.commandCount).toBe(1);
+  });
+
   it('sends one command and separates acceptance from full ejection', async () => {
     const write = vi.fn(async () => {});
     const printer = new SimulatedPrinterV2('printer', write);

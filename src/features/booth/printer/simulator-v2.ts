@@ -10,7 +10,6 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
   private connected = false;
   private ready = false;
   private generation = 0;
-  private observedAt = Date.now();
   private listeners = new Set<(observation: PrinterObservationV2) => void>();
   private sent = new Set<string>();
   private oldJobPending = false;
@@ -33,7 +32,6 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
       this.ready = !this.oldJobPending;
     }
     this.connected = true;
-    this.observedAt = Date.now();
     return this.readReadiness();
   }
 
@@ -43,7 +41,7 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
       connectionGeneration: this.generation,
       connected: this.connected,
       ready: this.ready,
-      observedAgeMs: Date.now() - this.observedAt,
+      observedAgeMs: 0,
     };
   }
 
@@ -85,7 +83,6 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
       this.oldJobPending = false;
       this.ready = this.connected;
     }
-    this.observedAt = Date.now();
     const base = {
       observationId: crypto.randomUUID(),
       adapterVersion: 'simulator-v2',

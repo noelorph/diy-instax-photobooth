@@ -1,4 +1,4 @@
-import { expect, it, vi } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import {
   dispatchReservedAttempt,
   recordAndReportObservation,
@@ -8,6 +8,7 @@ import { SimulatedPrinterV2 } from '@/features/booth/printer/simulator-v2';
 import type { DispatchDependencies, DispatchInput } from '@/features/booth/print-dispatch';
 
 let nextSession = 0;
+afterEach(() => vi.useRealTimers());
 async function rig() {
   const values = new Map<string, string>();
   const storage = {
@@ -53,6 +54,40 @@ async function rig() {
   };
   return { input, deps, storage, values, journal, printer };
 }
+
+it('samples current readiness after repeated polling', async () => {
+  vi.useFakeTimers();
+  vi.setSystemTime(0);
+  const { input, deps, printer } = await rig();
+  const originalGeneration = input.connectionGeneration;
+  for (const time of [2_000, 4_000, 6_000]) {
+    vi.setSystemTime(time);
+    const snapshot = await printer.readReadiness();
+    expect(snapshot.observedAgeMs).toBe(0);
+    expect(snapshot.connectionGeneration).toBe(originalGeneration);
+    expect(snapshot.connected).toBe(true);
+    expect(snapshot.ready).toBe(true);
+  }
+  await dispatchReservedAttempt(input, deps);
+  expect(printer.commandCount).toBe(1);
+});
+
+it('rejects readiness aged 5,001 ms before reservation', async () => {
+  const { input, deps, printer, journal } = await rig();
+  const snapshot = await printer.readReadiness();
+  deps.printer = {
+    connect: printer.connect.bind(printer),
+    readReadiness: async () => ({ ...snapshot, observedAgeMs: 5_001 }),
+    observe: printer.observe.bind(printer),
+    sendOnce: printer.sendOnce.bind(printer),
+  };
+  await expect(dispatchReservedAttempt(input, deps)).rejects.toThrow('Printer not ready');
+  expect(deps.reserve).not.toHaveBeenCalled();
+  expect(deps.authorizeDispatch).not.toHaveBeenCalled();
+  expect(journal.readOperations()).toEqual([]);
+  expect(printer.commandCount).toBe(0);
+  expect(deps.releaseImage).toHaveBeenCalledOnce();
+});
 
 it('journals before reserve and sends one live authorized command', async () => {
   const values = new Map<string, string>();
