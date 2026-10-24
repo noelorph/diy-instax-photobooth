@@ -8,7 +8,17 @@ import { createClient } from '@/lib/supabase/server';
 import { requestRecovery } from '@/features/admin/auth/actions';
 import { resetPassword } from '@/features/admin/auth/reset-action';
 import { GET } from '@/app/auth/callback/route';
-import { localSupabase, localSupabaseStatus, readProfile } from '../fixtures/local-supabase';
+import { GET as boothState } from '@/app/api/booth/state/route';
+import { hashSecret } from '@/lib/operations/booth-authority';
+import {
+  cleanupEvents,
+  localOwnerSql,
+  localSupabase,
+  localSupabaseStatus,
+  ownerInsert,
+  ownerUpdate,
+  readProfile,
+} from '../fixtures/local-supabase';
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
 vi.mock('server-only', () => ({}));
 
@@ -21,6 +31,7 @@ function passwords(password: string, confirmation = password) {
 
 describe('Password recovery through local Mailpit, PKCE and active-session RLS', () => {
   let local: ReturnType<typeof localSupabase>;
+  const packageEventIds: string[] = [];
   beforeAll(() => {
     local = localSupabase();
   });
@@ -31,6 +42,7 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
     vi.restoreAllMocks();
     vi.resetAllMocks();
     vi.unstubAllEnvs();
+    cleanupEvents(packageEventIds.splice(0));
     await local.cleanup();
   });
 
@@ -54,14 +66,14 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
     let id: string | undefined;
     for (let attempt = 0; attempt < 30; attempt++) {
       const inbox = await fetch(
-        `http://127.0.0.1:55324/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
+        `http://127.0.0.1:56324/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
       ).then((r) => r.json());
       id = inbox.messages[0]?.ID;
       if (id) break;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     expect(Boolean(id), 'Recovery email delivered').toBe(true);
-    const message = await fetch(`http://127.0.0.1:55324/api/v1/message/${id}`).then((r) =>
+    const message = await fetch(`http://127.0.0.1:56324/api/v1/message/${id}`).then((r) =>
       r.json()
     );
     const href = message.HTML.match(/href="([^"]+)"/)?.[1];
@@ -77,12 +89,75 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
     const { admin, client, callback } = await recovery();
     const first = await local.signIn(admin);
     const second = await local.signIn(admin);
+    const status = localSupabaseStatus();
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', status.API_URL);
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', status.ANON_KEY);
+    vi.stubEnv('SUPABASE_SECRET_KEY', status.SERVICE_ROLE_KEY);
+    const eventId = randomUUID(),
+      runId = randomUUID(),
+      grantId = randomUUID();
+    const secret = '9'.repeat(64),
+      deviceHash = 'd'.repeat(64);
+    packageEventIds.push(eventId);
+    ownerInsert('events', {
+      id: eventId,
+      accounting_version: 2,
+      title: 'Reset grant fixture',
+      client_name: 'Client',
+      client_email: 'reset@example.test',
+      client_phone: '123',
+      venue_address: 'Hall',
+      time_zone: 'Asia/Manila',
+      starts_at: '2026-12-01T10:00:00Z',
+      ends_at: '2026-12-01T12:00:00Z',
+      film_package_count: 1,
+    });
+    ownerUpdate('events', eventId, { state: 'Live', revision: 2 });
+    ownerInsert('booth_runs', {
+      id: runId,
+      event_id: eventId,
+      accounting_version: 2,
+      state: 'Active',
+      device_hash: deviceHash,
+      printer_id: 'fixture-printer',
+      film_loaded_confirmed: true,
+      power_confirmed: true,
+      guided_access_confirmed: true,
+    });
+    ownerInsert('booth_grants', {
+      id: grantId,
+      event_id: eventId,
+      run_id: runId,
+      accounting_version: 2,
+      state: 'Active',
+      secret_hash: hashSecret(secret),
+      device_hash: deviceHash,
+      expires_at: new Date(Date.now() + 24 * 60 * 60_000).toISOString(),
+    });
+    const boothRequest = () =>
+      new Request('https://booth.test/api/booth/state', {
+        headers: { cookie: `__Host-booth-grant=${secret}` },
+      });
+    expect((await boothState(boothRequest())).status).toBe(200);
     const response = await GET(new Request(callback));
     expect(response.headers.get('location')).toBe('http://127.0.0.1:3000/reset-password');
     const temporary = (await client.auth.getSession()).data.session!;
     expect(Boolean(temporary)).toBe(true);
     const newPassword = `Reset-${randomUUID()}!`;
     expect((await resetPassword({}, passwords(newPassword))).confirmation).toMatch(/sign in/i);
+    const ids = [first.session, second.session, temporary].map(
+      (session) =>
+        JSON.parse(Buffer.from(session.access_token.split('.')[1], 'base64url').toString())
+          .session_id as string
+    );
+    expect(
+      localOwnerSql(
+        `select count(*)::integer n from auth.sessions where id in (${ids.map((id) => `'${id}'`).join(',')})`
+      )[0].n
+    ).toBe(0);
+    const afterReset = await boothState(boothRequest());
+    expect(afterReset.status).toBe(200);
+    expect((await afterReset.json()).runId).toBe(runId);
     for (const session of [first.session, second.session, temporary]) {
       expect(session.expires_at).toBeGreaterThan(Math.floor(Date.now() / 1000));
       expect((await readProfile(local.tokenClient(session.access_token))).data).toEqual([]);
@@ -199,7 +274,7 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
       'docker',
       [
         'exec',
-        'supabase_db_diy-instax-admin',
+        'supabase_db_diy-instax-package-contracts',
         'psql',
         '-U',
         'postgres',

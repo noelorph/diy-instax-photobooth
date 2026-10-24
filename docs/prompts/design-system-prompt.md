@@ -1,5 +1,7 @@
 > **Historical input.** This is the original visual-design request, retained as project history. It is not the current UI specification. Follow the [design system](../../DESIGN_SYSTEM.md), [PRD](../../PRD.md), [architecture](../../ARCHITECTURE.md), [glossary](../../GLOSSARY.md), and [decision records](../adr/) when implementing the product. Where this prompt differs, those current documents take precedence.
 
+> **Historical source prompt — DO NOT EXECUTE as current requirements (superseded scope, 2026-10-21).** The [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) and current root documents govern new work. Package accounting, recovery, access lifecycle, test/quality/inventory controls and retention in this original text may conflict with the approved target. Preserve it as history; do not implement superseded instructions or infer a current pass from old checklists. Unchanged presentation/security details are carried into the active guides.
+
 You are designing the visual foundation for the DIY-INSTAX-PHOTOBOOTH.
 
 Your task is to create a comprehensive, opinionated, implementation-ready DESIGN_SYSTEM.md that will serve as the visual and interaction source of truth for all future UI development. **Do not create a generic design system.**

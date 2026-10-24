@@ -9,6 +9,7 @@ import { localSupabase, localSupabaseStatus, readProfile } from '../fixtures/loc
 
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
 vi.mock('server-only', () => ({}));
+vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => undefined }) }));
 
 function credentials(email: string, password: string) {
   const data = new FormData();
@@ -170,7 +171,7 @@ describe('Neutral recovery action and local Mailpit delivery', () => {
     let messageId: string | undefined;
     for (let attempt = 0; attempt < 30; attempt++) {
       const response = await fetch(
-        `http://127.0.0.1:55324/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
+        `http://127.0.0.1:56324/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
       );
       expect(response.ok).toBe(true);
       const inbox = (await response.json()) as { messages: { ID: string }[] };
@@ -179,14 +180,14 @@ describe('Neutral recovery action and local Mailpit delivery', () => {
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     expect(messageId, 'A recovery email must arrive in the isolated Mailpit inbox').toBeTruthy();
-    const response = await fetch(`http://127.0.0.1:55324/api/v1/message/${messageId}`);
+    const response = await fetch(`http://127.0.0.1:56324/api/v1/message/${messageId}`);
     expect(response.ok).toBe(true);
     const message = (await response.json()) as { HTML: string };
     const href = message.HTML.match(/href="([^"]+)"/)?.[1];
     expect(Boolean(href)).toBe(true);
     const recoveryLink = new URL(href!.replaceAll('&amp;', '&'));
     // Assert only safe metadata: never print recovery tokens or the whole message.
-    expect(recoveryLink.origin).toBe('http://127.0.0.1:55321');
+    expect(recoveryLink.origin).toBe('http://127.0.0.1:56321');
     expect(recoveryLink.pathname).toBe('/auth/v1/verify');
     expect(recoveryLink.searchParams.get('type')).toBe('recovery');
     expect(recoveryLink.searchParams.get('redirect_to')).toBe(

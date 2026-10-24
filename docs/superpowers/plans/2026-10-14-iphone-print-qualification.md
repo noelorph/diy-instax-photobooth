@@ -1,5 +1,7 @@
 # iPhone Print Qualification Implementation Plan
 
+> **Historical plan — NOT AN ACTIVE WORK ORDER (superseded scope, 2026-10-21).** The [replacement contract](../specs/2026-10-21-package-accounting-booth-recovery-design.md) and current root documents govern new work. Package accounting, recovery, access lifecycle, test/quality/inventory controls and retention in this original text may conflict with the approved target. Preserve it as history; do not implement superseded instructions or infer a current pass from old checklists. Unchanged presentation/security details are carried into the active guides.
+
 **Historical plan:** Its pre-build gate timing was superseded by [ADR-0021](../../adr/0021-move-print-qualification-to-integration-checkpoint.md). Use the [current issue #17 trial report](../../qualification/issue-17-trial-report.md) for actual evidence and film state. This plan is not a current instruction to keep integrated development blocked or to repeat completed harness work.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

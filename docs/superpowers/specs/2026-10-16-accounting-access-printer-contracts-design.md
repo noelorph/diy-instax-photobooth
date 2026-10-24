@@ -1,5 +1,7 @@
 # Accounting, access, and provisional printer contracts
 
+> **Historical specification (superseded scope, 2026-10-21).** The [replacement contract](2026-10-21-package-accounting-booth-recovery-design.md) and current root documents govern new work. Package accounting, recovery, access lifecycle, test/quality/inventory controls and retention in this original text may conflict with the approved target. Preserve it as history; do not implement superseded instructions or infer a current pass from old checklists. Unchanged presentation/security details are carried into the active guides.
+
 **Status:** Approved by the owner on 2026-10-16. This design implements [issue #9](https://github.com/noelorph/diy-instax-photobooth/issues/9) after the operational decisions in [ADR-0014](../../adr/0014-stop-booth-before-print-reservation.md) and [ADR-0016](../../adr/0016-keep-history-when-deleting-draft.md). [ADR-0022](../../adr/0022-centralize-accounting-transitions-and-persist-pause-requests.md) records its approved architectural choices. It does not pass the physical printer checkpoint in [ADR-0021](../../adr/0021-move-print-qualification-to-integration-checkpoint.md) or the iPad release trial.
 
 ## Intent and scope
