@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { afterAll, beforeAll, expect, it } from 'vitest';
-import { createPackageFixture } from '../fixtures/package-contract';
+import { createPackageFixture, type PackageFixture } from '../fixtures/package-contract';
 import { localOwnerSql } from '../fixtures/local-supabase';
 
 async function withGuardHeld<T>(work: () => Promise<T>, duringHold?: () => void) {
@@ -100,6 +100,160 @@ async function withEventHeld<T>(
   }
   return pending!;
 }
+
+const packageOperations = ['add_packages', 'request_reload', 'confirm_reload'] as const;
+
+function packageSnapshot(f: PackageFixture) {
+  return {
+    event: localOwnerSql(
+      `select state,revision,film_package_count from public.events where id='${f.eventId}'`
+    )[0],
+    counts: localOwnerSql(`select private.package_counts('${f.eventId}') counts`)[0].counts,
+    run: localOwnerSql(
+      `select state,film_loaded_confirmed,power_confirmed,guided_access_confirmed,printer_id,connection_generation from public.booth_runs where id='${f.runId}'`
+    )[0],
+    packages: localOwnerSql(
+      `select * from public.additional_film_package_entries where event_id='${f.eventId}' order by id`
+    ),
+    reloads: localOwnerSql(
+      `select * from public.booth_reload_requests where event_id='${f.eventId}' order by id`
+    ),
+    receipts: localOwnerSql(
+      `select id from public.operation_receipts where event_id='${f.eventId}' order by id`
+    ),
+    activities: localOwnerSql(
+      `select id from public.activity_events where event_id='${f.eventId}' order by id`
+    ),
+  };
+}
+
+async function preparePackageOperation(f: PackageFixture, operation: string) {
+  f.seedRun('Paused');
+  if (operation === 'add_packages') return { packages: 1, clientRequestNote: 'Client request' };
+  const request = {
+    runId: f.runId,
+    printerId: 'fixture-printer',
+    connectionGeneration: 0,
+    expectedRevision: 2,
+    reason: 'Physical reload requested',
+  };
+  if (operation === 'request_reload') return request;
+  const asked = await f.admin('request_reload', request, randomUUID());
+  expect(asked.error).toBeNull();
+  return {
+    reloadRequestId: asked.data.receipt.result.reloadRequestId,
+    printerId: request.printerId,
+    connectionGeneration: request.connectionGeneration,
+    expectedRevision: asked.data.revision,
+  };
+}
+
+it.each(
+  packageOperations.flatMap((operation) =>
+    ['revoked', 'expired'].flatMap((loss) =>
+      ['fresh', 'replay'].map((request) => ({ operation, loss, request }))
+    )
+  )
+)(
+  'rejects $request $operation when authority is $loss during the Event lock wait',
+  async ({ operation, loss, request }) => {
+    const f = await createPackageFixture();
+    try {
+      const payload = await preparePackageOperation(f, operation);
+      const key = randomUUID();
+      if (request === 'replay') {
+        expect((await f.admin(operation, payload, key)).error).toBeNull();
+      }
+      const before = packageSnapshot(f);
+      const result = await withEventHeld(
+        f.eventId,
+        () => Promise.resolve(f.admin(operation, payload, key)),
+        () =>
+          localOwnerSql(
+            loss === 'revoked'
+              ? `delete from auth.sessions where id='${f.adminSessionId}'`
+              : `update auth.sessions set not_after=clock_timestamp()-interval '1 second' where id='${f.adminSessionId}'`
+          )
+      );
+      const after = packageSnapshot(f);
+      expect(result.error?.message).toBe('access_required');
+      expect(result.data).toBeNull();
+      expect(after).toEqual(before);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
+
+it.each(packageOperations)(
+  'allows still-authorized %s after the Event lock wait without changing unrelated state',
+  async (operation) => {
+    const f = await createPackageFixture();
+    try {
+      const payload = await preparePackageOperation(f, operation);
+      const key = randomUUID();
+      const before = packageSnapshot(f);
+      const result = await withEventHeld(
+        f.eventId,
+        () => Promise.resolve(f.admin(operation, payload, key)),
+        () => {}
+      );
+      expect(result.error).toBeNull();
+      const after = packageSnapshot(f);
+      expect(after.event).toEqual({ ...before.event, revision: Number(before.event.revision) + 1 });
+      expect(result.data.revision).toBe(after.event.revision);
+      expect(after.receipts).toHaveLength(before.receipts.length + 1);
+      expect(after.activities).toHaveLength(before.activities.length + 1);
+      expect(after.receipts).toEqual(expect.arrayContaining(before.receipts));
+      expect(after.activities).toEqual(expect.arrayContaining(before.activities));
+      expect(after.run).toEqual({
+        ...before.run,
+        film_loaded_confirmed: operation === 'request_reload' ? false : true,
+      });
+      if (operation === 'add_packages') {
+        expect(before.counts).toMatchObject({ totalBookedPrints: 10 });
+        expect(after.counts).toEqual({
+          ...(before.counts as object),
+          additionalPackages: 1,
+          totalBookedPrints: 20,
+          printsRemaining: 20,
+          printsAvailable: 20,
+        });
+        expect(after.packages).toHaveLength(1);
+        expect(after.packages[0]).toMatchObject({
+          packages: 1,
+          client_request_note: 'Client request',
+        });
+        expect(after.reloads).toEqual(before.reloads);
+      } else {
+        expect(after.counts).toEqual(before.counts);
+        expect(after.packages).toEqual(before.packages);
+        expect(after.reloads).toHaveLength(1);
+        const reloadRequestId = result.data.receipt.result.reloadRequestId;
+        expect(after.reloads[0]).toMatchObject({
+          id: reloadRequestId,
+          state: operation === 'request_reload' ? 'Open' : 'Confirmed',
+          run_id: f.runId,
+          printer_id: 'fixture-printer',
+          connection_generation: 0,
+        });
+        if (operation === 'confirm_reload') expect(reloadRequestId).toBe(before.reloads[0].id);
+        // Reload receipt replay and changed-payload conflicts must also precede revision checks.
+        const replay = await f.admin(operation, payload, key);
+        expect(replay.error).toBeNull();
+        expect(replay.data).toMatchObject({ receipt: result.data.receipt, replayed: true });
+        expect(
+          (await f.admin(operation, { ...payload, connectionGeneration: 1 }, key)).error?.message
+        ).toBe('operation_conflict');
+        expect(packageSnapshot(f)).toEqual(after);
+      }
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
 
 it.each([
   ['cancel', 'revoked'],
