@@ -10,6 +10,8 @@ The target gives ten prints per booked/additional Film Package, counts confirmed
 
 Real printer-backed Booth Mode remains disabled until automatic normal full-ejection completion and required recovery procedures are physically qualified, followed by the actual iPad release trial. The [existing iPhone evidence](docs/qualification/issue-17-trial-report.md) is partial. Printer count is never inventory. Manual inspection is exceptional recovery, not normal per-print completion.
 
+The [#10 functional design](docs/superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md) and [Draft-only Event Media limits](docs/adr/0027-draft-only-event-media.md) were approved on 2026-10-24. The eight implementation plans and publication plan remain uncommitted local drafts; their approval/publication remains pending before #10 implementation. The #9 software checks and independent evidence review passed; GitHub #9 is closed as completed.
+
 ## Read first
 
 - [Replacement contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md): transitions, formulas, access/database rules, target APIs and recovery.
