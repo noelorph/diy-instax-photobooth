@@ -1,5 +1,7 @@
 > **Historical input.** This is the original architecture request, retained as project history. It is not the current technical specification. Follow the [architecture](../../ARCHITECTURE.md), [PRD](../../PRD.md), [design system](../../DESIGN_SYSTEM.md), [glossary](../../GLOSSARY.md), and [decision records](../adr/) when implementing the product. Where this prompt differs, those current documents take precedence.
 
+> **Historical source prompt — DO NOT EXECUTE as current requirements (superseded scope, 2026-10-21).** The [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) and current root documents govern new work. Package accounting, recovery, access lifecycle, test/quality/inventory controls and retention in this original text may conflict with the approved target. Preserve it as history; do not implement superseded instructions or infer a current pass from old checklists. Unchanged presentation/security details are carried into the active guides.
+
 Let's design [ARCHITECTURE.md](http://ARCHITECTURE.md)
 
 We need to define how data flows for our proposed system and requirements.

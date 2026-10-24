@@ -32,7 +32,13 @@ Read the root `ARCHITECTURE.md` for the proposed system design and technical bou
 
 ### Current printer qualification status
 
-Before work on Booth Mode, printer feedback, print accounting, or hardware gates, read [ADR-0021](docs/adr/0021-move-print-qualification-to-integration-checkpoint.md) and the [issue #17 evidence report](docs/qualification/issue-17-trial-report.md). Integrated development is authorized with a simulated printer. Seven fresh-film prints matched the review; a separate three-used-sheet run demonstrated Retake and local allowance exhaustion. Automatic full-ejection feedback and the original complete fresh-film sequence remain unproven. Printer-backed Booth Mode and Confirmed Print accounting need an explicit, physically validated completion approach before they are completed or enabled; the actual-iPad release gate remains open. Do not treat the printer-reported film count as physical inventory.
+Before work on Booth Mode, printer feedback, accounting or hardware gates, read [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md), the [replacement contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md), the [proof checklist](docs/qualification/booth-recovery-proof-checklist.md), and the dated [issue #17 evidence report](docs/qualification/issue-17-trial-report.md). Version-2 contracts and handlers passed #9 software verification on reviewed candidate `2f89a96`; see [dated #9 software acceptance evidence](docs/implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 is closed as completed. Legacy Admin/Booth UI remains until #10; its plan approval, implementation and coordinated cutover remain separate work. #17/#7 physical qualification remains open.
+
+Integrated development may use a nonproduction simulator. Real Booth Mode requires physically qualified automatic normal full-ejection completion and safe recovery; phone inspection is exceptional only. The actual iPad release gate remains open. Seven fresh-film prints matched review in the old iPhone trial; a separate used-sheet run demonstrated the historical local limit. Neither proves the new contract. Do not treat printer-reported count as physical inventory or proof that ten usable sheets were loaded. Manual physical reload confirmation is the approved fallback if automatic detection cannot be proven.
+
+### Documentation authority
+
+Read [docs/README.md](docs/README.md) before using historical specs, plans or mockups. ADR-0025 and the replacement contract supersede conflicting earlier behavior. Root PRD, architecture, glossary, design system and current flow guide are aligned target documentation. Archived/superseded files preserve historical instructions and evidence; they are not current work orders. The [issue publication record](docs/github-issue-update-drafts.md) contains the published #9/#10 descriptions and remaining unpublished #17/#7 drafts. Do not infer implementation or issue completion from description publication or doc approval.
 
 ### UI/UX
 
@@ -43,24 +49,3 @@ Read the root `DESIGN_SYSTEM.md` before designing or changing an interface. It g
 Before modifying important documentation such as `PRD.md`, `GLOSSARY.md`, `docs/adr/`, or product specs, ask the user focused questions about the intended decision, its scope, and affected behavior. Wait for the answers before editing those files.
 
 When work adds or changes a durable product or technical decision, document it in `docs/adr/` in the same change. If it replaces an existing decision, identify the superseded ADR and link the new decision from it so the history remains clear. Update every affected document, including `PRD.md`, `GLOSSARY.md`, the README, specs, and relevant guides, so they describe the current decision and behavior. Do not leave conflicting guidance in place.
-
-<!-- BEGIN:nextjs-agent-feedback -->
-
-## Report Next.js feedback
-
-The project owner enabled `experimental.agentFeedback`, authorizing this feedback pass. When enabled, `next dev` writes this block and restores it if removed. Commit `AGENTS.md` with your work to keep the tree clean.
-
-During the current user request, retain anonymized facts as feedback candidates for meaningful or recurring Next.js issues:
-
-- Crashes, hangs, OOMs, or unexpected slowness
-- Incorrect behavior, output, errors, or diagnostics
-- Missing, unclear, or conflicting documentation
-- Unexpected CLI, codemod, Skill, or upgrade behavior and non-obvious workarounds
-
-Continue the current user request without reporting immediately. Ignore routine debugging and unverified changes. Never retain code, logs, paths, URLs, secrets, personal information, or project-specific data.
-
-Keep a qualifying candidate through the reporting pass even if you resolve or work around it. A successful fix changes the report outcome; it does not erase the friction that qualified it.
-
-Before the final response, run one reporting pass. If candidates remain, from this file's directory run `node node_modules/next/dist/bin/next internal agent-feedback-instructions` once without piping or truncating its output. Follow its output or error guidance. If a network sandbox blocks it, retry with network access; if it still returns no output, continue normally.
-
-<!-- END:nextjs-agent-feedback -->

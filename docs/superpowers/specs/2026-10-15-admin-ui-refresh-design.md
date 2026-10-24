@@ -1,5 +1,7 @@
 # Cohesive Admin UI refresh
 
+> **Historical specification (superseded scope, 2026-10-21).** The [replacement contract](2026-10-21-package-accounting-booth-recovery-design.md) and current root documents govern new work. Package accounting, recovery, access lifecycle, test/quality/inventory controls and retention in this original text may conflict with the approved target. Preserve it as history; do not implement superseded instructions or infer a current pass from old checklists. Unchanged presentation/security details are carried into the active guides.
+
 **Status:** Implemented and verified against the isolated local stack following the owner's approved Admin UI direction, shared Geist typography, and `src/components/` location. Hosted staging verification and promotion remain pending until a separate staging project is identified.
 
 ## Intent and scope

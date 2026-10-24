@@ -5,6 +5,7 @@ import { isAuthRetryableFetchError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { connectionError, type AuthFormState } from './state';
 import { recoveryCallbackUrl } from './config';
+import { consumeBoothReturn } from './booth-return';
 
 const credentialError = 'Email or password is incorrect. Check your details and try again.';
 
@@ -63,7 +64,16 @@ export async function signIn(_state: AuthFormState, formData: FormData): Promise
     return { email, error: connectionError };
   }
   // Next.js redirect is control flow; keep it outside the failure handler.
-  redirect('/dashboard');
+  const destination = await consumeBoothReturn(async (id) => {
+    const { data, error } = await client!
+      .from('events')
+      .select('id')
+      .eq('id', id)
+      .is('deleted_at', null)
+      .maybeSingle();
+    return !error && !!data;
+  });
+  redirect(destination);
 }
 
 export async function requestRecovery(

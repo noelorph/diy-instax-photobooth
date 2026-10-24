@@ -32,7 +32,7 @@ describe('Public password reset form', () => {
       .map((id) => document.getElementById(id)?.textContent)
       .join(' ');
     expect(description).toMatch(/12–128 characters/);
-    expect(document.activeElement).toBe(screen.getByRole('alert'));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('alert')));
     fireEvent.change(confirmation, { target: { value: 'edited' } });
     expect(screen.getByRole('alert').textContent).toMatch(/highlighted/);
   });
