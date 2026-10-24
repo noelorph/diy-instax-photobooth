@@ -1,6 +1,6 @@
 # Documentation map and authority
 
-**Current approved target:** package accounting and Booth recovery, 2026-10-21. **Implementation status:** version-2 database contracts, trusted handlers and provisional simulator code exist; legacy Admin/Booth UI consumers remain until #10. See the [issue #9 verification and #10 handoff record](implementation/issue-9-package-contracts-review.md) for actual test outcomes. Hosted activation and physical qualification remain open.
+**Current approved target:** package accounting and Booth recovery, 2026-10-21. **Implementation status:** version-2 database contracts, trusted handlers and provisional simulator code passed the #9 software checks; legacy Admin/Booth UI consumers remain until #10. See the [issue #9 verification and #10 handoff record](implementation/issue-9-package-contracts-review.md) for passing 2026-10-25 software acceptance and retained failures; GitHub #9 closure remains pending. Hosted activation and physical qualification remain open.
 
 ## Active documentation
 
@@ -13,7 +13,7 @@
 7. [Approved mockup gallery](design/2026-10-21-package-recovery/index.html), [screen notes](design/2026-10-21-package-recovery/screen-map.md) and [design index](design/README.md): Admin and Booth visual references approved by the user on 21 October 2026; implementation pending.
 8. [Domain guidance](agents/domain.md), [issue workflow](agents/issue-tracker.md), [triage labels](agents/triage-labels.md).
 
-If two active documents disagree, reconcile them against the approved contract and ADR rather than silently implementing a different policy. Ask about new durable product decisions. Current user decisions override older files. The #9/#10 GitHub descriptions were published on 2026-10-23; #17/#7 remain unpublished drafts. Description publication does not close issues or establish implementation completion. #10 planning may proceed, but implementation remains blocked until #9's outstanding findings are resolved and required verification passes.
+If two active documents disagree, reconcile them against the approved contract and ADR rather than silently implementing a different policy. Ask about new durable product decisions. Current user decisions override older files. The #9/#10 GitHub descriptions were published on 2026-10-23; #17/#7 remain unpublished drafts. Description publication does not close issues or establish implementation completion. #10 planning may proceed. The [dated #9 software acceptance evidence](implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25) records passing software checks and independent evidence review. GitHub #9 closure remains a separate pending tracker action. #10 implementation awaits its own plan approval/publication.
 
 ## Historical material: read for evidence, not new instructions
 

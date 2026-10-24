@@ -4,7 +4,7 @@ An Event photo booth with an Admin application and Guest-facing `/booth`. The ta
 
 ## Current status
 
-**The 2026-10-21 package-accounting and recovery design is approved.** Version-2 database contracts, trusted handlers and a provisional simulator/one-send path are implemented for local verification. The existing Admin and Booth screens still use legacy flows; issue #10 must connect them to these contracts and remove retired controls. The [issue #9 verification record](docs/implementation/issue-9-package-contracts-review.md) separates tested behavior from remaining checks. No hosted cutover or new hardware trial has occurred.
+**The 2026-10-21 package-accounting and recovery design is approved.** Version-2 database contracts, trusted handlers and a provisional simulator/one-send path are verified for the #9 software prerequisite. The existing Admin and Booth screens still use legacy flows; issue #10 must connect them to these contracts and remove retired controls. The [issue #9 verification record](docs/implementation/issue-9-package-contracts-review.md) records passing software checks on `2f89a96` and retained failures; GitHub #9 closure remains pending. No hosted cutover or new hardware trial has occurred.
 
 The target gives ten prints per booked/additional Film Package, counts confirmed full ejection once and keeps unknown attempts pending. Equipment recovery and phone Admin pause/resume keep the iPad in Booth Mode. Physical reload confirmation is separate from buying packages. Finish Booth Mode precedes Complete Event. See the [full route and flow guide](docs/booth-user-flow.md).
 

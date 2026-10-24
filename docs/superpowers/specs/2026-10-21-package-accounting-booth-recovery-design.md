@@ -1,6 +1,6 @@
 # Package accounting, access and Booth recovery contract
 
-**Status:** Approved target design, 2026-10-21. Version-2 database contracts, handlers and a provisional simulator path are implemented for local verification; [issue #9 review](../../implementation/issue-9-package-contracts-review.md) records results. Existing UI remains on legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
+**Status:** Approved target design, 2026-10-21. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; [issue #9 review](../../implementation/issue-9-package-contracts-review.md) records passing 2026-10-25 software acceptance and retained failures; GitHub #9 closure remains pending. Existing UI remains on legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
 **Decision:** [ADR-0025](../../adr/0025-package-accounting-and-booth-recovery.md).
 **Replaces:** [2026-10-16 contract](2026-10-16-accounting-access-printer-contracts-design.md) and conflicting behavior in older specs/plans. [Documentation index](../../README.md) identifies authority and history.
 

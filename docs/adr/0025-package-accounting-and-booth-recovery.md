@@ -1,6 +1,6 @@
 # ADR-0025: Use package accounting and keep recovery in Booth Mode
 
-**Status:** Accepted target design. Version-2 contracts and handlers exist for local verification; #9 still requires its outstanding authorization fix, review and passing verification. Admin/Booth integration and coordinated cutover remain #10 work, blocked on that #9 gate. Physical qualification remains open.
+**Status:** Accepted target design. Version-2 contracts and handlers passed #9 software verification; see [dated #9 software acceptance evidence](../implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 closure remains pending. Admin/Booth integration and coordinated cutover remain #10 work, subject to their separate plan approval and the reviewed #9 handoff. Physical qualification remains open.
 **Date:** 2026-10-21
 **Contract:** [Package accounting, access and Booth recovery](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md).
 

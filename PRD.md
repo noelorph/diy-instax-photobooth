@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth — Product Requirements
 
-**Status:** Approved target product, revised 2026-10-21. Version-2 database contracts, handlers and a provisional simulator path are implemented for local verification; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records actual results. Existing Admin/Booth screens still use legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
+**Status:** Approved target product, revised 2026-10-21. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 closure remains pending. Existing Admin/Booth screens still use legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
 **Contract:** [Accounting, access and Booth recovery](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md).
 **Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md). **Presentation:** [Design system](DESIGN_SYSTEM.md). **Boundaries:** [Architecture](ARCHITECTURE.md).
 

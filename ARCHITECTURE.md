@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth — Architecture
 
-**Status:** Approved target architecture, revised 2026-10-21. Version-2 schema, trusted handlers and provisional simulator code are installed for local verification; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records actual results. Existing Admin/Booth UI remains on legacy flows until #10. No hosted activation or physical qualification has occurred.
+**Status:** Approved target architecture, revised 2026-10-21. Version-2 schema, trusted handlers and provisional simulator code are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 closure remains pending. Existing Admin/Booth UI remains on legacy flows until #10. No hosted activation or physical qualification has occurred.
 **Behavior:** [PRD](PRD.md). **Normative transitions, access, data and APIs:** [replacement contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). **Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md).
 
 ## 1. System boundary
