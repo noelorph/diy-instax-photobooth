@@ -11,7 +11,10 @@ type LocalStatus = {
 };
 
 // Always discover this checkout's local stack; never consume application/remote env vars.
+let localStatus: LocalStatus | undefined;
 export function localSupabaseStatus() {
+  // shortcut: one stack per test worker; restart the worker after restarting the local stack.
+  if (localStatus) return localStatus;
   const status = JSON.parse(
     execFileSync(resolve('node_modules/.bin/supabase'), ['status', '-o', 'json'], {
       encoding: 'utf8',
@@ -21,7 +24,7 @@ export function localSupabaseStatus() {
   if (status.API_URL !== 'http://127.0.0.1:56321') {
     throw new Error('Integration fixtures require the isolated local Supabase API on port 56321.');
   }
-  return status;
+  return (localStatus = status);
 }
 
 export function localSupabase() {
@@ -98,7 +101,9 @@ export function localOwnerSql(query: string): Record<string, unknown>[] {
       throw new Error('Owner fixture requires this worktree project.');
     ownerStackChecked = true;
   }
-  const returnsRows = /^\s*(select|with)\b/i.test(query) || /\breturning\s/i.test(query);
+  const returnsRows =
+    /^\s*(select|with)\b/i.test(query) ||
+    /^\s*(insert|update|delete)\b[\s\S]*\breturning\s/i.test(query);
   const statement = returnsRows
     ? `with fixture_rows as (${query}) select coalesce(json_agg(fixture_rows),'[]') from fixture_rows`
     : query;

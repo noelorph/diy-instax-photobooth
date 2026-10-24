@@ -1,26 +1,14 @@
 // @vitest-environment node
-import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { localSupabase } from '../fixtures/local-supabase';
+import { localOwnerSql, localSupabase } from '../fixtures/local-supabase';
 
 function sql(query: string) {
-  const output = execFileSync(
-    resolve('node_modules/.bin/supabase'),
-    [
-      'db',
-      'query',
-      '--local',
-      /^\s*select/i.test(query)
-        ? query
-        : `do $fixture$ begin ${query.trim().replace(/;+$/, '')}; end $fixture$`,
-      '-o',
-      'json',
-    ],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+  return localOwnerSql(
+    /^\s*select/i.test(query)
+      ? query
+      : `do $fixture$ begin ${query.trim().replace(/;+$/, '')}; end $fixture$`
   );
-  return output.trim().startsWith('{') ? JSON.parse(output).rows : [];
 }
 const evidence = {
   commandAccepted: 'command_acknowledged',

@@ -1,18 +1,12 @@
 // @vitest-environment node
-import { execFileSync, spawn } from 'node:child_process';
+import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { localOwnerSql, localSupabase, ownerInsert } from '../fixtures/local-supabase';
 
 function sql(query: string) {
-  const output = execFileSync(
-    resolve('node_modules/.bin/supabase'),
-    ['db', 'query', '--local', query, '-o', 'json'],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-  );
-  return output.trim().startsWith('{') ? JSON.parse(output).rows : [];
+  return localOwnerSql(query);
 }
 async function expireBehindGuard<T>(
   name: string,
