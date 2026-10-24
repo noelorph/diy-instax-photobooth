@@ -24,6 +24,13 @@ Task 3 is partial: SQL/static checks and post-failure preservation audits passed
 
 The installed Next.js 16.4.0 security blocker requires an explicit dependency-scope exception, which is pending. The no-dependency-upgrade constraint below remains in force until the user answers; no dependency change or subsequent full/build/browser run has been performed. Those checks are deferred pending diagnosis and the dependency-scope decision; existing verification authorization remains in force. #9 remains open and #10 implementation has not started. Planning-baseline findings and earlier dated results below remain historical context.
 
+## Approved security-patch exception — 2026-10-24
+
+After the blocked checkpoint above, the user explicitly approved updating the exact Next.js dependency from `16.4.0` to `16.4.1` with its npm-generated lockfile changes, following the [official October 14 security advisory](https://nextjs.org/blog/nextjs-security-update-october-14-2026). This is the single exception to the no-dependency-upgrade constraint below. All other constraints remain in force; no application, configuration, product-behavior or other top-level dependency change is authorized by this exception.
+
+- [x] **Apply and verify the narrow security patch.** Pin and install Next.js `16.4.1`, audit necessary lockfile changes, and run the scoped package/static/build checks. Retain actual outcomes; this smoke check does not replace Task 3 acceptance.
+- [ ] **Independently review the security patch.** Review the dependency/lockfile diff and verification evidence before resuming final acceptance. Keep all final acceptance and closure gates open until their required checks pass.
+
 ## Global Constraints
 
 - “Planning may proceed now. Implementation begins after #9’s outstanding findings are resolved and its required verification passes.” This is the #10 implementation gate, not evidence that it has passed.
