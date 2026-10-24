@@ -97,6 +97,10 @@ prints_available   = total_booked_prints − C − U
 - Loading a physical package changes equipment readiness only. It does not add Event capacity. Adding a purchased package changes Event capacity only. It does not prove film was physically loaded.
 - Retakes and abandoned photos do not use print capacity. Each completed shutter produces one Capture; stopping before the shutter produces none. Count metadata idempotently even if the photo is discarded.
 
+### Event Media policy (approved 2026-10-24)
+
+Upload, replacement and removal are Draft-only, with authority, state and revision rechecked when the change commits. Accept one still JPEG/PNG/WebP background up to 10,000,000 bytes and one MP4 H.264/AVC montage up to 50,000,000 bytes with positive duration at most 30 seconds. Reject animated images and validate actual content at the trusted boundary; no conversion, trimming or editing. Failed/stale changes preserve existing media. Live media is frozen even while the Booth is Paused or Finished; Completed/Cancelled media remains retained. An audio track may remain, but playback is muted with no unmute action. Private delivery and unreferenced-upload cleanup preserve Guest-photo isolation and retained Event history. See [ADR-0027](../../adr/0027-draft-only-event-media.md); its implementation belongs to #10, not the existing #9 contracts.
+
 ## 3. Guest journey
 
 1. **Welcome:** silent looping montage, otherwise Event background, otherwise default. Clear Start plus short one-print/privacy copy. Start remains available while montage plays. A pause-video control and reduced-motion static fallback remain.

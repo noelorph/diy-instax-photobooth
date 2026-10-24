@@ -4,25 +4,25 @@
 
 ## Route coverage
 
-| Sheet | Route or surface | What to review |
-| --- | --- | --- |
-| [Dashboard](admin/01-dashboard.png) | `/dashboard` | Month and upcoming summaries, next Event and recent activity. |
-| [Events](admin/02-events.png) | `/events` | Draft and Live Events with whole Film Package counts. |
-| [Event editor](admin/03-event-editor.png) | `/events/new · /events/[eventId]` | Client, schedule, Event Media and packages; print total is derived. |
-| [Draft and booth setup](admin/04-draft-setup.png) | `/events/[eventId]` | Readiness, physical checks and the test reminder before the local iPad handoff. |
-| [Live Event](admin/05-live-event.png) | `/events/[eventId]` | Package accounting, equipment, activity and separate booth/Event lifecycle actions. |
-| [Phone management](admin/06-phone-management.png) | `/events/[eventId]` | Running, explicitly Paused and Booth finished while the Event remains Live. |
-| [Phone recovery](admin/07-phone-recovery.png) | `/events/[eventId]` | Physical reload and exceptional unknown-outcome inspection are independent. |
-| [Authentication](admin/08-authentication.png) | `/sign-in · /forgot-password · /reset-password` | Shared form styling for sign-in, recovery and password reset. |
-| [History](admin/09-history.png) | `/history · /events/[eventId]` | Retained Completed and Cancelled Events with read-only detail. |
-| [Profile](admin/10-profile.png) | `/profile` | Account details, appearance, password and current-device sign-out. |
-| [Dialogs and feedback](admin/11-dialogs-feedback.png) | `Admin state specimens` | Consequential choices and persistent error feedback. |
-| [Welcome and capture](booth/01-welcome-capture.png) | `/booth` | Montage, Start, camera preview, Take Photo and countdown. |
-| [Review and printing](booth/02-review-printing-complete.png) | `/booth` | Retake or Print, truthful printing status and a photo-free completion screen. |
-| [Connection recovery](booth/03-connection-recovery.png) | `/booth` | Bluetooth, camera, detected offline and service-unavailable states. |
-| [Printer and capacity](booth/04-printer-and-capacity.png) | `/booth` | No film, unknown outcome and booked-print exhaustion. |
-| [Pause, finish and access](booth/05-pause-finish-access.png) | `/booth` | Pause, Finishing, Finished and exceptional access loss. |
-| [iPad and phone recovery](journeys/01-ipad-phone-recovery.png) | `/booth ↔ /events/[eventId]` | Guest-facing unavailability paired with the Admin's phone actions. |
+| Sheet                                                          | Route or surface                                | What to review                                                                      |
+| -------------------------------------------------------------- | ----------------------------------------------- | ----------------------------------------------------------------------------------- |
+| [Dashboard](admin/01-dashboard.png)                            | `/dashboard`                                    | Month and upcoming summaries, next Event and recent activity.                       |
+| [Events](admin/02-events.png)                                  | `/events`                                       | Draft and Live Events with whole Film Package counts.                               |
+| [Event editor](admin/03-event-editor.png)                      | `/events/new · /events/[eventId]`               | Client, schedule, Event Media and packages; print total is derived.                 |
+| [Draft and booth setup](admin/04-draft-setup.png)              | `/events/[eventId]`                             | Readiness, physical checks and the test reminder before the local iPad handoff.     |
+| [Live Event](admin/05-live-event.png)                          | `/events/[eventId]`                             | Package accounting, equipment, activity and separate booth/Event lifecycle actions. |
+| [Phone management](admin/06-phone-management.png)              | `/events/[eventId]`                             | Running, explicitly Paused and Booth finished while the Event remains Live.         |
+| [Phone recovery](admin/07-phone-recovery.png)                  | `/events/[eventId]`                             | Physical reload and exceptional unknown-outcome inspection are independent.         |
+| [Authentication](admin/08-authentication.png)                  | `/sign-in · /forgot-password · /reset-password` | Shared form styling for sign-in, recovery and password reset.                       |
+| [History](admin/09-history.png)                                | `/history · /events/[eventId]`                  | Retained Completed and Cancelled Events with read-only detail.                      |
+| [Profile](admin/10-profile.png)                                | `/profile`                                      | Account details, appearance, password and current-device sign-out.                  |
+| [Dialogs and feedback](admin/11-dialogs-feedback.png)          | `Admin state specimens`                         | Consequential choices and persistent error feedback.                                |
+| [Welcome and capture](booth/01-welcome-capture.png)            | `/booth`                                        | Montage, Start, camera preview, Take Photo and countdown.                           |
+| [Review and printing](booth/02-review-printing-complete.png)   | `/booth`                                        | Retake or Print, truthful printing status and a photo-free completion screen.       |
+| [Connection recovery](booth/03-connection-recovery.png)        | `/booth`                                        | Bluetooth, camera, detected offline and service-unavailable states.                 |
+| [Printer and capacity](booth/04-printer-and-capacity.png)      | `/booth`                                        | No film, unknown outcome and booked-print exhaustion.                               |
+| [Pause, finish and access](booth/05-pause-finish-access.png)   | `/booth`                                        | Pause, Finishing, Finished and exceptional access loss.                             |
+| [iPad and phone recovery](journeys/01-ipad-phone-recovery.png) | `/booth ↔ /events/[eventId]`                    | Guest-facing unavailability paired with the Admin's phone actions.                  |
 
 `/` redirects and `/auth/callback` exchanges the recovery code; neither needs a new navigable screen. The supervised qualification harness is historical tooling and is intentionally outside the product mockups.
 
@@ -38,15 +38,15 @@ The mockups primarily show light Admin mode. The saved Profile preference also s
 
 Studio evening uses five original packages and one additional package: **6 × 10 = 60 booked prints**. These are capacity counts, never measured physical inventory.
 
-| Illustrated state | Confirmed Prints | Pending | Available |
-| --- | ---: | ---: | ---: |
-| Healthy live management | 38 | 0 | 22 |
-| Definitely no output after a later attempt | 39 | 0 | 21 |
-| One later attempt has an unknown outcome | 39 | 1 | 20 |
-| Film reloaded while that outcome is unknown | 39 | 1 | 20 |
-| Unknown later resolved Printed | 40 | 0 | 20 |
-| Unknown later resolved Not printed | 39 | 0 | 21 |
-| Finished run example | 40 | 0 | 20 |
+| Illustrated state                           | Confirmed Prints | Pending | Available |
+| ------------------------------------------- | ---------------: | ------: | --------: |
+| Healthy live management                     |               38 |       0 |        22 |
+| Definitely no output after a later attempt  |               39 |       0 |        21 |
+| One later attempt has an unknown outcome    |               39 |       1 |        20 |
+| Film reloaded while that outcome is unknown |               39 |       1 |        20 |
+| Unknown later resolved Printed              |               40 |       0 |        20 |
+| Unknown later resolved Not printed          |               39 |       0 |        21 |
+| Finished run example                        |               40 |       0 |        20 |
 
 Available = booked prints − confirmed − unresolved holds. The short UI label **Printed** means Confirmed Prints, including an unusable image after full physical ejection. A pending attempt is never success. Illustrations are snapshots, not an assertion that every sheet is one continuous attempt sequence.
 
@@ -56,7 +56,7 @@ Adding one Film Package to the six-package example gives seven packages and 70 b
 
 - Drafts have a whole-number Film Package field and derived total of ten prints per package. There is no separate print-count field.
 - Zero packages may be saved in Draft, but cannot pass start readiness. Negative, fractional or invalid values receive inline validation. Show validation on the field being edited, not alongside a conflicting successful value.
-- Keep Client, schedule and Event Media fields grouped. A stale save preserves entered values and offers Reload latest details.
+- Keep Client, schedule and Event Media fields grouped. Media upload/replace/remove is Draft-only. Show the format, size and duration limits from [ADR-0027](../../adr/0027-draft-only-event-media.md); failed/stale replacement preserves existing media, and Live/terminal media is read-only. A stale save preserves entered values and offers Reload latest details.
 - On the booth iPad, start from `/events/[eventId]`. Check camera/live feed, server, correct printer, physical loaded-film/power/Guided Access confirmations and available capacity.
 - Show only: **Always test the printer before starting Booth Mode.** There is no Test Print button, test result or output-inspection prerequisite.
 - Start Booth Mode performs the local sign-out and device handoff. Display Preparing Booth Mode until it succeeds. The phone Admin session remains available.
@@ -80,19 +80,19 @@ Welcome montage → Start → mirrored live preview → Take Photo → 3–2–1
 
 Retake returns to preview. Print shows honest sending/waiting stages. Show Print complete only after full physical ejection and acknowledged accounting. Discard the photo; show completion for three seconds, then a fresh welcome only when ready. The complete screen has no previous-photo thumbnail.
 
-| Condition | Exact main copy | Available Booth action |
-| --- | --- | --- |
-| Bluetooth | Bluetooth disconnected. Please inform the Admin. | Connect to Instax |
-| Camera | Camera disconnected. Please inform the Admin. | Enable Camera |
-| Detected offline | Wi-Fi disconnected. Please inform the Admin. | None |
-| Service unavailable | Connection unavailable. Please inform the Admin. | None |
-| Reliable no-film result | Printer is out of film. Please inform the Admin. | None; phone reload confirmation |
-| Unknown/unclassified | Booth is temporarily unavailable. Please inform the Admin. | None; feedback or phone inspection |
-| Capacity exhausted | All booked prints have been used. Please ask the Admin to add another Film Package. | None; phone package entry |
-| Explicit pause | Booth paused | None; phone Resume |
-| Finishing | Finishing Booth Mode | None; current work must settle |
-| Finished | Booth Mode finished | Sign in |
-| Genuine access loss | Booth access ended. Please inform the Admin. | Sign in for exceptional setup |
+| Condition               | Exact main copy                                                                     | Available Booth action             |
+| ----------------------- | ----------------------------------------------------------------------------------- | ---------------------------------- |
+| Bluetooth               | Bluetooth disconnected. Please inform the Admin.                                    | Connect to Instax                  |
+| Camera                  | Camera disconnected. Please inform the Admin.                                       | Enable Camera                      |
+| Detected offline        | Wi-Fi disconnected. Please inform the Admin.                                        | None                               |
+| Service unavailable     | Connection unavailable. Please inform the Admin.                                    | None                               |
+| Reliable no-film result | Printer is out of film. Please inform the Admin.                                    | None; phone reload confirmation    |
+| Unknown/unclassified    | Booth is temporarily unavailable. Please inform the Admin.                          | None; feedback or phone inspection |
+| Capacity exhausted      | All booked prints have been used. Please ask the Admin to add another Film Package. | None; phone package entry          |
+| Explicit pause          | Booth paused                                                                        | None; phone Resume                 |
+| Finishing               | Finishing Booth Mode                                                                | None; current work must settle     |
+| Finished                | Booth Mode finished                                                                 | Sign in                            |
+| Genuine access loss     | Booth access ended. Please inform the Admin.                                        | Sign in for exceptional setup      |
 
 The two-part headings/support in the images form the exact main messages above. Guest screens do not expose Admin accounting controls, Event contacts or an exit gesture.
 

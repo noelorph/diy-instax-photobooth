@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth — Architecture
 
-**Status:** Approved target architecture, revised 2026-10-21. Version-2 schema, trusted handlers and provisional simulator code are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth UI remains on legacy flows until #10. No hosted activation or physical qualification has occurred.
+**Status:** Approved target architecture, revised 2026-10-24 for the approved Event Media policy. Version-2 schema, trusted handlers and provisional simulator code are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth UI remains on legacy flows until #10. No hosted activation or physical qualification has occurred.
 **Behavior:** [PRD](PRD.md). **Normative transitions, access, data and APIs:** [replacement contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). **Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md).
 
 ## 1. System boundary
@@ -66,7 +66,9 @@ A pause/finish committed before dispatch denies it. If dispatch committed first,
 
 ## 6. Media, retention and validation
 
-Private Event Media uses opaque Event-ID object paths and short-lived URLs issued only after authorization. Validate image/video format, size and the montage's maximum 30-second duration. Montage is welcome-only and silent, with pause and reduced-motion fallback. A background never enters the captured image. Guest image bytes, Client contact copies, secrets and signed URLs are excluded from logs/telemetry.
+Private Event Media uses opaque Event-ID object paths and short-lived URLs issued only after authorization. Upload, replacement and removal are Draft-only, with authority, state and revision rechecked when the change commits. Accept one still JPEG/PNG/WebP background up to 10,000,000 bytes and one MP4 H.264/AVC montage up to 50,000,000 bytes with positive duration at most 30 seconds. Reject animated images and validate actual content at the trusted boundary; no conversion, trimming or editing. Failed/stale changes preserve existing media. Live media is frozen even while the Booth is Paused or Finished; Completed/Cancelled media remains retained. Unreferenced failed uploads require retryable cleanup without deleting retained media. See [ADR-0027](docs/adr/0027-draft-only-event-media.md).
+
+Montage is welcome-only and silent, with pause and reduced-motion fallback. A background never enters the captured image. Guest image bytes, Client contact copies, secrets and signed URLs are excluded from logs/telemetry.
 
 Draft saves reject invalid/ambiguous venue-local times, non-whole/negative package counts and stale revisions. Original booking fields freeze when Live. Additional package entries are positive whole units with Client-request note and audit identity. No Client-redaction or terminal Event-delete route exists in the target. Draft deletion removes private media and identifying details, reports cleanup pending on failure, and retains opaque audit references. Completed/Cancelled records and their media remain under Admin access.
 

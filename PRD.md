@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth — Product Requirements
 
-**Status:** Approved target product, revised 2026-10-21. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth screens still use legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
+**Status:** Approved target product, revised 2026-10-24 for the approved Event Media policy. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth screens still use legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
 **Contract:** [Accounting, access and Booth recovery](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md).
 **Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md). **Presentation:** [Design system](DESIGN_SYSTEM.md). **Boundaries:** [Architecture](ARCHITECTURE.md).
 
@@ -75,6 +75,8 @@ The Event detail page shows booking/contact information, original/additional pac
 Initial start is performed on the booth iPad from this page: verify internet/server, live camera, printer connection/readiness, film loaded, printer power and Guided Access; show the test reminder and require positive capacity. Activate the grant after local Admin sign-out/receipt handoff, then open `/booth`. No Test Print prerequisite or button. Remote phone Resume reuses valid device access and requires readiness; it never performs a fresh iPad sign-in.
 
 Optional private media: a portrait image around the preview and on welcome; a silent looping montage up to 30 seconds on welcome. Montage takes priority, image is fallback, default works with neither. Start always available; pause-video control and reduced-motion static image/default. Media never alters captured/printed photos. Upload validation and private access remain required.
+
+Upload, replacement and removal are Draft-only, with authority, state and revision rechecked when the change commits. Accept one still JPEG/PNG/WebP background up to 10,000,000 bytes and one MP4 H.264/AVC montage up to 50,000,000 bytes with positive duration at most 30 seconds. Reject animated images and validate actual content at the trusted boundary; no conversion, trimming or editing. Failed/stale changes preserve existing media. Live media is frozen even while the Booth is Paused or Finished; Completed/Cancelled media remains retained. See [ADR-0027](docs/adr/0027-draft-only-event-media.md).
 
 ### History — `/history`
 

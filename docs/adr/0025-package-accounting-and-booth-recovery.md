@@ -43,7 +43,7 @@ Unaffected decisions remain in force: photo privacy (0001), visual system (0010)
 
 ## Refinement
 
-[ADR-0026](0026-order-captures-by-shutter-time.md) refines Capture eligibility at reservation and dispatch: use acknowledged shutter time, permit explicitly selected ties, and never substitute the bound photo. All other decisions here remain in force.
+[ADR-0026](0026-order-captures-by-shutter-time.md) refines Capture eligibility at reservation and dispatch: use acknowledged shutter time, permit explicitly selected ties, and never substitute the bound photo. [ADR-0027](0027-draft-only-event-media.md) further defines Draft-only Event Media changes and trusted upload limits. All other decisions here remain in force.
 
 ## Consequences
 

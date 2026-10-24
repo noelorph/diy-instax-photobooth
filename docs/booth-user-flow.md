@@ -41,6 +41,10 @@ flowchart TD
 
 Starting is an iPad setup action from `/events/[eventId]`. Remote Resume is a phone action on the same Event; it retains the valid booth grant and returns the iPad to welcome. Physical loading is separate from adding purchased packages. Initial handoff failure or genuine access expiry may need local sign-in/setup; ordinary disconnections and pause do not. Exceptional local recovery replaces access on the same unfinished run, keeps it Paused and requires explicit phone Resume. Finishing/Finished runs cannot regain guest access.
 
+## Event Media preparation
+
+Upload, replacement and removal are Draft-only, with authority, state and revision rechecked when the change commits. Accept one still JPEG/PNG/WebP background up to 10,000,000 bytes and one MP4 H.264/AVC montage up to 50,000,000 bytes with positive duration at most 30 seconds. Reject animated images and validate actual content at the trusted boundary; no conversion, trimming or editing. Failed/stale changes preserve existing media. Live media is frozen even while the Booth is Paused or Finished; Completed/Cancelled media remains retained. Playback remains silent, pausable and subject to reduced-motion fallback. See [ADR-0027](adr/0027-draft-only-event-media.md).
+
 ## Guest flow
 
 ```mermaid
