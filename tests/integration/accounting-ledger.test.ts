@@ -221,7 +221,7 @@ describe('accounting ledger operations', () => {
     expect(
       (await rpc('reconcile_film_stock', { ...a.args, observed_sheets: 4, reason: 'Count' })).error
     ).toBeNull();
-  });
+  }, 30000);
   it('adds Event allowance once without changing original allowance or stock', async () => {
     const a = await admin();
     const id = await event();

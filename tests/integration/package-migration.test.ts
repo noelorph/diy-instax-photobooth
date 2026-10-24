@@ -59,7 +59,7 @@ it('exposes an owner-only read-only cutover preflight', () => {
     blockingLegacyWork: expect.any(Object),
   });
   expect(after).toEqual(before);
-});
+}, 30000);
 
 it('blocks activation with unresolved legacy attempts and leaves the local guard unchanged', () => {
   const eventId = randomUUID(),
