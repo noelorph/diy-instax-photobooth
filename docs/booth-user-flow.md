@@ -1,6 +1,6 @@
 # Project routes and Booth user flow
 
-**Approved target, 2026-10-21.** Version-2 contracts and handlers passed the #9 software checks and independent evidence review; existing Admin/Booth UI still uses legacy flows. #10 owns their integration and coordinated cutover; its own plan approval/publication remains pending before implementation. See [dated #9 software acceptance evidence](implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 closure remains a separate pending tracker action. Physical qualification remains open. Use the [replacement contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) for exact transitions and API shapes, and [PRD](../PRD.md) for product scope.
+**Approved target, 2026-10-21.** Version-2 contracts and handlers passed the #9 software checks and independent evidence review; existing Admin/Booth UI still uses legacy flows. #10 owns their integration and coordinated cutover; its own plan approval/publication remains pending before implementation. See [dated #9 software acceptance evidence](implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 is closed as completed. Physical qualification remains open. Use the [replacement contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) for exact transitions and API shapes, and [PRD](../PRD.md) for product scope.
 
 ## Page routes
 

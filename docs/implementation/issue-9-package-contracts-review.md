@@ -339,3 +339,9 @@ The version-2 software verification prerequisite is satisfied. **GitHub #9 closu
 ### Proposed GitHub acceptance text — not published
 
 The remaining #9 authorization race and Profile focus assertion are resolved and independently reviewed. Final reviewed candidate `2f89a96afee2dfdc2a1d540cbcc3c0ee4380bbbb` passed all 901 tests across 53 files, required static/build/SQL checks and all three browser gates (19 + 2 + 1 tests). Exact local baseline and private privileges were preserved. See this dated evidence and the completion plan for retained failed attempts and corrections. #10 plan approval/integration/cutover and #17/#7 physical qualification remain separate. Publish or close #9 through a separate authorized tracker action after refreshing its current state.
+
+## Tracker acceptance and local merge — 2026-10-25
+
+Following user approval, the [acceptance summary](https://github.com/noelorph/diy-instax-photobooth/issues/9#issuecomment-6386836261) was published and #9 was closed as completed. #10 remains open with its #9 prerequisite satisfied; its own plan approval/publication, integration and cutover remain pending. Read-back confirmed the issue bodies, closure reason and retained dependency on the closed #9. The [publication record](../github-issue-update-drafts.md#acceptance-update--2026-10-25) records the tracker changes.
+
+The committed #9 branch was merged locally into `development` as `220749c`. The merged committed tree exactly matched `87e5447`; application code, tests and dependencies remain those of tested candidate `2f89a96`. The existing local `.gitignore` edit and ignored `.rea` files were preserved. This status update supplies no new test run or physical qualification. Earlier pending-closure statements above describe the evidence before that tracker action.
