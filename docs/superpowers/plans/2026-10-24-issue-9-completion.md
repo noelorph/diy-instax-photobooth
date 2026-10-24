@@ -12,7 +12,7 @@
 
 **Spec:** [Approved replacement contract](../specs/2026-10-21-package-accounting-booth-recovery-design.md), especially sections 2 and 5–6; [ADR-0025](../../adr/0025-package-accounting-and-booth-recovery.md); [ADR-0026](../../adr/0026-order-captures-by-shutter-time.md); current [GitHub #9](https://github.com/noelorph/diy-instax-photobooth/issues/9).
 
-**Status:** Approved for implementation on 2026-10-24; local execution and independent evidence review passed on 2026-10-25. GitHub #9 closure remains a separate pending tracker action. It continues the [original approved implementation plan](2026-10-21-issue-9-package-contracts-implementation.md) and [review-fixes plan](2026-10-22-issue-9-review-fixes.md). It changes no approved product or technical decision. Earlier plans and dated results remain historical records.
+**Status:** Approved for implementation on 2026-10-24; local execution and independent evidence review passed on 2026-10-25. GitHub #9 is closed as completed. It continues the [original approved implementation plan](2026-10-21-issue-9-package-contracts-implementation.md) and [review-fixes plan](2026-10-22-issue-9-review-fixes.md). It changes no approved product or technical decision. Earlier plans and dated results remain historical records.
 
 **Planning baseline:** `ca03c59d2fc8ac507a6132681a916ecd093a60a0`. The working tree already contains uncommitted approved Event Media documentation, #10 planning files and an unrelated SQL snippet. Preserve them; do not stage them incidentally. Re-read the baseline at execution time if it changes.
 
@@ -189,3 +189,7 @@ After these gates, prepare the concrete #9 acceptance/closure text locally, citi
 Reviewed candidate `2f89a96afee2dfdc2a1d540cbcc3c0ee4380bbbb` passed the complete required full gate: 53/53 files and 901/901 tests, exit 0, 2398.41 seconds. Required SQL/static/build checks and all three sequential browser gates passed (19 + 2 + 1 tests). Exact final baseline, stock, identities/fingerprints, migration and privilege audits passed; all 24 pre-existing dirty files were preserved through verification and candidate code remained unchanged. Only the mapped #9 status sentences have since changed.
 
 The earlier blocked checkpoint remains dated history. The user-approved security patch, reviewed fixture latency correction and two reviewed per-case integration budgets are included in the final candidate. The dated final appendix and status-only sentences passed independent review; their documentation-only commit sits atop tested `2f89a96`. GitHub #9 remains open pending a separate tracker action. #10 awaits its own plan approval/publication before implementation and cutover; #17/#7 physical gates remain separate.
+
+## Tracker completion — 2026-10-25
+
+The user authorized publication and closure. The [acceptance summary](https://github.com/noelorph/diy-instax-photobooth/issues/9#issuecomment-6386836261) and updated #9 body were published and verified; #9 is closed as completed. #10 remains open with its #9 software prerequisite satisfied and its separate plan approval/publication pending. The committed #9 branch was merged locally into `development` as `220749c`, with the same committed tree as `87e5447`. Earlier pending-tracker statements are dated history. No #10 implementation, hosted activation or physical qualification follows from this closure.

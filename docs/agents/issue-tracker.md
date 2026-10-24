@@ -1,6 +1,6 @@
 # Issue tracker: GitHub
 
-GitHub tracks work; use the `gh` CLI for issue operations. Approved detailed contracts also live in this repository. The [2026-10-21 replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) and [ADR-0025](../adr/0025-package-accounting-and-booth-recovery.md) control the target. The [publication record](../github-issue-update-drafts.md) contains #9/#10 descriptions published on 2026-10-23 and remaining unpublished #17/#7 drafts. Do not restore superseded behavior from an old issue body. Description publication implies neither issue closure nor PR merge; #10 implementation remains gated by #9's outstanding findings and required verification.
+GitHub tracks work; use the `gh` CLI for issue operations. Approved detailed contracts also live in this repository. The [2026-10-21 replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) and [ADR-0025](../adr/0025-package-accounting-and-booth-recovery.md) control the target. The [publication record](../github-issue-update-drafts.md) contains #9/#10 descriptions published on 2026-10-23 and remaining unpublished #17/#7 drafts. Do not restore superseded behavior from an old issue body. Description publication alone implies neither issue closure nor PR merge. #9 has since passed its software verification and closed as completed; #10 implementation awaits its own plan approval/publication.
 
 ## Conventions
 
