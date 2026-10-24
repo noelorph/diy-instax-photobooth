@@ -1,6 +1,6 @@
 # ADR-0025: Use package accounting and keep recovery in Booth Mode
 
-**Status:** Accepted target design; implementation pending.
+**Status:** Accepted target design. Version-2 contracts and handlers exist for local verification; #9 still requires its outstanding authorization fix, review and passing verification. Admin/Booth integration and coordinated cutover remain #10 work, blocked on that #9 gate. Physical qualification remains open.
 **Date:** 2026-10-21
 **Contract:** [Package accounting, access and Booth recovery](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md).
 
@@ -49,4 +49,4 @@ Unaffected decisions remain in force: photo privacy (0001), visual system (0010)
 
 The product tracks booked output and exceptional attempts without pretending to know physical inventory. The Admin still loads film and inspects genuinely unknown outcomes. Unresolvable hardware ambiguity can keep the booth unavailable; it cannot be hidden by resetting counters. Manual loading confirmation is the fallback if automatic reload detection cannot be proven. Missing reliable automatic normal completion keeps printer-backed operation disabled.
 
-Existing code and database behavior do not change with this ADR. Later implementation must remove obsolete mutation paths, preserve legacy accounting snapshots and review Draft capacity conversion. See contract section 8. The [proof checklist](../qualification/booth-recovery-proof-checklist.md) separates actual observations from pending work.
+The original decision did not itself change code or database behavior. Version-2 contracts and cutover safeguards have since been installed for local verification; global activation has not occurred. #10 must integrate the application, retire obsolete mutation paths and rehearse coordinated cutover with legacy accounting snapshots and explicit Draft capacity review. See contract section 8 and the [issue #9 verification record](../implementation/issue-9-package-contracts-review.md). The [proof checklist](../qualification/booth-recovery-proof-checklist.md) separates actual observations from pending work.

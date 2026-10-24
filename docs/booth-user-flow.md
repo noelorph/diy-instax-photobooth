@@ -1,6 +1,6 @@
 # Project routes and Booth user flow
 
-**Approved target, 2026-10-21; not yet implemented.** Current code still follows the historical issue #9 flow. Use the [replacement contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) for exact transitions and API shapes, and [PRD](../PRD.md) for product scope.
+**Approved target, 2026-10-21.** Version-2 contracts and handlers exist for local verification; existing Admin/Booth UI still uses legacy flows. #10 owns their integration and coordinated cutover, with implementation blocked until #9's outstanding findings are resolved and required verification passes. Physical qualification remains open. Use the [replacement contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) for exact transitions and API shapes, and [PRD](../PRD.md) for product scope.
 
 ## Page routes
 

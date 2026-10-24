@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth — Design System
 
-- **Status:** Agreed presentation for the 2026-10-21 target; new behavior is not implemented. Archived image proposals do not override these tokens.
+- **Status:** Agreed presentation for the 2026-10-21 target. Version-2 contracts and handlers exist; Admin/Booth UI integration remains #10 work, blocked until #9's outstanding findings are resolved and required verification passes. Archived image proposals do not override these tokens.
 - **Date:** 2026-10-11; typography revised 2026-10-15; behavior aligned 2026-10-21
 - **Source:** [Design prompt](docs/prompts/design-system-prompt.md), [product requirements](PRD.md), and the design interview.
 - **Decision:** [One visual system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md).

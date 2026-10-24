@@ -1,40 +1,145 @@
-# GitHub issue updates — local drafts for review
+# GitHub issue updates — publication record and remaining drafts
 
-**Status:** Not published. Prepared 2026-10-21 from the approved [contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md), [ADR-0025](adr/0025-package-accounting-and-booth-recovery.md) and [proof checklist](qualification/booth-recovery-proof-checklist.md). No issue closure, comment, label, dependency, PR or remote branch change is included in this documentation task.
+**Status:** The user-approved replacement descriptions for [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) and [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10) were published and read-back verified on 2026-10-23. Both issues remain open, and #10's native dependency on #9 is unchanged. The #17/#7 sections remain unpublished drafts prepared 2026-10-21 from the approved [contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md), [ADR-0025](adr/0025-package-accounting-and-booth-recovery.md) and [proof checklist](qualification/booth-recovery-proof-checklist.md). See the [approved publication plan](superpowers/plans/2026-10-23-issue-9-10-publication.md).
 
-When publication is separately authorized, use the reviewed repository-relative paths below in issue bodies, preserving old comments as dated history. Update conflicting current-body requirements; a new comment alone must not leave the active checklist instructing removed features. Re-read live issue state before writing and keep unrelated content. Do not claim code completion from approval of this design. Use `gh` with a body file, not inline multiline shell interpolation.
+The #9/#10 descriptions below are the approved body text; local section headings are one level deeper than their GitHub counterparts. Unpublished contract documents are referenced by repository path rather than broken GitHub links. Remaining draft publication requires separate authorization. Preserve old comments as dated history, re-read live issue state before writing, and keep unrelated content. Do not claim code completion from description approval. Use `gh` with a body file, not inline multiline shell interpolation.
 
 ## Issue #9 — accounting, access and printer contracts
 
-### Proposed replacement scope
+### Goal
 
-Define the approved package-accounting and Booth-recovery contract in `docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md`, under ADR-0025. Each original/Additional Film Package provides ten prints. Confirmed full ejection counts once, including unusable output; unresolved attempts hold capacity and the printer slot. Remove separate allowance editing, shared inventory, individual additional-print units, quality refunds, in-app Test Print and Client Redaction. Retain Draft deletion and terminal Event history.
+Complete and verify the approved version-2 accounting, access, recovery, and provisional printer contracts that the first-release Admin and Booth application will use.
 
-Specify Event/run/session/attempt transitions, private transactional database functions, Admin RLS, scoped grants retained through pause/fault, stable operation receipts, one-send dispatch, provisional adapter observations, exceptional phone inspection/reload confirmation, and separate Finish Booth / Complete Event. Define old-model data preservation and conversion requirements. The existing implementation/PR reflects the previous model and needs a later gap review; do not label it compliant with this replacement yet.
+### Current status
 
-### Proposed acceptance checklist
+Version-2 database contracts, trusted handlers, and provisional simulator code exist for local verification. The remaining work is to resolve outstanding findings and establish passing verification; describing the entire implementation as following the previous model is no longer accurate.
 
-- [ ] Review replacement transitions/formulas/access/database/endpoint/adapter contract together.
-- [ ] Confirm pending outcomes cannot be erased by reload, session abandonment, grant loss or phone confirmation.
-- [ ] Confirm exactly-once accounting, no auto resend, stop/dispatch races and independent readiness blockers.
-- [ ] Link current PRD, glossary, architecture, routes, proof checklist and supersession history.
-- [ ] Record implementation gaps separately from documentation approval and #17 physical evidence.
+The outstanding work includes:
+
+- Fix the authorization gap in package additions and reload actions, with regression coverage.
+- Obtain a passing full-suite verification result on the final reviewed revision.
+- Complete review and record evidence confirming that the findings are resolved and required verification passes.
+
+The latest recorded full-suite run passed 885/886 tests and exited unsuccessfully. A passing isolated rerun does not satisfy the full-suite requirement.
+
+### Contract scope
+
+- Package-derived capacity: ten prints per original or Additional Film Package; unresolved attempts hold capacity and the printer slot; confirmed full ejection counts once, including unusable output.
+- Event, Booth run, Guest Session, Capture, and Print Attempt transitions, including separate Finish Booth and Event completion.
+- Current Admin authorization, private transactional functions, RLS, scoped Booth grants, initial handoff, exceptional access recovery, and grant retention through ordinary faults and pauses.
+- Stable operation receipts, duplicate and lost-response handling, concurrency protection, one-send dispatch, and metadata-only recovery.
+- Independent readiness blockers, phone reload confirmation, and exceptional inspection of unknown print outcomes.
+- A nonproduction simulator that distinguishes command acceptance, confirmed ejection, reliable rejection, and uncertainty.
+- Cutover safeguards, historical accounting preservation, and explicit review of legacy Draft capacity conversion.
+
+[#10](https://github.com/noelorph/diy-instax-photobooth/issues/10) owns complete application integration, coordinated accounting cutover, and removal of superseded runtime behavior.
+
+### Done when
+
+- [ ] The outstanding package-addition and reload authorization finding is fixed, covered by regression tests, and reviewed.
+- [ ] Required contract and integration coverage verifies authorization, accounting, concurrency, receipts, grants, recovery, and one-send behavior.
+- [ ] The full suite and required lint, type, formatting, build, and browser checks pass on the final reviewed revision.
+- [ ] Review findings are resolved, and evidence identifies the reviewed revision, commands, results, and remaining external gates.
+- [ ] Current contracts and the #10 handoff accurately distinguish implemented software, remaining integration, and physical qualification.
+
+### Dependency and release boundaries
+
+> Planning may proceed now. Implementation begins after #9’s outstanding findings are resolved and its required verification passes.
+
+This statement governs #10. Keep #9 open until its acceptance requirements are satisfied.
+
+[#17](https://github.com/noelorph/diy-instax-photobooth/issues/17) separately gates real-printer enablement through physically qualified automatic normal full-ejection completion and safe recovery. [#7](https://github.com/noelorph/diy-instax-photobooth/issues/7) gates production launch through the actual-iPad release trial. Simulator results satisfy neither gate. #8 is closed and is not a renewed blocker.
+
+### Detailed references
+
+- `docs/adr/0025-package-accounting-and-booth-recovery.md`
+- `docs/adr/0026-order-captures-by-shutter-time.md`
+- `docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md`
+- `docs/implementation/issue-9-package-contracts-review.md`
+- `docs/qualification/booth-recovery-proof-checklist.md`
 
 ## Issue #10 — integrated product implementation
 
-### Proposed replacement scope
+### Goal
 
-Implement the replacement contract after its documentation review. Deliver the Guest welcome → preview → countdown → Retake/Print review → printing → completion → welcome flow. Keep the iPad in `/booth` for recovery and pause, with Connect to Instax / Enable Camera as the limited local actions. Phone Admin adds whole packages, confirms physical reload, inspects only unknown outcomes, pauses/resumes/finishes runs and completes Events separately.
+Complete the first-release Admin and Booth application using the approved package-accounting and recovery contracts. Use a nonproduction simulated printer for software development and testing. Remove superseded product behavior and its related UI, application code, and mutation paths through a coordinated accounting cutover.
 
-Use a nonproduction simulator while hardware qualification remains open. Remove old product controls and write paths in a reviewed migration; preserve legacy history, require reviewed Draft capacity conversion and settle old runs before switching accounting versions. No Guest image persistence. Terminal Events have no redaction/deletion actions. Setup has a test reminder only, no optional Test Print button.
+### Status and implementation gate
 
-### Proposed acceptance checklist
+Planning only. Implementation remains blocked until [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9)’s outstanding authorization finding is resolved, the fix is reviewed, and required verification passes.
 
-- [ ] Software tests for package caps/holds, duplicate/lost responses, RLS and grant lifecycle, stop/dispatch concurrency, journal/reload recovery and terminal retention.
-- [ ] All Guest/phone flows and simultaneous faults match the replacement contract; no repeated iPad sign-in for routine failures.
-- [ ] Current source/schema/UI and old mutation paths are reconciled; historical records preserved.
-- [ ] Simulated success stays separate from physical confirmation and production enablement.
-- [ ] #17 automatic completion and recovery qualification precede real-printer enablement; #7 actual-iPad release gate remains open until passed.
+Version-2 contracts and handlers exist. #9 retains responsibility for the authorization gap in package additions and reload actions, a passing full-suite result, and review evidence confirming resolution.
+
+> Planning may proceed now. Implementation begins after #9’s outstanding findings are resolved and its required verification passes.
+
+This issue establishes the whole milestone’s scope. Divide it into smaller implementation issues after that scope is approved.
+
+### Complete first-release scope
+
+- **Admin application:** authentication and password recovery; Dashboard; Events listing, creation, editing, setup, and detail; History; and Profile, including local sign-out.
+- **Package accounting:** derive capacity from original and Additional Film Packages at ten prints each. Show confirmed, pending, remaining, and available counts appropriately. Keep package purchases separate from physical film loading.
+- **Initial Booth handoff:** complete setup on the iPad, sign Admin out locally on that device, activate scoped Booth access, and enter `/booth`. Preserve the phone’s Admin session.
+- **Guest journey:** welcome with private Event Media or default presentation; live preview; capture and 3–2–1 countdown; review; Retake; printing; completion; and return to a fresh welcome. Implement approved crop, Capture selection, inactivity, and photo-disposal rules.
+- **Phone operations:** Additional Film Packages, reload requests and physical reload confirmation, exceptional inspection with a required reason, Pause, Resume, Finish Booth, and separate Event completion.
+- **Recovery:** camera, Bluetooth, network/server, page-reload, and access-loss recovery. Preserve pending attempts and explicit pauses. Routine recovery stays in Booth Mode; exceptional access replacement follows protected setup and returns the run to Paused.
+- **Privacy and presentation:** keep Guest photo bytes in memory/direct printer transport only; provide private, validated Event Media; enforce Admin/Booth access separation; meet the design system’s accessibility and responsive-layout requirements.
+- **Simulation and verification:** use a nonproduction printer simulator for complete integrated journeys and deterministic failure scenarios. Distinguish acceptance from ejection and uncertainty; never automatically resend an ambiguous attempt.
+
+Setup retains only the reminder: **“Always test the printer before starting Booth Mode.”**
+
+### Required retirement
+
+Remove all of the following from active product behavior:
+
+1. Editable Print Allowance.
+2. Individual Additional Prints.
+3. Shared Film Stock.
+4. Wasted Film and quality-refund behavior.
+5. In-app Test Print and its setup gate.
+6. Client Redaction and past-Event deletion.
+7. Superseded Booth recovery and local Admin takeover flows.
+8. Temporary legacy adapters, compatibility branches, and helpers that become unnecessary after cutover.
+
+For **each item**, trace its controls, callers, server actions, endpoints, database functions, tests, and fixtures. Record what is removed and what must remain solely for historical reading or evidence.
+
+Remove obsolete runtime behavior and mutation entry points through the coordinated cutover. Hiding controls is insufficient. Retain tests proving retired operations cannot be invoked through stale clients, server actions, HTTP endpoints, or application-accessible database functions.
+
+### Cutover and preservation
+
+- Stop new starts during conversion. Resolve old attempts and finish old runs under their existing contract; never discard unresolved holds or force unknown outcomes to NotPrinted.
+- Complete or cancel finished-but-Live legacy Events before conversion. Do not mix accounting versions within resumed operations.
+- Convert eligible never-started Drafts using package-derived capacity. Require explicit booking review where the previous independent allowance differs.
+- Preserve historical Event records, original accounting totals, audit evidence, applied migrations, and necessary historical readers. Do not fabricate historical package conversions or reconstruct previously removed data.
+- Preserve safe never-started Draft deletion and its private-media cleanup.
+- Rehearse the coordinated application/database cutover, preservation checks, and recovery procedure in nonproduction. Use reviewed forward migrations and retire obsolete write paths together with the application changes.
+
+### Acceptance
+
+- [ ] #9’s implementation gate was satisfied before implementation began.
+- [ ] All first-release Admin, Guest, phone-operation, and recovery flows pass integrated nonproduction acceptance.
+- [ ] Accounting and recovery checks cover final-print capacity, pending holds, duplicates, lost responses, stale state, overlapping faults, stop/dispatch races, access loss, and no automatic resend.
+- [ ] Every retirement item has a completed trace and removal record, with passing tests that deny obsolete operations.
+- [ ] The coordinated accounting cutover passes nonproduction verification, including Draft review, historical preservation, and recovery checks.
+- [ ] Privacy, private Event Media, authorization, accessibility, and responsive layouts pass their required checks.
+- [ ] Required unit, database/integration, browser, lint, type, formatting, and build checks pass for the final reviewed candidate, with recorded evidence.
+- [ ] Simulation remains nonproduction and cannot authorize real-printer operation.
+
+### Completion and external gates
+
+Complete when the full application and coordinated accounting cutover pass nonproduction acceptance verification.
+
+Closing this issue does not authorize real-printer enablement or production launch; those remain gated by [#17](https://github.com/noelorph/diy-instax-photobooth/issues/17) and [#7](https://github.com/noelorph/diy-instax-photobooth/issues/7), respectively.
+
+Real-printer enablement requires physically qualified automatic normal full-ejection completion and safe recovery. Phone inspection is exceptional recovery, not routine confirmation after every print. Printer-reported count is neither physical inventory nor proof of a loaded ten-sheet package.
+
+### Detailed references
+
+- `PRD.md`, `ARCHITECTURE.md`, `DESIGN_SYSTEM.md`, and `GLOSSARY.md`
+- `docs/adr/0025-package-accounting-and-booth-recovery.md`
+- `docs/adr/0026-order-captures-by-shutter-time.md`
+- `docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md`
+- `docs/booth-user-flow.md`
+- `docs/qualification/booth-recovery-proof-checklist.md`
 
 ## Issue #17 — physical printer evidence
 
@@ -69,4 +174,4 @@ Validate the implemented target on the actual iPad A16, with recorded model, iPa
 
 ## Cross-issue cleanup notes
 
-Replace stale scope references to ADR-0014 when the intended evidence checkpoint is ADR-0021, now narrowed by ADR-0025. Do not reintroduce closed issue #8 as a new pre-build blocker; current contracts supersede its old recovery policy. Preserve traceability to original decisions. Reconcile actual dependency metadata only after inspecting the current issues and with publication authorization; this draft changes none.
+For the remaining drafts, replace stale scope references to ADR-0014 when the intended evidence checkpoint is ADR-0021, now narrowed by ADR-0025. Do not reintroduce closed issue #8 as a new pre-build blocker; current contracts supersede its old recovery policy. Preserve traceability to original decisions. The #9/#10 publication changed only their descriptions; titles, states, labels, assignees, milestones and dependency metadata were preserved. Future dependency changes require inspection and authorization.

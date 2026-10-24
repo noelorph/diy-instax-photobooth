@@ -1,10 +1,11 @@
 # Development, qualification and release flow
 
-**Current target:** [ADR-0025](../adr/0025-package-accounting-and-booth-recovery.md), approved 2026-10-21. This documentation change does not implement the target.
+**Current target:** [ADR-0025](../adr/0025-package-accounting-and-booth-recovery.md), approved 2026-10-21. Version-2 contracts and handlers exist for local verification. #9 remains open for its outstanding authorization fix, review and passing verification; #10 planning may proceed, but implementation waits for that gate. Hosted activation and physical qualification remain open.
 
 ```mermaid
 flowchart TD
-  D[Approved package and recovery contract] --> S[Later implementation with simulated printer]
+  D[Existing version-2 contracts and approved design] --> C[Resolve and verify remaining #9 findings]
+  C --> S[#10 application integration and nonproduction cutover]
   S --> V[Software accounting, access and recovery verification]
   E[Existing partial iPhone evidence] --> H[Further physical qualification]
   V --> H
@@ -22,6 +23,6 @@ flowchart TD
 
 Automatic normal completion is mandatory. Phone Printed / Not printed is exceptional recovery; it cannot replace automatic completion on every print. Reliable automatic reload detection is optional: physical reload plus phone confirmation is the approved fallback after its procedure passes qualification. Printer count is never physical inventory or booked capacity.
 
-The [proof checklist](../qualification/booth-recovery-proof-checklist.md) names evidence, acceptance criteria and fallbacks. The [dated #17 report](../qualification/issue-17-trial-report.md) preserves observations without claiming the new flow passed. [Guest/phone route flow](../booth-user-flow.md) shows the proposed operating experience.
+The [proof checklist](../qualification/booth-recovery-proof-checklist.md) names evidence, acceptance criteria and fallbacks. The [dated #17 report](../qualification/issue-17-trial-report.md) preserves observations without claiming the new flow passed. [Guest/phone route flow](../booth-user-flow.md) shows the approved target experience.
 
-GitHub #9 describes contracts; #10 covers later integration; #17 owns printer evidence; #7 owns actual-device launch validation. [Issue update drafts](../github-issue-update-drafts.md) are local review material; no GitHub change or issue closure occurs in this documentation task.
+GitHub #9 owns contract fixes and verification; #10 owns complete application integration, coordinated cutover and nonproduction acceptance; #17 owns real-printer qualification; #7 owns actual-iPad release validation. The [publication record](../github-issue-update-drafts.md) contains #9/#10 descriptions published on 2026-10-23; #17/#7 drafts remain unpublished. Description publication does not close an issue, and #10 completion does not authorize real-printer enablement or production launch.

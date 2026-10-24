@@ -133,4 +133,4 @@ The device grant permits sanitized Event/run state and scoped guest operations o
 
 ## 9. Decisions and documentation
 
-[ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md) records this decision and its supersession map. Use the [documentation index](docs/README.md) for active guides, historical specs and evidence. [Local GitHub update drafts](docs/github-issue-update-drafts.md) await separate publication; old issue wording does not override this approved target.
+[ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md) records this decision and its supersession map. Use the [documentation index](docs/README.md) for active guides, historical specs and evidence. The [GitHub issue publication record](docs/github-issue-update-drafts.md) contains the published #9/#10 descriptions and remaining unpublished #17/#7 drafts; old issue wording does not override this approved target.

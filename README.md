@@ -19,7 +19,7 @@ Real printer-backed Booth Mode remains disabled until automatic normal full-ejec
 - [Approved design mockups](docs/design/2026-10-21-package-recovery/index.html): the current visual reference for Admin, phone recovery and portrait Booth; [screen notes](docs/design/2026-10-21-package-recovery/screen-map.md).
 - [Documentation index](docs/README.md): active guides versus historical artifacts.
 - [Documentation review](docs/documentation-review.md): historical approval record; [implementation review](docs/implementation/issue-9-package-contracts-review.md): current software evidence and #10 handoff.
-- [GitHub issue update drafts](docs/github-issue-update-drafts.md): local only, not published.
+- [GitHub issue publication record](docs/github-issue-update-drafts.md): #9/#10 descriptions published; #17/#7 drafts remain unpublished.
 
 ## Local development of existing code
 

@@ -9,11 +9,11 @@
 3. Root [PRD](../PRD.md), [architecture](../ARCHITECTURE.md), [glossary](../GLOSSARY.md), [design system](../DESIGN_SYSTEM.md), [README](../README.md) and [agent instructions](../AGENTS.md): aligned requirements and working context.
 4. [Routes and user-flow diagrams](booth-user-flow.md), [development/release diagram](diagrams/printing-to-deployment-flow.md).
 5. [Proof checklist](qualification/booth-recovery-proof-checklist.md): what evidence supports, what remains unproven and what to do if a capability cannot be proven.
-6. [Approved documentation plan](superpowers/plans/2026-10-21-package-accounting-booth-recovery-docs.md), [historical documentation review](documentation-review.md), [issue #9 implementation review](implementation/issue-9-package-contracts-review.md), [unpublished issue drafts](github-issue-update-drafts.md).
+6. [Approved documentation plan](superpowers/plans/2026-10-21-package-accounting-booth-recovery-docs.md), [historical documentation review](documentation-review.md), [issue #9 implementation review](implementation/issue-9-package-contracts-review.md), [issue publication record and remaining drafts](github-issue-update-drafts.md).
 7. [Approved mockup gallery](design/2026-10-21-package-recovery/index.html), [screen notes](design/2026-10-21-package-recovery/screen-map.md) and [design index](design/README.md): Admin and Booth visual references approved by the user on 21 October 2026; implementation pending.
 8. [Domain guidance](agents/domain.md), [issue workflow](agents/issue-tracker.md), [triage labels](agents/triage-labels.md).
 
-If two active documents disagree, reconcile them against the approved contract and ADR rather than silently implementing a different policy. Ask about new durable product decisions. Current user decisions override older files. GitHub descriptions await separate publication; local drafts do not claim that issues are updated or closed.
+If two active documents disagree, reconcile them against the approved contract and ADR rather than silently implementing a different policy. Ask about new durable product decisions. Current user decisions override older files. The #9/#10 GitHub descriptions were published on 2026-10-23; #17/#7 remain unpublished drafts. Description publication does not close issues or establish implementation completion. #10 planning may proceed, but implementation remains blocked until #9's outstanding findings are resolved and required verification passes.
 
 ## Historical material: read for evidence, not new instructions
 

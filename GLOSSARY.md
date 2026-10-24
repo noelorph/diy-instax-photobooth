@@ -1,6 +1,6 @@
 # Photo Booth glossary
 
-Canonical language for the approved [package accounting and recovery contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). Implementation is pending.
+Canonical language for the approved [package accounting and recovery contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). Version-2 contracts and handlers exist for local verification; #9 still requires its outstanding authorization fix, review and passing verification. Admin/Booth integration and coordinated cutover remain #10 work, blocked on that #9 gate. Physical qualification remains open.
 
 | Term                       | Meaning                                                                                                                                                                                                                                                                                                                                                                     |
 | -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
