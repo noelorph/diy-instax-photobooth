@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { afterEach, beforeAll, describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseDraftEventInput } from '@/features/admin/events/draft-event.schema';
-import { localSupabase, cleanupEvents } from '../fixtures/local-supabase';
+import { localSupabase } from '../fixtures/local-supabase';
 
 const booking = {
   title: 'Evening celebration',
@@ -26,7 +26,9 @@ describe('Draft Event storage through local Auth and the Data API', () => {
   });
   afterEach(async () => {
     if (eventIds.length) {
-      cleanupEvents(eventIds.splice(0));
+      const cleanup = await local.service.from('events').delete().in('id', eventIds.splice(0));
+      // Before the migration exists, RED has no rows to remove.
+      if (cleanup.error && cleanup.error.code !== 'PGRST205') throw cleanup.error;
     }
     await local.cleanup();
   });
@@ -193,10 +195,10 @@ describe('Draft Event storage through local Auth and the Data API', () => {
     async (state) => {
       const { client } = await admin();
       const event = await create(client);
-      expect((await client.from('events').insert(payload({ state }))).error?.code).toBe('42501');
+      expect((await client.from('events').insert(payload({ state }))).error?.code).toBe('23514');
       expect(
         (await client.from('events').update({ state, revision: 2 }).eq('id', event.id)).error?.code
-      ).toBe('42501');
+      ).toBe('23514');
       expect((await client.from('events').select().eq('id', event.id).single()).data).toMatchObject(
         { state: 'Draft', revision: 1 }
       );

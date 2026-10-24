@@ -47,7 +47,6 @@ export async function startAdminRouteServer() {
     ...process.env,
     NEXT_PUBLIC_SUPABASE_URL: status.API_URL,
     NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: status.ANON_KEY,
-    SUPABASE_SECRET_KEY: status.SERVICE_ROLE_KEY,
     NEXT_TELEMETRY_DISABLED: '1',
   };
   // next dev intentionally replaces Cache-Control with no-store. Exercise the

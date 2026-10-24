@@ -1,10 +1,10 @@
 # Issue tracker: GitHub
 
-GitHub tracks work; use the `gh` CLI for issue operations. Approved detailed contracts also live in this repository. The [2026-10-21 replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) and [ADR-0025](../adr/0025-package-accounting-and-booth-recovery.md) control the target. The [publication record](../github-issue-update-drafts.md) contains #9/#10 descriptions published on 2026-10-23 and remaining unpublished #17/#7 drafts. Do not restore superseded behavior from an old issue body. Description publication alone implies neither issue closure nor PR merge. #9 has since passed its software verification and closed as completed; #10 implementation awaits its own plan approval/publication.
+Issues and specs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
 ## Conventions
 
-- **Create an issue**: `gh issue create --title "..." --body "..."`. For multi-line bodies, write reviewed text to a temporary file and pass `--body-file`; preserve real newlines. Do not interpolate untrusted text into shell commands.
+- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
 - **Read an issue**: `gh issue view <number> --json number,title,body,labels,comments`.
 - **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
 - **Make an issue a sub-issue of a parent**: `gh issue create --parent <parent> ...`, or `gh issue edit <parent> --add-sub-issue <child>` afterwards (`gh` 2.94+). Older `gh`: `gh api --method POST repos/<owner>/<repo>/issues/<parent>/sub_issues -F sub_issue_id=<child-db-id>` (database id, as in **Blocking** below). Without sub-issues, put `Part of #<parent>` at the top of the child body.

@@ -1,7 +1,5 @@
 # iPhone print qualification design
 
-> **Historical specification (superseded scope, 2026-10-21).** The [replacement contract](2026-10-21-package-accounting-booth-recovery-design.md) and current root documents govern new work. Package accounting, recovery, access lifecycle, test/quality/inventory controls and retention in this original text may conflict with the approved target. Preserve it as history; do not implement superseded instructions or infer a current pass from old checklists. Unchanged presentation/security details are carried into the active guides.
-
 **Status:** Approved by the owner on 2026-10-14 as the original iPhone development-gate trial in [issue #17](https://github.com/noelorph/diy-instax-photobooth/issues/17) and [ADR-0012](../../adr/0012-qualify-development-on-iphone-before-ipad-launch.md). Its development-start timing was later superseded by [ADR-0021](../../adr/0021-move-print-qualification-to-integration-checkpoint.md).
 
 **Timing update, 2026-10-15:** [ADR-0021](../../adr/0021-move-print-qualification-to-integration-checkpoint.md) supersedes this design's pre-build gate timing. Its trial steps remain an evidence target for automatic detection, but integrated development can now proceed with a simulated printer. The [current trial report](../../qualification/issue-17-trial-report.md) records fresh-film and used-film results separately. The original qualification criteria have not all passed.

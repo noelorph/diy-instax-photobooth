@@ -4,7 +4,7 @@ import { FormFeedback } from '@/components/shared/form-feedback';
 import { signIn } from '@/features/admin/auth/actions';
 import { SignInForm } from '@/features/admin/auth/forms';
 
-type Props = { searchParams: Promise<{ reason?: string | string[]; from?: string | string[] }> };
+type Props = { searchParams: Promise<{ reason?: string | string[] }> };
 
 async function SessionFeedback({ searchParams }: Props) {
   const { reason } = await searchParams;
@@ -15,25 +15,15 @@ async function SessionFeedback({ searchParams }: Props) {
   ) : null;
 }
 
-async function SignInContent(props: Props) {
-  const { from } = await props.searchParams;
-  return (
-    <div data-booth-return={from === 'booth' ? 'true' : undefined}>
-      <h1 className={styles.heading}>{from === 'booth' ? 'Booth paused' : 'Sign in'}</h1>
-      <p className={styles.description}>
-        {from === 'booth'
-          ? 'Sign in to review the Event. Resuming Booth Mode requires an explicit Admin action.'
-          : 'Sign in to your Admin account.'}
-      </p>
-      <SessionFeedback {...props} />
-      <SignInForm action={signIn} />
-    </div>
-  );
-}
 export default function SignInPage(props: Props) {
   return (
-    <Suspense fallback={null}>
-      <SignInContent {...props} />
-    </Suspense>
+    <>
+      <h1 className={styles.heading}>Sign in</h1>
+      <p className={styles.description}>Sign in to your Admin account.</p>
+      <Suspense fallback={null}>
+        <SessionFeedback {...props} />
+      </Suspense>
+      <SignInForm action={signIn} />
+    </>
   );
 }

@@ -222,7 +222,7 @@ it('keeps failed sign-out actionable without claiming the session ended', async 
   );
   fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
   expect((await screen.findByRole('alert')).textContent).toMatch(/still signed in/i);
-  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('alert')));
+  expect(document.activeElement).toBe(screen.getByRole('alert'));
   expect((screen.getByRole('button', { name: 'Sign out' }) as HTMLButtonElement).disabled).toBe(
     false
   );

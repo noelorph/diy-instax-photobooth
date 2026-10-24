@@ -26,7 +26,6 @@
 .DS_Store
 *.pem
 /certificates/
-/.rea/
 
 # debug
 npm-debug.log*

@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { createClient } from '@/lib/supabase/server';
 import { createDraft, getDraft, listDrafts, updateDraft } from '@/lib/events/drafts';
 import { createDraftAction, updateDraftAction } from '@/features/admin/events/actions';
-import { localSupabase, cleanupEvents } from '../fixtures/local-supabase';
+import { localSupabase } from '../fixtures/local-supabase';
 
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
@@ -39,7 +39,7 @@ describe('protected Draft DAL with local Auth and Data API', () => {
     vi.restoreAllMocks();
     vi.resetAllMocks();
     if (eventIds.length) {
-      const { error } = await cleanupEvents(eventIds.splice(0));
+      const { error } = await local.service.from('events').delete().in('id', eventIds.splice(0));
       if (error) throw error;
     }
     await local.cleanup();

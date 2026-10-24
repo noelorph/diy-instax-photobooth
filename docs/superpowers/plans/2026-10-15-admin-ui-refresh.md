@@ -1,7 +1,5 @@
 # Cohesive Admin UI Refresh Implementation Plan
 
-> **Historical plan — NOT AN ACTIVE WORK ORDER (superseded scope, 2026-10-21).** The [replacement contract](../specs/2026-10-21-package-accounting-booth-recovery-design.md) and current root documents govern new work. Package accounting, recovery, access lifecycle, test/quality/inventory controls and retention in this original text may conflict with the approved target. Preserve it as history; do not implement superseded instructions or infer a current pass from old checklists. Unchanged presentation/security details are carried into the active guides.
-
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Give every implemented Admin route a cohesive, accessible interface with reusable components under `src/components/` and Geist typography shared with future Booth screens.

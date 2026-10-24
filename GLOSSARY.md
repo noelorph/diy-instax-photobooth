@@ -1,35 +1,76 @@
-# Photo Booth glossary
+# Photo Booth
 
-Canonical language for the approved [package accounting and recovery contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). Version-2 contracts and handlers passed #9 software verification; see [dated #9 software acceptance evidence](docs/implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 is closed as completed. Admin/Booth integration and coordinated cutover remain #10 work, subject to their separate plan approval and the reviewed #9 handoff. Physical qualification remains open.
+Terms for the event-based Instax photo booth.
 
-| Term                       | Meaning                                                                                                                                                                                                                                                                                                                                                                     |
-| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Event                      | One Client's scheduled booking, with venue-local schedule and its own contact snapshot. States: Draft, Live, Completed, Cancelled.                                                                                                                                                                                                                                          |
-| Draft                      | A never-started Event being prepared. Zero packages may be saved, but first start needs a positive booking. A Draft can be deleted after safe cleanup.                                                                                                                                                                                                                      |
-| Client                     | The person booking the Event; no Client sign-in.                                                                                                                                                                                                                                                                                                                            |
-| Admin                      | The sole owner who manages Events and equipment. Avoid “Operator” in product copy.                                                                                                                                                                                                                                                                                          |
-| Guest                      | An attendee using the booth without an account.                                                                                                                                                                                                                                                                                                                             |
-| Film Package               | One booked package providing exactly 10 Event prints. The physical package must still be loaded separately.                                                                                                                                                                                                                                                                 |
-| Additional Film Package    | A whole package added to a Live Event at the Client's request; adds 10 prints to the Event's booked total.                                                                                                                                                                                                                                                                  |
-| Total booked prints        | Ten times original plus additional package counts.                                                                                                                                                                                                                                                                                                                          |
-| Prints remaining           | Total booked prints minus Confirmed Prints; includes any unit held by an unresolved attempt.                                                                                                                                                                                                                                                                                |
-| Prints available           | Prints remaining minus unresolved attempts. New work requires a positive available count and readiness.                                                                                                                                                                                                                                                                     |
-| Guest Session              | One guest interaction from Start through print completion or abandonment. It may end while its Print Attempt remains pending.                                                                                                                                                                                                                                               |
-| Event Media                | Optional private background image or silent welcome montage; never a Guest photo. Upload/replace/remove only while Draft; frozen when Live and retained when terminal. Formats and limits: [ADR-0027](docs/adr/0027-draft-only-event-media.md).                                                                                                                             |
-| Capture                    | One completed shutter, including photos later replaced by Retake. Pre-shutter cancellation is not a Capture. Newest acknowledged Capture means greatest validated `captured_at` in the same Guest Session/run; equal timestamps permit either explicitly selected Capture, independent of arrival/UUID order ([ADR-0026](docs/adr/0026-order-captures-by-shutter-time.md)). |
-| Retake                     | Return to preview for another completed shutter before printing; no print capacity used. An acknowledged strictly newer shutter makes older Captures ineligible at reservation/dispatch; ties permit either explicitly selected Capture. Every acknowledged Capture still counts once.                                                                                      |
-| Print Attempt              | One selected Capture's request to print, with one capacity hold and one-send authorization; tracked until Printed or NotPrinted.                                                                                                                                                                                                                                            |
-| Pending print              | An attempt whose physical outcome is not known. It keeps its capacity hold and printer slot until reliable feedback or exceptional Admin inspection resolves it.                                                                                                                                                                                                            |
-| Confirmed Print            | A sheet fully ejected for an Event attempt, counted once regardless of image quality. Ordinary completion is automatic; exceptional inspection may establish the outcome.                                                                                                                                                                                                   |
-| Printed / Not printed      | Phone Admin inspection choices for a pending outcome, with a reason; Not printed also requires the old job cannot eject later.                                                                                                                                                                                                                                              |
-| Film reload needed         | A physical printer readiness issue, shown on the phone Event page. It does not mean the booked Event prints are exhausted.                                                                                                                                                                                                                                                  |
-| Confirm film loaded        | Admin confirmation of a specific physical reload; changes readiness only, never booked capacity or a previous print outcome.                                                                                                                                                                                                                                                |
-| Booth Mode                 | Guest experience at `/booth` for a Live Event, under a limited device grant.                                                                                                                                                                                                                                                                                                |
-| Booth run                  | One start-to-finish period of Booth Mode. Prepared, Active, Paused, Finishing and Finished are run states.                                                                                                                                                                                                                                                                  |
-| Booth Access Grant         | Revocable, limited device access scoped to one Event/run while Admin is signed out on the iPad. Survives ordinary faults and pause.                                                                                                                                                                                                                                         |
-| Temporarily unavailable    | One or more readiness blockers prevent guest work; recovery may restore availability without signing in on the iPad.                                                                                                                                                                                                                                                        |
-| Pause Booth / Resume Booth | Authenticated phone actions controlling a durable pause. Equipment recovery never clears it automatically.                                                                                                                                                                                                                                                                  |
-| Finish Booth Mode          | End the run after any possible print is resolved; the iPad shows finished with Sign in.                                                                                                                                                                                                                                                                                     |
-| Complete Event             | Separate Admin action after Booth Mode is finished; retain the Event in History.                                                                                                                                                                                                                                                                                            |
+## Language
 
-Use these terms in new work. Older terminology survives only in clearly historical evidence, migration mappings and superseded documents; it is not a separate set of current product features. See [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md).
+**Event**:
+A scheduled occasion for which one Client books the photo booth, with a venue-local start and end time.
+
+**Draft**:
+An Event being prepared by the Admin. Its booked Film Package count or original Print Allowance may be zero; it is not ready for Booth Mode solely because its details were saved.
+
+**Client**:
+The person who books an Event and serves as its contact.
+
+**Admin**:
+The owner who manages Events and operates the booth.
+_Avoid_: Operator
+
+**Guest**:
+A person attending an Event who uses the photo booth.
+
+**Film Package**:
+A commercial bundle booked for an Event; its guest print count is recorded separately as the Print Allowance.
+
+**Print Allowance**:
+The number of guest prints available for an Event, including any Additional Prints and excluding Test Prints.
+
+**Additional Prints**:
+Prints added to an Event beyond its original booking.
+_Avoid_: Extra captures, extra films
+
+**Film Stock**:
+The shared inventory of physical Instax sheets available to the booth across Events, including sheets for Guest prints and setup tests. It carries forward when an Event ends.
+
+**Test Print**:
+A print made during setup to check the printer; it uses Film Stock but not the Event's Print Allowance.
+
+**Guest Session**:
+One Guest's capture and print flow, ending at confirmed film ejection or abandonment. Replacing an unusable print starts a new Guest Session.
+
+**Event Media**:
+An optional portrait background image or silent welcome montage chosen for an Event's Booth Mode.
+
+**Client Redaction**:
+Removal of a past Event's Client contact details and Event Media while retaining its anonymous Event and print totals.
+
+**Capture**:
+One photo taken when a Guest presses the shutter, including a photo later replaced by a Retake.
+
+**Retake**:
+Another photo captured by a Guest before choosing a photo to print; it does not use the Print Allowance.
+
+**Print Reservation**:
+One unit of an Event's Print Allowance held while a selected photo is being printed or its result is unresolved.
+
+**Film Reservation**:
+One sheet of shared Film Stock held while a Guest or Test Print is being attempted or its outcome is unresolved.
+
+**Print Attempt**:
+One request to make a Guest or Test Print, from its reservations through its recorded outcome. A Guest Session may have another Print Attempt after a clear pre-film rejection; a Wasted Film replacement belongs to a new Guest Session.
+
+**Confirmed Print**:
+A Guest print whose film has ejected and is counted against the Print Allowance; film development occurs afterward. An ejected sheet found to be unusable may be reclassified as Wasted Film by the Admin.
+
+**Wasted Film**:
+A physical sheet consumed by an unusable Guest print. It reduces Film Stock but does not consume the Event's Print Allowance.
+
+**Uncertain Print**:
+A Guest or Test Print attempt whose physical outcome is unknown and whose applicable Print and Film Reservations remain held until the Admin resolves it.
+
+**Booth Mode**:
+The guest-facing phase of a Live Event in which Guests take and print photos.
+
+**Booth Access Grant**:
+Revocable access issued to the booth device for one Live Event while the Admin is signed out on that device. It does not grant Admin access.

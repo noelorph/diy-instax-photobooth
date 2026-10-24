@@ -85,7 +85,6 @@ export async function listDrafts(): Promise<DraftListResult> {
       .from('events')
       .select(columns)
       .eq('state', 'Draft')
-      .is('deleted_at', null)
       .order('starts_at')
       .order('id')
       .returns<DraftEvent[]>();
@@ -104,7 +103,6 @@ export async function getDraft(id: string): Promise<DraftReadResult> {
       .select(columns)
       .eq('id', id)
       .eq('state', 'Draft')
-      .is('deleted_at', null)
       .returns<DraftEvent[]>()
       .maybeSingle();
     if (error) throw error;
@@ -155,7 +153,6 @@ export async function updateDraft(
       .update({ ...bookingColumns(parsed.values), revision: expectedRevision + 1 })
       .eq('id', id)
       .eq('state', 'Draft')
-      .is('deleted_at', null)
       .eq('revision', expectedRevision)
       .select(columns)
       .returns<DraftEvent[]>()
@@ -164,12 +161,7 @@ export async function updateDraft(
     if (data) return { status: 'success' as const, draft: data };
     // Check existence only after the atomic write attempt; never use a prior read
     // to decide that an update is safe. No Client fields are needed here.
-    const current = await client
-      .from('events')
-      .select('id')
-      .eq('id', id)
-      .is('deleted_at', null)
-      .maybeSingle();
+    const current = await client.from('events').select('id').eq('id', id).maybeSingle();
     if (current.error) throw current.error;
     return current.data
       ? {

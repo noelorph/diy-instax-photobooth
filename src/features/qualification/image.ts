@@ -100,7 +100,7 @@ function encodeJpeg(canvas: HTMLCanvasElement, quality: number): Promise<Blob> {
   });
 }
 
-export function capturePrintableFrame(
+export async function capturePrintableFrame(
   video: HTMLVideoElement
 ): Promise<{ jpeg: Uint8Array; previewUrl: string }> {
   const crop = coverCrop(video.videoWidth, video.videoHeight, WIDTH, HEIGHT);
@@ -110,10 +110,6 @@ export function capturePrintableFrame(
   const context = canvas.getContext('2d');
   if (!context) throw new Error('Canvas rendering unavailable');
   context.drawImage(video, crop.x, crop.y, crop.width, crop.height, 0, 0, WIDTH, HEIGHT);
-  return encodePrintableCanvas(canvas);
-}
-
-async function encodePrintableCanvas(canvas: HTMLCanvasElement) {
   for (const quality of [0.85, 0.7, 0.55, 0.4]) {
     const blob = await encodeJpeg(canvas, quality);
     if (blob.size > MAX_JPEG_BYTES) continue;

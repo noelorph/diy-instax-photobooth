@@ -1,5 +1,5 @@
 import { test, expect, type Page } from '@playwright/test';
-import { localSupabase, cleanupEvents } from '../fixtures/local-supabase';
+import { localSupabase } from '../fixtures/local-supabase';
 
 async function fillBooking(page: Page, title: string) {
   await page.getByLabel('Event name', { exact: true }).filter({ visible: true }).fill(title);
@@ -112,13 +112,9 @@ for (const width of [390, 1440]) {
       await expect(
         page.getByText('Draft', { exact: true }).filter({ visible: true })
       ).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Delete Draft', exact: true })).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Add Film Stock', exact: true })).toBeVisible();
-      for (const name of ['Start Booth Mode', 'Test Print']) {
-        const control = page.getByRole('button', { name, exact: true });
-        await expect(control).toBeVisible();
-        await expect(control).toBeDisabled();
-      }
+      await expect(
+        page.getByRole('button', { name: /delete|booth|test print|stock/i })
+      ).toHaveCount(0);
       const stale = await context.newPage();
       await stale.goto(`/events/${eventId}`);
       await expect(stale.getByLabel('Event name').filter({ visible: true })).toHaveValue(title);
@@ -197,11 +193,8 @@ for (const width of [390, 1440]) {
       await expect(page.getByLabel('Client email').filter({ visible: true })).toHaveCount(0);
       await expect(page.getByText('sam@example.test').filter({ visible: true })).toHaveCount(0);
     } finally {
-      if (eventId) await cleanupEvents([eventId]);
-      else {
-        const found = await local.service.from('events').select('id').eq('title', title);
-        cleanupEvents((found.data ?? []).map((row) => row.id));
-      }
+      if (eventId) await local.service.from('events').delete().eq('id', eventId);
+      else await local.service.from('events').delete().eq('title', title);
       await local.cleanup();
     }
   });

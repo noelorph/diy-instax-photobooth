@@ -1,7 +1,5 @@
 # iPhone-qualified development, iPad-qualified launch
 
-> **Historical specification (superseded scope, 2026-10-21).** The [replacement contract](2026-10-21-package-accounting-booth-recovery-design.md) and current root documents govern new work. Package accounting, recovery, access lifecycle, test/quality/inventory controls and retention in this original text may conflict with the approved target. Preserve it as history; do not implement superseded instructions or infer a current pass from old checklists. Unchanged presentation/security details are carried into the active guides.
-
 **Timing update, 2026-10-15:** [ADR-0021](../../adr/0021-move-print-qualification-to-integration-checkpoint.md) supersedes this design's prerequisite that the iPhone fresh-film trial pass before integrated development starts. The stages below reflect the current sequence: work may proceed with a simulated printer; the ejection-confirmation decision and physical validation are required before printer-backed Booth Mode and Confirmed Print accounting are completed or enabled. The actual-iPad release gate remains mandatory.
 
 ## Intent and scope

@@ -1,7 +1,7 @@
 import { writeFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
-import { localSupabase, cleanupEvents } from '../fixtures/local-supabase';
+import { localSupabase } from '../fixtures/local-supabase';
 
 const longTitle = 'Celebration'.repeat(18);
 const longClient = 'Alexandria'.repeat(18);
@@ -56,17 +56,13 @@ for (const width of [320, 768, 1440]) {
         expect(await page.locator('body').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(
           /geist/i
         );
-        await expect
-          .poll(
-            () =>
-              page.evaluate(() =>
-                [...document.fonts].some(
-                  (font) => /geist/i.test(font.family) && font.status === 'loaded'
-                )
-              ),
-            { timeout: 10_000 }
+        expect(
+          await page.evaluate(() =>
+            [...document.fonts].some(
+              (font) => /geist/i.test(font.family) && font.status === 'loaded'
+            )
           )
-          .toBe(true);
+        ).toBe(true);
         await noOverflow(page);
         await capture(page, info, 'public-sign-in');
         await page.getByLabel('Email', { exact: true }).fill(admin.email);
@@ -220,11 +216,8 @@ for (const width of [320, 768, 1440]) {
         await capture(page, info, 'reset-invalid');
       } finally {
         await rm(faultFile, { force: true });
-        if (eventId) await cleanupEvents([eventId]);
-        else {
-          const found = await local.service.from('events').select('id').eq('title', longTitle);
-          cleanupEvents((found.data ?? []).map((row) => row.id));
-        }
+        if (eventId) await local.service.from('events').delete().eq('id', eventId);
+        else await local.service.from('events').delete().eq('title', longTitle);
         await local.cleanup();
       }
     });
@@ -254,13 +247,13 @@ for (const width of [320, 768, 1440]) {
       await expect
         .poll(async () => {
           const inbox = await fetch(
-            `http://127.0.0.1:56324/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
+            `http://127.0.0.1:55324/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
           ).then((r) => r.json());
           messageId = inbox.messages[0]?.ID;
           return Boolean(messageId);
         })
         .toBe(true);
-      const message = await fetch(`http://127.0.0.1:56324/api/v1/message/${messageId}`).then((r) =>
+      const message = await fetch(`http://127.0.0.1:55324/api/v1/message/${messageId}`).then((r) =>
         r.json()
       );
       const href = message.HTML.match(/href="([^"]+)"/)?.[1]?.replaceAll('&amp;', '&');

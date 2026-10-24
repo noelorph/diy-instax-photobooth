@@ -7,7 +7,7 @@ const status = JSON.parse(
     stdio: ['ignore', 'pipe', 'pipe'],
   })
 );
-if (status.API_URL !== 'http://127.0.0.1:56321') throw new Error('Isolated local stack required.');
+if (status.API_URL !== 'http://127.0.0.1:55321') throw new Error('Isolated local stack required.');
 const faultFile = resolve('test-results/events-read-fault');
 rmSync(faultFile, { force: true });
 const env = {
@@ -15,7 +15,6 @@ const env = {
   EVENTS_READ_FAULT_FILE: faultFile,
   NEXT_PUBLIC_SUPABASE_URL: status.API_URL,
   NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: status.ANON_KEY,
-  SUPABASE_SECRET_KEY: status.SERVICE_ROLE_KEY,
   ADMIN_AUTH_ORIGIN: 'http://127.0.0.1:1437',
   NEXT_TELEMETRY_DISABLED: '1',
 };

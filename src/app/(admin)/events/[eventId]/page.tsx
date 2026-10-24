@@ -1,5 +1,3 @@
-import { OperationsPanel } from '@/features/admin/operations/panel';
-import { getOperationalEvent } from '@/features/admin/operations/read';
 import { PageHeader } from '@/components/shared/page-header';
 import { FormFeedback } from '@/components/shared/form-feedback';
 import { Button } from '@/components/ui/button';
@@ -8,37 +6,9 @@ import { getDraft } from '@/lib/events/drafts';
 import { DraftForm } from '@/features/admin/events/draft-form';
 import { createDraftAction, updateDraftAction } from '@/features/admin/events/actions';
 
-export default async function EventPage({
-  params,
-  searchParams,
-}: {
-  params: Promise<{ eventId: string }>;
-  searchParams?: Promise<{ attemptPage?: string }>;
-}) {
+export default async function EventPage({ params }: { params: Promise<{ eventId: string }> }) {
   const { eventId } = await params;
-  const page = Number((await searchParams)?.attemptPage ?? 0);
-  const operations = await getOperationalEvent(eventId, page);
   const result = await getDraft(eventId);
-  const panel =
-    operations.status === 'success' ? (
-      <OperationsPanel
-        event={operations.event}
-        simulatorEnabled={
-          process.env.NODE_ENV !== 'production' && process.env.BOOTH_SIMULATOR_ENABLED === 'true'
-        }
-      />
-    ) : (
-      <FormFeedback kind="error">
-        Unable to load Event operations. Reload to try again.
-      </FormFeedback>
-    );
-  if (operations.status === 'success' && operations.event.state !== 'Draft')
-    return (
-      <section className="max-w-5xl min-w-0">
-        <PageHeader title={operations.event.title} />
-        {panel}
-      </section>
-    );
   if (result.status !== 'success')
     return (
       <section className="max-w-5xl min-w-0">
@@ -64,15 +34,11 @@ export default async function EventPage({
       </section>
     );
   return (
-    <>
-      {' '}
-      <DraftForm
-        key={result.draft.id}
-        initial={result.draft}
-        createAction={createDraftAction}
-        updateAction={updateDraftAction}
-      />
-      {panel}
-    </>
+    <DraftForm
+      key={result.draft.id}
+      initial={result.draft}
+      createAction={createDraftAction}
+      updateAction={updateDraftAction}
+    />
   );
 }

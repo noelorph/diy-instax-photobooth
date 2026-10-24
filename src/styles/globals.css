@@ -63,8 +63,7 @@ body {
   --color-success-soft: #e5f2e9;
 }
 
-.admin-shell[data-theme='dark'],
-.public-auth:has([data-booth-return='true']) {
+.admin-shell[data-theme='dark'] {
   --color-canvas: #101b1b;
   --color-surface: #1a2929;
   --color-surface-muted: #223333;
