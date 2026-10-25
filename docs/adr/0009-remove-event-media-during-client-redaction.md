@@ -1,5 +1,7 @@
 # Remove Event Media during Client Redaction
 
-> **Current scope (2026-10-21):** Client Redaction is fully superseded; terminal Event details/media are retained. [ADR-0025](0025-package-accounting-and-booth-recovery.md) and the [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) control conflicting behavior. The original decision below is retained as history.
+**Status:** Historical decision with the current retained scope below. [ADR-0025](0025-package-accounting-and-booth-recovery.md) supersedes its old product behavior; [ADR-0029](0029-remove-legacy-features-and-reset-development-schema.md) removes legacy implementation and preservation requirements.
 
-Client Redaction of a Completed or Cancelled Event removes its Client contact fields and stored Event Media while preserving anonymous Event, Capture, print, and stock totals. Backgrounds and montages may contain identifying names or branding that the system cannot reliably inspect, so deletion gives redaction a predictable boundary; the Admin may also rename an identifying Event title. This sacrifices later reuse of Event Media in exchange for a simpler privacy guarantee.
+Client Redaction and terminal Event deletion are removed completely. Current Completed/Cancelled Events retain private contact, media and operational history. Never-started Draft deletion remains a separate safe cleanup operation.
+
+The detailed original decision is available with `git show 1de2272:docs/adr/0009-remove-event-media-during-client-redaction.md`. It is not a current work order. Use the [current contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) for exact guards and interfaces.

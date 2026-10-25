@@ -2,7 +2,7 @@
 
 - **Status:** Agreed presentation for the 2026-10-21 target. Version-2 contracts and handlers exist; Admin/Booth UI integration remains #10 work. [Dated #9 software acceptance evidence](docs/implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25) records passing software checks and independent evidence review; GitHub #9 is closed as completed. #10 plan approval/publication remains pending. Archived image proposals do not override these tokens.
 - **Date:** 2026-10-11; typography revised 2026-10-15; behavior aligned 2026-10-21
-- **Source:** [Design prompt](docs/prompts/design-system-prompt.md), [product requirements](PRD.md), and the design interview.
+- **Source:** Design prompt (Git checkpoint `1de2272`, `docs/prompts/design-system-prompt.md`), [product requirements](PRD.md), and the design interview.
 - **Decision:** [One visual system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md).
 
 ## 1. Authority and scope
@@ -117,7 +117,7 @@ Use 120 ms for quick hover/press feedback, 180 ms for control and dialog transit
 
 Implement with Tailwind CSS 4 and customized shadcn/ui primitives where they fit; use Lucide for interface icons. The design system's semantic tokens and behavior override library defaults. Keep shared primitives separate from Admin composites and Booth composites. Do not install or expose an entire library of unused components.
 
-Project-wide reusable components live at `src/components/`: `ui/` holds customized shadcn/ui primitives, `shared/` holds product-neutral compositions, and `layout/` holds reusable page shells. Feature state and page-specific composites remain with their feature. Add only primitives used by an implemented flow; see [ADR-0020](docs/adr/0020-place-shared-ui-components-under-src.md) and the [Admin UI refresh spec](docs/superpowers/specs/2026-10-15-admin-ui-refresh-design.md).
+Project-wide reusable components live at `src/components/`: `ui/` holds customized shadcn/ui primitives, `shared/` holds product-neutral compositions, and `layout/` holds reusable page shells. Feature state and page-specific composites remain with their feature. Add only primitives used by an implemented flow; see [ADR-0020](docs/adr/0020-place-shared-ui-components-under-src.md) and the Admin UI refresh spec (Git checkpoint `1de2272`, `docs/superpowers/specs/2026-10-15-admin-ui-refresh-design.md`).
 
 | Layer             | Components needed for first release                                                                                                                                                                                         | Variants and states                                                              |
 | ----------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
@@ -207,6 +207,8 @@ Use the current [glossary](GLOSSARY.md): Draft, Live, Completed, Cancelled, Film
 
 Empty Admin states name what is absent and the relevant action: No Events scheduled this month / Create Event; No activity in the last 7 days / filter; No completed Events yet. Operational failures persist with the next useful action; a toast alone is insufficient. Use simple icons for scanning, with no decorative success on mere submission.
 
+The monthly Events card includes Draft, Live and Completed by venue-local scheduled start and excludes Cancelled/deleted Events; it is not limited to future work. Four in-month Events with one Cancelled display 3. Apply the [PRD definition](PRD.md#dashboard--dashboard) and [ADR-0028](docs/adr/0028-define-monthly-event-count.md); no additional card is introduced.
+
 ## 5. Iconography and imagery
 
 Use Lucide outline icons at 16 px in dense Admin rows, 20 px in standard controls, and 24–32 px in Booth messages. Keep stroke weight consistent and let the label carry meaning. Icon-only controls need an accessible name and visible tooltip on pointer devices. Never rely on icon shape or color alone for event, printer, or package status.
@@ -255,3 +257,7 @@ Do not add revenue panels, galleries, photo editing, inventory widgets or separa
 Avoid generic gradients, excessive rounded cards, heavy shadows, decorative dashboards, celebration animations on routine Admin actions, unexplained icon-only buttons, color-only status, unreadable text on Event Media, fake print percentages, automatic retries of uncertain prints, and any UI that implies Guest photos are retained. Do not use a full-screen error with technical details for Guests or bury Admin recovery behind a disappearing toast.
 
 Before finalizing a UI change, check: semantic colors in both themes; coherent type hierarchy and tabular counts; 4 px spacing rhythm with deliberate Booth exceptions; justified component variants; portrait/landscape and compact/wide rules; all relevant interaction states; contrast and target sizes; clear empty/error/recovery copy; no conflict with PRD or architecture; and whether a new agent can build the page from this guide plus the PRD without inventing a visual rule. Reconcile any gap in this document and its affected source documents.
+
+## Complete removal scope
+
+[ADR-0029](docs/adr/0029-remove-legacy-features-and-reset-development-schema.md) removes legacy History totals and Draft-conversion review from #10. Retained History uses current package counts only. The current mockups remain the visual reference; deleted legacy specs/mockups are available in Git history, not as alternate interface instructions. This does not remove package-era terminal retention or safe Draft deletion.

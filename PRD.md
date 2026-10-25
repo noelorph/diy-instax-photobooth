@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth — Product Requirements
 
-**Status:** Approved target product, revised 2026-10-24 for the approved Event Media policy. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth screens still use legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
+**Status:** Approved target product, revised 2026-10-25 for the approved media/count/readiness rules and complete legacy removal under ADR-0029. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth screens still use legacy flows until #10. Hosted deployment and #17/#7 physical qualification remain open.
 **Contract:** [Accounting, access and Booth recovery](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md).
 **Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md). **Presentation:** [Design system](DESIGN_SYSTEM.md). **Boundaries:** [Architecture](ARCHITECTURE.md).
 
@@ -34,7 +34,7 @@ The **actual iPad A16** must pass a separate end-to-end release trial with Bluef
 
 States are Draft, Live, Completed and Cancelled; readiness is calculated separately. Save Draft identity/contact/venue/schedule fields with valid values, whole nonnegative package count, IANA venue time zone, existing unambiguous local times and end after start. Store UTC instants plus venue zone. Reject stale revisions instead of overwriting another edit. Zero packages are allowed in Draft, but first start requires a positive original booking.
 
-Start changes Draft to Live. Booking/contact fields and original packages then freeze. The Admin may add whole Additional Film Packages while Live, including during pause. Finish Booth Mode ends a run; it leaves the Event Live. Complete or Cancel a Live Event only after all runs are Finished and all attempts terminal. A Draft can be Cancelled directly. Completed/Cancelled Events are immutable History records with no redaction or deletion action. A never-started Draft can be deleted after pending legacy work resolves and private media is removed; keep only opaque audit references. Deletion is incomplete until media cleanup succeeds.
+Start changes Draft to Live. Booking/contact fields and original packages then freeze. The Admin may add whole Additional Film Packages while Live, including during pause. Finish Booth Mode ends a run; it leaves the Event Live. Complete or Cancel a Live Event only after all runs are Finished and all attempts terminal. A Draft can be Cancelled directly. Completed/Cancelled Events are immutable History records with no redaction or deletion action. A never-started Draft can be deleted when no current run/attempt work exists and private media is removed; keep only opaque audit references. Deletion is incomplete until media cleanup succeeds.
 
 ### Packages and confirmed ejection
 
@@ -64,7 +64,7 @@ Routine fault/pause recovery does not open sign-in on the iPad. Finished Booth M
 
 ### Dashboard — `/dashboard`
 
-Show Events scheduled in the current venue-local month, upcoming Events and next Event. Monthly counts use scheduled start, not creation time. Total Events booked excludes Cancelled. Activity lists creation/Draft deletion, media uploads, Captures, print outcomes/inspection, package additions and booth actions; newest first, 7/30-day filters, 25 rows per page. Activity references Event/action without duplicating contact details or photos. Detailed charts and revenue remain out of scope.
+Show Events scheduled in the current venue-local month, upcoming Events and next Event. Monthly Events counts nondeleted **Draft, Live and Completed**, excluding **Cancelled**, using scheduled start rather than creation time. Compare the scheduled start and the server's current instant in each Event's venue time zone. Four in-month Events with one Cancelled show **3**; Completed still counts. Total Events booked excludes Cancelled/deleted Events across all months. Upcoming/Next uses future scheduled starts of Draft/Live Events. See [ADR-0028](docs/adr/0028-define-monthly-event-count.md). Activity lists creation/Draft deletion, media uploads, Captures, print outcomes/inspection, package additions and booth actions; newest first, 7/30-day filters, 25 rows per page. Activity references Event/action without duplicating contact details or photos. Detailed charts and revenue remain out of scope.
 
 ### Events — `/events`, `/events/new`, `/events/[eventId]`
 
@@ -72,7 +72,7 @@ Events lists Draft and Live Events, with future scheduled start as an Upcoming a
 
 The Event detail page shows booking/contact information, original/additional package counts, Confirmed Prints, pending attempt and prints available. Phone controls are **Add Film Packages**, **Confirm film loaded** when a reload is needed, exceptional **Printed / Not printed** inspection with reason, **Pause Booth**, **Resume Booth**, **Finish Booth Mode**, and **Complete Event** when eligible. Explain each consequential action. Additional package entries include a Client-request note and are immutable.
 
-Initial start is performed on the booth iPad from this page: verify internet/server, live camera, printer connection/readiness, film loaded, printer power and Guided Access; show the test reminder and require positive capacity. Activate the grant after local Admin sign-out/receipt handoff, then open `/booth`. No Test Print prerequisite or button. Remote phone Resume reuses valid device access and requires readiness; it never performs a fresh iPad sign-in.
+Initial start is performed on the booth iPad from this page: verify internet/server, live camera, printer connection/readiness, film loaded, printer power and Guided Access; show the test reminder and require positive capacity. Activate the grant after local Admin sign-out/receipt handoff, then open `/booth`. Before admitting a Guest, establish fresh camera/printer readiness under scoped access after navigation; setup observations do not prove that browser resources survived cleanup. No Test Print prerequisite or button. Remote phone Resume reuses valid device access and requires readiness; it never performs a fresh iPad sign-in.
 
 Optional private media: a portrait image around the preview and on welcome; a silent looping montage up to 30 seconds on welcome. Montage takes priority, image is fallback, default works with neither. Start always available; pause-video control and reduced-motion static image/default. Media never alters captured/printed photos. Upload validation and private access remain required.
 
@@ -80,7 +80,7 @@ Upload, replacement and removal are Draft-only, with authority, state and revisi
 
 ### History — `/history`
 
-List Completed/Cancelled Events with name, schedule, venue, Client contact, package counts and print totals. Retain media and audit history under Admin access. No redaction or deletion controls. Historical events from the old accounting model retain clearly labeled original totals rather than fabricated package conversions.
+List Completed/Cancelled Events with name, schedule, venue, Client contact, package counts and print totals. Retain media and audit history under Admin access. No redaction or deletion controls. History contains package-model Events only. Existing disposable development/test records are discarded during the later fresh-schema rebuild; no legacy reader or conversion UI is required.
 
 ### Profile — `/profile`
 
@@ -118,7 +118,7 @@ All blockers must clear independently. A recovered connection never overrides Pa
 
 ## 7. Privacy and access
 
-Guest photos are never uploaded, persisted, logged, or placed in History. Discard after completion/abandonment/fault; release in-flight transport buffers when safe. Only anonymous metadata remains. Event Media is private stored booking content, separate from Guest photos. Completed and Cancelled booking contact/media is retained with no product deletion/redaction action; already-removed historical data is not recreated.
+Guest photos are never uploaded, persisted, logged, or placed in History. Discard after completion/abandonment/fault; release in-flight transport buffers when safe. Only anonymous metadata remains. Event Media is private stored booking content, separate from Guest photos. Completed and Cancelled booking contact/media is retained with no product deletion/redaction action. Existing pre-reset development/test records are outside this ongoing retention policy.
 
 The device grant permits sanitized Event/run state and scoped guest operations only. Admin access, contact data, package additions, load confirmation, inspection and lifecycle management require a current Admin session. Grant stays valid through normal pause/fault, with bounded expiry and security revocation as specified in the contract. Guest-facing recovery controls cannot alter counts or claim an inspected outcome.
 
@@ -135,4 +135,6 @@ The device grant permits sanitized Event/run state and scoped guest operations o
 
 ## 9. Decisions and documentation
 
-[ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md) records this decision and its supersession map. Use the [documentation index](docs/README.md) for active guides, historical specs and evidence. The [GitHub issue publication record](docs/github-issue-update-drafts.md) contains the published #9/#10 descriptions and remaining unpublished #17/#7 drafts; old issue wording does not override this approved target.
+[ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md) records this decision and its supersession map. Use the [documentation index](docs/README.md) for active guides and dated evidence. The [GitHub issue publication record](docs/github-issue-update-drafts.md) distinguishes accepted #9 evidence, the published #10 body and F1–F8 links, and the unpublished #17/#7 drafts; old issue wording does not override this approved target.
+
+[ADR-0029](docs/adr/0029-remove-legacy-features-and-reset-development-schema.md) records complete removal within #10. Remove all legacy application/schema/compatibility paths and replace the old migration chain with a verified package-only baseline. Do not build old-event preservation, Draft conversion/review or historical readers. Retain #9 current contracts and dated acceptance evidence; reverify them after the schema rebuild. The user approved the revised plan on 2026-10-25 and requested its documentation commit. F1–F8 are published as #29–#36. Implementation remains on hold; code and data are unchanged.

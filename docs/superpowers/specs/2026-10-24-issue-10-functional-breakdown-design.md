@@ -1,20 +1,18 @@
 # Issue #10 functional implementation breakdown
 
-**Status:** Design approved by the user on 2026-10-24, including capability ownership, dependencies and upload defaults. Detailed implementation/publication plans require their own review. This is planning only.
+**Status:** Capability design approved 2026-10-24; complete legacy removal within #10 selected by the user 2026-10-25. [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) records the revised data/schema scope. The revised implementation/publication plans were approved on 2026-10-25. F1–F8 are published as #29–#36 and read-back verified. Implementation remains on hold at the user's request; no application changes.
 
 **Parent:** [#10 — first-release Admin and Booth flows](https://github.com/noelorph/diy-instax-photobooth/issues/10).
 **Prerequisite:** [#9 — accounting, access and printer contracts](https://github.com/noelorph/diy-instax-photobooth/issues/9), verified and closed as completed.
 **Original planning baseline:** `ca03c59`, including the aligned issue-publication and implementation-status documentation. The accepted #9 candidate is `2f89a96`; see the current gates below.
 
-**Implementation plans:** Eight capability plans and a GitHub publication plan remain uncommitted local drafts, written for review; approval pending.
-
-**Visual guide:** [One Mermaid flowchart per capability, with dependencies](../../diagrams/issue-10-functional-breakdown.md).
+**Implementation plans:** [Main implementation/publication plan and eight capability plans](../plans/2026-10-24-issue-10-implementation-plan.md), revised and approved on 2026-10-25, committed as `0bd7503`, then published as #29–#36 under the user’s explicit authorization. Implementation remains on hold. The [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md) assigns requirements and evidence owners now. The monthly clarification below was confirmed by the user; it does not approve implementation.
 
 ## Intent and scope
 
-Divide the approved #10 milestone into eight complete, testable capabilities. Each future GitHub sub-issue owns the related UI, application integration, failure handling, authorization checks, fixtures, tests and removal work needed for its outcome. Screens and technical layers are implementation tasks within a capability, not separate issues.
+Divide the approved #10 milestone into eight complete, testable capabilities. Each GitHub sub-issue owns the related UI, application integration, failure handling, authorization checks, fixtures, tests and removal work needed for its outcome. Screens and technical layers are implementation tasks within a capability, not separate issues.
 
-The user approved this level of functionality and requested native GitHub sub-issues linked to #10. Detailed implementation and issue-publication plans have been written for review. Publish the reviewed issues after the user approves that plan. The #9 prerequisite is satisfied; this design approval does not approve the detailed plans or authorize implementation.
+The user approved this level of functionality and requested native GitHub sub-issues linked to #10. The detailed implementation/publication plans are approved. The approved documentation was committed as `0bd7503`. The user then clarified that approval recording, issue publication/dependencies, read-back and local issue-link updates may proceed, while implementation remains on hold. The #9 prerequisite is satisfied; application implementation still requires a later instruction.
 
 The product baseline remains [PRD.md](../../../PRD.md), [ARCHITECTURE.md](../../../ARCHITECTURE.md), [GLOSSARY.md](../../../GLOSSARY.md), [ADR-0025](../../adr/0025-package-accounting-and-booth-recovery.md), [ADR-0026](../../adr/0026-order-captures-by-shutter-time.md), and the [replacement contract](2026-10-21-package-accounting-booth-recovery-design.md). The capability breakdown changes work ownership, not release gates. The Event Media clarification below is recorded in [ADR-0027](../../adr/0027-draft-only-event-media.md) and synchronized with affected active documents. It is an approved target, not implemented behavior.
 
@@ -24,7 +22,7 @@ Version-2 database functions, trusted HTTP handlers, package/readiness types, me
 
 #9's remaining findings are resolved and independently reviewed. The accepted candidate `2f89a96` passed 901/901 tests across 53 files, the required static/build/SQL checks and all three browser gates (19 + 2 + 1 tests); see the [dated software acceptance evidence](../../implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 is closed as completed. Before any child implementation, verify that accepted revision and review record, then reconcile planned file/interface references with it. The evidence record retains earlier failed runs; this documentation update does not rerun those checks.
 
-The #9 software prerequisite is satisfied. All children still await implementation/publication plan approval and their capability prerequisites. #10 finishes when the complete application and coordinated accounting cutover pass nonproduction acceptance. Real-printer enablement remains #17; actual-iPad production release remains #7. Simulator results satisfy neither physical gate. No hardware investigation, production activation, deployment, new product feature or repair of #9 is included in these children.
+The #9 software prerequisite is satisfied. All children have approved, published plans but await a later implementation instruction and their capability prerequisites. #10 finishes when the complete application and fresh package-only installation pass nonproduction acceptance. Real-printer enablement remains #17; actual-iPad production release remains #7. Simulator results satisfy neither physical gate. No hardware investigation, production activation, deployment, new product feature or repair of #9 is included in these children.
 
 ## Approaches
 
@@ -33,6 +31,12 @@ The #9 software prerequisite is satisfied. All children still await implementati
 | Complete functional capabilities with internal task checklists | Selected by the user. Each issue has a user-visible or operational outcome, clear ownership and its own acceptance evidence across affected surfaces. Larger lifecycle/recovery issues need explicit boundaries. |
 | Screen-based issues                                            | Rejected by the user's scope preference. The same capability would be spread across phone, Admin and Booth tickets, leaving integration ownership unclear.                                                       |
 | Separate UI, API, database and testing issues                  | Considered and not selected. #9 already supplies the contracts, and this split would postpone proof that the integrated function works.                                                                          |
+
+## Complete removal clarification
+
+The user selected removal within #10 rather than a separate cleanup before it or a follow-up after it. Existing data is disposable development/test data; the client has not bought the project. Delete superseded specs/plans from the current tree and use Git history as the archive. Keep concise ADR history, #9 acceptance evidence and factual printer qualification evidence. The [ADR-0029 decision](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) defines exclusions and the fresh-schema boundary.
+
+The [publication record](../../github-issue-update-drafts.md) records the complete-removal body now published to #10 and the F1–F8 issues/dependencies. #9's unchanged historical description retains the earlier preservation policy; ADR-0029 supersedes that policy for #10. #9 remains accepted: current package/access/recovery contracts stay in scope and are reverified after #10 changes; obsolete conversion machinery is removed by F8.
 
 ## Event Media clarification
 
@@ -49,9 +53,24 @@ These are application limits, not claims that the platform requires those number
 
 The format recommendation follows [MDN's browser image-format guidance](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/Image_types) and its [MP4/H.264 compatibility guidance](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/Video_codecs). [Supabase supports bucket size/type restrictions](https://supabase.com/docs/guides/storage/uploads/file-limits); application validation must additionally distinguish the two asset limits. Its [upload guidance](https://supabase.com/docs/guides/storage/uploads/standard-uploads) recommends resumable uploads above 6 MB, which the later implementation plan must account for without treating a failed transfer as a successful media change. These references informed the approved defaults; they do not establish actual iPad/Bluefy playback qualification.
 
+## Monthly count clarification
+
+**Confirmed by the user, 2026-10-25:** Monthly Events includes nondeleted Draft, Live and Completed, excludes Cancelled, and uses scheduled start in each Event's venue-local current month. Four in-month Events with one Cancelled show **3**; Completed still counts. Total booked continues to exclude Cancelled across all months; Upcoming/Next uses future Draft/Live starts. [ADR-0028](../../adr/0028-define-monthly-event-count.md) records this clarification without changing retention or adding a metric.
+
+## Execution and evidence clarifications
+
+These amendments address the five requested execution/meaning gaps within the existing eight capabilities. The selected approach is to amend the current plans and keep one shared trace; separate capability issues or duplicate acceptance tables would split existing ownership. No capability dependency or product feature is added.
+
+- Populate requirement → owner/task → test → evidence now. Each capability accumulates its own evidence; F8 audits the combined candidate. F5 explicitly owns a **new persisted Guest Session** after exhausted capacity is increased by F3; F6 owns remaining-blocker and pause variants.
+- Use the [explicit command/environment table](../plans/2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules). Default production browser tests exclude both simulator files and the fresh-install file. The fresh-install config alone selects its test and owns a disposable application/database, with identity checks before mutation. F8 owns those exclusions/configuration and discovery proof; F2/F4 supply ordinary local fixture/runner changes when first needed.
+- F4 names the complete setup → local sign-out → scoped `/booth` access → **fresh camera/printer readiness** acceptance case. Navigation/cleanup may release resources; old setup success never suffices for new admission. F4 wires initial-arrival equipment controls; F6 extends the same actions for later faults. The phone remains signed in.
+- F2 proves real resumable transfer/interruption, trusted content validation, Start/Cancel races and deletion with an outstanding upload before polishing the media editor. Existing format, size, duration, Draft-only and retention requirements remain unchanged. A failed proof blocks dependent editor work rather than weakening those requirements.
+
+Only the monthly count required a product interpretation. Environment separation makes an existing isolation requirement executable; the other additions strengthen test ownership and sequencing. The plan is approved and F1–F8 are published as #29–#36; implementation remains on hold at the user's request. Simulator proof does not satisfy #17/#7.
+
 ## Eight capability issues
 
-The IDs below are planning identifiers, not assigned GitHub numbers. All design references are under [docs/design/2026-10-21-package-recovery](../../design/2026-10-21-package-recovery/README.md). Every child must cite its specific sheets, the [screen map](../../design/2026-10-21-package-recovery/screen-map.md) and [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md). Exact copy, behavior and tokens come from the active documents, not raster artifacts.
+F1–F8 remain capability identifiers; their published GitHub numbers are #29–#36, mapped in the dependency table and linked plans. All design references are under [docs/design/2026-10-21-package-recovery](../../design/2026-10-21-package-recovery/README.md). Every child must cite its specific sheets, the [screen map](../../design/2026-10-21-package-recovery/screen-map.md) and [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md). Exact copy, behavior and tokens come from the active documents, not raster artifacts.
 
 ### F1. Admin access and account management
 
@@ -63,7 +82,7 @@ This issue owns account/session behavior; F4 consumes local sign-out during Boot
 
 ### F2. Event preparation and private media
 
-Complete Draft creation, editing and discovery; Client/venue/schedule fields; venue-local validation; original whole Film Packages with derived capacity; stale-save recovery; converted-Draft booking review; Draft cancellation; and safe never-started Draft deletion with actual private-media cleanup and persistent pending/error feedback. Preserve existing validation and audit boundaries.
+Complete Draft creation, editing and discovery; Client/venue/schedule fields; venue-local validation; original whole Film Packages with derived capacity; stale-save recovery; Draft cancellation; and safe never-started Draft deletion with actual private-media cleanup and persistent pending/error feedback. Preserve existing validation and audit boundaries.
 
 Own private Event Media upload/validation, authorized Admin and scoped Booth delivery, Draft-only upload/replacement/removal, cleanup and terminal retention. Enforce the approved upload policy in ADR-0027, including the maximum 30-second montage. Include races between upload/finalization/removal and starting or cancelling the Event. F5 consumes this delivery contract to render welcome/preview media. Failure to load optional media must support a default presentation without blocking Booth readiness. No Guest photo may use this storage path.
 
@@ -82,6 +101,8 @@ Own the complete Admin purchase/counts workflow, including final-print holds, ad
 ### F4. Booth setup, access and lifecycle
 
 Complete setup on the booth device, equipment/physical confirmations, the reminder-only test guidance, initial handoff and local Admin sign-out with the phone session preserved. Own the Prepared/Active/Paused/Finishing/Finished presentation, scoped state refresh, explicit phone Pause/Resume/Finish, new-run setup on a still-Live Event, and separate eligible Live Event completion/cancellation.
+
+Own readiness continuity across the real handoff/navigation boundary: establish fresh camera/printer observations under device authority before Guest admission, including released resources, late setup callbacks and denied reacquisition. An Active run alone does not prove the Booth is ready.
 
 Implement the reusable handoff and authenticated same-run replacement flow with the existing #9 endpoints. Replacement activates only scoped access, leaves the run Paused and rejects possible pending output or Finishing/Finished. F6 owns detecting access loss, reconciliation before requesting replacement and the complete failure-to-restoration journey. F1 supplies authentication; authentication alone grants no run transition.
 
@@ -111,76 +132,87 @@ For a paused Booth that loses Bluetooth, F4 owns the persisted pause and explici
 
 ### F7. Operational visibility and retained history
 
-Complete month/upcoming/next Event summaries, venue-local scheduled-start counting, total booked excluding Cancelled, newest-first activity with 7/30-day filters and 25 rows per page, and retained Completed/Cancelled Event history and read-only detail. Show package-era totals alongside clearly labeled original legacy accounting without fabricated conversion or reconstituting previously removed data.
+Complete month/upcoming/next Event summaries: monthly counts nondeleted Draft/Live/Completed by venue-local scheduled start and excludes Cancelled; total booked also excludes Cancelled; upcoming/next uses future Draft/Live starts. Include newest-first activity with 7/30-day filters and 25 rows per page, and retained Completed/Cancelled Event history and read-only detail. Show package counts and current-model history only. Delete legacy totals, corrections, version-switch readers and conversion fixtures; existing test records will be discarded.
 
 Consume the existing operational/audit records from #9 and the owning capabilities; each mutation owner must preserve its required audit entry. Own read projections, filtering, pagination, empty/error states and responsive presentation, including retained private Event Media via F2. Do not add charts, revenue, Guest galleries or redaction/deletion of terminal Events. This issue can validate activity types with #9 operations and fixtures without waiting for every UI producer.
 
 **Design:** `admin/01-dashboard.png`, `admin/09-history.png`, read-only Event-detail and activity patterns in `admin/05-live-event.png`.
 
-### F8. Coordinated cutover, retirement and final acceptance
+### F8. Fresh package-only installation, complete removal and final acceptance
 
-Own the complete retirement inventory, coordinated application/database switch, nonproduction rehearsal, preservation evidence and final acceptance across all seven capabilities. Use #9's preflight/activation safeguards and forward migrations; do not rewrite applied migrations. Stop new starts, settle legacy work under its original contract, finish old runs and complete/cancel finished-but-Live Events before conversion. Complete pending legacy media cleanup. Verify backup/history, eligible Draft conversion and explicit mismatch review. Never drop unresolved holds or guess a NotPrinted outcome.
+Own the final removal inventory, remaining compatibility cleanup, clean migration baseline and whole-application verification. F1–F7 delete their obsolete paths with their replacement flows; F8 proves no legacy feature survives in source, schema, routes, generated types, fixtures or maintained instructions. Old route requests fail without mutation and old RPCs do not exist.
 
-Verify denial of every obsolete mutation surface from stale clients, server actions, HTTP endpoints and application-accessible database functions. Each capability supplies its caller/control/test cleanup; F8 owns final coordinated removal, cross-cutting compatibility remnants and whole-application proof. Keep only required historical readers, applied migrations, audit records and explicitly nonproduction qualification tooling. A retained harness must not expose retired product operations or authorize physical release.
+Build the complete current schema from the final effective #9 definitions plus F1–F7 additions, preserving authorization, constraints, lock order, receipts and all current safety regressions. Remove the old migration chain in that same change. No legacy tables are created and later dropped; no old Event conversion, historical reader, snapshot or booking-review workflow is retained.
 
-Rehearse recovery before and after activation. A verified pre-cutover backup may be restored only when no version-2 writes exist; after version-2 writes, keep the application unavailable and use a reviewed forward fix. Record the final tested revision, commands and actual outcomes. Required unit, integration/database, browser, lint, types, formatting and build checks must pass. No production promotion or physical trial is performed by this child.
+Prove installation on an empty isolated local database, then rebuild the named disposable local test stack and run the full application suite against that baseline. Keep test apps stopped during resets; verify exact local project identity and no connected/in-flight physical printer. Failed installs stay unavailable and are fixed/recreated as disposable tests. Do not build a data-preserving upgrade or rollback system.
 
-**Design:** The complete [17-sheet gallery](../../design/2026-10-21-package-recovery/index.html) and screen map form the acceptance reference, with `journeys/01-ipad-phone-recovery.png` for combined-device scenarios. F8 adds no product screen.
+**Design:** The current 17-sheet gallery and screen map remain the presentation reference. F8 adds no product screen. #17/#7, hosted deployment and real printing remain outside #10 acceptance.
 
 ## Dependencies and completion boundaries
 
 Approved dependencies reflect deliverables consumed, not separate UI/backend phases:
 
-| Child | Additional child prerequisites, besides #9 |
-| ----- | ------------------------------------------ |
-| F1    | None                                       |
-| F2    | F1                                         |
-| F3    | F2                                         |
-| F4    | F1, F2, F3                                 |
-| F5    | F2, F4                                     |
-| F6    | F3, F4, F5                                 |
-| F7    | F2, F3                                     |
-| F8    | F1–F7                                      |
+| Child                                                                 | Additional child prerequisites, besides #9                                                                                                                                                                                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29) | None                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30) | [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29)                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31) | [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30)                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32) | [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29), [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31)                                                                                                                                                                                                                                                                                             |
+| [F5 #33](https://github.com/noelorph/diy-instax-photobooth/issues/33) | [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32)                                                                                                                                                                                                                                                                                                                                                                    |
+| [F6 #34](https://github.com/noelorph/diy-instax-photobooth/issues/34) | [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32), [F5 #33](https://github.com/noelorph/diy-instax-photobooth/issues/33)                                                                                                                                                                                                                                                                                             |
+| [F7 #35](https://github.com/noelorph/diy-instax-photobooth/issues/35) | [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31)                                                                                                                                                                                                                                                                                                                                                                    |
+| [F8 #36](https://github.com/noelorph/diy-instax-photobooth/issues/36) | [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29), [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32), [F5 #33](https://github.com/noelorph/diy-instax-photobooth/issues/33), [F6 #34](https://github.com/noelorph/diy-instax-photobooth/issues/34), [F7 #35](https://github.com/noelorph/diy-instax-photobooth/issues/35) |
 
-The approved dependency graph is not a request to delegate work now. All development uses an isolated nonproduction version-2 fixture environment. Each capability must pass its own tests and integrated function-level acceptance before its issue is done. Dependents must use those implemented interfaces, not permanent mock substitutes. F8 verifies the combined release candidate and cutover; passing an individual capability never authorizes global activation or production use. No intermediate branch or child closure is a release.
+The approved dependency graph is not a request to delegate work now. All development uses an isolated nonproduction version-2 fixture environment. Each capability must pass its own tests and integrated function-level acceptance before its issue is done. Dependents must use those implemented interfaces, not permanent mock substitutes. F8 verifies the combined release candidate and fresh database installation; passing an individual capability never authorizes global activation or production use. No intermediate branch or child closure is a release.
 
-The final plan will map precise files, existing interfaces, fixtures and verification commands to each child. Shared components are extended only by the first capability that needs them. F4/F5/F6 share Booth orchestration ownership sequentially; they must extend the same state/transport implementation rather than each introducing wrappers or competing controllers. Exact internal component/file extraction remains the implementer's choice within existing repository structure.
+The linked plans map precise files, existing interfaces, fixtures and verification commands to each child. Shared components are extended only by the first capability that needs them. F4/F5/F6 share Booth orchestration ownership sequentially; they must extend the same state/transport implementation rather than each introducing wrappers or competing controllers. Exact internal component/file extraction remains the implementer's choice within existing repository structure.
 
 ## Retirement coverage
 
-| Required retirement from #10                           | Owning capability; final denial/cutover verification always F8                         |
-| ------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| Editable Print Allowance                               | F2 replaces Draft input/persistence; F3 replaces operational consumption               |
-| Individual Additional Prints                           | F3                                                                                     |
-| Shared Film Stock                                      | F3 removes active accounting consumers; F7 preserves labeled historical reading only   |
-| Wasted Film and quality refunds                        | F5/F6 remove current output/recovery behavior; F7 preserves original historical totals |
-| In-app Test Print and setup gate                       | F4                                                                                     |
-| Client Redaction and past-Event deletion               | F2 preserves Draft-only cleanup; F7 makes terminal history read-only                   |
-| Superseded recovery and local Admin takeover           | F4/F6; F5 removes Guest exit/pause consumers                                           |
-| Temporary adapters, compatibility branches and helpers | Every owning capability; F8 traces and removes remaining cross-cutting paths           |
+| Required retirement from #10                           | Owning capability; final absence/denial verification always F8               |
+| ------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Editable Print Allowance                               | F2 replaces Draft input/persistence; F3 replaces operational consumption     |
+| Individual Additional Prints                           | F3                                                                           |
+| Shared Film Stock                                      | F3 deletes stock consumers; F7 deletes legacy readers                        |
+| Wasted Film and quality refunds                        | F5/F6 delete refund behavior; F7 deletes old totals                          |
+| In-app Test Print and setup gate                       | F4                                                                           |
+| Client Redaction and past-Event deletion               | F2 preserves Draft-only cleanup; F7 makes terminal history read-only         |
+| Superseded recovery and local Admin takeover           | F4/F6; F5 removes Guest exit/pause consumers                                 |
+| Temporary adapters, compatibility branches and helpers | Every owning capability; F8 traces and removes remaining cross-cutting paths |
 
-For every row, trace controls, callers, actions, endpoints, database functions, tests and fixtures. Record removal versus necessary historical retention. Removing a visible button alone is not completion. Coordinate destructive runtime retirement with F8 so legacy settlement remains possible before conversion and obsolete writes are denied after it.
+For every row, trace controls, callers, actions, endpoints, database functions, tests and fixtures. Record concrete deletion and any shared current-contract dependency. Removing a button or revoking a legacy RPC grant is insufficient. F8 must remove the legacy schema objects and migration chain too. Preserve dated evidence, not executable compatibility.
 
 ## Shared acceptance and scope limits
 
 Every capability follows the existing authorization/origin/private-response boundaries, stable operation IDs and receipt recovery, stale revision handling, exact copy and accessibility rules. Integrate keyboard/focus/status behavior, light/dark Admin, compact/medium/wide layouts, Booth dark theme, safe areas and reduced motion into each applicable capability. Do not postpone all accessibility or privacy checks to F8.
 
-Use `PrinterAdapterV2`, the existing version-2 simulator, `dispatchReservedAttempt`, the metadata journal and #9's server contracts. Preserve two-second visible state refresh, five-second readiness freshness, grant lifecycle and scoped evidence policy. The detailed plan must cover final capacity, lost responses, overlapping faults, stop/dispatch races, lost access and history/cutover preservation with named owners and acceptance scenarios.
+Use `PrinterAdapterV2`, the existing version-2 simulator, `dispatchReservedAttempt`, the metadata journal and #9's server contracts. Preserve two-second visible state refresh, five-second readiness freshness, grant lifecycle and scoped evidence policy. The detailed plan must cover final capacity, lost responses, overlapping faults, stop/dispatch races, lost access and package History and fresh-install absence/security with named owners and acceptance scenarios.
 
 Exclude #9 repairs, new accounting rules, automatic hardware qualification, optional automatic reload research, production deployment, offline operation, booking/payment, multiple Admins/booths/printers, galleries, digital delivery, editing, charts and redesigned mockups. A newly discovered product or durable technical decision is raised for focused approval under AGENTS.md and documented through the existing ADR process; it is not silently added to a child.
 
-## GitHub publication deliverable
+## GitHub publication record
 
-After plan approval, create eight native sub-issues of #10, each with a parent link, purpose, complete scope/non-goals, specific mockup references, reused contracts, implementation tasks, dependencies, acceptance tests, retirement ownership and completion criteria. Add native blocking dependencies on #9 and the approved prerequisite children. Keep #10's existing #9 dependency and published milestone scope intact. Do not mark children ready for implementation while their gates remain unmet, close issues, publish #17/#7 drafts or change unrelated issue metadata.
+Following the user's explicit clarification, #10 was updated with complete removal and fresh installation, and F1–F8 were published as native sub-issues #29–#36. Each body includes the complete approved plan, scope/non-goals, design references, reused contracts, task checklist, owned pending acceptance rows, verification environments and retirement ownership. Local paths are identified as repository references; the unpushed commit is not presented as a working remote link.
 
-The local plan records the assigned issue numbers/URLs and verifies all parent links/dependencies by read-back. Reuse an already-created matching child after a partial publication; do not duplicate it. The user must approve the complete plan before publication; no extra publication confirmation is needed after that approval because it is already requested.
+Read-back verified all eight bodies and native parents, all 27 child blocker edges (#9 plus the approved capability prerequisites), and #10's retained #9 dependency. #9's body, completed status and metadata are unchanged. The [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#publication-record--completed-2026-10-25) and [publication record](../../github-issue-update-drafts.md#publication-verification-2026-10-25) contain the issue links and verification result. Children remain open, unassigned and without readiness labels. #17/#7 drafts remain unpublished.
+
+Implementation remains on hold pending a later explicit user instruction and capability prerequisites. No code change, database reset, physical test, issue closure or push occurred. The user subsequently authorized committing the related publication-record documentation.
 
 ## Review and approval record
+
+Earlier pending statements below describe their dated review stage; the publication follow-up records the current status.
 
 - 2026-10-24: User selected complete major functionality per issue with related smaller tasks, approved the eight boundaries, and requested GitHub sub-issues linked to #10.
 - 2026-10-24: Independent builder review completed. Clarified F3/F5 ownership of capacity changes and Guest admission. The review identified Event Media lifecycle and upload limits as the only remaining product inputs.
 - 2026-10-24: User confirmed Draft-only media upload/replacement/removal and requested practical upload defaults. The defaults were proposed at that point and subsequently approved with this design, as recorded below.
 - 2026-10-24: User explicitly approved this design, including the proposed upload defaults, and requested the writing-plans skill with Ponytail required across implementation plans. ADR-0027 and affected active documents record the approved media policy.
 - 2026-10-24: Detailed implementation/publication plans written, including Ponytail full in every plan; user plan approval remains pending.
-- GitHub child publication: pending.
-- Application implementation: awaits implementation/publication plan approval; not authorized by this planning task. The #9 software prerequisite is satisfied.
+- 2026-10-25: User requested the five scoped execution/meaning clarifications and explicitly chose Draft/Live/Completed inclusion with Cancelled exclusion for monthly Events. Revised plans, shared trace, environment rules, early media proof and post-handoff readiness coverage are prepared for review; this is not implementation/publication approval.
+- GitHub child publication: completed and verified 2026-10-25; F1–F8 are #29–#36.
+- Application implementation: plan approved; implementation remains on hold at the user's request. The #9 software prerequisite is satisfied.
+
+- 2026-10-25: User approved complete legacy removal within #10, including obsolete docs and a fresh migration baseline for disposable development/test data; requested this documentation revision and a checkpoint commit. Revised-plan approval, publication, implementation and the post-revision commit remain pending.
+
+- 2026-10-25, approval follow-up: User approved the revised plans and requested committing the complete docs first. Earlier pending/uncommitted entries describe their original review stage. At that point, further work was held under the user's “Do not start yet” instruction; their subsequent clarification below authorizes publication only.
+
+- 2026-10-25, publication follow-up: After documentation commit `0bd7503`, the user explicitly authorized recording approval, updating #10, creating F1–F8 with native dependencies, reading back the published scope and recording local issue links. All publication checks passed. A remaining F4 reference to retaining converted-booking review guards was corrected to removal before publication, matching ADR-0029/F2. Implementation and all 27 implementation-evidence rows remain pending.

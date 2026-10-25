@@ -30,6 +30,8 @@
 
 Use one sidebar on wide screens and a compact navigation menu on phones. Dashboard, Events, History and Profile retain the same labels and order. Cards, counters, input labels, status badges and action placement share the same visual vocabulary. Phone layouts prioritize the Event, current blockers, accounting and next action.
 
+The monthly card counts Draft, Live and Completed by venue-local scheduled start and excludes Cancelled/deleted Events: four in-month Events with one Cancelled show 3. Completed is still included; Upcoming/Next uses future Draft/Live starts. [ADR-0028](../../adr/0028-define-monthly-event-count.md) clarifies this existing card without changing the mockup layout.
+
 The wide table layout is a comparison view; on compact screens rows become labeled summaries. Form fields stack in one column. The phone management and recovery sheets demonstrate the compact treatment rather than requiring a new route.
 
 The mockups primarily show light Admin mode. The saved Profile preference also supports dark Admin mode using the exact dark tokens; Booth always uses dark mode. Theme preference is an account setting, not a new per-device product rule.
@@ -117,3 +119,5 @@ Authentication sheets contain separate form/feedback specimens. An expired reset
 Use [tokens.json](tokens.json) as a convenient copy of current visual values, and recheck against the root design system when implementing. Raster glyphs, anti-aliasing and numerical spacing are not pixel-exact specifications.
 
 Check keyboard focus, screen-reader status, non-color labels, 200% zoom, reduced motion, safe areas, readable Event Media overlays and large touch targets in the eventual implementation. Mockup inspection is not an accessibility, runtime, print-adapter or hardware qualification result.
+
+The #10 removal revision keeps these package-model screens. Do not add legacy-total labels, conversion/review screens or compatibility controls; [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) discards existing test data at the later local baseline rebuild. Package-era Completed/Cancelled History and private media remain retained.

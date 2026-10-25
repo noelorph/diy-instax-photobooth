@@ -1,8 +1,8 @@
 # Package accounting, access and Booth recovery contract
 
-**Status:** Approved target design, 2026-10-21. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; [issue #9 review](../../implementation/issue-9-package-contracts-review.md) records passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing UI remains on legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
+**Status:** Approved target design, 2026-10-21. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; [issue #9 review](../../implementation/issue-9-package-contracts-review.md) records passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing UI remains on legacy flows until #10. Hosted deployment and #17/#7 physical qualification remain open. Section 8 was revised under ADR-0029 on 2026-10-25; the #10 plan is now approved. F1–F8 are published as #29–#36; implementation remains on hold at the user's request.
 **Decision:** [ADR-0025](../../adr/0025-package-accounting-and-booth-recovery.md).
-**Replaces:** [2026-10-16 contract](2026-10-16-accounting-access-printer-contracts-design.md) and conflicting behavior in older specs/plans. [Documentation index](../../README.md) identifies authority and history.
+**Replaces:** The obsolete 2026-10-16 contract and earlier feature specs/plans, available only in Git history at checkpoint `1de2272`. [Documentation index](../../README.md) identifies authority and history.
 
 ## 1. Scope and operating model
 
@@ -16,15 +16,15 @@ The product records confirmed physical ejection, including an unusable image, as
 
 ### Event lifecycle
 
-| From                  | Action and guard                                                                                            | To                                   |
-| --------------------- | ----------------------------------------------------------------------------------------------------------- | ------------------------------------ |
-| Draft                 | Start Booth Mode; complete valid setup, positive booked capacity, no other Live Event                       | Live                                 |
-| Draft                 | Cancel Event                                                                                                | Cancelled                            |
-| Draft                 | Delete Draft; never started, no unresolved legacy attempt; remove private media before reporting completion | Deleted; opaque audit reference only |
-| Live                  | Finish Booth Mode                                                                                           | Live; its run finishes independently |
-| Live                  | Complete Event; all runs Finished and all attempts terminal                                                 | Completed                            |
-| Live                  | Cancel Event; all runs Finished and all attempts terminal                                                   | Cancelled                            |
-| Completed / Cancelled | Read history                                                                                                | Same terminal state                  |
+| From                  | Action and guard                                                                                           | To                                   |
+| --------------------- | ---------------------------------------------------------------------------------------------------------- | ------------------------------------ |
+| Draft                 | Start Booth Mode; complete valid setup, positive booked capacity, no other Live Event                      | Live                                 |
+| Draft                 | Cancel Event                                                                                               | Cancelled                            |
+| Draft                 | Delete Draft; never started, no current run/attempt work; remove private media before reporting completion | Deleted; opaque audit reference only |
+| Live                  | Finish Booth Mode                                                                                          | Live; its run finishes independently |
+| Live                  | Complete Event; all runs Finished and all attempts terminal                                                | Completed                            |
+| Live                  | Cancel Event; all runs Finished and all attempts terminal                                                  | Cancelled                            |
+| Completed / Cancelled | Read history                                                                                               | Same terminal state                  |
 
 Cancelled and Completed Events have no delete, redact, reopen, or booking-edit action. A Live Event cannot be deleted. An Event may have several runs, but only one unfinished run at a time. After Finish, starting another run is a new local setup/handoff while the Event is still Live; it does not reset package or print totals. Complete Event is a separate phone Admin action. Schedule does not automatically start or finish an Event.
 
@@ -168,7 +168,7 @@ Remote stops and dispatch authorize under the same run/attempt transaction locks
 | Reload request                | Event/run/printer/generation, trigger, status, current revision, confirmation actor/time/source                                                   |
 | Activity / Event Media        | Anonymous action metadata; private optional Event background/montage objects, never Guest photos                                                  |
 
-No new shared film ledger, test-attempt kind, quality-refund field or redaction workflow is required. Legacy records are preserved under section 8, not reinterpreted as new package accounting.
+The final schema has no shared film ledger, test-attempt kind, quality-refund field, redaction workflow or legacy conversion records. Section 8 defines the fresh package-only installation.
 
 ### Capture ordering
 
@@ -243,19 +243,19 @@ Observations distinguish `definitely_not_sent`, `command_accepted`, `full_ejecti
 
 The server's release policy must reject simulated evidence in production and physical ejection assertions from an unqualified adapter. Once qualified and enabled, allow inspected Printed/Not printed only for exceptional Pending recovery under Admin authority; this must not become the normal success path. The detailed fault, no-film, idle/ready and safe clearing procedures must pass their checklist cases before real guests use them. A missing capability has an explicit unavailable/manual-recovery fallback; a missing automatic normal-ejection capability keeps real Booth Mode disabled.
 
-## 8. Retention, migration and delivery boundaries
+## 8. Retention, fresh installation and delivery boundaries
 
-Completed/Cancelled Events retain their Client contact, media and operational history under Admin access, with no product redaction/deletion action. Draft deletion removes identifying fields and private media, retaining only opaque audit/legacy operational references; show cleanup pending until private removal succeeds. Existing already-deleted/redacted data is not reconstructed. No Guest image retention is added.
+[ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md), accepted 2026-10-25, replaces the former legacy preservation/conversion policy. All existing data is disposable development/test data. The client has not bought the project. #10 removes the abandoned features completely and ends with a fresh package-only database; Git history preserves the previous implementation and specifications.
 
-At approval this design was documentation only. Version-2 records, functions, handlers and provisional simulator code are now installed for local testing; legacy UI consumers, old controls and the version-1 creation default remain until coordinated #10 cutover. Keep the simulator isolated/nonproduction. The [issue #9 review](../../implementation/issue-9-package-contracts-review.md) separates tested software contracts from pending integration, hosted activation and physical proof; a simulator screen is not evidence of printer qualification.
+Completed/Cancelled Events created under the current package model retain Client contact, private media and operational history under Admin access, with no redaction/deletion action. Never-started Draft deletion removes identifying fields and private media, retaining only opaque audit/cleanup references; it stays pending until private removal succeeds. No Guest image retention is added. This ongoing product retention does not require preserving pre-reset test records.
 
-Later migration requirements:
+1. F1–F7 integrate the approved #9 contracts and remove obsolete callers, controls, routes, schemas, helpers and success tests as their replacements become ready. Remove no-replacement features after shared dependencies are handled. There is no historical reader, converted-Draft review or mixed-version product path.
+2. F8 replaces the accumulated migration chain with a complete baseline that creates only the current package model on an empty database. Reproduce final security and transactional behavior, including later #9 fixes. Delete old tables, columns, RPCs, grants, conversion/snapshot machinery and obsolete fixtures; do not create-and-drop them within the baseline. Current version-2 wire identifiers may remain without version-1 fallbacks.
+3. Rebuild only identified disposable local test environments and seed synthetic package-era data. Do not import legacy Events, convert allowances, preserve stock/refund history, or simulate a real outcome to make a reset possible. Stop test apps and disconnect/quiesce physical printers first. Runtime uncertain attempts still block new work under the unchanged safety contract.
+4. Verify the fresh schema, RLS/grants, stale-client rejection with unchanged data, package-only defaults, every current #9 regression and the complete F1–F7 application. Check independent installation and the final full suite after rebuilding the dedicated local test stack. The accepted #9 results certify their original revision only.
+5. This plan does not reset hosted databases, deploy, publish issues or qualify physical printing. A later release uses a newly provisioned package-only environment. If real retained data appears before execution, stop and revisit ADR-0029 rather than applying this development reset policy.
 
-1. Stop new starts during conversion; finish every old run and resolve every old attempt under its existing contract before switching versions. Never drop unresolved holds or force unknown to NotPrinted.
-2. Preserve Completed/Cancelled records as immutable legacy accounting snapshots, clearly marked historical if their totals used different rules. Do not recompute old prints/refunds as if this design existed then. Keep existing stock/test/correction audit rows for provenance, outside active product controls.
-3. For never-started Drafts, derive future capacity from their package count. Where the previous independent count differs, show the Admin the proposed capacity and require an explicit booking review before first start. Do not guess extra package purchases from old numbers.
-4. A finished-but-still-Live legacy Event must be completed/cancelled under the old version before conversion; no mixed-version resumed run. New package-accounting Events use the new version from creation. Preserve records and do not silently reset totals.
-5. Remove retired UI and write endpoints together with new database protections; deny obsolete mutation paths even if an old browser tab calls them. Preserve old migrations and history; add reviewed forward migrations rather than rewriting applied migrations. Stage conversion and rollback checks before production promotion.
+The [#9 verification record](../../implementation/issue-9-package-contracts-review.md) remains dated evidence. Its old conversion safeguards were valid under the previous decision and are now scheduled for deletion; current package accounting, access, receipts, one-send behavior and recovery remain required. The #10 implementation/publication plan is approved; F1–F8 are published as #29–#36; implementation remains on hold at the user's request.
 
 ## 9. Acceptance for later implementation
 

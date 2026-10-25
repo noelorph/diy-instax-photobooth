@@ -1,84 +1,47 @@
-# GitHub issue updates — publication record and remaining drafts
+# GitHub issue publication record and remaining drafts
 
-**Status:** The user-approved replacement descriptions for [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) and [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10) were published and read-back verified on 2026-10-23. Both issues were open at that publication. The acceptance update below records #9's subsequent closure; #10's native dependency on #9 is retained. The #17/#7 sections remain unpublished drafts prepared 2026-10-21 from the approved [contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md), [ADR-0025](adr/0025-package-accounting-and-booth-recovery.md) and [proof checklist](qualification/booth-recovery-proof-checklist.md). See the [approved publication plan](superpowers/plans/2026-10-23-issue-9-10-publication.md).
+**Published and read-back verified, 2026-10-25:** #10 contains the approved complete-removal scope and eight native children, F1–F8 (#29–#36). The user approved the plans, requested documentation commit `0bd7503` first, then explicitly authorized issue publication and this local record. Implementation remains on hold. #9 stays closed as completed; #10 and all children stay open. #17/#7 drafts below remain unpublished. The user subsequently authorized committing these publication records; nothing was pushed.
 
-The #9/#10 descriptions below are the approved 2026-10-23 body text, retained as history; local section headings are one level deeper than their GitHub counterparts. Unpublished contract documents are referenced by repository path rather than broken GitHub links. Remaining draft publication requires separate authorization. Preserve old comments as dated history, re-read live issue state before writing, and keep unrelated content. Do not claim code completion from description approval. Use `gh` with a body file, not inline multiline shell interpolation.
+## Issue #9 accepted prerequisite
 
-## Acceptance update — 2026-10-25
+[#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) passed on `2f89a96afee2dfdc2a1d540cbcc3c0ee4380bbbb`: 901/901 tests across 53 files, static/build/SQL checks and 19 + 2 + 1 browser checks. Its [dated local evidence](implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25) and [published acceptance](https://github.com/noelorph/diy-instax-photobooth/issues/9#issuecomment-6386836261) remain the acceptance record, including failed earlier attempts and corrections.
 
-After user approval, #9's description was updated from the prepared acceptance draft, the [verification summary](https://github.com/noelorph/diy-instax-photobooth/issues/9#issuecomment-6386836261) was published, and #9 was closed as completed. #10's description now records the satisfied #9 software prerequisite and keeps its own implementation/publication plan awaiting approval. Read-back verified both bodies, the acceptance comment, all five #9 acceptance checks, and only the #9 prerequisite checked in #10. Titles, labels, assignees and milestones were preserved. The dependency still links #10 to the closed #9; #10 has zero open dependency blockers. No child issues or #17/#7 drafts were published.
+Keep its current package accounting, lifecycle, current authorization after locks, scoped grants, receipts, concurrency, one-send dispatch, readiness, reconciliation and simulator evidence policy in #10. Do not reopen #9 or rewrite its historical result. Its legacy conversion/snapshot safeguards were accepted under the former data-preservation decision; [ADR-0029](adr/0029-remove-legacy-features-and-reset-development-schema.md) now schedules those obsolete parts for removal in #10.
 
-The accepted code remains `2f89a96`, with evidence in documentation commit `87e5447`. The tracker update did not rerun tests, implement #10, enable real printing or activate hosted infrastructure.
+## Published wording and current scope
 
-## Issue #9 — accounting, access and printer contracts
+#10 now requires complete legacy removal and a fresh package-only installation under ADR-0029. F1–F7 remove their obsolete application paths; F8 completes shared removal and replaces the migration chain while preserving and reverifying current #9 contracts. No legacy History reader, Draft conversion/review, snapshot/import, activation/preflight machinery or version-1 fallback is a completion requirement.
 
-### Goal
+#9's unchanged body retains the preservation policy under which its work was accepted. That is dated evidence, not current #10 scope; ADR-0029 supersedes those clauses without rewriting #9's result. #10 publication is not implementation acceptance.
 
-Complete and verify the approved version-2 accounting, access, recovery, and provisional printer contracts that the first-release Admin and Booth application will use.
+## Publication verification 2026-10-25
 
-### Current status
+Read-back at **2026-10-25 13:42 UTC** compared the complete live bodies with the prepared approved text and checked GitHub's native parent/dependency APIs:
 
-Version-2 database contracts, trusted handlers, and provisional simulator code exist for local verification. The remaining work is to resolve outstanding findings and establish passing verification; describing the entire implementation as following the previous model is no longer accurate.
+- #10 matches the approved complete-removal body and published capability map. Its title, open state, label, assignees and milestone are unchanged; its native prerequisite remains #9.
+- F1–F8 (#29–#36) match their full plan/scope/task/verification snapshots and owned acceptance rows. All eight have native parent #10 and exactly the approved **27 child blocker edges**, including the completed #9 on every child.
+- All **23 implementation tasks** and **27 acceptance rows** remain pending. No readiness labels or assignees were added; no child was closed.
+- #9's body, completed state, metadata and update timestamp are unchanged. Its accepted evidence remains linked in every child.
+- The pre-publication reread corrected one F4 instruction that still said to retain converted-booking review guards; it now removes them with F2's retired review workflow, as required by ADR-0029.
+- The [main plan's publication table](superpowers/plans/2026-10-24-issue-10-implementation-plan.md#publication-record--completed-2026-10-25) and each child plan record the issue URLs and prerequisites. Current status docs distinguish completed publication from implementation still on hold.
 
-The outstanding work includes:
+The child bodies reproduce approved plan/trace content because the local documentation commit has not been pushed. Repository references are explicitly paths to read locally; no unavailable branch link is the only instruction. The local acceptance trace remains the source of execution evidence. No code, database, physical test or hosted deployment action accompanied publication.
 
-- Fix the authorization gap in package additions and reload actions, with regression coverage.
-- Obtain a passing full-suite verification result on the final reviewed revision.
-- Complete review and record evidence confirming that the findings are resolved and required verification passes.
+## Issue #10 published body
 
-The latest recorded full-suite run passed 885/886 tests and exited unsuccessfully. A passing isolated rerun does not satisfy the full-suite requirement.
-
-### Contract scope
-
-- Package-derived capacity: ten prints per original or Additional Film Package; unresolved attempts hold capacity and the printer slot; confirmed full ejection counts once, including unusable output.
-- Event, Booth run, Guest Session, Capture, and Print Attempt transitions, including separate Finish Booth and Event completion.
-- Current Admin authorization, private transactional functions, RLS, scoped Booth grants, initial handoff, exceptional access recovery, and grant retention through ordinary faults and pauses.
-- Stable operation receipts, duplicate and lost-response handling, concurrency protection, one-send dispatch, and metadata-only recovery.
-- Independent readiness blockers, phone reload confirmation, and exceptional inspection of unknown print outcomes.
-- A nonproduction simulator that distinguishes command acceptance, confirmed ejection, reliable rejection, and uncertainty.
-- Cutover safeguards, historical accounting preservation, and explicit review of legacy Draft capacity conversion.
-
-[#10](https://github.com/noelorph/diy-instax-photobooth/issues/10) owns complete application integration, coordinated accounting cutover, and removal of superseded runtime behavior.
-
-### Done when
-
-- [ ] The outstanding package-addition and reload authorization finding is fixed, covered by regression tests, and reviewed.
-- [ ] Required contract and integration coverage verifies authorization, accounting, concurrency, receipts, grants, recovery, and one-send behavior.
-- [ ] The full suite and required lint, type, formatting, build, and browser checks pass on the final reviewed revision.
-- [ ] Review findings are resolved, and evidence identifies the reviewed revision, commands, results, and remaining external gates.
-- [ ] Current contracts and the #10 handoff accurately distinguish implemented software, remaining integration, and physical qualification.
-
-### Dependency and release boundaries
-
-> Planning may proceed now. Implementation begins after #9’s outstanding findings are resolved and its required verification passes.
-
-This statement governs #10. Keep #9 open until its acceptance requirements are satisfied.
-
-[#17](https://github.com/noelorph/diy-instax-photobooth/issues/17) separately gates real-printer enablement through physically qualified automatic normal full-ejection completion and safe recovery. [#7](https://github.com/noelorph/diy-instax-photobooth/issues/7) gates production launch through the actual-iPad release trial. Simulator results satisfy neither gate. #8 is closed and is not a renewed blocker.
-
-### Detailed references
-
-- `docs/adr/0025-package-accounting-and-booth-recovery.md`
-- `docs/adr/0026-order-captures-by-shutter-time.md`
-- `docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md`
-- `docs/implementation/issue-9-package-contracts-review.md`
-- `docs/qualification/booth-recovery-proof-checklist.md`
-
-## Issue #10 — integrated product implementation
+The following is the body read back from [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10); heading levels are nested here for this document. The issue links below are the resulting native children, not completed work.
 
 ### Goal
 
-Complete the first-release Admin and Booth application using the approved package-accounting and recovery contracts. Use a nonproduction simulated printer for software development and testing. Remove superseded product behavior and its related UI, application code, and mutation paths through a coordinated accounting cutover.
+Complete the first-release Admin and Booth application using the approved package-accounting and recovery contracts. Use a nonproduction simulated printer for software development and testing. Remove superseded product behavior and its related UI, application code, and mutation paths and finish with a verified fresh package-only database.
 
 ### Status and implementation gate
 
-Planning only. Implementation remains blocked until [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9)’s outstanding authorization finding is resolved, the fix is reviewed, and required verification passes.
+The [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) software prerequisite is satisfied, and #9 is closed as completed. The package-addition/reload authorization finding and Profile focus assertion are resolved and independently reviewed. Reviewed candidate `2f89a96afee2dfdc2a1d540cbcc3c0ee4380bbbb` passed 901/901 tests across 53 files, required static/build/SQL checks, and all three browser gates (19 + 2 + 1 tests). See the [published #9 acceptance evidence](https://github.com/noelorph/diy-instax-photobooth/issues/9#issuecomment-6386836261).
 
-Version-2 contracts and handlers exist. #9 retains responsibility for the authorization gap in package additions and reload actions, a passing full-suite result, and review evidence confirming resolution.
+The eight-capability design and complete legacy-removal decision are approved. The revised implementation/publication plan was approved on 2026-10-25; #10 implementation has not started. The eight capability sub-issues (F1–F8) were published on 2026-10-25 following explicit user authorization. Implementation remains on hold until a later explicit user instruction and the capability prerequisites are satisfied. The local plan is `docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md`.
 
-> Planning may proceed now. Implementation begins after #9’s outstanding findings are resolved and its required verification passes.
-
-This issue establishes the whole milestone’s scope. Divide it into smaller implementation issues after that scope is approved.
+This issue remains open for the complete application integration, complete legacy removal, fresh installation, and acceptance below. #9's software verification does not establish #10's integrated acceptance or the #17/#7 physical gates.
 
 ### Complete first-release scope
 
@@ -95,7 +58,7 @@ Setup retains only the reminder: **“Always test the printer before starting Bo
 
 ### Required retirement
 
-Remove all of the following from active product behavior:
+Delete all of the following from maintained product code, schema, migrations, fixtures and obsolete specifications:
 
 1. Editable Print Allowance.
 2. Individual Additional Prints.
@@ -104,35 +67,37 @@ Remove all of the following from active product behavior:
 5. In-app Test Print and its setup gate.
 6. Client Redaction and past-Event deletion.
 7. Superseded Booth recovery and local Admin takeover flows.
-8. Temporary legacy adapters, compatibility branches, and helpers that become unnecessary after cutover.
+8. Legacy adapters, compatibility branches and helpers, including old History and conversion/review machinery.
 
-For **each item**, trace its controls, callers, server actions, endpoints, database functions, tests, and fixtures. Record what is removed and what must remain solely for historical reading or evidence.
+For **each item**, trace its controls, callers, server actions, endpoints, database functions, tests, and fixtures. Record concrete deletion and surviving current-contract dependencies. Keep dated #9/physical evidence, not legacy readers or executable compatibility.
 
-Remove obsolete runtime behavior and mutation entry points through the coordinated cutover. Hiding controls is insufficient. Retain tests proving retired operations cannot be invoked through stale clients, server actions, HTTP endpoints, or application-accessible database functions.
+Remove obsolete application paths with their owning capability, then finish shared/schema removal in F8. Hiding controls or revoking grants alone is insufficient. Prove dedicated old routes and database objects are absent, stale calls fail without mutation, and current contracts still pass.
 
-### Cutover and preservation
+### Complete removal and fresh installation
 
-- Stop new starts during conversion. Resolve old attempts and finish old runs under their existing contract; never discard unresolved holds or force unknown outcomes to NotPrinted.
-- Complete or cancel finished-but-Live legacy Events before conversion. Do not mix accounting versions within resumed operations.
-- Convert eligible never-started Drafts using package-derived capacity. Require explicit booking review where the previous independent allowance differs.
-- Preserve historical Event records, original accounting totals, audit evidence, applied migrations, and necessary historical readers. Do not fabricate historical package conversions or reconstruct previously removed data.
-- Preserve safe never-started Draft deletion and its private-media cleanup.
-- Rehearse the coordinated application/database cutover, preservation checks, and recovery procedure in nonproduction. Use reviewed forward migrations and retire obsolete write paths together with the application changes.
+- Existing data is disposable development/test data; the client has not bought the project. ADR-0029 supersedes legacy preservation/conversion requirements.
+- F1–F7 remove obsolete code with their current flows. Delete features without replacements once shared dependencies are handled.
+- Remove legacy History readers, Draft conversion/review, snapshots, version-1 fallback branches, owner activation/preflight machinery and compatibility endpoints. Keep current version-2 protocol identifiers where the approved contract requires them.
+- F8 replaces the old migration chain with a complete package-only baseline that installs on an empty database without creating legacy objects. Reproduce final #9/F1–F7 definitions, constraints, RLS, grants, authorization rechecks, receipts and locking; do not keep only the newest migration file.
+- Rebuild only identified disposable local test projects, with test apps stopped and physical printers disconnected/quiescent. Do not import legacy records or guess a physical outcome to clear a hold. Runtime uncertain-print safety is unchanged.
+- Preserve current package-era Completed/Cancelled History and private media, plus safe never-started Draft deletion. This ongoing retention does not apply to discarded pre-reset test records.
+- Preserve accepted #9 evidence and current contracts. Reverify the complete current suite after the baseline changes; historical #9 passes do not certify #10.
+- Prove absence/security, independent fresh installation and all integrated journeys on the final baseline. No hosted reset or deployment is part of #10.
 
 ### Acceptance
 
-- [ ] #9’s implementation gate was satisfied before implementation began.
+- [x] #9’s software prerequisite is satisfied before #10 implementation; the reviewed revision and [acceptance evidence](https://github.com/noelorph/diy-instax-photobooth/issues/9#issuecomment-6386836261) are recorded.
 - [ ] All first-release Admin, Guest, phone-operation, and recovery flows pass integrated nonproduction acceptance.
 - [ ] Accounting and recovery checks cover final-print capacity, pending holds, duplicates, lost responses, stale state, overlapping faults, stop/dispatch races, access loss, and no automatic resend.
-- [ ] Every retirement item has a completed trace and removal record, with passing tests that deny obsolete operations.
-- [ ] The coordinated accounting cutover passes nonproduction verification, including Draft review, historical preservation, and recovery checks.
+- [ ] Every retirement item has a completed trace and removal record, with passing absence and stale-request denial tests.
+- [ ] The clean package-only baseline passes empty-database installation, schema/RLS/grant checks and all current contract regressions; no old migration, reader or conversion path remains.
 - [ ] Privacy, private Event Media, authorization, accessibility, and responsive layouts pass their required checks.
 - [ ] Required unit, database/integration, browser, lint, type, formatting, and build checks pass for the final reviewed candidate, with recorded evidence.
 - [ ] Simulation remains nonproduction and cannot authorize real-printer operation.
 
 ### Completion and external gates
 
-Complete when the full application and coordinated accounting cutover pass nonproduction acceptance verification.
+Complete when the full application, complete legacy removal and fresh package-only installation pass nonproduction acceptance on the final reviewed candidate.
 
 Closing this issue does not authorize real-printer enablement or production launch; those remain gated by [#17](https://github.com/noelorph/diy-instax-photobooth/issues/17) and [#7](https://github.com/noelorph/diy-instax-photobooth/issues/7), respectively.
 
@@ -143,9 +108,26 @@ Real-printer enablement requires physically qualified automatic normal full-ejec
 - `PRD.md`, `ARCHITECTURE.md`, `DESIGN_SYSTEM.md`, and `GLOSSARY.md`
 - `docs/adr/0025-package-accounting-and-booth-recovery.md`
 - `docs/adr/0026-order-captures-by-shutter-time.md`
+- `docs/adr/0029-remove-legacy-features-and-reset-development-schema.md`
+- `docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md`
 - `docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md`
 - `docs/booth-user-flow.md`
 - `docs/qualification/booth-recovery-proof-checklist.md`
+
+### Capability sub-issues and prerequisites
+
+All eight are native sub-issues of #10. Each also records the already-completed #9 as a satisfied native dependency. The table lists additional prerequisites; all implementation and acceptance evidence remains pending. No child is assigned or marked ready for implementation.
+
+| Capability                                                           | Sub-issue                                                          | Prerequisites besides #9                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1: Complete Admin access and account management                     | [#29](https://github.com/noelorph/diy-instax-photobooth/issues/29) | None                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| F2: Complete Event preparation and private media                     | [#30](https://github.com/noelorph/diy-instax-photobooth/issues/30) | [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29)                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| F3: Complete booked capacity and Additional Film Packages            | [#31](https://github.com/noelorph/diy-instax-photobooth/issues/31) | [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30)                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| F4: Complete Booth setup, access and lifecycle                       | [#32](https://github.com/noelorph/diy-instax-photobooth/issues/32) | [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29), [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31)                                                                                                                                                                                                                                                                                             |
+| F5: Complete the Guest capture-to-print journey                      | [#33](https://github.com/noelorph/diy-instax-photobooth/issues/33) | [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32)                                                                                                                                                                                                                                                                                                                                                                    |
+| F6: Complete Booth recovery across devices                           | [#34](https://github.com/noelorph/diy-instax-photobooth/issues/34) | [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32), [F5 #33](https://github.com/noelorph/diy-instax-photobooth/issues/33)                                                                                                                                                                                                                                                                                             |
+| F7: Complete operational visibility and retained history             | [#35](https://github.com/noelorph/diy-instax-photobooth/issues/35) | [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31)                                                                                                                                                                                                                                                                                                                                                                    |
+| F8: Complete legacy removal, fresh installation and final acceptance | [#36](https://github.com/noelorph/diy-instax-photobooth/issues/36) | [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29), [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32), [F5 #33](https://github.com/noelorph/diy-instax-photobooth/issues/33), [F6 #34](https://github.com/noelorph/diy-instax-photobooth/issues/34), [F7 #35](https://github.com/noelorph/diy-instax-photobooth/issues/35) |
 
 ## Issue #17 — physical printer evidence
 
@@ -180,4 +162,4 @@ Validate the implemented target on the actual iPad A16, with recorded model, iPa
 
 ## Cross-issue cleanup notes
 
-For the remaining drafts, replace stale scope references to ADR-0014 when the intended evidence checkpoint is ADR-0021, now narrowed by ADR-0025. Do not reintroduce closed issue #8 as a new pre-build blocker; current contracts supersede its old recovery policy. Preserve traceability to original decisions. The #9/#10 publication changed only their descriptions; titles, states, labels, assignees, milestones and dependency metadata were preserved. Future dependency changes require inspection and authorization.
+For the remaining drafts, replace stale scope references to ADR-0014 when the intended evidence checkpoint is ADR-0021, now narrowed by ADR-0025. Do not reintroduce closed issue #8 as a new pre-build blocker; current contracts supersede its old recovery policy. Preserve traceability to original decisions. The earlier #9/#10 publication preserved unrelated issue metadata. The revised #10 body above is still local; publish it only under the approved publication plan. Do not change #9's accepted state or publish #17/#7 as part of this revision.

@@ -1,5 +1,7 @@
 # Route Booth Mode requests through the server
 
-> **Current scope (2026-10-21):** Server authority remains; current packages, grant scope and endpoints follow ADR-0025. [ADR-0025](0025-package-accounting-and-booth-recovery.md) and the [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) control conflicting behavior. The original decision below is retained as history.
+**Status:** Historical decision with the current retained scope below. [ADR-0025](0025-package-accounting-and-booth-recovery.md) supersedes its old product behavior; [ADR-0029](0029-remove-legacy-features-and-reset-development-schema.md) removes legacy implementation and preservation requirements.
 
-Booth Mode sends Event and print requests to Next.js server endpoints, which validate its Booth Access Grant and expose only the data and actions needed for the Live Event. The grant is an opaque secret kept in a secure, HTTP-only browser cookie and checked against a revocable server record. The booth does not access Supabase tables directly. Admin reads and writes use Supabase Auth and row-level security; booth endpoints invoke narrowly scoped transactional database operations after validating the grant. This keeps the grant separate from Admin authentication and gives the server one place to enforce booth-specific authorization, at the cost of maintaining a small server API.
+Booth requests pass through trusted server handlers. Current scoped grants, authorization and private transactions remain; old allowance/stock routes are removed.
+
+The detailed original decision is available with `git show 1de2272:docs/adr/0007-route-booth-requests-through-server.md`. It is not a current work order. Use the [current contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) for exact guards and interfaces.

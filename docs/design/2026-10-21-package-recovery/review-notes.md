@@ -1,5 +1,7 @@
 # Mockup review record
 
+> **Dated visual-review evidence:** The results below describe the October 21 artifact set. On October 25, ADR-0029 removed the obsolete October 20 source archive from the working tree; it remains in Git checkpoint `1de2272`. The 17 current mockup images are unchanged. Earlier file counts and scope statements are not results of the current documentation review.
+
 **21 October 2026 · static design review.** This records the mockup task separately from the earlier [documentation review](../../documentation-review.md).
 
 ## User approval
