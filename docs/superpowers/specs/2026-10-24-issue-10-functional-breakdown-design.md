@@ -6,7 +6,7 @@
 **Prerequisite:** [#9 — accounting, access and printer contracts](https://github.com/noelorph/diy-instax-photobooth/issues/9), verified and closed as completed.
 **Original planning baseline:** `ca03c59`, including the aligned issue-publication and implementation-status documentation. The accepted #9 candidate is `2f89a96`; see the current gates below.
 
-**Implementation plans:** Eight capability plans and a GitHub publication plan remain uncommitted local drafts, written for review; approval pending.
+**Implementation plans:** [Main implementation/publication plan and eight capability plans](../plans/2026-10-24-issue-10-implementation-plan.md), revised for review on 2026-10-25; approval pending. The [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md) assigns requirements and evidence owners now. The monthly clarification below was confirmed by the user; it does not approve implementation.
 
 **Visual guide:** [One Mermaid flowchart per capability, with dependencies](../../diagrams/issue-10-functional-breakdown.md).
 
@@ -49,6 +49,21 @@ These are application limits, not claims that the platform requires those number
 
 The format recommendation follows [MDN's browser image-format guidance](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/Image_types) and its [MP4/H.264 compatibility guidance](https://developer.mozilla.org/en-US/docs/Web/Media/Guides/Formats/Video_codecs). [Supabase supports bucket size/type restrictions](https://supabase.com/docs/guides/storage/uploads/file-limits); application validation must additionally distinguish the two asset limits. Its [upload guidance](https://supabase.com/docs/guides/storage/uploads/standard-uploads) recommends resumable uploads above 6 MB, which the later implementation plan must account for without treating a failed transfer as a successful media change. These references informed the approved defaults; they do not establish actual iPad/Bluefy playback qualification.
 
+## Monthly count clarification
+
+**Confirmed by the user, 2026-10-25:** Monthly Events includes nondeleted Draft, Live and Completed, excludes Cancelled, and uses scheduled start in each Event's venue-local current month. Four in-month Events with one Cancelled show **3**; Completed still counts. Total booked continues to exclude Cancelled across all months; Upcoming/Next uses future Draft/Live starts. [ADR-0028](../../adr/0028-define-monthly-event-count.md) records this clarification without changing retention or adding a metric.
+
+## Execution and evidence clarifications
+
+These amendments address the five requested execution/meaning gaps within the existing eight capabilities. The selected approach is to amend the current plans and keep one shared trace; separate capability issues or duplicate acceptance tables would split existing ownership. No capability dependency or product feature is added.
+
+- Populate requirement → owner/task → test → evidence now. Each capability accumulates its own evidence; F8 audits the combined candidate. F5 explicitly owns a **new persisted Guest Session** after exhausted capacity is increased by F3; F6 owns remaining-blocker and pause variants.
+- Use the [explicit command/environment table](../plans/2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules). Default production browser tests exclude both simulator files and the cutover file. The cutover config alone selects its test and owns a disposable application/database, with identity checks before mutation. F8 owns those exclusions/configuration and discovery proof; F2/F4 supply ordinary local fixture/runner changes when first needed.
+- F4 names the complete setup → local sign-out → scoped `/booth` access → **fresh camera/printer readiness** acceptance case. Navigation/cleanup may release resources; old setup success never suffices for new admission. F4 wires initial-arrival equipment controls; F6 extends the same actions for later faults. The phone remains signed in.
+- F2 proves real resumable transfer/interruption, trusted content validation, Start/Cancel races and deletion with an outstanding upload before polishing the media editor. Existing format, size, duration, Draft-only and retention requirements remain unchanged. A failed proof blocks dependent editor work rather than weakening those requirements.
+
+Only the monthly count required a product interpretation. Environment separation makes an existing isolation requirement executable; the other additions strengthen test ownership and sequencing. Plan approval/publication remains pending. Simulator proof does not satisfy #17/#7.
+
 ## Eight capability issues
 
 The IDs below are planning identifiers, not assigned GitHub numbers. All design references are under [docs/design/2026-10-21-package-recovery](../../design/2026-10-21-package-recovery/README.md). Every child must cite its specific sheets, the [screen map](../../design/2026-10-21-package-recovery/screen-map.md) and [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md). Exact copy, behavior and tokens come from the active documents, not raster artifacts.
@@ -83,6 +98,8 @@ Own the complete Admin purchase/counts workflow, including final-print holds, ad
 
 Complete setup on the booth device, equipment/physical confirmations, the reminder-only test guidance, initial handoff and local Admin sign-out with the phone session preserved. Own the Prepared/Active/Paused/Finishing/Finished presentation, scoped state refresh, explicit phone Pause/Resume/Finish, new-run setup on a still-Live Event, and separate eligible Live Event completion/cancellation.
 
+Own readiness continuity across the real handoff/navigation boundary: establish fresh camera/printer observations under device authority before Guest admission, including released resources, late setup callbacks and denied reacquisition. An Active run alone does not prove the Booth is ready.
+
 Implement the reusable handoff and authenticated same-run replacement flow with the existing #9 endpoints. Replacement activates only scoped access, leaves the run Paused and rejects possible pending output or Finishing/Finished. F6 owns detecting access loss, reconciliation before requesting replacement and the complete failure-to-restoration journey. F1 supplies authentication; authentication alone grants no run transition.
 
 Own lifecycle commands, their guards and truthful pending-work status. Stop before dispatch denies new work; dispatch authorized first may still print. F5 consumes stop state at Guest/dispatch boundaries. F6 restores readiness without clearing a stop. The known-pending lifecycle cases can be tested through real #9 contracts and seeded simulator attempts before F5/F6 integration; their complete cross-device journeys are verified by those later owners and F8.
@@ -111,7 +128,7 @@ For a paused Booth that loses Bluetooth, F4 owns the persisted pause and explici
 
 ### F7. Operational visibility and retained history
 
-Complete month/upcoming/next Event summaries, venue-local scheduled-start counting, total booked excluding Cancelled, newest-first activity with 7/30-day filters and 25 rows per page, and retained Completed/Cancelled Event history and read-only detail. Show package-era totals alongside clearly labeled original legacy accounting without fabricated conversion or reconstituting previously removed data.
+Complete month/upcoming/next Event summaries: monthly counts nondeleted Draft/Live/Completed by venue-local scheduled start and excludes Cancelled; total booked also excludes Cancelled; upcoming/next uses future Draft/Live starts. Include newest-first activity with 7/30-day filters and 25 rows per page, and retained Completed/Cancelled Event history and read-only detail. Show package-era totals alongside clearly labeled original legacy accounting without fabricated conversion or reconstituting previously removed data.
 
 Consume the existing operational/audit records from #9 and the owning capabilities; each mutation owner must preserve its required audit entry. Own read projections, filtering, pagination, empty/error states and responsive presentation, including retained private Event Media via F2. Do not add charts, revenue, Guest galleries or redaction/deletion of terminal Events. This issue can validate activity types with #9 operations and fixtures without waiting for every UI producer.
 
@@ -182,5 +199,6 @@ The local plan records the assigned issue numbers/URLs and verifies all parent l
 - 2026-10-24: User confirmed Draft-only media upload/replacement/removal and requested practical upload defaults. The defaults were proposed at that point and subsequently approved with this design, as recorded below.
 - 2026-10-24: User explicitly approved this design, including the proposed upload defaults, and requested the writing-plans skill with Ponytail required across implementation plans. ADR-0027 and affected active documents record the approved media policy.
 - 2026-10-24: Detailed implementation/publication plans written, including Ponytail full in every plan; user plan approval remains pending.
+- 2026-10-25: User requested the five scoped execution/meaning clarifications and explicitly chose Draft/Live/Completed inclusion with Cancelled exclusion for monthly Events. Revised plans, shared trace, environment rules, early media proof and post-handoff readiness coverage are prepared for review; this is not implementation/publication approval.
 - GitHub child publication: pending.
 - Application implementation: awaits implementation/publication plan approval; not authorized by this planning task. The #9 software prerequisite is satisfied.

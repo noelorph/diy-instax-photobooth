@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth — Product Requirements
 
-**Status:** Approved target product, revised 2026-10-24 for the approved Event Media policy. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth screens still use legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
+**Status:** Approved target product, revised 2026-10-25 for the approved Event Media policy, monthly-count clarification and handoff readiness wording. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth screens still use legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
 **Contract:** [Accounting, access and Booth recovery](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md).
 **Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md). **Presentation:** [Design system](DESIGN_SYSTEM.md). **Boundaries:** [Architecture](ARCHITECTURE.md).
 
@@ -64,7 +64,7 @@ Routine fault/pause recovery does not open sign-in on the iPad. Finished Booth M
 
 ### Dashboard — `/dashboard`
 
-Show Events scheduled in the current venue-local month, upcoming Events and next Event. Monthly counts use scheduled start, not creation time. Total Events booked excludes Cancelled. Activity lists creation/Draft deletion, media uploads, Captures, print outcomes/inspection, package additions and booth actions; newest first, 7/30-day filters, 25 rows per page. Activity references Event/action without duplicating contact details or photos. Detailed charts and revenue remain out of scope.
+Show Events scheduled in the current venue-local month, upcoming Events and next Event. Monthly Events counts nondeleted **Draft, Live and Completed**, excluding **Cancelled**, using scheduled start rather than creation time. Compare the scheduled start and the server's current instant in each Event's venue time zone. Four in-month Events with one Cancelled show **3**; Completed still counts. Total Events booked excludes Cancelled/deleted Events across all months. Upcoming/Next uses future scheduled starts of Draft/Live Events. See [ADR-0028](docs/adr/0028-define-monthly-event-count.md). Activity lists creation/Draft deletion, media uploads, Captures, print outcomes/inspection, package additions and booth actions; newest first, 7/30-day filters, 25 rows per page. Activity references Event/action without duplicating contact details or photos. Detailed charts and revenue remain out of scope.
 
 ### Events — `/events`, `/events/new`, `/events/[eventId]`
 
@@ -72,7 +72,7 @@ Events lists Draft and Live Events, with future scheduled start as an Upcoming a
 
 The Event detail page shows booking/contact information, original/additional package counts, Confirmed Prints, pending attempt and prints available. Phone controls are **Add Film Packages**, **Confirm film loaded** when a reload is needed, exceptional **Printed / Not printed** inspection with reason, **Pause Booth**, **Resume Booth**, **Finish Booth Mode**, and **Complete Event** when eligible. Explain each consequential action. Additional package entries include a Client-request note and are immutable.
 
-Initial start is performed on the booth iPad from this page: verify internet/server, live camera, printer connection/readiness, film loaded, printer power and Guided Access; show the test reminder and require positive capacity. Activate the grant after local Admin sign-out/receipt handoff, then open `/booth`. No Test Print prerequisite or button. Remote phone Resume reuses valid device access and requires readiness; it never performs a fresh iPad sign-in.
+Initial start is performed on the booth iPad from this page: verify internet/server, live camera, printer connection/readiness, film loaded, printer power and Guided Access; show the test reminder and require positive capacity. Activate the grant after local Admin sign-out/receipt handoff, then open `/booth`. Before admitting a Guest, establish fresh camera/printer readiness under scoped access after navigation; setup observations do not prove that browser resources survived cleanup. No Test Print prerequisite or button. Remote phone Resume reuses valid device access and requires readiness; it never performs a fresh iPad sign-in.
 
 Optional private media: a portrait image around the preview and on welcome; a silent looping montage up to 30 seconds on welcome. Montage takes priority, image is fallback, default works with neither. Start always available; pause-video control and reduced-motion static image/default. Media never alters captured/printed photos. Upload validation and private access remain required.
 

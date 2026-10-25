@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth — Architecture
 
-**Status:** Approved target architecture, revised 2026-10-24 for the approved Event Media policy. Version-2 schema, trusted handlers and provisional simulator code are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth UI remains on legacy flows until #10. No hosted activation or physical qualification has occurred.
+**Status:** Approved target architecture, revised 2026-10-25 for the approved Event Media policy and #10 verification boundaries. Version-2 schema, trusted handlers and provisional simulator code are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth UI remains on legacy flows until #10. No hosted activation or physical qualification has occurred.
 **Behavior:** [PRD](PRD.md). **Normative transitions, access, data and APIs:** [replacement contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). **Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md).
 
 ## 1. System boundary
@@ -33,6 +33,8 @@ Guest photos stay in browser memory and go directly to the printer. Server/datab
 Shared UI lives in `src/components/{ui,shared,layout}`; feature state stays in `src/features/`. See ADR-0020 and ADR-0019. Domain transitions and accounting are separate from React and printer protocol. The simulator implements the same observation contract but cannot qualify hardware or enable production.
 
 Admin starts on the iPad at `/events/[eventId]`, completes local sign-out/device handoff and enters `/booth`. Its opaque grant selects the run; no Event ID belongs in the guest URL. The phone remains at the authenticated Event page for recovery and lifecycle actions. Next.js Proxy may refresh sessions or redirect early; handlers/database enforce final authority. Read the installed Next.js guides before implementation.
+
+Setup component teardown or navigation can release browser resources. The Booth establishes current live camera/printer observations under its scoped grant after arrival and keeps Guest admission blocked until readiness passes. A successful handoff alone is not equipment continuity evidence; F4 owns this transition test and F6 extends the same equipment actions for recovery.
 
 ## 3. Admin authentication
 
@@ -77,6 +79,8 @@ Existing UI consumers, records and the local creation default still use the old 
 ## 7. Verification and delivery
 
 The [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records local contract-test evidence for transactions/concurrency, package limits, idempotency, stale state, RLS/denials, active-session revocation, grant handoff/expiry, receipt recovery, one-send journal and stop/dispatch races. Issue #10 still owns integrated camera/Bluetooth/network/reload presentation and phone/Guest browser journeys. Simulation remains nonproduction and cannot establish physical printer completion.
+
+The [#10 acceptance trace](docs/implementation/issue-10-retirement-and-acceptance.md) assigns owners/tests before implementation. Its [command/environment table](docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules) separates ordinary production-build tests, development simulator journeys and a disposable cutover app/database; only that disposable fixture performs committed activation. F2 proves transfer/validation/lifecycle/deletion mechanics before polishing the media editor. These are planned verification boundaries, not evidence of implemented behavior.
 
 The [proof checklist](docs/qualification/booth-recovery-proof-checklist.md) controls hardware work. Normal automatic full-ejection completion is mandatory; exceptional phone inspection cannot substitute. The actual iPad A16 end-to-end gate remains mandatory. The [#17 report](docs/qualification/issue-17-trial-report.md) preserves the partial iPhone evidence, including the misleading printer count. No fresh hardware trial has occurred.
 

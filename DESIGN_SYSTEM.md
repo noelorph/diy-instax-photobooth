@@ -207,6 +207,8 @@ Use the current [glossary](GLOSSARY.md): Draft, Live, Completed, Cancelled, Film
 
 Empty Admin states name what is absent and the relevant action: No Events scheduled this month / Create Event; No activity in the last 7 days / filter; No completed Events yet. Operational failures persist with the next useful action; a toast alone is insufficient. Use simple icons for scanning, with no decorative success on mere submission.
 
+The monthly Events card includes Draft, Live and Completed by venue-local scheduled start and excludes Cancelled/deleted Events; it is not limited to future work. Four in-month Events with one Cancelled display 3. Apply the [PRD definition](PRD.md#dashboard--dashboard) and [ADR-0028](docs/adr/0028-define-monthly-event-count.md); no additional card is introduced.
+
 ## 5. Iconography and imagery
 
 Use Lucide outline icons at 16 px in dense Admin rows, 20 px in standard controls, and 24–32 px in Booth messages. Keep stroke weight consistent and let the label carry meaning. Icon-only controls need an accessible name and visible tooltip on pointer devices. Never rely on icon shape or color alone for event, printer, or package status.

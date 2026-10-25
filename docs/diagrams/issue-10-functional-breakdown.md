@@ -2,7 +2,7 @@
 
 **Approved design · 24 October 2026.** F1–F8 are the agreed capability groups, not GitHub issue numbers. Detailed implementation-plan approval and GitHub publication are pending. The #9 software prerequisite passed verification and independent review; #9 is closed as completed. Implementation still awaits its own plan approval/publication and the capability prerequisites below.
 
-The detailed implementation plans remain uncommitted local drafts awaiting approval. These charts summarize the [functional breakdown design](../superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md). The [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) controls detailed guards and races. Each issue includes its UI, integration, necessary data changes, legacy cleanup and tests. Dashed arrows within a capability chart mark supporting behavior or a handoff to another capability.
+The [detailed implementation plans](../superpowers/plans/2026-10-24-issue-10-implementation-plan.md) were revised for review on 2026-10-25 and await approval. These charts summarize the [functional breakdown design](../superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md), including the user's monthly-count clarification. The [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) controls detailed guards and races. Each issue includes its UI, integration, necessary data changes, legacy cleanup and tests, tracked from the start in the [acceptance trace](../implementation/issue-10-retirement-and-acceptance.md). Dashed arrows within a capability chart mark supporting behavior or a handoff to another capability.
 
 [F1 Access](#f1-admin-access-and-account-management) · [F2 Events and media](#f2-event-preparation-and-private-media) · [F3 Capacity](#f3-booked-print-capacity-and-additional-film-packages) · [F4 Lifecycle](#f4-booth-setup-access-and-lifecycle) · [F5 Guest printing](#f5-guest-capture-to-print-journey) · [F6 Recovery](#f6-booth-recovery-across-devices) · [F7 Visibility and history](#f7-operational-visibility-and-retained-history) · [F8 Cutover](#f8-coordinated-cutover-retirement-and-final-acceptance)
 
@@ -58,6 +58,8 @@ Profile sign-out affects only that device. Password reset revokes Admin sessions
 
 **Outcome:** prepare a valid Draft, manage its private media and safely cancel or delete it. Draft-only changes and upload limits are approved in [ADR-0027](../adr/0027-draft-only-event-media.md).
 
+F2 proves real interrupted/resumable transfers, malformed content, Start/Cancel races and late-upload deletion before polishing the editor. Cleanup remains pending while an upload can still create an object; the trace records actual Storage evidence.
+
 ```mermaid
 flowchart TD
   EDIT["Create or edit Draft<br/>Booking, schedule and packages"] --> VALID{"Valid and current?"}
@@ -102,7 +104,7 @@ flowchart TD
   COMMIT -.-> LIMIT["No film loading or print resolution<br/>No start or automatic Resume"]
 ```
 
-Available prints = `10 × (original + additional packages) − Printed − unresolved attempts`. Each unresolved attempt holds one print. F5 verifies exhaustion → phone package addition → fresh Guest admission; F6 verifies that other blockers and explicit pause still prevent admission.
+Available prints = `10 × (original + additional packages) − Printed − unresolved attempts`. Each unresolved attempt holds one print. F5-04 verifies exhaustion → phone package addition → a **new persisted Guest Session**, not just changed counts or welcome; F6-03 verifies that other blockers and explicit pause still prevent admission. F3 owns purchase evidence in the shared trace.
 
 **UI references:** [Live Event](../design/2026-10-21-package-recovery/admin/05-live-event.png), [phone management](../design/2026-10-21-package-recovery/admin/06-phone-management.png), [capacity state](../design/2026-10-21-package-recovery/booth/04-printer-and-capacity.png).
 
@@ -116,7 +118,11 @@ flowchart TD
   READY -->|No| HELP["Show setup blockers"]
   READY -->|Yes| PREPARED["Prepared<br/>Inactive device grant"]
   PREPARED --> HANDOFF{"Local sign-out +<br/>handoff confirmed?"}
-  HANDOFF -->|Yes| ACTIVE["Active<br/>F5 admits ready Guests"]
+  HANDOFF -->|Yes| SCOPED["Scoped access active<br/>Arrive at /booth"]
+  SCOPED --> FRESH{"Fresh live camera + printer<br/>ready under device grant?"}
+  FRESH -->|No| RECHECK["Keep Guest admission blocked<br/>Restore released resources safely"]
+  RECHECK --> FRESH
+  FRESH -->|Yes and all other admission guards pass| ACTIVE["Active and ready<br/>F5 admits Guests"]
   HANDOFF -->|No| FAILED["Paused; revoke unusable grant"]
   FAILED -.-> RECOVER["F6: reconcile and authenticate<br/>F4: guarded replacement handoff"]
   RECOVER -->|Access restored only| PAUSED["Paused<br/>Valid grant retained"]
@@ -135,7 +141,7 @@ flowchart TD
   FINISHED -->|Separate Complete or Cancel| TERMINAL["Check Event terminal guards<br/>Retain in F7 History"]
 ```
 
-The phone's Admin session survives the initial handoff. Pause/Finish before dispatch denies the send; dispatch authorized first may still print and must settle. Equipment recovery never overrides Pause or Finish. Replacement is refused while an old print may still deliver and for Finishing/Finished runs; successful replacement activates access only and stays Paused.
+The phone's Admin session survives the initial handoff. F4-01 proves local Admin access ends, scoped access activates and fresh readiness is established after navigation, including setup-resource cleanup and denied reacquisition. The freshness check gates admission; it adds no run state, and rechecks intervening Pause/Finish. Pause/Finish before dispatch denies the send; dispatch authorized first may still print and must settle. Equipment recovery never overrides Pause or Finish. Replacement is refused while an old print may still deliver and for Finishing/Finished runs; successful replacement activates access only and stays Paused.
 
 **UI references:** [Setup](../design/2026-10-21-package-recovery/admin/04-draft-setup.png), [phone lifecycle](../design/2026-10-21-package-recovery/admin/06-phone-management.png), [Booth lifecycle/access](../design/2026-10-21-package-recovery/booth/05-pause-finish-access.png).
 
@@ -211,7 +217,7 @@ flowchart TD
   RESULT -->|Failed| ERROR["Persistent error + retry<br/>Never invent zero totals"]
   RESULT -->|Empty| EMPTY["Relevant empty state<br/>and next action"]
   RESULT -->|Available| VIEW{"Information needed"}
-  VIEW -->|Overview| DASH["Month, upcoming and next Event<br/>Venue-local scheduled start<br/>Booked total excludes Cancelled"]
+  VIEW -->|Overview| DASH["Monthly: Draft + Live + Completed<br/>Venue-local scheduled start<br/>Monthly/booked exclude Cancelled<br/>Upcoming/next: future Draft or Live"]
   VIEW -->|Activity| ACTIVITY["Newest first; 7/30-day filters<br/>25 rows per page"]
   VIEW -->|History| HISTORY["Completed/Cancelled Events"]
   HISTORY --> VERSION{"Accounting version"}
@@ -222,7 +228,7 @@ flowchart TD
   DETAIL --> RETAIN["No terminal edit/redact/delete<br/>No reconstructed deleted data"]
 ```
 
-The owning functionality records each audit event; F7 reads and presents it. History never contains saved Guest photos.
+Four in-month Events with one Cancelled show **3**; Completed still counts and deleted Drafts do not. See [ADR-0028](../adr/0028-define-monthly-event-count.md) and trace F7-01. The owning functionality records each audit event; F7 reads and presents it. History never contains saved Guest photos.
 
 **UI references:** [Dashboard](../design/2026-10-21-package-recovery/admin/01-dashboard.png), [History](../design/2026-10-21-package-recovery/admin/09-history.png), [Event detail/activity](../design/2026-10-21-package-recovery/admin/05-live-event.png).
 
@@ -232,8 +238,9 @@ The owning functionality records each audit event; F7 reads and presents it. His
 
 ```mermaid
 flowchart TD
-  START["#9 verified; F1–F7 pass"] --> TRACE["Trace all 8 retirements<br/>Controls through database and tests"]
-  TRACE --> STOP["Nonproduction rehearsal<br/>Stop new starts"]
+  START["#9 verified; F1–F7 evidence recorded"] --> EVIDENCE["Audit existing acceptance trace<br/>Every requirement has passing evidence"]
+  EVIDENCE --> TRACE["Trace all 8 retirements<br/>Controls through database and tests"]
+  TRACE --> STOP["Dedicated config + disposable app/DB<br/>Nonproduction rehearsal; stop new starts"]
   STOP --> LEGACY{"Legacy work settled?"}
   LEGACY -->|No| SETTLE["Resolve under the old contract<br/>Finish runs; settle Live Events<br/>Complete pending media cleanup"]
   SETTLE --> LEGACY

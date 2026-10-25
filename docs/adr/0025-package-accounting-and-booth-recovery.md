@@ -45,6 +45,8 @@ Unaffected decisions remain in force: photo privacy (0001), visual system (0010)
 
 [ADR-0026](0026-order-captures-by-shutter-time.md) refines Capture eligibility at reservation and dispatch: use acknowledged shutter time, permit explicitly selected ties, and never substitute the bound photo. [ADR-0027](0027-draft-only-event-media.md) further defines Draft-only Event Media changes and trusted upload limits. All other decisions here remain in force.
 
+[ADR-0028](0028-define-monthly-event-count.md) clarifies Dashboard monthly Event counting: include Draft/Live/Completed and exclude Cancelled. It changes no package accounting, retention or release gate here.
+
 ## Consequences
 
 The product tracks booked output and exceptional attempts without pretending to know physical inventory. The Admin still loads film and inspects genuinely unknown outcomes. Unresolvable hardware ambiguity can keep the booth unavailable; it cannot be hidden by resetting counters. Manual loading confirmation is the fallback if automatic reload detection cannot be proven. Missing reliable automatic normal completion keeps printer-backed operation disabled.

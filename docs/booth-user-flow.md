@@ -22,6 +22,8 @@
 
 The existing harness route is a development aid. Confirm its environment restrictions before running any physical trial. It retains old controls for evidence collection; these controls are not the target product UI. No new `/stock`, `/test-print`, `/redaction` or separate guest Event-ID page belongs in the target navigation. APIs under `/api/admin/…` and `/api/booth/…` are server contracts, not pages.
 
+Dashboard monthly Events includes nondeleted Draft, Live and Completed by venue-local scheduled start, and excludes Cancelled: four in-month Events with one Cancelled show 3. Upcoming/Next remains future Draft/Live work; [ADR-0028](adr/0028-define-monthly-event-count.md) records the distinction.
+
 ## How the Admin starts Booth Mode
 
 ```mermaid
@@ -34,12 +36,17 @@ flowchart TD
   R -->|Yes| H[Start Booth Mode; prepare run and device grant]
   H --> O[Sign Admin out locally on iPad]
   O --> B[Open /booth and confirm handoff receipt]
-  B --> W[Welcome]
+  B --> F{Fresh scoped camera/printer readiness?}
+  F -->|No| R2[Keep admission blocked; restore resources]
+  R2 --> F
+  F -->|Yes, Active and otherwise ready| W[Welcome]
   P[Admin remains signed in on phone] --> M[Manage same Event from phone]
   M --> X[Packages, reload, inspection, pause, resume, finish]
 ```
 
 Starting is an iPad setup action from `/events/[eventId]`. Remote Resume is a phone action on the same Event; it retains the valid booth grant and returns the iPad to welcome. Physical loading is separate from adding purchased packages. Initial handoff failure or genuine access expiry may need local sign-in/setup; ordinary disconnections and pause do not. Exceptional local recovery replaces access on the same unfinished run, keeps it Paused and requires explicit phone Resume. Finishing/Finished runs cannot regain guest access.
+
+Local sign-out/navigation can release setup resources. F4's named transition test proves fresh camera/printer observations under the device grant after arrival; an Active run with stale equipment stays unavailable and any intervening pause/finish remains authoritative. See the [acceptance trace](implementation/issue-10-retirement-and-acceptance.md).
 
 ## Event Media preparation
 

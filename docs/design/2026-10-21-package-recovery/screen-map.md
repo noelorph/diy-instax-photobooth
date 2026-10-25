@@ -30,6 +30,8 @@
 
 Use one sidebar on wide screens and a compact navigation menu on phones. Dashboard, Events, History and Profile retain the same labels and order. Cards, counters, input labels, status badges and action placement share the same visual vocabulary. Phone layouts prioritize the Event, current blockers, accounting and next action.
 
+The monthly card counts Draft, Live and Completed by venue-local scheduled start and excludes Cancelled/deleted Events: four in-month Events with one Cancelled show 3. Completed is still included; Upcoming/Next uses future Draft/Live starts. [ADR-0028](../../adr/0028-define-monthly-event-count.md) clarifies this existing card without changing the mockup layout.
+
 The wide table layout is a comparison view; on compact screens rows become labeled summaries. Form fields stack in one column. The phone management and recovery sheets demonstrate the compact treatment rather than requiring a new route.
 
 The mockups primarily show light Admin mode. The saved Profile preference also supports dark Admin mode using the exact dark tokens; Booth always uses dark mode. Theme preference is an account setting, not a new per-device product rule.
