@@ -10,6 +10,7 @@ const nextConfig: NextConfig = {
   allowedDevOrigins: wifiIPv4 ? [wifiIPv4] : [],
   experimental: {
     agentFeedback: true,
+    agentUpgrade: 'security',
   },
   cacheComponents: true,
   partialPrefetching: true,
