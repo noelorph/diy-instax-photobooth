@@ -56,6 +56,12 @@ for (const width of [320, 768, 1440]) {
         expect(await page.locator('body').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(
           /geist/i
         );
+        await page.goto('/sign-in?from=booth');
+        await expect(page.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
+        expect(
+          await page.locator('.public-auth').evaluate((e) => getComputedStyle(e).backgroundColor)
+        ).not.toBe(publicBackground);
+        await page.goto('/sign-in');
         await expect
           .poll(
             () =>
