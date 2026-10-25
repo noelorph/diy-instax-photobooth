@@ -59,6 +59,7 @@ describe('Public Admin sign-in form', () => {
     }
     expect(email.value).toBe('invalid');
     expect(screen.getByRole('alert').textContent).toMatch(/correct/i);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('alert')));
     expect((screen.getByRole('button', { name: 'Sign in' }) as HTMLButtonElement).disabled).toBe(
       false
     );
@@ -188,6 +189,7 @@ describe('Public recovery request form', () => {
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toMatch(/check your email/i)
     );
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('status')));
     expect(email.value).toBe('owner@example.test');
     expect(screen.queryByRole('alert')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));
