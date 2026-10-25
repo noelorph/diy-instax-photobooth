@@ -119,3 +119,5 @@ Authentication sheets contain separate form/feedback specimens. An expired reset
 Use [tokens.json](tokens.json) as a convenient copy of current visual values, and recheck against the root design system when implementing. Raster glyphs, anti-aliasing and numerical spacing are not pixel-exact specifications.
 
 Check keyboard focus, screen-reader status, non-color labels, 200% zoom, reduced motion, safe areas, readable Event Media overlays and large touch targets in the eventual implementation. Mockup inspection is not an accessibility, runtime, print-adapter or hardware qualification result.
+
+The #10 removal revision keeps these package-model screens. Do not add legacy-total labels, conversion/review screens or compatibility controls; [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) discards existing test data at the later local baseline rebuild. Package-era Completed/Cancelled History and private media remain retained.

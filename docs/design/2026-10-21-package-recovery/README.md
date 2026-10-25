@@ -6,9 +6,9 @@ Open the [visual gallery](index.html). This set covers the full Admin navigation
 
 ## Visual direction
 
-The reference is the existing `development` branch design set at `9af5d5d`, preserved in the [October 20 archive](../../archive/design-2026-10-20/README.md). These mockups carry over its sidebar, white cards, fine borders, quiet actions and spacious page structure. They use the current [design system](../../../DESIGN_SYSTEM.md): Geist Sans, warm ivory, ink and restrained teal. Booth Mode uses the same typography and semantic roles on dark surfaces.
+Use the current [design system](../../../DESIGN_SYSTEM.md): Geist Sans, warm ivory, ink and restrained teal, with the existing sidebar, cards and spacious page structure. Booth Mode uses the same typography and semantic roles on dark surfaces.
 
-The reference's retired controls and alternate Inter/blue/serif proposal are historical. The current [contract](../../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) and [PRD](../../../PRD.md) govern behavior. This approved mockup set does not introduce new product decisions. Exact tokens and behavior remain governed by the design system and contract.
+The [contract](../../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) and [PRD](../../../PRD.md) govern behavior. [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) removes legacy History and conversion-review requirements. The earlier source mockups are archived only in Git checkpoint `1de2272`; they are not alternate instructions. Exact tokens and behavior come from current text, not raster artifacts.
 
 ## Review order
 

@@ -1,5 +1,7 @@
 # Issue #9 Review Fixes Implementation Plan
 
+> **Historical evidence, not a current work order (scope updated 2026-10-25):** This record describes its original revision. #9 remains accepted/closed on `2f89a96`. [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) supersedes old preservation/conversion/migration-retention instructions for #10. Keep the current #9 package/access/recovery contracts; remove obsolete conversion machinery and reverify the final baseline. Prior failures, counts and evidence below are unchanged historical statements.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Resolve the four findings from the review of issue #9 implementation since the approved plan, while preserving package accounting, access and one-send safety contracts.

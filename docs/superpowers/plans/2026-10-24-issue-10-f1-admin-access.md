@@ -14,12 +14,14 @@
 
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed. Verify the index evidence; this plan still awaits approval/publication.
+- #9 passed on reviewed candidate `2f89a96` and is closed. Verify the index evidence; this plan is approved, but publication and implementation are on hold at the user's request.
 - Reset succeeds only after a different password and confirmed global Admin-session revocation. Profile sign-out is local; an independent Booth grant survives both.
 - No public signup, Client account, new role or authentication-driven automatic Booth start.
 - Use [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), [screen map](../../design/2026-10-21-package-recovery/screen-map.md), sheets [08 authentication](../../design/2026-10-21-package-recovery/admin/08-authentication.png), [10 profile](../../design/2026-10-21-package-recovery/admin/10-profile.png), [11 feedback](../../design/2026-10-21-package-recovery/admin/11-dialogs-feedback.png) and shared shell in [01 dashboard](../../design/2026-10-21-package-recovery/admin/01-dashboard.png).
 
 Follow the [shared command/environment table](2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules). Update this capability’s rows in the [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md#acceptance-trace) with actual revision/command/result before closure; pending rows are not passing evidence.
+
+**Complete removal:** [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) applies. Delete this capability's obsolete UI, actions, routes, validation, helpers, exports and success fixtures/tests as their current flows become ready; update every shared caller. Retain no legacy reader, denial-only route or version-1 fallback. Record shared SQL dependencies for F8's package-only baseline. Reuse #9's current contracts and safety tests; do not redesign them.
 
 ## Review Focus
 
@@ -95,4 +97,4 @@ Follow the [shared command/environment table](2026-10-24-issue-10-implementation
 - [ ] Run the component command and `npx playwright test --config playwright.config.ts tests/e2e/admin-ui-refresh.spec.ts tests/e2e/native-zoom.spec.ts tests/e2e/admin-profile.spec.ts`; then changed-file lint/type/format checks from the index. Expected: pass; record the tested revision and any reused passing cases.
 - [ ] Commit with `feat: align admin account presentation and navigation`.
 
-**Done:** Complete authenticated and recovery journeys pass through real Auth/RLS, account values persist, phone/Booth isolation holds, and required presentation/accessibility checks pass. No #9 fix, lifecycle implementation, global cutover or physical release belongs to F1.
+**Done:** Complete authenticated and recovery journeys pass through real Auth/RLS, account values persist, phone/Booth isolation holds, and required presentation/accessibility checks pass. No #9 fix, lifecycle implementation, database rebuild or physical release belongs to F1.

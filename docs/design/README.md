@@ -8,6 +8,6 @@ Open the [October 21 visual gallery](2026-10-21-package-recovery/index.html) or 
 
 The user approved this set on 21 October 2026. These are approved visual references; implementation is pending. [Screen notes](2026-10-21-package-recovery/screen-map.md) map them to the [current route and flow guide](../booth-user-flow.md). Hardware qualification remains governed by the current proof checklist.
 
-## Historical reference
+## Superseded material
 
-The October 20 generated mockups, prompts, original reference and alternate token file are preserved in the [historical gallery](../archive/design-2026-10-20/README.md). They supplied the layout reference for this refresh, but contain superseded controls and an alternate visual proposal. They are not current implementation instructions.
+The October 20 mockups, source prompts and alternate tokens were removed under ADR-0029. They remain in Git checkpoint `1de2272`; use the current package-model gallery for implementation. History has no legacy-total variant and Draft setup has no conversion-review screen.

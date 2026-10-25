@@ -1,5 +1,7 @@
 # Issue #9 Completion Implementation Plan
 
+> **Historical evidence, not a current work order (scope updated 2026-10-25):** This record describes its original revision. #9 remains accepted/closed on `2f89a96`. [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) supersedes old preservation/conversion/migration-retention instructions for #10. Keep the current #9 package/access/recovery contracts; remove obsolete conversion machinery and reverify the final baseline. Prior failures, counts and evidence below are unchanged historical statements.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > Preserve the approved #9 execution method: **subagent-driven development with TDD**, one implementer at a time, followed by spec-compliance and code-quality/Ponytail review. Use **ponytail:ponytail, full** throughout. The user approved this plan and its recommended execution method on 2026-10-24.

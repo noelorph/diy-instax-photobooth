@@ -1,10 +1,8 @@
 # Issue #10 — sub-issue flowcharts
 
-**Approved design · 24 October 2026.** F1–F8 are the agreed capability groups, not GitHub issue numbers. Detailed implementation-plan approval and GitHub publication are pending. The #9 software prerequisite passed verification and independent review; #9 is closed as completed. Implementation still awaits its own plan approval/publication and the capability prerequisites below.
+**Approved design · 24 October 2026.** F1–F8 are the agreed capability groups, not GitHub issue numbers. The detailed plans were approved on 2026-10-25; publication and implementation are on hold at the user's request. The #9 software prerequisite passed verification and independent review; #9 is closed as completed. Implementation still awaits publication, a later start instruction and the capability prerequisites below.
 
-The [detailed implementation plans](../superpowers/plans/2026-10-24-issue-10-implementation-plan.md) were revised for review on 2026-10-25 and await approval. These charts summarize the [functional breakdown design](../superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md), including the user's monthly-count clarification. The [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) controls detailed guards and races. Each issue includes its UI, integration, necessary data changes, legacy cleanup and tests, tracked from the start in the [acceptance trace](../implementation/issue-10-retirement-and-acceptance.md). Dashed arrows within a capability chart mark supporting behavior or a handoff to another capability.
-
-[F1 Access](#f1-admin-access-and-account-management) · [F2 Events and media](#f2-event-preparation-and-private-media) · [F3 Capacity](#f3-booked-print-capacity-and-additional-film-packages) · [F4 Lifecycle](#f4-booth-setup-access-and-lifecycle) · [F5 Guest printing](#f5-guest-capture-to-print-journey) · [F6 Recovery](#f6-booth-recovery-across-devices) · [F7 Visibility and history](#f7-operational-visibility-and-retained-history) · [F8 Cutover](#f8-coordinated-cutover-retirement-and-final-acceptance)
+For your review only, revised 2026-10-25 for complete legacy removal. Each chart shows user behavior. Agents use the written contracts and capability plans; these diagrams are not additional work orders. No implementation or fresh database install is claimed.
 
 ## How the sub-issues fit together
 
@@ -19,7 +17,7 @@ flowchart TD
   F4 --> F5["F5<br/>Guest capture-to-print journey"]
   F5 --> F6["F6<br/>Recovery across devices"]
   F3 --> F7["F7<br/>Operational visibility and history"]
-  F6 --> F8["F8<br/>Coordinated cutover and final acceptance"]
+  F6 --> F8["F8<br/>Complete removal and fresh installation"]
   F7 --> F8
   F8 --> DONE["#10 complete<br/>Nonproduction acceptance only"]
 ```
@@ -52,11 +50,9 @@ flowchart TD
 
 Profile sign-out affects only that device. Password reset revokes Admin sessions globally. Neither action ends an independently valid Booth grant.
 
-**UI references:** [Authentication](../design/2026-10-21-package-recovery/admin/08-authentication.png), [Profile](../design/2026-10-21-package-recovery/admin/10-profile.png), [feedback](../design/2026-10-21-package-recovery/admin/11-dialogs-feedback.png).
-
 ## F2. Event preparation and private media
 
-**Outcome:** prepare a valid Draft, manage its private media and safely cancel or delete it. Draft-only changes and upload limits are approved in [ADR-0027](../adr/0027-draft-only-event-media.md).
+**Outcome:** prepare a valid Draft, manage its private media and safely cancel or delete it. Draft-only changes and upload limits are approved in ADR-0027.
 
 F2 proves real interrupted/resumable transfers, malformed content, Start/Cancel races and late-upload deletion before polishing the editor. Cleanup remains pending while an upload can still create an object; the trace records actual Storage evidence.
 
@@ -70,8 +66,7 @@ flowchart TD
   MEDIA --> CURRENT{"Change allowed at commit?"}
   CURRENT -->|No| KEEP["Keep existing media<br/>Clean unused upload"]
   CURRENT -->|Yes| SAVE["Save private media change<br/>Track cleanup errors"]
-  ACTION -->|Prepare Booth| REVIEW["Review converted booking<br/>if required"]
-  REVIEW -.-> SETUP["F4: setup and start<br/>Live freezes booking and media"]
+  ACTION -->|Prepare Booth| SETUP["F4: setup and start<br/>Live freezes booking and media"]
   ACTION -->|Cancel| CANCEL["Cancelled<br/>Retain for F7 History"]
   ACTION -->|Delete| SAFE{"Never started and safe?"}
   SAFE -->|No| BLOCK["Explain deletion blocker"]
@@ -80,8 +75,6 @@ flowchart TD
   REMOVED -->|No| PENDING["Deletion incomplete<br/>Show pending cleanup and retry"]
   REMOVED -->|Yes| DELETED["Complete deletion<br/>Keep required opaque audit only"]
 ```
-
-**UI references:** [Events](../design/2026-10-21-package-recovery/admin/02-events.png), [editor](../design/2026-10-21-package-recovery/admin/03-event-editor.png), [Draft/setup](../design/2026-10-21-package-recovery/admin/04-draft-setup.png), [dialogs](../design/2026-10-21-package-recovery/admin/11-dialogs-feedback.png).
 
 ## F3. Booked print capacity and Additional Film Packages
 
@@ -105,8 +98,6 @@ flowchart TD
 ```
 
 Available prints = `10 × (original + additional packages) − Printed − unresolved attempts`. Each unresolved attempt holds one print. F5-04 verifies exhaustion → phone package addition → a **new persisted Guest Session**, not just changed counts or welcome; F6-03 verifies that other blockers and explicit pause still prevent admission. F3 owns purchase evidence in the shared trace.
-
-**UI references:** [Live Event](../design/2026-10-21-package-recovery/admin/05-live-event.png), [phone management](../design/2026-10-21-package-recovery/admin/06-phone-management.png), [capacity state](../design/2026-10-21-package-recovery/booth/04-printer-and-capacity.png).
 
 ## F4. Booth setup, access and lifecycle
 
@@ -143,8 +134,6 @@ flowchart TD
 
 The phone's Admin session survives the initial handoff. F4-01 proves local Admin access ends, scoped access activates and fresh readiness is established after navigation, including setup-resource cleanup and denied reacquisition. The freshness check gates admission; it adds no run state, and rechecks intervening Pause/Finish. Pause/Finish before dispatch denies the send; dispatch authorized first may still print and must settle. Equipment recovery never overrides Pause or Finish. Replacement is refused while an old print may still deliver and for Finishing/Finished runs; successful replacement activates access only and stays Paused.
 
-**UI references:** [Setup](../design/2026-10-21-package-recovery/admin/04-draft-setup.png), [phone lifecycle](../design/2026-10-21-package-recovery/admin/06-phone-management.png), [Booth lifecycle/access](../design/2026-10-21-package-recovery/booth/05-pause-finish-access.png).
-
 ## F5. Guest capture-to-print journey
 
 **Outcome:** one reviewed photo produces at most one authorized send, with truthful completion and no stored Guest image.
@@ -171,8 +160,6 @@ flowchart TD
 ```
 
 Equal shutter timestamps allow the explicitly selected Capture; dispatch rechecks its eligibility. The last reserved print can dispatch at zero available because it owns its hold. Countdown/printing have no Guest inactivity timer. All phases stop safely on faults; photo disposal waits only for an authorized transport still using its bytes. After exhaustion, F3 adds packages and F5 rechecks all admission conditions.
-
-**UI references:** [Welcome/capture](../design/2026-10-21-package-recovery/booth/01-welcome-capture.png), [review/printing/completion](../design/2026-10-21-package-recovery/booth/02-review-printing-complete.png), [capacity](../design/2026-10-21-package-recovery/booth/04-printer-and-capacity.png).
 
 ## F6. Booth recovery across devices
 
@@ -204,8 +191,6 @@ flowchart TD
 
 Repair and outcome resolution proceed independently; **both must be safe before new Guest work**. A missing receipt alone never proves an attempt is absent. Inspected **Printed** requires full ejection, even if unusable; **Not printed** requires no ejection **and no possible later output from the old job**. Reloading changes neither booked capacity nor the old outcome. A camera fault during printing blocks the next Guest while the attempt settles.
 
-**UI references:** [Phone recovery](../design/2026-10-21-package-recovery/admin/07-phone-recovery.png), [connection recovery](../design/2026-10-21-package-recovery/booth/03-connection-recovery.png), [printer/capacity](../design/2026-10-21-package-recovery/booth/04-printer-and-capacity.png), [access/lifecycle](../design/2026-10-21-package-recovery/booth/05-pause-finish-access.png), [paired iPad/phone journey](../design/2026-10-21-package-recovery/journeys/01-ipad-phone-recovery.png).
-
 ## F7. Operational visibility and retained history
 
 **Outcome:** the Admin can understand upcoming work, recent activity and retained Event records with accurate accounting.
@@ -220,47 +205,33 @@ flowchart TD
   VIEW -->|Overview| DASH["Monthly: Draft + Live + Completed<br/>Venue-local scheduled start<br/>Monthly/booked exclude Cancelled<br/>Upcoming/next: future Draft or Live"]
   VIEW -->|Activity| ACTIVITY["Newest first; 7/30-day filters<br/>25 rows per page"]
   VIEW -->|History| HISTORY["Completed/Cancelled Events"]
-  HISTORY --> VERSION{"Accounting version"}
-  VERSION -->|Version 2| PACKAGE["Package-derived totals"]
-  VERSION -->|Legacy| LEGACY["Labeled original totals<br/>Preserve historical corrections"]
+  HISTORY --> PACKAGE["Package-derived totals only"]
   PACKAGE --> DETAIL["Read-only details<br/>Retained contact, media and audit"]
-  LEGACY --> DETAIL
-  DETAIL --> RETAIN["No terminal edit/redact/delete<br/>No reconstructed deleted data"]
+  DETAIL --> RETAIN["No terminal edit/redact/delete<br/>No legacy reader or conversion"]
 ```
 
-Four in-month Events with one Cancelled show **3**; Completed still counts and deleted Drafts do not. See [ADR-0028](../adr/0028-define-monthly-event-count.md) and trace F7-01. The owning functionality records each audit event; F7 reads and presents it. History never contains saved Guest photos.
+Four in-month Events with one Cancelled show **3**; Completed still counts and deleted Drafts do not. The owning functionality records each audit event; F7 reads and presents it. History never contains saved Guest photos.
 
-**UI references:** [Dashboard](../design/2026-10-21-package-recovery/admin/01-dashboard.png), [History](../design/2026-10-21-package-recovery/admin/09-history.png), [Event detail/activity](../design/2026-10-21-package-recovery/admin/05-live-event.png).
+## F8. Complete removal, fresh installation and final acceptance
 
-## F8. Coordinated cutover, retirement and final acceptance
-
-**Outcome:** the complete version-2 application and migration pass nonproduction acceptance, with history preserved and obsolete writes denied.
+**Outcome:** all legacy code/schema is gone and the current application passes on a fresh package-only database.
 
 ```mermaid
 flowchart TD
-  START["#9 verified; F1–F7 evidence recorded"] --> EVIDENCE["Audit existing acceptance trace<br/>Every requirement has passing evidence"]
-  EVIDENCE --> TRACE["Trace all 8 retirements<br/>Controls through database and tests"]
-  TRACE --> STOP["Dedicated config + disposable app/DB<br/>Nonproduction rehearsal; stop new starts"]
-  STOP --> LEGACY{"Legacy work settled?"}
-  LEGACY -->|No| SETTLE["Resolve under the old contract<br/>Finish runs; settle Live Events<br/>Complete pending media cleanup"]
-  SETTLE --> LEGACY
-  LEGACY -->|Yes| BACKUP["Verify backup, history<br/>and cutover preflight"]
-  BACKUP --> ACTIVATE["Coordinate app + DB activation<br/>Existing safeguards; forward migrations"]
-  ACTIVATE --> PRESERVE["Verify history and Draft conversion<br/>Require mismatched-booking review"]
-  PRESERVE --> DENY["Remove obsolete runtime paths<br/>Prove old mutation calls are denied"]
-  DENY --> VERIFY["Run all required checks<br/>and recovery rehearsal"]
-  VERIFY --> PASS{"Final reviewed candidate passes?"}
-  PASS -->|Yes| DONE["#10 nonproduction acceptance complete<br/>#17 / #7 still gate real release"]
-  PASS -->|No| WRITES{"Any new version-2 writes?"}
-  WRITES -->|No| RESTORE["Keep unavailable<br/>Verified backup restore if needed<br/>Correct candidate and rehearse again"]
-  RESTORE --> BACKUP
-  WRITES -->|Yes| FORWARD["Keep unavailable; preserve data<br/>Reviewed forward fix"]
-  FORWARD --> PRESERVE
+  START["#9 retained; F1–F7 accepted"] --> REMOVE["Delete remaining old routes, readers,<br/>helpers, schemas and obsolete tests"]
+  REMOVE --> BASELINE["Build complete current database baseline<br/>Remove previous migration chain"]
+  BASELINE --> EMPTY["Install in an empty isolated local database"]
+  EMPTY --> CHECK{"No legacy objects; current security<br/>and contracts pass?"}
+  CHECK -->|No| FIX["Fix baseline or callers<br/>Repeat empty installation"]
+  FIX --> EMPTY
+  CHECK -->|Yes| FULL["Rebuild the named disposable test stack<br/>Run the full current application suite"]
+  FULL --> PASS{"All required checks pass?"}
+  PASS -->|No| CORRECT["Fix the failing approved behavior<br/>Rerun affected and final checks"]
+  CORRECT --> FULL
+  PASS -->|Yes| DONE["Record #10 nonproduction acceptance<br/>#17 / #7 remain separate"]
 ```
 
-The eight retirements are editable Print Allowance, individual Additional Prints, shared Film Stock, Wasted Film/quality refunds, in-app Test Print, Client Redaction/past-Event deletion, superseded recovery/local takeover, and temporary compatibility code. Each capability supplies its own cleanup; F8 proves the coordinated result. Applied migrations, required historical readers and audit evidence remain.
-
-**UI reference:** [complete approved gallery](../design/2026-10-21-package-recovery/index.html), especially the [paired recovery journey](../design/2026-10-21-package-recovery/journeys/01-ipad-phone-recovery.png). F8 introduces no new product screen.
+There is no old-data import, old-run settlement, legacy snapshot, Draft conversion/review or legacy History reader. Existing development/test data is disposable. The reset is a development setup operation with test apps stopped and physical printers disconnected, never a way to dismiss a real uncertain print. Current package History and runtime print holds remain safe.
 
 ## What closes each issue
 
@@ -272,4 +243,4 @@ flowchart LR
   REVIEW --> DONE["Capability issue can close<br/>F8 still verifies the combined application"]
 ```
 
-These are scope and behavior diagrams, not new state-machine contracts or a claim that any functionality is implemented. The [screen map](../design/2026-10-21-package-recovery/screen-map.md) and [design system](../../DESIGN_SYSTEM.md) remain the presentation authorities.
+These are scope and behavior diagrams, not new state-machine contracts or a claim that any functionality is implemented. The written spec and plans remain the implementation authorities.

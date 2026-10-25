@@ -1,5 +1,7 @@
 # Documentation alignment review — 2026-10-21
 
+> **Historical evidence, not a current work order (scope updated 2026-10-25):** This record describes its original revision. #9 remains accepted/closed on `2f89a96`. [ADR-0029](adr/0029-remove-legacy-features-and-reset-development-schema.md) supersedes old preservation/conversion/migration-retention instructions for #10. Keep the current #9 package/access/recovery contracts; remove obsolete conversion machinery and reverify the final baseline. Prior failures, counts and evidence below are unchanged historical statements.
+
 **Scope:** approved documentation-only plan. Branch `codex/package-accounting-booth-recovery-docs` is based on issue #9 at `6f6ae69`; newer design references come from `development` at `9af5d5d`. Application source, tests, configuration and migrations remain unchanged. No commit, push, deployment or GitHub publication is part of this task.
 
 ## Review entry points

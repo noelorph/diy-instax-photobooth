@@ -14,7 +14,7 @@
 
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await plan approval/publication. Simulator is nonproduction; command acceptance is not full ejection or completion.
+- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await publication and a later implementation instruction. The plan is approved; further work is on hold at the user's request. Simulator is nonproduction; command acceptance is not full ejection or completion.
 - Welcome → Start → mirrored preview → Take Photo → **3–2–1** → unmirrored matching crop/review → Retake or Print. **Print complete** lasts **3 seconds**, only after full ejection and server acknowledgement.
 - Warn at **75 seconds**, discard/end at **90 seconds** in preview/review; Continue resets. No Guest inactivity timer during countdown/printing.
 - Count completed shutters once, including Retakes. Latest acknowledged `captured_at` governs; equal timestamps permit the selected Capture. Reservation/dispatch recheck it without substitution. Preserve #9's two-minute bounded metadata-only terminal reconciliation.
@@ -22,6 +22,8 @@
 - Use [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), [screen map](../../design/2026-10-21-package-recovery/screen-map.md), [Booth 01](../../design/2026-10-21-package-recovery/booth/01-welcome-capture.png), [02](../../design/2026-10-21-package-recovery/booth/02-review-printing-complete.png), [04 capacity](../../design/2026-10-21-package-recovery/booth/04-printer-and-capacity.png), [05 stop states](../../design/2026-10-21-package-recovery/booth/05-pause-finish-access.png).
 
 Follow the [shared command/environment table](2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules). Update this capability’s rows in the [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md#acceptance-trace) with actual revision/command/result before closure; pending rows are not passing evidence.
+
+**Complete removal:** [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) applies. Delete this capability's obsolete UI, actions, routes, validation, helpers, exports and success fixtures/tests as their current flows become ready; update every shared caller. Retain no legacy reader, denial-only route or version-1 fallback. Record shared SQL dependencies for F8's package-only baseline. Reuse #9's current contracts and safety tests; do not redesign them.
 
 ## Review Focus
 

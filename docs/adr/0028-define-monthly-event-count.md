@@ -1,6 +1,6 @@
 # ADR-0028: Define the monthly Event count
 
-**Status:** Accepted clarification; F7 implementation and plan approval remain pending.
+**Status:** Accepted clarification; the plan is approved. F7 implementation remains on hold at the user's request.
 **Date:** 2026-10-25
 **Refines:** The Dashboard requirement in [PRD.md](../../PRD.md); complements [ADR-0025](0025-package-accounting-and-booth-recovery.md). No prior ADR is superseded.
 **Approval:** The user explicitly chose to exclude Cancelled and count the remaining Draft, Live and Completed Events.

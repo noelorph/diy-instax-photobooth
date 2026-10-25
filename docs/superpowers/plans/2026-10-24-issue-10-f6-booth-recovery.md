@@ -14,13 +14,15 @@
 
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await plan approval/publication. Nonproduction simulation only; #17/#7 remain physical gates.
+- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await publication and a later implementation instruction. The plan is approved; further work is on hold at the user's request. Nonproduction simulation only; #17/#7 remain physical gates.
 - Unknown print retains its hold and printer slot. No timeout, reload, package addition or missing journal clears it. Not printed inspection requires no ejection and no possible later output from the old job; full ejection counts Printed even if unusable.
 - Restore every blocker independently. A valid grant survives normal fault/pause; no ordinary sign-in/local takeover. Replacement stays Paused; Finishing/Finished cannot be replaced or resumed.
 - Dynamic readiness expires at 5,000 ms; visible polling/reporting every 2,000 ms plus focus/reconnect refresh. No old-photo retry, resend or printer-count inventory.
 - Use [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), [screen map](../../design/2026-10-21-package-recovery/screen-map.md), [07 phone recovery](../../design/2026-10-21-package-recovery/admin/07-phone-recovery.png), [06 management](../../design/2026-10-21-package-recovery/admin/06-phone-management.png), [11 feedback](../../design/2026-10-21-package-recovery/admin/11-dialogs-feedback.png), [Booth 03](../../design/2026-10-21-package-recovery/booth/03-connection-recovery.png), [04](../../design/2026-10-21-package-recovery/booth/04-printer-and-capacity.png), [05](../../design/2026-10-21-package-recovery/booth/05-pause-finish-access.png), and [paired-device journey](../../design/2026-10-21-package-recovery/journeys/01-ipad-phone-recovery.png).
 
 Follow the [shared command/environment table](2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules). Update this capability’s rows in the [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md#acceptance-trace) with actual revision/command/result before closure; pending rows are not passing evidence.
+
+**Complete removal:** [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) applies. Delete this capability's obsolete UI, actions, routes, validation, helpers, exports and success fixtures/tests as their current flows become ready; update every shared caller. Retain no legacy reader, denial-only route or version-1 fallback. Record shared SQL dependencies for F8's package-only baseline. Reuse #9's current contracts and safety tests; do not redesign them.
 
 ## Review Focus
 

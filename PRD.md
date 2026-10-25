@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth — Product Requirements
 
-**Status:** Approved target product, revised 2026-10-25 for the approved Event Media policy, monthly-count clarification and handoff readiness wording. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth screens still use legacy flows until #10. Hosted cutover and #17/#7 physical qualification remain open.
+**Status:** Approved target product, revised 2026-10-25 for the approved media/count/readiness rules and complete legacy removal under ADR-0029. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing Admin/Booth screens still use legacy flows until #10. Hosted deployment and #17/#7 physical qualification remain open.
 **Contract:** [Accounting, access and Booth recovery](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md).
 **Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md). **Presentation:** [Design system](DESIGN_SYSTEM.md). **Boundaries:** [Architecture](ARCHITECTURE.md).
 
@@ -34,7 +34,7 @@ The **actual iPad A16** must pass a separate end-to-end release trial with Bluef
 
 States are Draft, Live, Completed and Cancelled; readiness is calculated separately. Save Draft identity/contact/venue/schedule fields with valid values, whole nonnegative package count, IANA venue time zone, existing unambiguous local times and end after start. Store UTC instants plus venue zone. Reject stale revisions instead of overwriting another edit. Zero packages are allowed in Draft, but first start requires a positive original booking.
 
-Start changes Draft to Live. Booking/contact fields and original packages then freeze. The Admin may add whole Additional Film Packages while Live, including during pause. Finish Booth Mode ends a run; it leaves the Event Live. Complete or Cancel a Live Event only after all runs are Finished and all attempts terminal. A Draft can be Cancelled directly. Completed/Cancelled Events are immutable History records with no redaction or deletion action. A never-started Draft can be deleted after pending legacy work resolves and private media is removed; keep only opaque audit references. Deletion is incomplete until media cleanup succeeds.
+Start changes Draft to Live. Booking/contact fields and original packages then freeze. The Admin may add whole Additional Film Packages while Live, including during pause. Finish Booth Mode ends a run; it leaves the Event Live. Complete or Cancel a Live Event only after all runs are Finished and all attempts terminal. A Draft can be Cancelled directly. Completed/Cancelled Events are immutable History records with no redaction or deletion action. A never-started Draft can be deleted when no current run/attempt work exists and private media is removed; keep only opaque audit references. Deletion is incomplete until media cleanup succeeds.
 
 ### Packages and confirmed ejection
 
@@ -80,7 +80,7 @@ Upload, replacement and removal are Draft-only, with authority, state and revisi
 
 ### History — `/history`
 
-List Completed/Cancelled Events with name, schedule, venue, Client contact, package counts and print totals. Retain media and audit history under Admin access. No redaction or deletion controls. Historical events from the old accounting model retain clearly labeled original totals rather than fabricated package conversions.
+List Completed/Cancelled Events with name, schedule, venue, Client contact, package counts and print totals. Retain media and audit history under Admin access. No redaction or deletion controls. History contains package-model Events only. Existing disposable development/test records are discarded during the later fresh-schema rebuild; no legacy reader or conversion UI is required.
 
 ### Profile — `/profile`
 
@@ -118,7 +118,7 @@ All blockers must clear independently. A recovered connection never overrides Pa
 
 ## 7. Privacy and access
 
-Guest photos are never uploaded, persisted, logged, or placed in History. Discard after completion/abandonment/fault; release in-flight transport buffers when safe. Only anonymous metadata remains. Event Media is private stored booking content, separate from Guest photos. Completed and Cancelled booking contact/media is retained with no product deletion/redaction action; already-removed historical data is not recreated.
+Guest photos are never uploaded, persisted, logged, or placed in History. Discard after completion/abandonment/fault; release in-flight transport buffers when safe. Only anonymous metadata remains. Event Media is private stored booking content, separate from Guest photos. Completed and Cancelled booking contact/media is retained with no product deletion/redaction action. Existing pre-reset development/test records are outside this ongoing retention policy.
 
 The device grant permits sanitized Event/run state and scoped guest operations only. Admin access, contact data, package additions, load confirmation, inspection and lifecycle management require a current Admin session. Grant stays valid through normal pause/fault, with bounded expiry and security revocation as specified in the contract. Guest-facing recovery controls cannot alter counts or claim an inspected outcome.
 
@@ -135,4 +135,6 @@ The device grant permits sanitized Event/run state and scoped guest operations o
 
 ## 9. Decisions and documentation
 
-[ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md) records this decision and its supersession map. Use the [documentation index](docs/README.md) for active guides, historical specs and evidence. The [GitHub issue publication record](docs/github-issue-update-drafts.md) contains the published #9/#10 descriptions and remaining unpublished #17/#7 drafts; old issue wording does not override this approved target.
+[ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md) records this decision and its supersession map. Use the [documentation index](docs/README.md) for active guides and dated evidence. The [GitHub issue publication record](docs/github-issue-update-drafts.md) distinguishes accepted #9 evidence, the revised unpublished #10 body and the unpublished #17/#7 drafts; old issue wording does not override this approved target.
+
+[ADR-0029](docs/adr/0029-remove-legacy-features-and-reset-development-schema.md) records complete removal within #10. Remove all legacy application/schema/compatibility paths and replace the old migration chain with a verified package-only baseline. Do not build old-event preservation, Draft conversion/review or historical readers. Retain #9 current contracts and dated acceptance evidence; reverify them after the schema rebuild. The user approved the revised plan on 2026-10-25 and requested its documentation commit. Publication and implementation remain on hold; code and data are unchanged.

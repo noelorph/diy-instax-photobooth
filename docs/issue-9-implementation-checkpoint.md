@@ -1,8 +1,10 @@
 # Issue #9 historical implementation checkpoint — 2026-10-17
 
+> **Historical evidence, not a current work order (scope updated 2026-10-25):** This record describes its original revision. #9 remains accepted/closed on `2f89a96`. [ADR-0029](adr/0029-remove-legacy-features-and-reset-development-schema.md) supersedes old preservation/conversion/migration-retention instructions for #10. Keep the current #9 package/access/recovery contracts; remove obsolete conversion machinery and reverify the final baseline. Prior failures, counts and evidence below are unchanged historical statements.
+
 > **Historical implementation checkpoint.** This records the old issue #9 branch and unfinished work as of its date, not a current work order or a fresh test result. The [replacement contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) supersedes conflicting behavior. The 2026-10-21 branch updates documentation only; old source/tests remain unchanged.
 
-**Historical status at 2026-10-17:** Paused at the owner's request on branch `codex/issue9-accounting-access-printer`. This is a committed work in progress, not a completed or fully reviewed implementation. The approved [contract spec](superpowers/specs/2026-10-16-accounting-access-printer-contracts-design.md) remains unchanged.
+**Historical status at 2026-10-17:** Paused at the owner's request on branch `codex/issue9-accounting-access-printer`. This is a committed work in progress, not a completed or fully reviewed implementation. The approved contract spec (Git checkpoint `1de2272`, `docs/superpowers/specs/2026-10-16-accounting-access-printer-contracts-design.md`) remains unchanged.
 
 The branch contains the operational schema, restricted accounting functions, Admin and Booth handlers, simulated printer and `/booth` flow, redaction and Draft deletion, and Admin operations/History/return UI. Tasks 1–11 received scoped independent reviews. Task 12 was saved in checkpoint commit `b256266` before its independent review. No hosted database or physical printer was changed.
 

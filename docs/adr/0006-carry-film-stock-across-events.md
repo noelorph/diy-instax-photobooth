@@ -1,5 +1,7 @@
 # Carry Film Stock across Events
 
-> **Current scope (2026-10-21):** The shared Film Stock product feature is fully superseded. [ADR-0025](0025-package-accounting-and-booth-recovery.md) and the [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) control conflicting behavior. The original decision below is retained as history.
+**Status:** Historical decision with the current retained scope below. [ADR-0025](0025-package-accounting-and-booth-recovery.md) supersedes its old product behavior; [ADR-0029](0029-remove-legacy-features-and-reset-development-schema.md) removes legacy implementation and preservation requirements.
 
-Film Stock is one shared inventory of physical Instax sheets for the booth, rather than a separate balance created for each Event. Sheets remaining after an Event carry forward to the next Event; Film Reservations temporarily make sheets unavailable, and Test Prints and Confirmed Prints consume them while each Event's Print Allowance stays separate. This matches the physical stock used by the same printer across Events and avoids counting leftover sheets twice, at the cost of reconciling inventory when sheets are added, removed, or used outside the booth.
+The shared physical Film Stock feature is removed completely. Package purchases change booked capacity; physical loading changes readiness only. Printer counters never establish inventory.
+
+The detailed original decision is available with `git show 1de2272:docs/adr/0006-carry-film-stock-across-events.md`. It is not a current work order. Use the [current contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) for exact guards and interfaces.

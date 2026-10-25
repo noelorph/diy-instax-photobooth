@@ -1,6 +1,6 @@
 # Project routes and Booth user flow
 
-**Approved target, 2026-10-21.** Version-2 contracts and handlers passed the #9 software checks and independent evidence review; existing Admin/Booth UI still uses legacy flows. #10 owns their integration and coordinated cutover; its own plan approval/publication remains pending before implementation. See [dated #9 software acceptance evidence](implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 is closed as completed. Physical qualification remains open. Use the [replacement contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) for exact transitions and API shapes, and [PRD](../PRD.md) for product scope.
+**Approved target, 2026-10-21.** Version-2 contracts and handlers passed the #9 software checks and independent evidence review; existing Admin/Booth UI still uses legacy flows. #10 owns their integration, complete legacy removal and fresh package-only installation; its plan is approved, but publication and implementation are on hold at the user's request. See [dated #9 software acceptance evidence](implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 is closed as completed. Physical qualification remains open. Use the [replacement contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) for exact transitions and API shapes, and [PRD](../PRD.md) for product scope.
 
 ## Page routes
 
@@ -20,7 +20,7 @@
 | `/booth`                      | Device with limited grant        | Guest welcome/capture/review/printing, temporary failure recovery, paused and finished states                                                    |
 | `/qualification/iphone-print` | Supervised developer/Admin trial | Existing isolated historical qualification harness; never a production Guest entry or proof of automatic completion                              |
 
-The existing harness route is a development aid. Confirm its environment restrictions before running any physical trial. It retains old controls for evidence collection; these controls are not the target product UI. No new `/stock`, `/test-print`, `/redaction` or separate guest Event-ID page belongs in the target navigation. APIs under `/api/admin/…` and `/api/booth/…` are server contracts, not pages.
+The existing harness route is a development aid. Confirm its environment restrictions before running any physical trial. F8 must remove any legacy accounting dependencies from it, using current contracts or independent transport while retaining required calibration/proof behavior. Its dated observations remain evidence; it cannot justify keeping old product operations. No new `/stock`, `/test-print`, `/redaction` or separate guest Event-ID page belongs in the target navigation. APIs under `/api/admin/…` and `/api/booth/…` are server contracts, not pages.
 
 Dashboard monthly Events includes nondeleted Draft, Live and Completed by venue-local scheduled start, and excludes Cancelled: four in-month Events with one Cancelled show 3. Upcoming/Next remains future Draft/Live work; [ADR-0028](adr/0028-define-monthly-event-count.md) records the distinction.
 
@@ -127,3 +127,5 @@ Pause takes effect immediately but does not cancel a dispatched print; let it se
 ## Implementation and evidence
 
 These diagrams describe the approved future flow. The current branch's simulator, old inspection/test controls and pause sign-in behavior are historical implementation, documented in [ADR-0024](adr/0024-preserve-integrated-booth-operation-boundaries.md). Hardware release requires the [proof checklist](qualification/booth-recovery-proof-checklist.md), including automatic normal completion and actual-iPad Guided Access trials.
+
+Under [ADR-0029](adr/0029-remove-legacy-features-and-reset-development-schema.md), History contains current package Events only; existing test data is discarded during the later local rebuild. No converted-Draft booking review, old totals or compatibility screens are part of these flows.

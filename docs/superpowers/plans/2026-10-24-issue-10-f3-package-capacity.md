@@ -14,7 +14,7 @@
 
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await plan approval/publication. No repairing #9 in this child.
+- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await publication and a later implementation instruction. The plan is approved; further work is on hold at the user's request. No repairing #9 in this child.
 - `totalBookedPrints = 10 × (originalPackages + additionalPackages)`; `printsRemaining = total − printed`; `printsAvailable = remaining − unresolved`. A pending attempt holds one print; never label remaining as available.
 - Additional packages are positive whole units within the #9 aggregate maximum, with a nonblank Client-request note; immutable entries. Eligible while Event is Live, including Paused or after a Finished run. No package removal/refund, automatic Resume or physical-load claim.
 - Use [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), [screen map](../../design/2026-10-21-package-recovery/screen-map.md), [05 Live Event](../../design/2026-10-21-package-recovery/admin/05-live-event.png), [06 phone management](../../design/2026-10-21-package-recovery/admin/06-phone-management.png), [11 feedback](../../design/2026-10-21-package-recovery/admin/11-dialogs-feedback.png), and the capacity reference in [Booth 04](../../design/2026-10-21-package-recovery/booth/04-printer-and-capacity.png).
@@ -31,7 +31,7 @@ Follow the [shared command/environment table](2026-10-24-issue-10-implementation
 
 ## File map
 
-Modify `src/features/admin/operations/{types.ts,read.ts,panel.tsx,panel.module.css}`, `src/app/(admin)/events/[eventId]/page.tsx`; reuse `src/lib/operations/{package-contract,package-state,package-validation}.ts` and `src/app/api/admin/events/[eventId]/{film-packages,booth/state,operations/[operationId]}/route.ts`. Extend `tests/components/admin-operations.test.tsx`, `tests/integration/admin-operations-read.test.ts`, `package-accounting.test.ts`, `package-http-access.test.ts`; create `tests/e2e/package-capacity.spec.ts`. No new database table or counter.
+Modify `src/features/admin/operations/{types.ts,read.ts,panel.tsx,panel.module.css}`, `src/app/(admin)/events/[eventId]/page.tsx`; reuse `src/lib/operations/{package-contract,package-state,package-validation}.ts` and `src/app/api/admin/events/[eventId]/{film-packages,booth/state,operations/[operationId]}/route.ts`. Extend `tests/components/admin-operations.test.tsx`, `tests/integration/admin-operations-read.test.ts`, `package-accounting.test.ts`, `package-http-access.test.ts`; create `tests/e2e/package-capacity.spec.ts`. No new database table or counter. Delete `src/app/api/admin/events/[eventId]/additional-prints/route.ts` and `src/app/api/admin/film-stock/{additions,reconciliations}/route.ts` after tracing imports and shared callers.
 
 ## Task 1: Replace operational allowance/stock reads with package counts
 
@@ -52,7 +52,7 @@ Modify `src/features/admin/operations/{types.ts,read.ts,panel.tsx,panel.module.c
   Verify zero availability does not hide the pending print and a failed read shows a persistent retry state rather than invented totals.
 
 - [ ] Run `npm test -- tests/integration/admin-operations-read.test.ts tests/components/admin-operations.test.tsx`; the new projection assertions should fail against the legacy consumer.
-- [ ] Integrate #9 counts and update all callers/fixtures of `OperationalEvent` found with `rg`. Preserve pagination, current authorization and private responses. Remove active shared-stock/independent allowance UI. Keep historical accounting computation isolated for F7's labeled legacy reader; do not rewrite legacy records.
+- [ ] Integrate #9 counts and update all callers/fixtures of `OperationalEvent` found with `rg`. Preserve pagination, current authorization and private responses. Remove active shared-stock/independent allowance UI. Delete legacy accounting computations and their stock/allowance reads; F7 consumes package counts only. Update shared callers and fixtures together; no legacy reader is retained.
 - [ ] Rerun the task command plus `npm test -- tests/integration/package-accounting.test.ts`; expect pass and matching API/UI counts. No mutable client-side count approximation.
 - [ ] Commit with `feat: show package capacity in event operations`.
 
@@ -71,7 +71,7 @@ Modify `src/features/admin/operations/{types.ts,read.ts,panel.tsx,panel.module.c
   Invoke `f.admin('add_packages', payload, key)` twice; always dispose the fixture. Add a browser case where the server commits but the response is dropped; the recovered receipt must produce one addition, not a new mutation.
 
 - [ ] Run `npm test -- tests/integration/package-accounting.test.ts tests/integration/package-http-access.test.ts tests/components/admin-operations.test.tsx`; existing #9 cases pass and missing consumer recovery cases fail.
-- [ ] Implement the Add Film Packages dialog and pending/error/receipt states in the existing panel. Generate one ID per deliberate purchase, freeze its submitted payload, retain only necessary pending purchase metadata across page reload and clear it after acknowledgement. Do not log the Client-request note. Unknown response blocks another submission until same-key replay/receipt resolves; a new edited purchase gets a new ID only after the first is settled. Refresh counts without changing run state, reload state or the unresolved hold. Remove individual Additional Prints controls/callers; record old endpoint/SQL retirement for F8.
+- [ ] Implement the Add Film Packages dialog and pending/error/receipt states in the existing panel. Generate one ID per deliberate purchase, freeze its submitted payload, retain only necessary pending purchase metadata across page reload and clear it after acknowledgement. Do not log the Client-request note. Unknown response blocks another submission until same-key replay/receipt resolves; a new edited purchase gets a new ID only after the first is settled. Refresh counts without changing run state, reload state or the unresolved hold. Delete individual Additional Prints and stock controls/callers, their dedicated HTTP routes, input schemas and obsolete success tests. Add stale-request denial checks. Record remaining shared SQL objects for F8 deletion; do not retain a denial-only compatibility endpoint.
 - [ ] Rerun focused tests and `npx playwright test --config playwright.config.ts tests/e2e/package-capacity.spec.ts`; verify one real immutable entry/audit, phone-sized accessibility and no load/resume side effects. Run changed-file lint/type/format. Expected pass.
 - [ ] Commit with `feat: complete additional film package purchases`.
 

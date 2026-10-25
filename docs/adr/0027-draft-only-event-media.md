@@ -1,6 +1,6 @@
 # ADR-0027: Limit Event Media changes to Draft
 
-**Status:** Accepted; implementation belongs to issue #10 and awaits its own plan approval/publication. The #9 software prerequisite is satisfied and #9 is closed as completed.
+**Status:** Accepted; implementation belongs to issue #10. Its plan is approved; publication and implementation are on hold at the user's request. The #9 software prerequisite is satisfied and #9 is closed as completed.
 **Date:** 2026-10-24
 **Refines:** [ADR-0025](0025-package-accounting-and-booth-recovery.md), without replacing its retention, privacy or release gates.
 **Approval:** The user approved the [functional breakdown design](../superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md), including its proposed upload defaults.

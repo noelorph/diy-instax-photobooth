@@ -1,6 +1,6 @@
 # ADR-0025: Use package accounting and keep recovery in Booth Mode
 
-**Status:** Accepted target design. Version-2 contracts and handlers passed #9 software verification; see [dated #9 software acceptance evidence](../implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 is closed as completed. Admin/Booth integration and coordinated cutover remain #10 work, subject to their separate plan approval and the reviewed #9 handoff. Physical qualification remains open.
+**Status:** Accepted target design. Version-2 contracts and handlers passed #9 software verification; see [dated #9 software acceptance evidence](../implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 is closed as completed. Admin/Booth integration, complete removal and fresh package-only installation remain #10 work, under the approved plan and reviewed #9 handoff. Publication and implementation are on hold at the user's request. Physical qualification remains open.
 **Date:** 2026-10-21
 **Contract:** [Package accounting, access and Booth recovery](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md).
 
@@ -20,7 +20,7 @@ The earlier model required inventory bookkeeping, test-output inspection, print-
 
 ## Supersession map
 
-The linked originals retain their historical text. The replacement contract controls current behavior wherever they differ.
+Earlier ADRs retain decision history with explicit supersession notices. The replacement contract controls current behavior; ADR-0029 replaces legacy preservation and migration requirements.
 
 | Earlier decision             | Change                                                                                                                                                                                         |
 | ---------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -43,7 +43,7 @@ Unaffected decisions remain in force: photo privacy (0001), visual system (0010)
 
 ## Refinement
 
-[ADR-0026](0026-order-captures-by-shutter-time.md) refines Capture eligibility at reservation and dispatch: use acknowledged shutter time, permit explicitly selected ties, and never substitute the bound photo. [ADR-0027](0027-draft-only-event-media.md) further defines Draft-only Event Media changes and trusted upload limits. All other decisions here remain in force.
+[ADR-0026](0026-order-captures-by-shutter-time.md) refines Capture eligibility at reservation and dispatch: use acknowledged shutter time, permit explicitly selected ties, and never substitute the bound photo. [ADR-0027](0027-draft-only-event-media.md) further defines Draft-only Event Media changes and trusted upload limits. All other product decisions here remain in force. [ADR-0029](0029-remove-legacy-features-and-reset-development-schema.md) supersedes legacy-data preservation, conversion and migration-chain retention with complete removal and a fresh development schema.
 
 [ADR-0028](0028-define-monthly-event-count.md) clarifies Dashboard monthly Event counting: include Draft/Live/Completed and exclude Cancelled. It changes no package accounting, retention or release gate here.
 
@@ -51,4 +51,4 @@ Unaffected decisions remain in force: photo privacy (0001), visual system (0010)
 
 The product tracks booked output and exceptional attempts without pretending to know physical inventory. The Admin still loads film and inspects genuinely unknown outcomes. Unresolvable hardware ambiguity can keep the booth unavailable; it cannot be hidden by resetting counters. Manual loading confirmation is the fallback if automatic reload detection cannot be proven. Missing reliable automatic normal completion keeps printer-backed operation disabled.
 
-The original decision did not itself change code or database behavior. Version-2 contracts and cutover safeguards have since been installed for local verification; global activation has not occurred. #10 must integrate the application, retire obsolete mutation paths and rehearse coordinated cutover with legacy accounting snapshots and explicit Draft capacity review. See contract section 8 and the [issue #9 verification record](../implementation/issue-9-package-contracts-review.md). The [proof checklist](../qualification/booth-recovery-proof-checklist.md) separates actual observations from pending work.
+The original decision did not itself change code or database behavior. Version-2 contracts and cutover safeguards have since been installed for local verification; global activation has not occurred. #10 must integrate the application, remove all legacy implementation and compatibility paths, and verify a fresh package-only database under ADR-0029. Do not build legacy accounting snapshots or Draft conversion/review. See contract section 8 and the [issue #9 verification record](../implementation/issue-9-package-contracts-review.md). The [proof checklist](../qualification/booth-recovery-proof-checklist.md) separates actual observations from pending work.

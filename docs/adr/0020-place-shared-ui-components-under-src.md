@@ -6,4 +6,4 @@ Store customized shadcn/ui primitives in `src/components/ui/`, product-neutral c
 
 Keep component exports, props, behavior, and `@/components/...` imports stable. The existing `@/*` → `./src/*` TypeScript mapping now resolves those imports, so remove the special root-components mapping. Keep the shadcn aliases `@/components` and `@/components/ui`; future additions resolve under `src/components/`. Formatting scripts cover these files through their existing `src` glob.
 
-This keeps application code together and removes an unnecessary alias exception. It changes no product behavior, design tokens, authorization boundaries, or component responsibilities from ADR-0018. The [Admin UI refresh spec](../superpowers/specs/2026-10-15-admin-ui-refresh-design.md) describes the current structure.
+This keeps application code together and removes an unnecessary alias exception. It changes no product behavior, design tokens, authorization boundaries, or component responsibilities from ADR-0018. The Admin UI refresh spec (Git checkpoint `1de2272`, `docs/superpowers/specs/2026-10-15-admin-ui-refresh-design.md`) describes the current structure.

@@ -1,8 +1,21 @@
 # Issue #10 — implementation task flowchart
 
-**23 implementation tasks across eight capability plans.** This is a visual index of the plans revised on 25 October 2026, not a new plan or a completion record. Plan approval and publication remain pending; #9's software prerequisite is already satisfied.
+**23 implementation tasks across eight capability plans.** This is a visual index of the plans revised on 25 October 2026, not a new plan or a completion record. The plan is approved; publication and implementation are on hold at the user's request; #9's software prerequisite is already satisfied.
 
-The [main plan](../superpowers/plans/2026-10-24-issue-10-implementation-plan.md) defines execution details and environments. The [approved functional design](../superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md) defines scope; the [capability flowcharts](issue-10-functional-breakdown.md) show user behavior. Task numbers below match the eight linked plans exactly.
+For your review only. This shows the work order and what disappears; agents use the detailed plans, not this chart. No implementation or database reset has happened. You approved this revision and requested its documentation commit first. Publication and implementation wait for your instruction to start.
+
+## The change you approved
+
+```mermaid
+flowchart TD
+  KEEP["Keep approved #9 package contracts<br/>and safety rules"] --> BUILD["F1–F7: complete current flows<br/>and delete their obsolete code together"]
+  BUILD --> DELETE["Delete the old code as its callers change<br/>Remove features with no replacement"]
+  DELETE --> FRESH["F8: remove remaining legacy code and schema<br/>Replace old migrations with a clean baseline"]
+  FRESH --> TEST["Install an empty local database<br/>Verify security and the complete application"]
+  TEST --> READY["#10 software acceptance<br/>Physical #17 / #7 still required"]
+```
+
+There is no legacy-data migration, old-Draft conversion or legacy History screen. Existing data is disposable test data. Current package History, safe Draft deletion, privacy and printer safety stay.
 
 ## Before implementation
 
@@ -11,12 +24,13 @@ P1–P3 are publication tasks, separate from the 23 implementation tasks. Approv
 ```mermaid
 flowchart TD
   NINE["#9 software verification passed<br/>Closed; verify accepted candidate 2f89a96"]
-  APPROVAL["User approves the #10 plans<br/>Pending"]
-  P1["P1: Record approval and prepare<br/>the exact eight issue bodies"]
-  P2["P2: Create native sub-issues<br/>and blocking dependencies"]
+  APPROVAL["#10 plans approved<br/>Documentation commit authorized"]
+  P1["P1: Record approval and prepare<br/>the revised #10 body<br/>and eight child issue bodies"]
+  P2["P2: Update #10; create native sub-issues<br/>and blocking dependencies"]
   P3["P3: Verify publication<br/>and complete the planning handoff"]
   AUTH["Explicit authorization to implement<br/>Begin F1 below"]
-  NINE --> APPROVAL --> P1 --> P2 --> P3 --> AUTH
+  HOLD["Wait for your instruction<br/>to start publication"]
+  NINE --> APPROVAL --> HOLD --> P1 --> P2 --> P3 --> AUTH
 ```
 
 ## All implementation tasks
@@ -71,15 +85,15 @@ flowchart TD
 
   subgraph F7["F7 — Operational visibility and retained history"]
     F7T1["F7.T1: Dashboard summaries<br/>and activity"]
-    F7T2["F7.T2: Retained History<br/>and immutable Event detail"]
+    F7T2["F7.T2: Package-only History and read-only detail<br/>Remove old readers"]
     F7T1 --> F7T2
   end
 
   ACCEPTED["All F1–F7 accepted<br/>Owner evidence recorded"]
 
-  subgraph F8["F8 — Coordinated cutover and final acceptance"]
-    F8T1["F8.T1: Retirement inventory<br/>and final runtime removal"]
-    F8T2["F8.T2: Rehearse committed activation,<br/>preservation and failure recovery"]
+  subgraph F8["F8 — Complete removal and fresh installation"]
+    F8T1["F8.T1: Trace and delete<br/>all remaining legacy application paths"]
+    F8T2["F8.T2: Replace the old migration chain<br/>Prove a fresh package-only installation"]
     F8T3["F8.T3: Verify the complete candidate<br/>and record #10 acceptance"]
     F8T1 --> F8T2 --> F8T3
   end
@@ -99,31 +113,20 @@ flowchart TD
   F8T3 --> DONE
 ```
 
-## Task sources and full prerequisites
+## What disappears and what stays
 
-All capabilities reuse the accepted #9 contracts. Each plan contains the exact files, interfaces, acceptance cases and commands for its tasks.
+| Area                                      | End of #10                                                                          |
+| ----------------------------------------- | ----------------------------------------------------------------------------------- |
+| Editable Print Allowance                  | Removed; original packages determine capacity                                       |
+| Individual Additional Prints              | Removed; whole Additional Film Packages remain                                      |
+| Shared Film Stock and Wasted Film refunds | Removed; physical readiness and confirmed-ejection counting remain                  |
+| In-app Test Print and its setup gate      | Removed; independent physical testing reminder remains                              |
+| Client Redaction and past-Event deletion  | Removed; safe never-started Draft deletion remains                                  |
+| Old recovery/local takeover               | Removed; current Booth recovery and exceptional protected access replacement remain |
+| Old History and Draft conversion          | Removed; new package-model terminal History remains                                 |
+| Old migrations and database objects       | Replaced by a complete verified package-only baseline                               |
+| #9 contracts and evidence                 | Current behavior retained and reverified; dated acceptance preserved                |
 
-| Capability plan                                                                                                       | Tasks | Prerequisites besides #9 |
-| --------------------------------------------------------------------------------------------------------------------- | ----- | ------------------------ |
-| [F1 — Admin access and account management](../superpowers/plans/2026-10-24-issue-10-f1-admin-access.md)               | T1–T3 | None                     |
-| [F2 — Event preparation and private media](../superpowers/plans/2026-10-24-issue-10-f2-event-preparation-media.md)    | T1–T4 | F1                       |
-| [F3 — Booked capacity and Additional Film Packages](../superpowers/plans/2026-10-24-issue-10-f3-package-capacity.md)  | T1–T2 | F2                       |
-| [F4 — Booth setup, access and lifecycle](../superpowers/plans/2026-10-24-issue-10-f4-booth-lifecycle.md)              | T1–T3 | F1, F2, F3               |
-| [F5 — Guest capture-to-print journey](../superpowers/plans/2026-10-24-issue-10-f5-guest-printing.md)                  | T1–T3 | F2, F4                   |
-| [F6 — Booth recovery across devices](../superpowers/plans/2026-10-24-issue-10-f6-booth-recovery.md)                   | T1–T3 | F3, F4, F5               |
-| [F7 — Operational visibility and retained history](../superpowers/plans/2026-10-24-issue-10-f7-visibility-history.md) | T1–T2 | F2, F3                   |
-| [F8 — Coordinated cutover and final acceptance](../superpowers/plans/2026-10-24-issue-10-f8-cutover-acceptance.md)    | T1–T3 | All F1–F7                |
+F2 still proves media transfer/validation/deletion before polishing its editor. F4 proves fresh equipment readiness after handoff. F5/F6 prove new Guest admission after a package purchase without clearing other blockers or a pause. F7 keeps the approved monthly count: Draft + Live + Completed, excluding Cancelled.
 
-## Execution checks carried through the flow
-
-| Owner                                      | Required proof                                                                                                                                                                                                                                                                                                                           |
-| ------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Every capability; F8.T3 audits             | Populate the existing [acceptance trace](../implementation/issue-10-retirement-and-acceptance.md#acceptance-trace) with actual revision, command, environment and evidence as work completes. Evidence is currently pending.                                                                                                             |
-| All browser tasks; F8.T2 cutover isolation | Follow the [command/environment table](../superpowers/plans/2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules). Keep the ordinary production-build suite, development simulator suites and disposable cutover app/database separate. Add the cutover config and default exclusion before executing its test. |
-| F2.T2 → F2.T3 → F2.T4                      | Prove real interrupted/resumable uploads, invalid content, Start/Cancel races and late-upload deletion cleanup before polishing the editor. Failed mechanics block dependent editor work.                                                                                                                                                |
-| F4.T1                                      | Prove setup succeeds, local Admin access ends, scoped Booth access activates and fresh camera/printer readiness is established after navigation to `/booth`, before Guest admission.                                                                                                                                                     |
-| F3.T2 → F5.T3; F6.T3 blocked variants      | Prove purchase adds capacity exactly once, then admits a newly persisted Guest Session after exhaustion. Purchase must preserve pause and independent blockers.                                                                                                                                                                          |
-| F7.T1                                      | Monthly totals count Draft, Live and Completed Events scheduled in the venue-local current month; exclude Cancelled and deleted Events. One Event in each state yields **3**.                                                                                                                                                            |
-| F8.T1 → F8.T2                              | Prepare runtime retirement, but settle legacy work with the old application before applying the coordinated switch. Rehearse backup restoration before application v2 writes and forward recovery after them, only in the disposable environment.                                                                                        |
-
-Real-printer automatic ejection/recovery qualification remains **#17**; the actual-iPad release gate remains **#7**. Both stay open and outside #10's implementation tasks. This flowchart authorizes no production activation or physical printing.
+These charts are a review aid, not a test result or an instruction to deploy. Real-printer qualification remains #17; actual-iPad release remains #7. Both remain outside #10 software acceptance.

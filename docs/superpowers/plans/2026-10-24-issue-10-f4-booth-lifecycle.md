@@ -14,7 +14,7 @@
 
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await plan approval/publication. Reuse `Prepared → Active`, `Paused`, `Finishing`, `Finished`; Event states remain separate.
+- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await publication and a later implementation instruction. The plan is approved; further work is on hold at the user's request. Reuse `Prepared → Active`, `Paused`, `Finishing`, `Finished`; Event states remain separate.
 - Setup reminder only: **“Always test the printer before starting Booth Mode.”** No in-app Test Print, inspected test output or stock gate.
 - Poll/report every 2,000 ms while visible; dynamic readiness older than 5,000 ms is unusable. Same printer/connection generation and physical load/power/Guided Access confirmations are required under #9.
 - Explicit local setup and Enable Camera actions may request camera permission. Passive polling/rendering never prompts; readiness requires an actual live feed, and denial leaves the camera blocker active.
@@ -23,6 +23,8 @@
 - Use [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), [screen map](../../design/2026-10-21-package-recovery/screen-map.md), [04 setup](../../design/2026-10-21-package-recovery/admin/04-draft-setup.png), [05 Live](../../design/2026-10-21-package-recovery/admin/05-live-event.png), [06 phone](../../design/2026-10-21-package-recovery/admin/06-phone-management.png), [11 feedback](../../design/2026-10-21-package-recovery/admin/11-dialogs-feedback.png), [Booth 05 lifecycle/access](../../design/2026-10-21-package-recovery/booth/05-pause-finish-access.png).
 
 Follow the [shared command/environment table](2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules). Update this capability’s rows in the [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md#acceptance-trace) with actual revision/command/result before closure; pending rows are not passing evidence.
+
+**Complete removal:** [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) applies. Delete this capability's obsolete UI, actions, routes, validation, helpers, exports and success fixtures/tests as their current flows become ready; update every shared caller. Retain no legacy reader, denial-only route or version-1 fallback. Record shared SQL dependencies for F8's package-only baseline. Reuse #9's current contracts and safety tests; do not redesign them.
 
 ## Review Focus
 
