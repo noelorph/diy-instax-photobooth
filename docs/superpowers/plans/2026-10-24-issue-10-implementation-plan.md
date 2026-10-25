@@ -12,11 +12,11 @@
 
 **Spec:** [Approved functional design](../specs/2026-10-24-issue-10-functional-breakdown-design.md), [replacement contract](../specs/2026-10-21-package-accounting-booth-recovery-design.md), [ADR-0027](../../adr/0027-draft-only-event-media.md).
 
-**Status:** Revised 2026-10-25 for the user-approved complete removal decision in [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md). The user approved the revised plan on 2026-10-25 and requested its documentation commit first. Publication and implementation are on hold until the user says to start. #9 remains accepted and closed; #10 remains open. Checkpoint `1de2272` preserves the pre-revision docs. This task commits the approved docs only; no publication, implementation, database reset or push is authorized.
+**Status:** The user approved the revised complete-removal plan on 2026-10-25 under [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md); the approved documentation was committed as `0bd7503` after checkpoint `1de2272`. The user then clarified that approval recording and GitHub publication may proceed while implementation remains on hold. #10 and F1–F8 (#29–#36) are published and read-back verified. #9 remains accepted and closed; #10 and all children remain open. No application implementation, database reset, physical test or push is authorized. The user subsequently authorized committing this publication-record update.
 
 ## Global Constraints
 
-- **The #9 software prerequisite is satisfied.** Before F1–F8 execution, verify accepted candidate `2f89a96` and the [dated software acceptance](../../implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25), then reconcile source references with the execution revision. Plan approval is recorded; publication, a later implementation instruction and capability prerequisites remain required; #9 repairs are outside these plans.
+- **The #9 software prerequisite is satisfied.** Before F1–F8 execution, verify accepted candidate `2f89a96` and the [dated software acceptance](../../implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25), then reconcile source references with the execution revision. Plan approval and publication authorization are recorded; a later implementation instruction and capability prerequisites remain required; #9 repairs are outside these plans.
 - All existing data is disposable development/test data; the client has not bought the project. Remove legacy feature specs/plans from the maintained tree and use Git history as the archive. Do not build legacy readers, snapshots, Draft conversion/review or compatibility fallbacks. Keep dated #9/physical evidence clearly separate from work orders.
 - One Admin, one booth, one printer, at most one Live Event and one unresolved Print Attempt. Use `PRINTS_PER_PACKAGE = 10`, `MAX_TOTAL_PACKAGES = 214_748_364`, `STATE_POLL_MS = 2_000`, `READINESS_MAX_AGE_MS = 5_000`, five-minute handoff, 24-hour renewable grant idle expiry and two-minute bounded late Capture window from #9; do not create alternate values.
 - Use `PrinterAdapterV2`, `SimulatedPrinterV2`, `BrowserBoothMetadataJournal`, `dispatchReservedAttempt` and `recordAndReportObservation`. Simulation stays nonproduction. #17 gates physical automatic completion/recovery; #7 gates actual-iPad release.
@@ -37,9 +37,9 @@
 
 ## Capability plans and dependencies
 
-Each row is **one GitHub sub-issue**, not a separate UI/API/database/testing phase. F1–F8 are local identifiers until publication. Human review diagrams are separate from agent execution instructions.
+Each row is **one GitHub sub-issue**, not a separate UI/API/database/testing phase. F1–F8 are stable capability identifiers mapped to published GitHub issues #29–#36 in the publication table below. Human review diagrams are separate from agent execution instructions.
 
-| ID / proposed issue title                                            | Plan                                                    | Prerequisites besides #9 | Independently demonstrable outcome                                 |
+| ID / approved issue title                                            | Plan                                                    | Prerequisites besides #9 | Independently demonstrable outcome                                 |
 | -------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------ |
 | F1: Complete Admin access and account management                     | [F1](2026-10-24-issue-10-f1-admin-access.md)            | None                     | Sign in/recover/manage account with correct session boundaries     |
 | F2: Complete Event preparation and private media                     | [F2](2026-10-24-issue-10-f2-event-preparation-media.md) | F1                       | Valid Draft, private media, safe cancellation/deletion             |
@@ -130,39 +130,39 @@ Every applicable capability verifies persistent errors, loading/empty/disabled s
 
 Each child records controls, callers, actions, routes, SQL objects, fixtures and tests affected. Delete obsolete application paths in their owning task; remove shared database remnants and the old migration chain in F8 with the complete baseline. No old-record settlement/conversion, historical reader or legacy migration remains. Preserve required current security and calibration behavior; dated evidence can name removed features without becoming executable work.
 
-## Publication tasks — approved, on hold until the user says to start
+## Publication record — completed 2026-10-25
 
 ### P1: Record approval and prepare the parent amendment plus eight issue bodies
 
-- [x] User approved the revised implementation/publication plan on 2026-10-25 and requested its documentation commit before further work. Publication and implementation remain on hold under the user's explicit “Do not start yet” instruction.
-- [ ] Read #10's native sub-issues and existing blockers with `gh api repos/noelorph/diy-instax-photobooth/issues/10/sub_issues --paginate` and `gh api repos/noelorph/diy-instax-photobooth/issues/10/dependencies/blocked_by --paginate`. Reuse a matching child after partial publication.
-- [ ] Prepare eight UTF-8 body files from the child plans, including purpose, complete scope, non-goals, task checklist, exact design references, contract reuse, dependencies, owned acceptance-trace rows, test commands/environments, retirement ownership and Ponytail full requirement. Include `Part of #10` and the satisfied #9 prerequisite with its evidence. Include plan/trace content in the body when local links are not yet available on GitHub; never publish broken branch links as the only instructions.
-- [ ] Prepare the exact #10 parent amendment from [the local publication draft](../../github-issue-update-drafts.md#issue-10-approved-body-awaiting-publication). Preserve all unchanged Admin/Guest/media/recovery scope, accepted #9 prerequisite and #17/#7 limits; replace legacy preservation/conversion with complete removal and fresh installation. Keep #9 closed and its original acceptance/evidence intact.
-- [ ] Check the parent amendment and all eight bodies against the approved dependency and retirement tables. Leave triage labels unset while blocked; do not apply `ready-for-agent`, assign owners, close issues or publish #17/#7 drafts.
+- [x] User approved the revised implementation/publication plan on 2026-10-25; documentation commit `0bd7503` records it. The user subsequently clarified that approval recording, #10/F1–F8 publication, dependency verification and local issue-link updates may proceed. Application implementation remains on hold.
+- [x] Read #10's native sub-issues and existing blockers with `gh api repos/noelorph/diy-instax-photobooth/issues/10/sub_issues --paginate` and `gh api repos/noelorph/diy-instax-photobooth/issues/10/dependencies/blocked_by --paginate`. Reuse a matching child after partial publication.
+- [x] Prepare eight UTF-8 body files from the child plans, including purpose, complete scope, non-goals, task checklist, exact design references, contract reuse, dependencies, owned acceptance-trace rows, test commands/environments, retirement ownership and Ponytail full requirement. Include `Part of #10` and the satisfied #9 prerequisite with its evidence. Include plan/trace content in the body when local links are not yet available on GitHub; never publish broken branch links as the only instructions.
+- [x] Prepare the exact #10 parent amendment from [the published parent body](../../github-issue-update-drafts.md#issue-10-published-body). Preserve all unchanged Admin/Guest/media/recovery scope, accepted #9 prerequisite and #17/#7 limits; replace legacy preservation/conversion with complete removal and fresh installation. Keep #9 closed and its original acceptance/evidence intact.
+- [x] Check the parent amendment and all eight bodies against the approved dependency and retirement tables. Leave triage labels unset while blocked; do not apply `ready-for-agent`, assign owners, close issues or publish #17/#7 drafts.
 
 ### P2: Publish the parent amendment and native child dependencies
 
-- [ ] After the user says to start publication, update #10 with the exact reviewed parent body using `gh issue edit 10 --body-file <prepared-file>` and read it back. Do not edit #9 or publish #17/#7 drafts. This current docs-only task performs none of these writes.
-- [ ] For each missing child, use `gh issue create --repo noelorph/diy-instax-photobooth --parent 10 --title '<approved title>' --body-file '<prepared file>'`. Record the returned URL and numeric database ID before proceeding to the next child.
-- [ ] For each child, add #9 and every prerequisite in the table as native blockers using `gh api --method POST repos/noelorph/diy-instax-photobooth/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-database-id>`. Fetch existing edges first to avoid duplicate work. Keep #10's own #9 blocker.
-- [ ] Update child bodies with the assigned prerequisite numbers using `gh issue edit --body-file`. Preserve the revised parent scope and unrelated metadata. A failed operation is resumed from recorded IDs, not by creating another set of issues.
+- [x] Following the explicit publication authorization, update #10 with the exact reviewed parent body using `gh issue edit 10 --body-file <prepared-file>` and read it back. Do not edit #9 or publish #17/#7 drafts. Implementation remains on hold.
+- [x] For each missing child, use `gh issue create --repo noelorph/diy-instax-photobooth --parent 10 --title '<approved title>' --body-file '<prepared file>'`. Record the returned URL and numeric database ID before proceeding to the next child.
+- [x] For each child, add #9 and every prerequisite in the table as native blockers using `gh api --method POST repos/noelorph/diy-instax-photobooth/issues/<child>/dependencies/blocked_by -F issue_id=<blocker-database-id>`. Fetch existing edges first to avoid duplicate work. Keep #10's own #9 blocker.
+- [x] Update child bodies with the assigned prerequisite numbers using `gh issue edit --body-file`. Preserve the revised parent scope and unrelated metadata. A failed operation is resumed from recorded IDs, not by creating another set of issues.
 
 ### P3: Verify publication and complete the planning handoff
 
-- [ ] Read back every child's body, native parent and blockers; verify all eight are attached to #10 and match the dependency table. A body link alone is not native linkage.
-- [ ] Replace the pending values below with real issue numbers/URLs, link the plans from the approved design, and record publication status without claiming implementation completion.
-- [ ] The initial approved documentation commit was requested on 2026-10-25. Validate any later publication-record changes with local links, Prettier and `git diff --check`; follow the user's later commit instructions. No push or application execution is part of publication.
+- [x] Read back every child's body, native parent and blockers; verify all eight are attached to #10 and match the dependency table. A body link alone is not native linkage.
+- [x] Replace the pending values below with real issue numbers/URLs, link the plans from the approved design, and record publication status without claiming implementation completion.
+- [x] Verified the publication-record changes: local links/anchors and published plan snapshots match; all 27 changed Markdown files pass Prettier and `git diff --check`. The initial approved documentation commit is `0bd7503`. The user subsequently authorized committing these publication records after verifying their relation to the published issues. No push or application execution occurred.
 
-| Local ID | GitHub sub-issue | Publication status            |
-| -------- | ---------------- | ----------------------------- |
-| F1       | Pending          | Approved; publication on hold |
-| F2       | Pending          | Approved; publication on hold |
-| F3       | Pending          | Approved; publication on hold |
-| F4       | Pending          | Approved; publication on hold |
-| F5       | Pending          | Approved; publication on hold |
-| F6       | Pending          | Approved; publication on hold |
-| F7       | Pending          | Approved; publication on hold |
-| F8       | Pending          | Approved; publication on hold |
+| Local ID | GitHub sub-issue                                                   | Publication status               |
+| -------- | ------------------------------------------------------------------ | -------------------------------- |
+| F1       | [#29](https://github.com/noelorph/diy-instax-photobooth/issues/29) | Verified; implementation on hold |
+| F2       | [#30](https://github.com/noelorph/diy-instax-photobooth/issues/30) | Verified; implementation on hold |
+| F3       | [#31](https://github.com/noelorph/diy-instax-photobooth/issues/31) | Verified; implementation on hold |
+| F4       | [#32](https://github.com/noelorph/diy-instax-photobooth/issues/32) | Verified; implementation on hold |
+| F5       | [#33](https://github.com/noelorph/diy-instax-photobooth/issues/33) | Verified; implementation on hold |
+| F6       | [#34](https://github.com/noelorph/diy-instax-photobooth/issues/34) | Verified; implementation on hold |
+| F7       | [#35](https://github.com/noelorph/diy-instax-photobooth/issues/35) | Verified; implementation on hold |
+| F8       | [#36](https://github.com/noelorph/diy-instax-photobooth/issues/36) | Verified; implementation on hold |
 
 ## Completion and self-review
 
@@ -170,6 +170,6 @@ This revision is ready only after the full spec/plan reread, builder design chec
 
 Review each capability against the current PRD, architecture, glossary, ADR-0025/26/27/28/29, replacement contract and live #9/#10. Preserve the accepted #9 runtime requirements; explicitly account for its obsolete conversion work. Verify every removal has an owner, every shared interface/test environment agrees, and every acceptance row remains pending until implementation proves it. No legacy History/conversion task or “retain old migrations” instruction may survive as active guidance.
 
-The live issues were read on 2026-10-25: #9 is closed/accepted and #10 is open. Both still contain the earlier preservation scope; the local publication record identifies that difference and provides the approved #10 amendment for later publication. Do not silently treat a stale issue body as authority over ADR-0029, or claim it has already been updated.
+Read-back on 2026-10-25 verified the complete #10 body, all eight child bodies/native parents and 27 child blocker edges against the approved scope, dependency table, 23 tasks and 27 pending acceptance rows. #10 retains its own #9 dependency. #9's body, completed state, metadata and update timestamp are unchanged; its old preservation clauses remain dated evidence superseded for #10 by ADR-0029. The [publication record](../../github-issue-update-drafts.md#publication-verification-2026-10-25) records the result.
 
-The user approved the revised plan on 2026-10-25 and authorized committing the completed documentation first. They explicitly asked not to start yet. Wait for their start instruction before the remaining P1–P3 publication tasks; application implementation requires its later instruction. This approval/commit starts no code changes, resets no database, enables no real printing and closes no issue.
+The user has authorized publication and its documentation commit; application implementation remains on hold. P1–P3 and their documentation checks are complete; F1–F8 and all 27 implementation-evidence rows remain pending. Wait for a later explicit implementation instruction and the capability prerequisites. No code changes, database reset, physical test, issue closure or push occurred; the user authorized committing the related publication-record changes.

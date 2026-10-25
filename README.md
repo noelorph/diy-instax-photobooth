@@ -10,7 +10,7 @@ The target gives ten prints per booked/additional Film Package, counts confirmed
 
 Real printer-backed Booth Mode remains disabled until automatic normal full-ejection completion and required recovery procedures are physically qualified, followed by the actual iPad release trial. The [existing iPhone evidence](docs/qualification/issue-17-trial-report.md) is partial. Printer count is never inventory. Manual inspection is exceptional recovery, not normal per-print completion.
 
-The [#10 functional design](docs/superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md) and [Draft-only Event Media limits](docs/adr/0027-draft-only-event-media.md) were approved on 2026-10-24. The [main plan and eight capability plans](docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md) were revised and approved on 2026-10-25 with an [acceptance trace](docs/implementation/issue-10-retirement-and-acceptance.md), explicit test environments and early handoff/media proofs. The user clarified on 2026-10-25 that [monthly Events includes Draft, Live and Completed and excludes Cancelled](docs/adr/0028-define-monthly-event-count.md). The plan is approved. The user requested its documentation commit first and asked that publication and implementation wait. The #9 software checks and independent evidence review passed; GitHub #9 is closed as completed.
+The [#10 functional design](docs/superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md) and [Draft-only Event Media limits](docs/adr/0027-draft-only-event-media.md) were approved on 2026-10-24. The [main plan and eight capability plans](docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md) were revised and approved on 2026-10-25 with an [acceptance trace](docs/implementation/issue-10-retirement-and-acceptance.md), explicit test environments and early handoff/media proofs. The user clarified on 2026-10-25 that [monthly Events includes Draft, Live and Completed and excludes Cancelled](docs/adr/0028-define-monthly-event-count.md). The plan is approved. The approved documentation was committed as `0bd7503`, then the user authorized GitHub publication. F1–F8 are published as #29–#36; implementation remains on hold. The #9 software checks and independent evidence review passed; GitHub #9 is closed as completed.
 
 ## Read first
 
@@ -21,7 +21,7 @@ The [#10 functional design](docs/superpowers/specs/2026-10-24-issue-10-functiona
 - [Approved design mockups](docs/design/2026-10-21-package-recovery/index.html): the current visual reference for Admin, phone recovery and portrait Booth; [screen notes](docs/design/2026-10-21-package-recovery/screen-map.md).
 - [Documentation index](docs/README.md): active guides versus historical artifacts.
 - [Documentation review](docs/documentation-review.md): historical approval record; [implementation review](docs/implementation/issue-9-package-contracts-review.md): current software evidence and #10 handoff.
-- [GitHub issue publication record](docs/github-issue-update-drafts.md): accepted #9 and the revised unpublished #10 body; stale published preservation wording is explicitly superseded locally. #17/#7 drafts remain unpublished.
+- [GitHub issue publication record](docs/github-issue-update-drafts.md): accepted #9 and the published #10 complete-removal scope, child links and dependency verification. #17/#7 drafts remain unpublished.
 
 ## Local development of existing code
 

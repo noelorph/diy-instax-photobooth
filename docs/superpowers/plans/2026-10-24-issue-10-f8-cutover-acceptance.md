@@ -12,7 +12,9 @@
 
 **Spec:** [Functional design, F8](../specs/2026-10-24-issue-10-functional-breakdown-design.md#f8-fresh-package-only-installation-complete-removal-and-final-acceptance), [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md), replacement contract section 8. Parent #10; accepted #9 prerequisite plus **all F1–F7**. [Index/shared rules](2026-10-24-issue-10-implementation-plan.md).
 
-**Execution status:** Plan approved 2026-10-25. The user requested the documentation commit first; publication and implementation are on hold until a later start instruction.
+**Execution status:** Plan approved 2026-10-25. The approved documentation was committed as `0bd7503`; the user then authorized GitHub publication. Implementation remains on hold pending a later user instruction and all capability prerequisites.
+
+**Published issue:** [#36](https://github.com/noelorph/diy-instax-photobooth/issues/36), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Native prerequisites: [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) (completed), [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29), [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32), [F5 #33](https://github.com/noelorph/diy-instax-photobooth/issues/33), [F6 #34](https://github.com/noelorph/diy-instax-photobooth/issues/34), [F7 #35](https://github.com/noelorph/diy-instax-photobooth/issues/35). Published and read-back verified 2026-10-25; implementation remains on hold.
 
 ## Global Constraints
 

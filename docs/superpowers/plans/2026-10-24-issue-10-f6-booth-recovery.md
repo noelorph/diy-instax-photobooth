@@ -12,9 +12,11 @@
 
 **Spec:** [Approved design, F6](../specs/2026-10-24-issue-10-functional-breakdown-design.md#f6-booth-recovery-across-devices), replacement contract section 4. Parent #10; #9 prerequisite satisfied; additionally requires F3, F4 and F5. [Index/shared rules](2026-10-24-issue-10-implementation-plan.md).
 
+**Published issue:** [#34](https://github.com/noelorph/diy-instax-photobooth/issues/34), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Native prerequisites: [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) (completed), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32), [F5 #33](https://github.com/noelorph/diy-instax-photobooth/issues/33). Published and read-back verified 2026-10-25; implementation remains on hold.
+
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await publication and a later implementation instruction. The plan is approved; further work is on hold at the user's request. Nonproduction simulation only; #17/#7 remain physical gates.
+- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence. The plan and GitHub publication are approved; implementation remains on hold pending a later user instruction and the capability prerequisites. Nonproduction simulation only; #17/#7 remain physical gates.
 - Unknown print retains its hold and printer slot. No timeout, reload, package addition or missing journal clears it. Not printed inspection requires no ejection and no possible later output from the old job; full ejection counts Printed even if unusable.
 - Restore every blocker independently. A valid grant survives normal fault/pause; no ordinary sign-in/local takeover. Replacement stays Paused; Finishing/Finished cannot be replaced or resumed.
 - Dynamic readiness expires at 5,000 ms; visible polling/reporting every 2,000 ms plus focus/reconnect refresh. No old-photo retry, resend or printer-count inventory.

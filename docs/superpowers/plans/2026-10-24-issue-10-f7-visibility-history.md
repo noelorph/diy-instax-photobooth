@@ -12,9 +12,11 @@
 
 **Spec:** [Approved design, F7](../specs/2026-10-24-issue-10-functional-breakdown-design.md#f7-operational-visibility-and-retained-history). Parent #10; #9 prerequisite satisfied; additionally requires F2 and F3. [Index/shared rules](2026-10-24-issue-10-implementation-plan.md).
 
+**Published issue:** [#35](https://github.com/noelorph/diy-instax-photobooth/issues/35), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Native prerequisites: [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) (completed), [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31). Published and read-back verified 2026-10-25; implementation remains on hold.
+
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await publication and a later implementation instruction. The plan is approved; further work is on hold at the user's request. Authenticated/private reads only; no contact/photo copies in activity or logs.
+- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence. The plan and GitHub publication are approved; implementation remains on hold pending a later user instruction and the capability prerequisites. Authenticated/private reads only; no contact/photo copies in activity or logs.
 - Monthly Events counts nondeleted Draft, Live and Completed whose scheduled start falls in the current month in each Event's venue time zone; exclude Cancelled. Total Events booked also excludes Cancelled. Upcoming/Next use future scheduled starts of Draft/Live only. Never count by creation time. See [ADR-0028](../../adr/0028-define-monthly-event-count.md). Activity is newest first, **7/30-day filters**, **25 rows per page**, stable ID tie-breaker.
 - History is Completed/Cancelled and read-only, including retained contact/media. Only package-model Events exist after the disposable-data rebuild. Do not preserve/read/convert legacy totals, correction records or redaction state.
 - Use [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), [screen map](../../design/2026-10-21-package-recovery/screen-map.md), [01 dashboard](../../design/2026-10-21-package-recovery/admin/01-dashboard.png), [09 history](../../design/2026-10-21-package-recovery/admin/09-history.png) and read-only patterns in [05 detail/activity](../../design/2026-10-21-package-recovery/admin/05-live-event.png).

@@ -1,6 +1,6 @@
 # Issue #10 — sub-issue flowcharts
 
-**Approved design · 24 October 2026.** F1–F8 are the agreed capability groups, not GitHub issue numbers. The detailed plans were approved on 2026-10-25; publication and implementation are on hold at the user's request. The #9 software prerequisite passed verification and independent review; #9 is closed as completed. Implementation still awaits publication, a later start instruction and the capability prerequisites below.
+**Approved design · 24 October 2026.** F1–F8 are the agreed capability groups, now published as GitHub #29–#36. The detailed plans were approved on 2026-10-25, committed as `0bd7503` and published under your later instruction. Implementation remains on hold. The #9 software prerequisite passed verification and independent review; #9 is closed as completed. Implementation still awaits your later start instruction and the capability prerequisites below.
 
 For your review only, revised 2026-10-25 for complete legacy removal. Each chart shows user behavior. Agents use the written contracts and capability plans; these diagrams are not additional work orders. No implementation or fresh database install is claimed.
 
@@ -10,14 +10,15 @@ Prerequisite paths are shown without redundant transitive arrows. F8 waits for *
 
 ```mermaid
 flowchart TD
-  GATE["#9 verified and closed<br/>Prerequisite satisfied"] --> F1["F1<br/>Admin access and account"]
-  F1 --> F2["F2<br/>Event preparation and private media"]
-  F2 --> F3["F3<br/>Booked capacity and package additions"]
-  F3 --> F4["F4<br/>Booth setup, access and lifecycle"]
-  F4 --> F5["F5<br/>Guest capture-to-print journey"]
-  F5 --> F6["F6<br/>Recovery across devices"]
-  F3 --> F7["F7<br/>Operational visibility and history"]
-  F6 --> F8["F8<br/>Complete removal and fresh installation"]
+  GATE["#9 verified and closed<br/>Prerequisite satisfied"] --> HOLD["Publication verified<br/>Wait for implementation instruction"]
+  HOLD --> F1["F1 / #29<br/>Admin access and account"]
+  F1 --> F2["F2 / #30<br/>Event preparation and private media"]
+  F2 --> F3["F3 / #31<br/>Booked capacity and package additions"]
+  F3 --> F4["F4 / #32<br/>Booth setup, access and lifecycle"]
+  F4 --> F5["F5 / #33<br/>Guest capture-to-print journey"]
+  F5 --> F6["F6 / #34<br/>Recovery across devices"]
+  F3 --> F7["F7 / #35<br/>Operational visibility and history"]
+  F6 --> F8["F8 / #36<br/>Complete removal and fresh installation"]
   F7 --> F8
   F8 --> DONE["#10 complete<br/>Nonproduction acceptance only"]
 ```

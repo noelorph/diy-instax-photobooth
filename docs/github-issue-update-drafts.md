@@ -1,6 +1,6 @@
-# Issue publication status and revised drafts
+# GitHub issue publication record and remaining drafts
 
-**Read-back, 2026-10-25:** GitHub #9 is closed as completed; #10 is open. Their live descriptions were last updated at 2026-10-24T16:43:43Z and 2026-10-24T16:43:54Z respectively. This documentation task makes no GitHub changes. The complete-removal revision below is **approved on 2026-10-25, unpublished, and on hold at the user's request**. #17/#7 drafts remain unpublished.
+**Published and read-back verified, 2026-10-25:** #10 contains the approved complete-removal scope and eight native children, F1–F8 (#29–#36). The user approved the plans, requested documentation commit `0bd7503` first, then explicitly authorized issue publication and this local record. Implementation remains on hold. #9 stays closed as completed; #10 and all children stay open. #17/#7 drafts below remain unpublished. The user subsequently authorized committing these publication records; nothing was pushed.
 
 ## Issue #9 accepted prerequisite
 
@@ -8,13 +8,28 @@
 
 Keep its current package accounting, lifecycle, current authorization after locks, scoped grants, receipts, concurrency, one-send dispatch, readiness, reconciliation and simulator evidence policy in #10. Do not reopen #9 or rewrite its historical result. Its legacy conversion/snapshot safeguards were accepted under the former data-preservation decision; [ADR-0029](adr/0029-remove-legacy-features-and-reset-development-schema.md) now schedules those obsolete parts for removal in #10.
 
-## Published wording versus current local scope
+## Published wording and current scope
 
-Live #9/#10 still describe old-Draft conversion, original-total preservation, historical readers and retained applied migrations. Those clauses are dated external context, not the current #10 work order. ADR-0029 and the revised local plans control the selected removal scope. Later publication must replace #10's preservation section before publishing F1–F8, while retaining the accepted #9 prerequisite and #17/#7 limits. Until read-back confirms that publication, do not claim the live issue is aligned or implemented.
+#10 now requires complete legacy removal and a fresh package-only installation under ADR-0029. F1–F7 remove their obsolete application paths; F8 completes shared removal and replaces the migration chain while preserving and reverifying current #9 contracts. No legacy History reader, Draft conversion/review, snapshot/import, activation/preflight machinery or version-1 fallback is a completion requirement.
 
-## Issue #10 approved body awaiting publication
+#9's unchanged body retains the preservation policy under which its work was accepted. That is dated evidence, not current #10 scope; ADR-0029 supersedes those clauses without rewriting #9's result. #10 publication is not implementation acceptance.
 
-The text below is the exact proposed parent body. The revised plan is approved. The user requested the documentation commit first and explicitly asked not to start yet. Wait for their instruction before publication; child publication then follows P1–P3.
+## Publication verification 2026-10-25
+
+Read-back at **2026-10-25 13:42 UTC** compared the complete live bodies with the prepared approved text and checked GitHub's native parent/dependency APIs:
+
+- #10 matches the approved complete-removal body and published capability map. Its title, open state, label, assignees and milestone are unchanged; its native prerequisite remains #9.
+- F1–F8 (#29–#36) match their full plan/scope/task/verification snapshots and owned acceptance rows. All eight have native parent #10 and exactly the approved **27 child blocker edges**, including the completed #9 on every child.
+- All **23 implementation tasks** and **27 acceptance rows** remain pending. No readiness labels or assignees were added; no child was closed.
+- #9's body, completed state, metadata and update timestamp are unchanged. Its accepted evidence remains linked in every child.
+- The pre-publication reread corrected one F4 instruction that still said to retain converted-booking review guards; it now removes them with F2's retired review workflow, as required by ADR-0029.
+- The [main plan's publication table](superpowers/plans/2026-10-24-issue-10-implementation-plan.md#publication-record--completed-2026-10-25) and each child plan record the issue URLs and prerequisites. Current status docs distinguish completed publication from implementation still on hold.
+
+The child bodies reproduce approved plan/trace content because the local documentation commit has not been pushed. Repository references are explicitly paths to read locally; no unavailable branch link is the only instruction. The local acceptance trace remains the source of execution evidence. No code, database, physical test or hosted deployment action accompanied publication.
+
+## Issue #10 published body
+
+The following is the body read back from [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10); heading levels are nested here for this document. The issue links below are the resulting native children, not completed work.
 
 ### Goal
 
@@ -24,7 +39,7 @@ Complete the first-release Admin and Booth application using the approved packag
 
 The [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) software prerequisite is satisfied, and #9 is closed as completed. The package-addition/reload authorization finding and Profile focus assertion are resolved and independently reviewed. Reviewed candidate `2f89a96afee2dfdc2a1d540cbcc3c0ee4380bbbb` passed 901/901 tests across 53 files, required static/build/SQL checks, and all three browser gates (19 + 2 + 1 tests). See the [published #9 acceptance evidence](https://github.com/noelorph/diy-instax-photobooth/issues/9#issuecomment-6386836261).
 
-The eight-capability design and complete legacy-removal decision are approved. The revised implementation/publication plan was approved on 2026-10-25; #10 implementation has not started. Publish the eight capability sub-issues (F1–F8) before their later authorized implementation. The local plan is `docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md`.
+The eight-capability design and complete legacy-removal decision are approved. The revised implementation/publication plan was approved on 2026-10-25; #10 implementation has not started. The eight capability sub-issues (F1–F8) were published on 2026-10-25 following explicit user authorization. Implementation remains on hold until a later explicit user instruction and the capability prerequisites are satisfied. The local plan is `docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md`.
 
 This issue remains open for the complete application integration, complete legacy removal, fresh installation, and acceptance below. #9's software verification does not establish #10's integrated acceptance or the #17/#7 physical gates.
 
@@ -98,6 +113,21 @@ Real-printer enablement requires physically qualified automatic normal full-ejec
 - `docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md`
 - `docs/booth-user-flow.md`
 - `docs/qualification/booth-recovery-proof-checklist.md`
+
+### Capability sub-issues and prerequisites
+
+All eight are native sub-issues of #10. Each also records the already-completed #9 as a satisfied native dependency. The table lists additional prerequisites; all implementation and acceptance evidence remains pending. No child is assigned or marked ready for implementation.
+
+| Capability                                                           | Sub-issue                                                          | Prerequisites besides #9                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        |
+| -------------------------------------------------------------------- | ------------------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| F1: Complete Admin access and account management                     | [#29](https://github.com/noelorph/diy-instax-photobooth/issues/29) | None                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            |
+| F2: Complete Event preparation and private media                     | [#30](https://github.com/noelorph/diy-instax-photobooth/issues/30) | [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29)                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| F3: Complete booked capacity and Additional Film Packages            | [#31](https://github.com/noelorph/diy-instax-photobooth/issues/31) | [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30)                                                                                                                                                                                                                                                                                                                                                                                                                                           |
+| F4: Complete Booth setup, access and lifecycle                       | [#32](https://github.com/noelorph/diy-instax-photobooth/issues/32) | [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29), [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31)                                                                                                                                                                                                                                                                                             |
+| F5: Complete the Guest capture-to-print journey                      | [#33](https://github.com/noelorph/diy-instax-photobooth/issues/33) | [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32)                                                                                                                                                                                                                                                                                                                                                                    |
+| F6: Complete Booth recovery across devices                           | [#34](https://github.com/noelorph/diy-instax-photobooth/issues/34) | [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32), [F5 #33](https://github.com/noelorph/diy-instax-photobooth/issues/33)                                                                                                                                                                                                                                                                                             |
+| F7: Complete operational visibility and retained history             | [#35](https://github.com/noelorph/diy-instax-photobooth/issues/35) | [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31)                                                                                                                                                                                                                                                                                                                                                                    |
+| F8: Complete legacy removal, fresh installation and final acceptance | [#36](https://github.com/noelorph/diy-instax-photobooth/issues/36) | [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29), [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32), [F5 #33](https://github.com/noelorph/diy-instax-photobooth/issues/33), [F6 #34](https://github.com/noelorph/diy-instax-photobooth/issues/34), [F7 #35](https://github.com/noelorph/diy-instax-photobooth/issues/35) |
 
 ## Issue #17 — physical printer evidence
 

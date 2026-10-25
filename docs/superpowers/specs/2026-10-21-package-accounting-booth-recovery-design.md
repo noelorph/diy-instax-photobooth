@@ -1,6 +1,6 @@
 # Package accounting, access and Booth recovery contract
 
-**Status:** Approved target design, 2026-10-21. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; [issue #9 review](../../implementation/issue-9-package-contracts-review.md) records passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing UI remains on legacy flows until #10. Hosted deployment and #17/#7 physical qualification remain open. Section 8 was revised under ADR-0029 on 2026-10-25; the #10 plan is now approved. Publication and implementation are on hold at the user's request.
+**Status:** Approved target design, 2026-10-21. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; [issue #9 review](../../implementation/issue-9-package-contracts-review.md) records passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. Existing UI remains on legacy flows until #10. Hosted deployment and #17/#7 physical qualification remain open. Section 8 was revised under ADR-0029 on 2026-10-25; the #10 plan is now approved. F1–F8 are published as #29–#36; implementation remains on hold at the user's request.
 **Decision:** [ADR-0025](../../adr/0025-package-accounting-and-booth-recovery.md).
 **Replaces:** The obsolete 2026-10-16 contract and earlier feature specs/plans, available only in Git history at checkpoint `1de2272`. [Documentation index](../../README.md) identifies authority and history.
 
@@ -255,7 +255,7 @@ Completed/Cancelled Events created under the current package model retain Client
 4. Verify the fresh schema, RLS/grants, stale-client rejection with unchanged data, package-only defaults, every current #9 regression and the complete F1–F7 application. Check independent installation and the final full suite after rebuilding the dedicated local test stack. The accepted #9 results certify their original revision only.
 5. This plan does not reset hosted databases, deploy, publish issues or qualify physical printing. A later release uses a newly provisioned package-only environment. If real retained data appears before execution, stop and revisit ADR-0029 rather than applying this development reset policy.
 
-The [#9 verification record](../../implementation/issue-9-package-contracts-review.md) remains dated evidence. Its old conversion safeguards were valid under the previous decision and are now scheduled for deletion; current package accounting, access, receipts, one-send behavior and recovery remain required. The #10 implementation/publication plan is approved; publication and implementation are on hold at the user's request.
+The [#9 verification record](../../implementation/issue-9-package-contracts-review.md) remains dated evidence. Its old conversion safeguards were valid under the previous decision and are now scheduled for deletion; current package accounting, access, receipts, one-send behavior and recovery remain required. The #10 implementation/publication plan is approved; F1–F8 are published as #29–#36; implementation remains on hold at the user's request.
 
 ## 9. Acceptance for later implementation
 

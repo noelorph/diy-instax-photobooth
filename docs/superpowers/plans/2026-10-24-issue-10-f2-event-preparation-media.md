@@ -12,9 +12,11 @@
 
 **Spec:** [Approved design, F2](../specs/2026-10-24-issue-10-functional-breakdown-design.md#f2-event-preparation-and-private-media), [ADR-0027](../../adr/0027-draft-only-event-media.md). Parent #10; #9 prerequisite satisfied; additionally requires F1. [Index/shared rules](2026-10-24-issue-10-implementation-plan.md).
 
+**Published issue:** [#30](https://github.com/noelorph/diy-instax-photobooth/issues/30), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Native prerequisites: [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) (completed), [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29). Published and read-back verified 2026-10-25; implementation remains on hold.
+
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await publication and a later implementation instruction. The plan is approved; further work is on hold at the user's request. No hosted activation, new accounting rule or Guest-image upload.
+- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence. The plan and GitHub publication are approved; implementation remains on hold pending a later user instruction and the capability prerequisites. No hosted activation, new accounting rule or Guest-image upload.
 - Original packages are whole `0..214_748_364`; total is `packages × 10`. Zero saves but cannot start. Reject stale revisions, invalid IANA zones, nonexistent/ambiguous local times and end ≤ start.
 - Draft creation uses one stable actor-scoped `operationId` and normalized payload per submitted save. A committed save with a lost response recovers the same Event and creation audit; changing the payload under that key is a conflict, never another insert.
 - Media upload/replace/remove is Draft-only, including final commit checks. Still JPEG/PNG/WebP ≤10,000,000 bytes; reject animation. MP4 H.264/AVC ≤50,000,000 bytes and `0 < duration ≤ 30` seconds. Preserve old media on failure; no conversion/trimming/editing; terminal media stays retained.

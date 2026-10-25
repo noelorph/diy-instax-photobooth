@@ -12,9 +12,11 @@
 
 **Spec:** [Approved design, F5](../specs/2026-10-24-issue-10-functional-breakdown-design.md#f5-guest-capture-to-print-journey), [ADR-0026](../../adr/0026-order-captures-by-shutter-time.md), replacement contract sections 3–5. Parent #10; #9 prerequisite satisfied; additionally requires F2 and F4. [Index/shared rules](2026-10-24-issue-10-implementation-plan.md).
 
+**Published issue:** [#33](https://github.com/noelorph/diy-instax-photobooth/issues/33), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Native prerequisites: [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) (completed), [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F4 #32](https://github.com/noelorph/diy-instax-photobooth/issues/32). Published and read-back verified 2026-10-25; implementation remains on hold.
+
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence and await publication and a later implementation instruction. The plan is approved; further work is on hold at the user's request. Simulator is nonproduction; command acceptance is not full ejection or completion.
+- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence. The plan and GitHub publication are approved; implementation remains on hold pending a later user instruction and the capability prerequisites. Simulator is nonproduction; command acceptance is not full ejection or completion.
 - Welcome → Start → mirrored preview → Take Photo → **3–2–1** → unmirrored matching crop/review → Retake or Print. **Print complete** lasts **3 seconds**, only after full ejection and server acknowledgement.
 - Warn at **75 seconds**, discard/end at **90 seconds** in preview/review; Continue resets. No Guest inactivity timer during countdown/printing.
 - Count completed shutters once, including Retakes. Latest acknowledged `captured_at` governs; equal timestamps permit the selected Capture. Reservation/dispatch recheck it without substitution. Preserve #9's two-minute bounded metadata-only terminal reconciliation.
