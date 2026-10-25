@@ -16,12 +16,14 @@ function ProfileForm({
   pendingText,
   children,
   showConfirmation = true,
+  secondary = false,
 }: {
   action: ProfileAction;
   title: string;
   pendingText: string;
   children?: (state: ProfileState, id: string, pending: boolean) => ReactNode;
   showConfirmation?: boolean;
+  secondary?: boolean;
 }) {
   const id = useId();
   const feedback = useRef<HTMLDivElement>(null);
@@ -63,7 +65,12 @@ function ProfileForm({
           {state.confirmation}
         </FormFeedback>
       ) : null}
-      <Button type="submit" disabled={pending} className="w-full justify-self-start sm:w-auto">
+      <Button
+        type="submit"
+        variant={secondary ? 'secondary' : 'default'}
+        disabled={pending}
+        className="w-full justify-self-start sm:w-auto"
+      >
         {title}
       </Button>
       {pending ? (
@@ -188,6 +195,9 @@ export function Profile({
                   </NativeSelect>
                 )}
               </FormField>
+              <p className="m-0 text-sm text-ds-text-muted">
+                Booth Mode keeps its own dark appearance.
+              </p>
             </>
           )}
         </ProfileForm>
@@ -246,7 +256,7 @@ export function Profile({
             Sign out of Admin on this device. Your other devices stay signed in.
           </p>
         </div>
-        <ProfileForm action={signOutAction} title="Sign out" pendingText="Signing out…" />
+        <ProfileForm action={signOutAction} title="Sign out" pendingText="Signing out…" secondary />
       </section>
     </div>
   );

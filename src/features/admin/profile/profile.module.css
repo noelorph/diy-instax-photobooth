@@ -1,11 +1,14 @@
 .content {
-  max-width: 60rem;
+  max-width: 80rem;
 }
 .section {
   display: grid;
   gap: 1rem;
-  padding-block: 1.5rem;
-  border-top: 1px solid var(--color-border-subtle);
+  margin-block: 1rem;
+  padding: 1.5rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0.75rem;
+  background: var(--color-surface);
 }
 .sectionDescription {
   min-width: 0;
@@ -21,7 +24,7 @@
 }
 @media (min-width: 1024px) {
   .section {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1.5fr);
+    grid-template-columns: minmax(0, 1fr) minmax(0, 2fr);
     gap: 2rem;
   }
 }
