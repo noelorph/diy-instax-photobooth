@@ -23,14 +23,36 @@ const event = {
   attemptsPage: 0,
   hasOlderAttempts: false,
   usableTestConnectionIds: [],
-  redacted: false,
-  mediaRemovalState: 'none',
 };
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
 });
 describe('Admin operations', () => {
+  it('cancels a Draft using the package operation contract', async () => {
+    let body: object | undefined;
+    vi.stubGlobal('fetch', async (_path: string, options: RequestInit) => {
+      body = JSON.parse(String(options.body));
+      return Response.json({ state: 'Cancelled' });
+    });
+    render(
+      <OperationsPanel
+        event={{ ...event, state: 'Draft', eventUnresolved: 0 }}
+        simulatorEnabled={false}
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Cancel Event' }));
+    fireEvent.click(screen.getAllByRole('button', { name: 'Cancel Event' }).at(-1)!);
+    await screen.findByRole('status');
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(body).toEqual({ operationId: expect.any(String), expectedRevision: 3 });
+  });
+  it('retains terminal records without redaction or deletion controls', () => {
+    render(<OperationsPanel event={{ ...event, state: 'Cancelled' }} simulatorEnabled={false} />);
+    expect(screen.queryByRole('button', { name: 'Redact Client' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Delete Draft' })).toBeNull();
+    expect(screen.queryByLabelText(/replacement title/i)).toBeNull();
+  });
   it('labels available and reserved resources and gates physical operation', () => {
     render(<OperationsPanel event={event} simulatorEnabled={false} />);
     expect(screen.getByText('7 prints available')).toBeTruthy();
@@ -274,35 +296,8 @@ it('submits stock and allowance effects only after explicit actions', async () =
   expect(submitted).toHaveLength(2);
   expect(screen.getByRole('dialog').textContent).toMatch(/observed 5 sheets/);
 });
-it('does not report deletion complete while media is pending', async () => {
-  vi.stubGlobal(
-    'fetch',
-    vi.fn().mockResolvedValue(Response.json({ mediaRemovalState: 'pending', revision: 4 }))
-  );
-  render(
-    <OperationsPanel
-      event={{
-        ...event,
-        state: 'Draft',
-        stockReserved: 0,
-        allowanceReserved: 0,
-        eventUnresolved: 0,
-      }}
-      simulatorEnabled
-    />
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'Delete Draft' }));
-  expect(screen.getByRole('dialog').textContent).toMatch(
-    /Opaque operational history and Film Stock effects are retained/
-  );
-  fireEvent.click(screen.getAllByRole('button', { name: 'Delete Draft' }).at(-1)!);
-  await waitFor(() =>
-    expect(screen.getByRole('status').textContent).toMatch(/Media removal pending/)
-  );
-});
-
-it.each(['Draft', 'Live', 'Completed'])(
-  'allows Event-local actions for %s despite another Event hold',
+it.each(['Draft', 'Live'])(
+  'allows Event-local cancellation for %s despite another Event hold',
   (state) => {
     render(
       <OperationsPanel
@@ -310,13 +305,12 @@ it.each(['Draft', 'Live', 'Completed'])(
         simulatorEnabled
       />
     );
-    const name =
-      state === 'Draft' ? 'Delete Draft' : state === 'Completed' ? 'Redact Client' : 'Cancel Event';
-    expect((screen.getByRole('button', { name }) as HTMLButtonElement).disabled).toBe(false);
-    if (state !== 'Completed')
-      expect(
-        (screen.getByRole('button', { name: 'Reconcile Film Stock' }) as HTMLButtonElement).disabled
-      ).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: 'Cancel Event' }) as HTMLButtonElement).disabled
+    ).toBe(false);
+    expect(
+      (screen.getByRole('button', { name: 'Reconcile Film Stock' }) as HTMLButtonElement).disabled
+    ).toBe(true);
   }
 );
 it('offers older attempts and derives readiness independently of the displayed page', () => {

@@ -20,6 +20,7 @@ import { createPackageFixture } from '../fixtures/package-contract';
 import { localOwnerSql, localSupabaseStatus } from '../fixtures/local-supabase';
 import { sessionCookies } from '../fixtures/admin-route-server';
 import { POST as deleteDraft } from '@/app/api/admin/events/[eventId]/delete-draft/route';
+import { listPendingMediaRemovals } from '@/lib/events/history';
 
 beforeAll(() => {
   const status = localSupabaseStatus();
@@ -36,6 +37,27 @@ it('uses a stable distinct operation ID for completing an uncertain Draft cleanu
   expect(cleanupOperationId(begin)).not.toBe(begin);
   expect(cleanupOperationId(begin)).toBe(cleanupOperationId(begin));
 });
+it('recovers the original deletion request for pending cleanup after navigation', async () => {
+  const fixture = await createPackageFixture();
+  try {
+    const cookie = sessionCookies((await fixture.adminClient.auth.getSession()).data.session!);
+    for (const pair of cookie.split('; ')) {
+      const [name, value] = pair.split('=');
+      jar.set(name, value);
+    }
+    const key = randomUUID();
+    const begun = await fixture.admin('begin_delete_draft', { expectedRevision: 1 }, key);
+    expect(begun.error).toBeNull();
+    const pending = await listPendingMediaRemovals();
+    expect(pending).toEqual({
+      status: 'success',
+      removals: [{ eventId: fixture.eventId, revision: 1, operationId: key }],
+    });
+  } finally {
+    jar.clear();
+    await fixture.dispose();
+  }
+}, 30_000);
 
 it('retries a partial Storage failure and removes every page before reporting success', async () => {
   const remaining = new Set(
@@ -43,7 +65,7 @@ it('retries a partial Storage failure and removes every page before reporting su
   );
   let failOnce = true;
   const storage = {
-    list: async (_prefix: string, { limit, offset }: { limit: number; offset: number }) => ({
+    list: async (_prefix: string, { limit, offset = 0 }: { limit: number; offset?: number }) => ({
       data: [...remaining]
         .sort()
         .slice(offset, offset + limit)
@@ -60,6 +82,19 @@ it('retries a partial Storage failure and removes every page before reporting su
     },
   };
   const client = {
+    from: (table: string) => ({
+      select: () => ({
+        eq: () =>
+          table === 'events'
+            ? {
+                single: async () => ({
+                  data: { state: 'Draft', deleted_at: '2026-10-26' },
+                  error: null,
+                }),
+              }
+            : Promise.resolve({ data: [], error: null }),
+      }),
+    }),
     storage: {
       getBucket: async () => ({ error: null }),
       from: () => storage,
@@ -96,6 +131,9 @@ it('completes Draft deletion once and preserves only opaque audit after replay',
     const first = await call();
     expect(first.status).toBe(200);
     expect((await first.json()).mediaRemovalState).toBe('complete');
+    expect(
+      (await fixture.local.service.storage.from('event_media').list(fixture.eventId)).data
+    ).toEqual([]);
     const second = await call();
     expect(second.status).toBe(200);
     expect((await second.json()).mediaRemovalState).toBe('complete');
@@ -123,33 +161,45 @@ it('completes Draft deletion once and preserves only opaque audit after replay',
   }
 }, 30000);
 
-it('denies deletion of a Live Event without erasing its details', async () => {
-  const fixture = await createPackageFixture();
-  try {
-    fixture.seedRun();
-    const session = (await fixture.adminClient.auth.getSession()).data.session!;
-    const cookie = sessionCookies(session);
-    for (const pair of cookie.split('; ')) {
-      const [name, value] = pair.split('=');
-      jar.set(name, value);
+it.each(['Live', 'Draft with a previous run'])(
+  'denies deletion of %s without erasing its details',
+  async (state) => {
+    const fixture = await createPackageFixture();
+    try {
+      fixture.seedRun(state === 'Live' ? 'Active' : 'Finished');
+      if (state !== 'Live')
+        localOwnerSql(
+          `update public.events set state='Draft',revision=revision+1 where id='${fixture.eventId}'`
+        );
+      const session = (await fixture.adminClient.auth.getSession()).data.session!;
+      const cookie = sessionCookies(session);
+      for (const pair of cookie.split('; ')) {
+        const [name, value] = pair.split('=');
+        jar.set(name, value);
+      }
+      const response = await deleteDraft(
+        new Request('https://booth.test/api/admin/delete-draft', {
+          method: 'POST',
+          headers: { origin: 'https://booth.test', cookie, 'content-type': 'application/json' },
+          body: JSON.stringify({
+            operationId: randomUUID(),
+            expectedRevision: state === 'Live' ? 2 : 3,
+          }),
+        }),
+        { params: Promise.resolve({ eventId: fixture.eventId }) }
+      );
+      expect(response.status).toBe(409);
+      expect((await response.json()).code).toBe('invalid_transition');
+      expect(
+        localOwnerSql(`select title,deleted_at from public.events where id='${fixture.eventId}'`)[0]
+      ).toMatchObject({ title: 'Package fixture', deleted_at: null });
+    } finally {
+      jar.clear();
+      await fixture.dispose();
     }
-    const response = await deleteDraft(
-      new Request('https://booth.test/api/admin/delete-draft', {
-        method: 'POST',
-        headers: { origin: 'https://booth.test', cookie, 'content-type': 'application/json' },
-        body: JSON.stringify({ operationId: randomUUID(), expectedRevision: 2 }),
-      }),
-      { params: Promise.resolve({ eventId: fixture.eventId }) }
-    );
-    expect(response.status).toBe(409);
-    expect(
-      localOwnerSql(`select title,deleted_at from public.events where id='${fixture.eventId}'`)[0]
-    ).toMatchObject({ title: 'Package fixture', deleted_at: null });
-  } finally {
-    jar.clear();
-    await fixture.dispose();
-  }
-}, 30000);
+  },
+  30000
+);
 
 it('denies Draft deletion after the Event becomes terminal', async () => {
   const fixture = await createPackageFixture();

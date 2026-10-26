@@ -36,7 +36,6 @@ export function OperationsPanel({
     [reason, setReason] = useState('');
   const [quantity, setQuantity] = useState('1'),
     [stockReason, setStockReason] = useState('');
-  const [replacementTitle, setReplacementTitle] = useState('');
   const [checked, setChecked] = useState(false);
   const [connectionId, setConnectionId] = useState(event.connectionId ?? '');
   const [outcome, setOutcome] = useState<SimulatedOutcome>('ejected');
@@ -69,7 +68,11 @@ export function OperationsPanel({
       const response = await fetch(path, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...body, operationKey: pending.current.get(signature)!.key }),
+        body: JSON.stringify({
+          ...body,
+          [event.state === 'Draft' && path === `${base}/cancel` ? 'operationId' : 'operationKey']:
+            pending.current.get(signature)!.key,
+        }),
       });
       const data = await response.json();
       if (!response.ok) {
@@ -407,8 +410,7 @@ export function OperationsPanel({
               onClick={() =>
                 ask({
                   label: 'Cancel Event',
-                  effect:
-                    'Revoke Guest access and move this Event to History. Recorded stock and print totals remain.',
+                  effect: 'Cancel this Event. Its booking and Event Media remain in History.',
                   path: `${base}/cancel`,
                   body: revision,
                 })
@@ -594,58 +596,6 @@ export function OperationsPanel({
           </article>
         ))}
       </section>
-      {event.state === 'Draft' && (
-        <Button
-          variant="quiet"
-          disabled={busy || eventHolds}
-          onClick={() =>
-            ask({
-              label: 'Delete Draft',
-              effect:
-                'Erase Client details, Event title, venue, schedule and media. Opaque operational history and Film Stock effects are retained. Deletion completes only after media removal.',
-              path: `${base}/delete-draft`,
-              body: revision,
-            })
-          }
-        >
-          Delete Draft
-        </Button>
-      )}
-      {terminal && !event.redacted && (
-        <>
-          <label>
-            Non-identifying replacement title (optional)
-            <Input value={replacementTitle} onChange={(e) => setReplacementTitle(e.target.value)} />
-          </label>
-          <Button
-            variant="destructive"
-            disabled={busy || eventHolds}
-            onClick={() =>
-              ask({
-                label: 'Redact Client',
-                effect:
-                  'Erase Client contact details and Event Media. Booking details, anonymous totals and operational history remain. Replace a title that identifies the Client.',
-                path: `${base}/redact-client`,
-                body: {
-                  ...revision,
-                  ...(replacementTitle.trim() ? { replacementTitle: replacementTitle.trim() } : {}),
-                },
-              })
-            }
-          >
-            Redact Client
-          </Button>
-        </>
-      )}
-      {event.redacted && <p>Client redacted · anonymous totals retained.</p>}
-      {event.mediaRemovalState === 'pending' && (
-        <>
-          <p>Media removal pending. Identifying details have already been erased.</p>
-          <Button disabled={busy} onClick={() => act(`${base}/redact-client`, revision)}>
-            Retry media removal
-          </Button>
-        </>
-      )}
       <Dialog.Root
         open={!!review}
         onOpenChange={(open) => {
@@ -677,10 +627,7 @@ export function OperationsPanel({
             <div className={styles.actions}>
               <Button
                 className={
-                  review &&
-                  ['Delete Draft', 'Redact Client', 'Cancel Event', 'Finish Event'].includes(
-                    review.label
-                  )
+                  review && ['Cancel Event', 'Finish Event'].includes(review.label)
                     ? 'bg-ds-danger text-ds-on-danger border-ds-danger enabled:hover:bg-ds-danger-hover enabled:hover:border-ds-danger-hover'
                     : undefined
                 }

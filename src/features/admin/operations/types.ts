@@ -24,6 +24,4 @@ export type OperationalEvent = {
   runState: string | null;
   connectionId: string | null;
   attempts: Attempt[];
-  redacted: boolean;
-  mediaRemovalState: string;
 };

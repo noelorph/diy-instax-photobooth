@@ -4,6 +4,8 @@ import sharp from 'sharp';
 import {
   createPackageBrowserFixture,
   terminateMediaFixtureUpload,
+  withMediaCommitHeld,
+  mediaFixtureBackendFiles,
 } from '../fixtures/package-browser';
 import { localOwnerSql } from '../fixtures/local-supabase';
 import { mediaFixture, paddedMedia } from '../fixtures/event-media';
@@ -28,6 +30,90 @@ const nearImage = async () =>
     10_000_000,
     'png'
   );
+
+test('deletion stays pending while an upload can still finish', async ({ page }) => {
+  test.setTimeout(90_000);
+  const f = await createPackageBrowserFixture();
+  try {
+    await signIn(page, f);
+    let complete!: () => void;
+    let fail!: (error: unknown) => void;
+    const race = new Promise<void>((resolve, reject) => {
+      complete = resolve;
+      fail = reject;
+    });
+    await page.route('**/storage/v1/upload/resumable/**', async (route) => {
+      const req = route.request();
+      if (req.method() !== 'PATCH' || req.headers()['upload-offset'] !== '6291456') {
+        await route.continue();
+        return;
+      }
+      try {
+        const asset = localOwnerSql(
+          `select path from public.event_media_assets where event_id='${f.eventId}'`
+        )[0];
+        const revision = Number(
+          localOwnerSql(`select revision from public.events where id='${f.eventId}'`)[0].revision
+        );
+        const response = await withMediaCommitHeld(
+          String(asset.path),
+          () => route.fetch(),
+          async () => {
+            expect(
+              mediaFixtureBackendFiles(f.eventId).some((file) => file.bytes === 10_000_000)
+            ).toBe(true);
+            const deletion = await page.request.post(
+              `/api/admin/events/${f.eventId}/delete-draft`,
+              {
+                headers: { origin: new URL(page.url()).origin },
+                data: { operationId: randomUUID(), expectedRevision: revision },
+              }
+            );
+            expect(deletion.status()).toBe(200);
+            expect((await deletion.json()).mediaRemovalState).toBe('pending');
+          }
+        );
+        expect(response.ok()).toBe(false);
+        await route.fulfill({ response });
+        await expect
+          .poll(() =>
+            mediaFixtureBackendFiles(f.eventId).filter((file) => !file.name.endsWith('.json'))
+          )
+          .toEqual([]);
+        expect(mediaFixtureBackendFiles(f.eventId).some((file) => file.bytes > 0)).toBe(true);
+        const retry = await page.request.fetch(req.url(), {
+          method: 'PATCH',
+          headers: req.headers(),
+          data: req.postDataBuffer()!,
+        });
+        expect(retry.ok()).toBe(false);
+        complete();
+      } catch (error) {
+        fail(error);
+        await route.abort();
+      }
+    });
+    await page
+      .getByLabel('Background image')
+      .setInputFiles({ name: 'synthetic.png', mimeType: 'image/png', buffer: await nearImage() });
+    await page.getByRole('button', { name: 'Upload background', exact: true }).click();
+    await race;
+    const storage = f.local.service.storage.from('event_media');
+    expect((await storage.list(f.eventId)).data).toEqual([]);
+    await page.goto('/events');
+    await expect(page.getByText(`Draft deletion · Reference ${f.eventId}`)).toBeVisible();
+    await page.getByRole('button', { name: 'Retry media removal' }).click();
+    await expect(page.getByText('Media removal still pending. Retry cleanup.')).toBeVisible();
+    expect((await storage.list(f.eventId)).data).toEqual([]);
+    expect(
+      localOwnerSql(`select media_removal_state from public.events where id='${f.eventId}'`)[0]
+        .media_removal_state
+    ).toBe('pending');
+  } finally {
+    await f.dispose();
+    await page.close();
+  }
+});
 
 test('resumes interrupted transfer and attaches exactly once', async ({ page }) => {
   test.setTimeout(90_000);

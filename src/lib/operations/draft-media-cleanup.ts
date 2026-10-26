@@ -2,14 +2,28 @@ import 'server-only';
 import { createPrivilegedClient } from './privileged-client';
 
 // Event Media is private branding only. Guest photos never reach Storage.
-// Future uploads must use this UUID prefix and reject redacted/deleted Events.
 export async function removeEventMedia(
   client: ReturnType<typeof createPrivilegedClient>,
   eventId: string
 ) {
+  const event = await client.from('events').select('state,deleted_at').eq('id', eventId).single();
+  if (event.error) throw event.error;
+  const assets = await client
+    .from('event_media_assets')
+    .select('path,state')
+    .eq('event_id', eventId);
+  if (assets.error) throw assets.error;
+  const deleting = event.data.state === 'Draft' && event.data.deleted_at !== null;
+  const retired = new Set(
+    assets.data.filter((asset) => asset.state === 'cleanup_pending').map((asset) => asset.path)
+  );
   const bucket = await client.storage.getBucket('event_media');
   if (bucket.error) {
-    if (String(bucket.error.statusCode) === '404' && bucket.error.message === 'Bucket not found')
+    if (
+      String(bucket.error.statusCode) === '404' &&
+      bucket.error.message === 'Bucket not found' &&
+      !assets.data.length
+    )
       return;
     throw bucket.error;
   }
@@ -28,7 +42,7 @@ export async function removeEventMedia(
       for (const item of data) {
         const path = `${prefix}/${item.name}`;
         if (item.id === null) await collectPrefix(path);
-        else paths.push(path);
+        else if (deleting || retired.has(path)) paths.push(path);
       }
       if (data.length < 100) break;
     }
@@ -37,5 +51,11 @@ export async function removeEventMedia(
   for (let start = 0; start < paths.length; start += 100) {
     const { error } = await storage.remove(paths.slice(start, start + 100));
     if (error) throw error;
+  }
+  const remaining = await storage.list(eventId, { limit: 1 });
+  if (remaining.error) throw remaining.error;
+  if (deleting && (remaining.data.length || assets.data.length)) {
+    // ADR-0030: no supported transfer inventory/backend drain proof exists yet.
+    throw new Error('Media cleanup remains pending.');
   }
 }

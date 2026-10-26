@@ -1,12 +1,20 @@
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
-import { afterEach, expect, it } from 'vitest';
+import { afterEach, expect, it, vi } from 'vitest';
 import { DraftForm } from '@/features/admin/events/draft-form';
 import { DraftList } from '@/features/admin/events/draft-list';
 import type { DraftEvent } from '@/lib/events/drafts';
 import type { DraftActionState } from '@/features/admin/events/state';
 
-afterEach(cleanup);
+vi.mock('next/navigation', async (original) => ({
+  ...(await original<typeof import('next/navigation')>()),
+  useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
+}));
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
 const draft: DraftEvent = {
   id: 'a99753d9-a704-45e1-afdc-2976b183b61a',
   state: 'Draft',
@@ -43,6 +51,36 @@ it('shows the saved Draft booking overview before entering Edit Draft', () => {
   expect(container.textContent).toContain('Manila hall');
   expect(container.querySelector('form')).toBeNull();
   expect(container.textContent).toContain('Edit Draft');
+});
+it('offers deletion from the saved overview and lets the Admin keep the Draft', async () => {
+  render(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  const trigger = screen.getByRole('button', { name: 'Delete Draft' });
+  expect(trigger.closest('header')).not.toBeNull();
+  fireEvent.click(trigger);
+  expect(screen.getByRole('dialog').textContent).toMatch(/Event Media[\s\S]*cannot be undone/);
+  fireEvent.click(screen.getByRole('button', { name: 'Keep Draft' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  expect(screen.getByText('alex@example.test')).toBeTruthy();
+});
+it('keeps the same deletion request after a lost response and shows pending cleanup', async () => {
+  const bodies: object[] = [];
+  vi.stubGlobal('fetch', async (_url: string, init: RequestInit) => {
+    bodies.push(JSON.parse(String(init.body)));
+    if (bodies.length === 1) throw new Error('reply lost');
+    return Response.json({ mediaRemovalState: 'pending' });
+  });
+  render(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Delete Draft' }));
+  fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete Draft' }));
+  await screen.findByRole('alert');
+  expect(screen.queryByRole('button', { name: 'Keep Draft' })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Retry deletion' }));
+  await screen.findByText(/cleanup is still pending/i);
+  expect(bodies).toEqual([
+    { operationId: expect.any(String), expectedRevision: 1 },
+    { operationId: expect.any(String), expectedRevision: 1 },
+  ]);
+  expect(bodies[1]).toEqual(bodies[0]);
 });
 it('keeps the Draft editor unavailable until hydration attaches its form state', () => {
   const html = renderToString(<DraftForm createAction={ok} updateAction={ok} />);

@@ -17,7 +17,6 @@ import { createPackageFixture } from '../fixtures/package-contract';
 import { localOwnerSql, localSupabaseStatus, ownerUpdate } from '../fixtures/local-supabase';
 import { sessionCookies } from '../fixtures/admin-route-server';
 import { hashSecret } from '@/lib/operations/booth-authority';
-import { POST as redactClient } from '@/app/api/admin/events/[eventId]/redact-client/route';
 import { GET as boothState } from '@/app/api/booth/state/route';
 import { GET as boothReceipt } from '@/app/api/booth/operations/[operationId]/route';
 import { GET as adminState } from '@/app/api/admin/events/[eventId]/booth/state/route';
@@ -832,7 +831,7 @@ it.each(['evidence_discrepancy', 'qualification_required'])(
   30000
 );
 
-it('rejects legacy client redaction of v2 History at RPC and HTTP boundaries', async () => {
+it('rejects the retained legacy SQL redaction operation for package History', async () => {
   const f = await createPackageFixture();
   try {
     ownerUpdate('events', f.eventId, { state: 'Cancelled', revision: 2 });
@@ -847,16 +846,6 @@ it('rejects legacy client redaction of v2 History at RPC and HTTP boundaries', a
     expect((await f.local.service.rpc('begin_event_redaction', args)).error?.message).toBe(
       'state_conflict'
     );
-    const cookie = sessionCookies((await f.adminClient.auth.getSession()).data.session!);
-    for (const pair of cookie.split('; ')) {
-      const [name, value] = pair.split('=');
-      jar.set(name, value);
-    }
-    const response = await redactClient(
-      request({ operationKey: randomUUID(), expectedRevision: 2 }, cookie),
-      { params: Promise.resolve({ eventId: f.eventId }) }
-    );
-    expect(response.status).toBe(409);
     expect(
       localOwnerSql(
         `select client_name,media_removal_state,redacted_at from public.events where id='${f.eventId}'`

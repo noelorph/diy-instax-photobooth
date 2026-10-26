@@ -144,3 +144,7 @@ The library choices avoid hand-built upload/video protocols. Read the primary [S
 - [ ] Commit with `feat: complete draft media editing and private delivery`.
 
 **Done:** The Admin can finish the Draft preparation/media/cancel/delete workflows using real persistence and private Storage; a lost creation response cannot duplicate a Draft or its creation audit. F4 owns start/Live termination; F5 consumes `EventMedia`; F7 presents retained history. Delete independent allowance and terminal redaction consumers, preserving only the package Draft cleanup implementation. F8 removes their remaining shared SQL/schema dependencies. No media pipeline, editor, Guest gallery or physical qualification is added.
+
+## 2026-10-26 cleanup boundary follow-up
+
+The user approved the scoped commit guard and synchronized documentation in [ADR-0030](../../adr/0030-fence-event-media-commits-and-require-cleanup-proof.md), requiring actual transfer/backend cleanup proof. The local guard rejects the reproduced late privileged commit, but leftover TUS metadata and missing product-side transfer inventory keep media-bearing Draft deletion pending. This is partial safety work, not completion of Task 3 or F2-04. Task 4 must wait for supported cleanup proof and a further backend decision.

@@ -40,7 +40,7 @@ The [publication record](../../github-issue-update-drafts.md) records the comple
 
 ## Event Media clarification
 
-**Confirmed by the user, 2026-10-24:** upload, replacement and removal of the background image or montage are allowed only while the Event is Draft. Once Live, including while its Booth run is Paused or Finished, its media cannot change. Completed/Cancelled media remains retained under Admin access. The trusted mutation boundary must recheck Draft state when committing a media change; starting an upload before the Event goes Live cannot authorize a later replacement. Failed/stale replacement leaves the current media intact. Cleanup of unreferenced failed-upload objects is not removal of retained Event Media.
+**Confirmed by the user, 2026-10-24:** upload, replacement and removal of the background image or montage are allowed only while the Event is Draft. Once Live, including while its Booth run is Paused or Finished, its media cannot change. Completed/Cancelled media remains retained under Admin access. The trusted mutation boundary must recheck Draft state when committing a media change; starting an upload before the Event goes Live cannot authorize a later replacement. Failed/stale replacement leaves the current media intact. Cleanup of unreferenced failed-upload objects is not removal of retained Event Media. The user-approved [ADR-0030](../../adr/0030-fence-event-media-commits-and-require-cleanup-proof.md) adds a scoped privileged Storage commit guard and requires actual transfer/backend cleanup proof. The current backend cannot provide that proof, so media-bearing Draft deletion stays pending and F2-04/Task 4 remain blocked.
 
 **Upload defaults approved with this design, 2026-10-24:**
 

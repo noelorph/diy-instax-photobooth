@@ -1,6 +1,8 @@
 # ADR-0027: Limit Event Media changes to Draft
 
-**Status:** Accepted; implementation belongs to issue #10. Its plan is approved; F1–F8 are published as #29–#36; implementation remains on hold at the user's request. The #9 software prerequisite is satisfied and #9 is closed as completed.
+**2026-10-26 media cleanup clarification:** F2 implementation is authorized. [ADR-0030](0030-fence-event-media-commits-and-require-cleanup-proof.md) adds a scoped Storage commit guard and requires real transfer/backend cleanup proof. Media-bearing Draft deletion remains pending because the current backend does not supply complete proof; F2-04 and dependent Task 4 remain open. Other capability holds and release gates are unchanged.
+
+**Status:** Accepted; implementation belongs to issue #10. Its plan is approved; F1–F8 are published as #29–#36; F1 is implemented and F2 is authorized but cleanup-blocked; F3–F8 implementation remains on hold at the user's request. The #9 software prerequisite is satisfied and #9 is closed as completed.
 **Date:** 2026-10-24
 **Refines:** [ADR-0025](0025-package-accounting-and-booth-recovery.md), without replacing its retention, privacy or release gates.
 **Approval:** The user approved the [functional breakdown design](../superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md), including its proposed upload defaults.

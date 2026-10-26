@@ -82,6 +82,16 @@ for (const width of [390, 1440]) {
       await view.click();
       await expect(page).toHaveURL(new RegExp(`/events/${eventId}$`));
       await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      const deletion = page.getByRole('button', { name: 'Delete Draft', exact: true });
+      await expect(deletion).toBeVisible();
+      await deletion.click();
+      await expect(page.getByRole('dialog')).toContainText('Event Media');
+      await page.getByRole('button', { name: 'Keep Draft' }).click();
+      await expect(deletion).toBeFocused();
+      const removedAction = await page.request.post(`/api/admin/events/${eventId}/redact-client`, {
+        data: {},
+      });
+      expect([404, 405]).toContain(removedAction.status());
       await page.getByRole('button', { name: 'Edit Draft' }).click();
       await expect(page.getByLabel('Event name').filter({ visible: true })).toHaveValue(title);
       if (width === 390) {
@@ -113,7 +123,6 @@ for (const width of [390, 1440]) {
       await expect(
         page.getByText('Draft', { exact: true }).filter({ visible: true })
       ).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Delete Draft', exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Add Film Stock', exact: true })).toBeVisible();
       for (const name of ['Start Booth Mode', 'Test Print']) {
         const control = page.getByRole('button', { name, exact: true });

@@ -7,6 +7,7 @@ import { packageErrorResponse } from '@/lib/operations/package-route';
 import { operationResponse } from '@/lib/operations/responses';
 import { PackageError } from '@/lib/operations/package-contract';
 import { createPrivilegedClient } from '@/lib/operations/privileged-client';
+import { removeEventMedia } from '@/lib/operations/draft-media-cleanup';
 import { validateEventMedia, MediaValidationError } from './media-validation';
 import type { MediaKind } from './media-types';
 
@@ -85,16 +86,21 @@ export async function commitEventMedia(
       .maybeSingle();
     if (error) throw new PackageError('operation_unavailable');
     if (!asset) throw new PackageError('operation_forbidden');
-    if (request.method === 'DELETE')
-      return operationResponse(
-        await packageRpc('event_media_operation', {
-          p_admin_user_id: admin.userId,
-          p_admin_session_id: admin.sessionId,
-          p_operation: 'remove',
-          p_operation_id: key,
-          p_payload: { eventId: eid, assetId: id, expectedRevision },
-        })
-      );
+    if (request.method === 'DELETE') {
+      const result = await packageRpc('event_media_operation', {
+        p_admin_user_id: admin.userId,
+        p_admin_session_id: admin.sessionId,
+        p_operation: 'remove',
+        p_operation_id: key,
+        p_payload: { eventId: eid, assetId: id, expectedRevision },
+      });
+      try {
+        await removeEventMedia(client, eid);
+      } catch {
+        /* Durable cleanup_pending remains retryable. */
+      }
+      return operationResponse(result);
+    }
     if (asset.uploaded_by !== admin.userId) throw new PackageError('operation_forbidden');
     cleanupId = id;
     if (!asset.content_type) {
@@ -119,15 +125,19 @@ export async function commitEventMedia(
           await download(asset.path, asset.kind === 'background' ? 10_000_000 : 50_000_000),
           asset.kind as MediaKind
         );
-    return operationResponse(
-      await packageRpc('event_media_operation', {
-        p_admin_user_id: admin.userId,
-        p_admin_session_id: admin.sessionId,
-        p_operation: 'attach',
-        p_operation_id: key,
-        p_payload: { eventId: eid, assetId: id, expectedRevision, ...validated },
-      })
-    );
+    const result = await packageRpc('event_media_operation', {
+      p_admin_user_id: admin.userId,
+      p_admin_session_id: admin.sessionId,
+      p_operation: 'attach',
+      p_operation_id: key,
+      p_payload: { eventId: eid, assetId: id, expectedRevision, ...validated },
+    });
+    try {
+      await removeEventMedia(client, eid);
+    } catch {
+      /* Preserve the committed attachment and cleanup state. */
+    }
+    return operationResponse(result);
   } catch (error) {
     if (
       cleanupId &&

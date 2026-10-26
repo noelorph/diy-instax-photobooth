@@ -22,6 +22,7 @@ import {
   type DraftEventInput,
 } from './draft-event.schema';
 import type { DraftActionState } from './state';
+import { DeleteDraft } from './delete-draft';
 
 export type DraftFormProps = {
   initial?: DraftEvent;
@@ -214,17 +215,25 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
             </>
           }
           action={
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={!hydrated}
-              onClick={() => {
-                setEdited(true);
-                setEditing(true);
-              }}
-            >
-              Edit Draft
-            </Button>
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!hydrated}
+                onClick={() => {
+                  setEdited(true);
+                  setEditing(true);
+                }}
+              >
+                Edit Draft
+              </Button>
+              <DeleteDraft
+                eventId={current.id}
+                revision={current.revision}
+                title={current.title}
+                disabled={!hydrated}
+              />
+            </>
           }
         />
         <section className={styles.bookingOverview} aria-label="Booking">

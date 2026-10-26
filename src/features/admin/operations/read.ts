@@ -19,7 +19,7 @@ export async function getOperationalEvent(
     const client = await createClient();
     const event = await client
       .from('events')
-      .select('id,title,state,revision,original_print_allowance,redacted_at,media_removal_state')
+      .select('id,title,state,revision,original_print_allowance')
       .eq('id', id)
       .is('deleted_at', null)
       .maybeSingle();
@@ -129,8 +129,6 @@ export async function getOperationalEvent(
         runState: run.data?.state ?? null,
         connectionId: run.data?.connection_id ?? null,
         attempts: attempts.data!,
-        redacted: !!event.data.redacted_at,
-        mediaRemovalState: event.data.media_removal_state,
       },
     };
   } catch (error) {

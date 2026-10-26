@@ -20,7 +20,7 @@ export default async function HistoryPage() {
     <section className="max-w-5xl min-w-0">
       <PageHeader
         title="History"
-        description="Completed and Cancelled Events retain anonymous operational totals."
+        description="Completed and Cancelled Events retain their booking, media and operational history."
       />
       {summary.status === 'success' ? (
         <div className="mb-6 flex flex-wrap gap-6 tabular-nums">
@@ -41,17 +41,13 @@ export default async function HistoryPage() {
               <Link className="text-ds-primary underline" href={`/events/${event.id}`}>
                 {event.title}
               </Link>
-              <p>
-                {event.state} · {event.redacted_at ? 'Client redacted' : 'Client details retained'}
-              </p>
+              <p>{event.state} · Client details retained</p>
               <p>{event.venue_address}</p>
-              {!event.redacted_at && (
-                <div>
-                  <p>{event.client_name}</p>
-                  <p className="wrap-anywhere">{event.client_email}</p>
-                  <p>{event.client_phone}</p>
-                </div>
-              )}
+              <div>
+                <p>{event.client_name}</p>
+                <p className="wrap-anywhere">{event.client_email}</p>
+                <p>{event.client_phone}</p>
+              </div>
               <div className="my-3 flex flex-wrap gap-x-6 gap-y-2 tabular-nums">
                 <p>{event.film_package_count} Film Packages</p>
                 <p>{event.original_print_allowance} original prints</p>

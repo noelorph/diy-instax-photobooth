@@ -15,6 +15,9 @@ vi.mock('next/headers', () => ({
   }),
 }));
 import { beginEventMediaUpload, commitEventMedia } from '@/lib/events/media';
+import { deletePackageDraft } from '@/lib/operations/package-draft-deletion';
+import { POST as cancelDraft } from '@/app/api/admin/events/[eventId]/cancel/route';
+import { removeEventMedia } from '@/lib/operations/draft-media-cleanup';
 import { localOwnerSql, localSupabaseStatus } from '../fixtures/local-supabase';
 import { sessionCookies, expiredSession } from '../fixtures/admin-route-server';
 import type { PackageFixture } from '../fixtures/package-contract';
@@ -64,7 +67,271 @@ const png = () =>
     .png()
     .toBuffer();
 
-import { createPackageBrowserFixture, withMediaEventHeld } from '../fixtures/package-browser';
+import {
+  createPackageBrowserFixture,
+  withMediaEventHeld,
+  withMediaCommitHeld,
+  mediaFixtureBackendFiles,
+  terminateMediaFixtureUpload,
+} from '../fixtures/package-browser';
+
+it('deletion stays pending while an upload can still finish', async () => {
+  const f = await createPackageBrowserFixture();
+  try {
+    await authorize(f);
+    const asset = await beginUpload(f, 1);
+    const path = asset.receipt.result.path;
+    const bytes = await png();
+    const status = localSupabaseStatus();
+    const token = (await f.adminClient.auth.getSession()).data.session!.access_token;
+    const headers = { authorization: `Bearer ${token}`, 'tus-resumable': '1.0.0' };
+    const created = await fetch(`${status.API_URL}/storage/v1/upload/resumable`, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'upload-length': String(bytes.length),
+        'upload-metadata': Object.entries({
+          bucketName: 'event_media',
+          objectName: path,
+          contentType: 'image/png',
+        })
+          .map(([k, v]) => `${k} ${Buffer.from(v).toString('base64')}`)
+          .join(','),
+      },
+    });
+    expect(created.status).toBe(201);
+    const url = created.headers.get('location')!;
+    const payload = { operationId: randomUUID(), expectedRevision: asset.revision };
+    let deletion: { mediaRemovalState: string } | undefined;
+    const finalized = await withMediaCommitHeld(
+      path,
+      () =>
+        fetch(url, {
+          method: 'PATCH',
+          headers: {
+            ...headers,
+            'content-type': 'application/offset+octet-stream',
+            'upload-offset': '0',
+          },
+          body: new Uint8Array(bytes),
+        }),
+      async () => {
+        // The waiter has passed RLS and written its bytes, but not committed metadata.
+        expect(
+          mediaFixtureBackendFiles(f.eventId).some((file) => file.bytes === bytes.length)
+        ).toBe(true);
+        const response = await deletePackageDraft(request(payload), f.eventId);
+        expect(response.status).toBe(200);
+        deletion = await response.json();
+      }
+    );
+    const storage = f.local.service.storage.from('event_media');
+    console.info('Real deletion race:', {
+      mediaRemovalState: deletion?.mediaRemovalState,
+      finalChunkStatus: finalized.status,
+      objectCount: (await storage.list(f.eventId)).data?.length,
+    });
+    expect(deletion?.mediaRemovalState).toBe('pending');
+    expect(finalized.status).toBe(403);
+    await expect
+      .poll(
+        () => mediaFixtureBackendFiles(f.eventId).filter((file) => !file.name.endsWith('.json')),
+        { timeout: 10_000 }
+      )
+      .toEqual([]);
+    console.info('Remaining local TUS metadata files:', mediaFixtureBackendFiles(f.eventId).length);
+    expect(
+      mediaFixtureBackendFiles(f.eventId).some(
+        (file) => file.name.endsWith('.json') && file.bytes > 0
+      )
+    ).toBe(true);
+    expect((await storage.list(f.eventId)).data).toEqual([]);
+    expect((await storage.download(path)).error).not.toBeNull();
+    const retried = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        ...headers,
+        'content-type': 'application/offset+octet-stream',
+        'upload-offset': '0',
+      },
+      body: new Uint8Array(bytes),
+    });
+    expect(retried.ok).toBe(false);
+    expect((await storage.list(f.eventId)).data).toEqual([]);
+    expect(
+      mediaFixtureBackendFiles(f.eventId).filter((file) => !file.name.endsWith('.json'))
+    ).toEqual([]);
+    // Local physical observation is evidence, not a product-side transfer inventory.
+    expect(
+      (await (await deletePackageDraft(request(payload), f.eventId)).json()).mediaRemovalState
+    ).toBe('pending');
+  } finally {
+    jar.clear();
+    await f.dispose();
+  }
+}, 60_000);
+
+it('cancels a Draft through the protected route while retaining its attached bytes', async () => {
+  const f = await createPackageBrowserFixture();
+  try {
+    await authorize(f);
+    const asset = await beginUpload(f, 1);
+    const bytes = await png();
+    await store(f, asset, bytes);
+    const saved = await commitEventMedia(
+      request({ operationId: randomUUID(), expectedRevision: asset.revision }),
+      f.eventId,
+      asset.receipt.result.assetId
+    );
+    expect(saved.status).toBe(200);
+    const payload = { operationId: randomUUID(), expectedRevision: (await saved.json()).revision };
+    const cancelled = await cancelDraft(request(payload), {
+      params: Promise.resolve({ eventId: f.eventId }),
+    });
+    expect(cancelled.status).toBe(200);
+    expect(localOwnerSql(`select state from public.events where id='${f.eventId}'`)[0].state).toBe(
+      'Cancelled'
+    );
+    const stored = await f.local.service.storage
+      .from('event_media')
+      .download(asset.receipt.result.path);
+    expect(stored.error).toBeNull();
+    expect(Buffer.from(await stored.data!.arrayBuffer())).toEqual(bytes);
+    await removeEventMedia(f.local.service, f.eventId);
+    const retained = await f.local.service.storage
+      .from('event_media')
+      .download(asset.receipt.result.path);
+    expect(retained.error).toBeNull();
+    expect(Buffer.from(await retained.data!.arrayBuffer())).toEqual(bytes);
+    expect(
+      localOwnerSql(
+        `select state from public.event_media_assets where id='${asset.receipt.result.assetId}'`
+      )[0].state
+    ).toBe('attached');
+  } finally {
+    jar.clear();
+    await f.dispose();
+  }
+}, 30_000);
+
+it('does not acknowledge media removal or complete deletion from an empty listing alone', async () => {
+  const f = await createPackageBrowserFixture();
+  try {
+    await authorize(f);
+    const asset = await beginUpload(f, 1);
+    const retired = await f.local.service.rpc('event_media_cleanup', {
+      p_asset_id: asset.receipt.result.assetId,
+      p_removed: false,
+    });
+    expect(retired.error).toBeNull();
+    expect(
+      (
+        await f.local.service.rpc('event_media_cleanup', {
+          p_asset_id: asset.receipt.result.assetId,
+          p_removed: true,
+        })
+      ).error?.message
+    ).toBe('not_ready');
+    const begun = await f.admin('begin_delete_draft', { expectedRevision: asset.revision });
+    expect(begun.error).toBeNull();
+    expect(
+      (await f.admin('complete_delete_draft', { expectedRevision: begun.data.revision })).error
+        ?.message
+    ).toBe('not_ready');
+  } finally {
+    jar.clear();
+    await f.dispose();
+  }
+}, 30_000);
+
+it('blocks privileged media overwrites while leaving other Storage buckets usable', async () => {
+  const f = await createPackageBrowserFixture();
+  const otherBucket = `guard-fixture-${randomUUID()}`;
+  try {
+    await authorize(f);
+    const asset = await beginUpload(f, 1);
+    const bytes = await png();
+    await store(f, asset, bytes);
+    const storage = f.local.service.storage.from('event_media');
+    expect(
+      (
+        await storage.upload(asset.receipt.result.path, new Uint8Array([1, 2, 3]), {
+          contentType: 'image/png',
+          upsert: true,
+        })
+      ).error
+    ).not.toBeNull();
+    const retained = await storage.download(asset.receipt.result.path);
+    expect(retained.error).toBeNull();
+    expect(Buffer.from(await retained.data!.arrayBuffer())).toEqual(bytes);
+    expect(
+      (await f.local.service.storage.createBucket(otherBucket, { public: false })).error
+    ).toBeNull();
+    const other = f.local.service.storage.from(otherBucket);
+    expect((await other.upload('synthetic', bytes, { contentType: 'image/png' })).error).toBeNull();
+    expect((await other.remove(['synthetic'])).error).toBeNull();
+  } finally {
+    await f.local.service.storage.from(otherBucket).remove(['synthetic']);
+    await f.local.service.storage.deleteBucket(otherBucket);
+    jar.clear();
+    await f.dispose();
+  }
+}, 30_000);
+
+it('terminates a known closed TUS upload without exposing the permission-test sentinel', async () => {
+  const f = await createPackageBrowserFixture();
+  try {
+    await authorize(f);
+    const asset = await beginUpload(f, 1);
+    const status = localSupabaseStatus();
+    const token = (await f.adminClient.auth.getSession()).data.session!.access_token;
+    const headers = { authorization: `Bearer ${token}`, 'tus-resumable': '1.0.0' };
+    const created = await fetch(`${status.API_URL}/storage/v1/upload/resumable`, {
+      method: 'POST',
+      headers: {
+        ...headers,
+        'upload-length': '1',
+        'upload-metadata': Object.entries({
+          bucketName: 'event_media',
+          objectName: asset.receipt.result.path,
+          contentType: 'image/png',
+          version: '1',
+        })
+          .map(([k, v]) => `${k} ${Buffer.from(v).toString('base64')}`)
+          .join(','),
+      },
+    });
+    expect(created.status).toBe(201);
+    const url = created.headers.get('location')!;
+    const generatedId = Buffer.from(
+      new URL(url).pathname.split('/').at(-1)!,
+      'base64url'
+    ).toString();
+    expect(generatedId.split('/').at(-1)).toMatch(/^[a-f0-9-]{36}$/);
+    expect((await f.admin('cancel', { expectedRevision: asset.revision })).error).toBeNull();
+    expect(() =>
+      localOwnerSql(
+        `begin; set local role authenticated; select set_config('request.jwt.claims','{"sub":"${f.adminUser.id}","role":"authenticated","session_id":"${f.adminSessionId}"}',true); insert into storage.objects(bucket_id,name,version) values('event_media','${asset.receipt.result.path}','1'); rollback;`
+      )
+    ).toThrow(/row-level security/i);
+    await terminateMediaFixtureUpload(url);
+    expect(mediaFixtureBackendFiles(f.eventId)).toEqual([]);
+    const retry = await fetch(url, {
+      method: 'PATCH',
+      headers: {
+        ...headers,
+        'content-type': 'application/offset+octet-stream',
+        'upload-offset': '0',
+      },
+      body: new Uint8Array([1]),
+    });
+    expect(retry.ok).toBe(false);
+    expect((await f.local.service.storage.from('event_media').list(f.eventId)).data).toEqual([]);
+  } finally {
+    jar.clear();
+    await f.dispose();
+  }
+}, 30_000);
 
 it('begins one immutable upload with actor-scoped replay and conflicting payload denial', async () => {
   const f = await createPackageBrowserFixture();
@@ -154,7 +421,6 @@ it('keeps immutable paths private and rejects cross-Event, overwrite, expired an
     await authorize(f);
     const pending = await beginUpload(f, 1);
     const path = pending.receipt.result.path;
-    await store(f, pending, await png());
     expect(
       (
         await f.local
@@ -162,7 +428,8 @@ it('keeps immutable paths private and rejects cross-Event, overwrite, expired an
           .storage.from('event_media')
           .upload(path, await png(), { contentType: 'image/png' })
       ).error
-    ).not.toBeNull();
+    ).toMatchObject({ message: expect.stringMatching(/row-level security/i) });
+    await store(f, pending, await png());
     expect(
       (
         await f.adminClient.storage
@@ -184,16 +451,17 @@ it('keeps immutable paths private and rejects cross-Event, overwrite, expired an
           })
       ).error
     ).not.toBeNull();
+    const expiredAsset = await beginUpload(f, pending.revision);
     const expired = expiredSession((await f.adminClient.auth.getSession()).data.session!);
     expect(
       (
         await f.local
           .tokenClient(expired.access_token)
           .storage.from('event_media')
-          .upload(path, await png(), { contentType: 'image/png' })
+          .upload(expiredAsset.receipt.result.path, await png(), { contentType: 'image/png' })
       ).error
-    ).not.toBeNull();
-    const next = await beginUpload(f, pending.revision);
+    ).toMatchObject({ message: expect.stringMatching(/exp.*timestamp/i) });
+    const next = await beginUpload(f, expiredAsset.revision);
     localOwnerSql(`delete from public.admin_profiles where id='${f.adminUser.id}'`);
     expect(
       (
@@ -374,6 +642,7 @@ it('rejects stale replacements, protects attached cleanup and removes through on
       cleanupPending: true,
     });
     expect((await (await remove()).json()).receipt).toEqual(result.receipt);
+    expect((await f.local.service.storage.from('event_media').list(f.eventId)).data).toEqual([]);
     expect(
       localOwnerSql(
         `select count(*)::int as n from public.activity_events where event_id='${f.eventId}' and operation_kind='media_remove'`

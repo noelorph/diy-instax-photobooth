@@ -29,8 +29,6 @@ vi.mock('@/features/admin/operations/read', () => ({
       attemptsPage: 0,
       hasOlderAttempts: false,
       usableTestConnectionIds: [],
-      redacted: false,
-      mediaRemovalState: 'none',
     },
   }),
 }));
@@ -50,7 +48,6 @@ vi.mock('@/lib/events/history', () => ({
         id: 'h',
         title: 'Past celebration',
         state: 'Completed',
-        redacted_at: null,
         venue_address: 'Celebration Hall',
         starts_at: '2026-11-01T02:00:00Z',
         ends_at: '2026-11-01T03:00:00Z',
@@ -59,13 +56,12 @@ vi.mock('@/lib/events/history', () => ({
         client_email: 'retained@example.test',
         film_package_count: 2,
         original_print_allowance: 10,
-        media_removal_state: 'complete',
       },
     ],
   }),
   listPendingMediaRemovals: async () => ({
     status: 'success',
-    removals: [{ eventId: 'opaque', revision: 2, action: 'delete_draft' }],
+    removals: [{ eventId: 'opaque', revision: 2, operationId: 'deletion-operation' }],
   }),
 }));
 it('shows History and opaque pending cleanup retries', async () => {

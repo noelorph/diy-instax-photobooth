@@ -1,4 +1,4 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createPackageFixture, type PackageFixture } from './package-contract';
 import { DetailedError, Upload } from 'tus-js-client';
@@ -29,7 +29,11 @@ export async function createPackageBrowserFixture(): Promise<PackageFixture> {
               if (removed.error) throw removed.error;
             }
           } finally {
-            await fixture.dispose();
+            try {
+              await fixture.dispose();
+            } finally {
+              cleanupMediaFixtureBackend(fixture.eventId);
+            }
           }
         } finally {
           try {
@@ -52,6 +56,29 @@ export async function withMediaEventHeld<T>(
   work: () => Promise<T>,
   duringHold: () => void
 ): Promise<T> {
+  return withMediaLockHeld(
+    `select id from public.events where id='${eventId}' for update`,
+    work,
+    duringHold
+  );
+}
+
+// Characterize the installed Storage v1.79.36 completion boundary after bytes and authorization.
+export async function withMediaCommitHeld<T>(
+  path: string,
+  work: () => Promise<T>,
+  duringHold: () => Promise<void>
+) {
+  let hash = 5381;
+  for (const char of `event_media/${path}`) hash = (hash * 33) ^ char.charCodeAt(0);
+  return withMediaLockHeld(`select pg_advisory_xact_lock(${hash >>> 0})`, work, duringHold);
+}
+
+async function withMediaLockHeld<T>(
+  lockSql: string,
+  work: () => Promise<T>,
+  duringHold: () => void | Promise<void>
+): Promise<T> {
   const child = spawn('docker', [
     'exec',
     '-i',
@@ -71,9 +98,7 @@ export async function withMediaEventHeld<T>(
   child.stdout.on('data', (chunk: Buffer) => {
     output += chunk.toString();
   });
-  child.stdin.write(
-    `begin;\nselect id from public.events where id='${eventId}' for update;\nselect 'HOLDER:'||pg_backend_pid();\n`
-  );
+  child.stdin.write(`begin;\n${lockSql};\nselect 'HOLDER:'||pg_backend_pid();\n`);
   let pending: Promise<T> | undefined;
   try {
     const deadline = Date.now() + 10_000;
@@ -92,13 +117,66 @@ export async function withMediaEventHeld<T>(
       if (Date.now() > deadline) throw new Error('Media operation did not wait on Event lock');
       await new Promise((resolve) => setTimeout(resolve, 25));
     }
-    duringHold();
+    await duringHold();
   } finally {
     child.stdin.end('rollback;\n\\q\n');
     await done;
     if (pending) await pending;
   }
   return pending!;
+}
+
+// Read-only byte evidence scoped to one synthetic Event; never used by product cleanup.
+export function mediaFixtureBackendFiles(eventId: string): { name: string; bytes: number }[] {
+  if (!/^[a-f0-9-]{36}$/.test(eventId)) throw new Error('Expected fixture Event UUID');
+  localSupabaseStatus();
+  return JSON.parse(
+    execFileSync(
+      'docker',
+      [
+        'exec',
+        'supabase_storage_diy-instax-package-contracts',
+        'node',
+        '-e',
+        `
+    const fs=require('node:fs'), path=require('node:path');
+    const root='/mnt/stub', event=process.argv[1], found=[];
+    for (const tenant of fs.readdirSync(root)) {
+      const dir=path.join(root,tenant,'event_media',event);
+      if (!fs.existsSync(dir)) continue;
+      const walk=p=>{ for(const item of fs.readdirSync(p,{withFileTypes:true})) {
+        const file=path.join(p,item.name);
+        if(item.isDirectory()) walk(file); else found.push({name:path.relative(dir,file),bytes:fs.statSync(file).size});
+      }}; walk(dir);
+    }
+    process.stdout.write(JSON.stringify(found));
+  `,
+        eventId,
+      ],
+      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+    )
+  );
+}
+
+// Teardown only, after product assertions: remove this fixture's leftover TUS metadata/bytes.
+function cleanupMediaFixtureBackend(eventId: string) {
+  if (!/^[a-f0-9-]{36}$/.test(eventId)) throw new Error('Expected fixture Event UUID');
+  localSupabaseStatus();
+  execFileSync(
+    'docker',
+    [
+      'exec',
+      'supabase_storage_diy-instax-package-contracts',
+      'node',
+      '-e',
+      `
+    const fs=require('node:fs'), path=require('node:path'), root='/mnt/stub';
+    for(const tenant of fs.readdirSync(root)) fs.rmSync(path.join(root,tenant,'event_media',process.argv[1]), {recursive:true,force:true});
+  `,
+      eventId,
+    ],
+    { stdio: ['ignore', 'pipe', 'pipe'] }
+  );
 }
 
 export async function terminateMediaFixtureUpload(url: string) {
