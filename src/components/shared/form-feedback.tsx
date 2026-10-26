@@ -1,3 +1,4 @@
+import { CircleAlert, CircleCheck, Info } from 'lucide-react';
 import type { ReactNode, Ref } from 'react';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { cn } from '@/lib/utils';
@@ -13,6 +14,7 @@ export function FormFeedback({
   feedbackRef?: Ref<HTMLDivElement>;
   tabIndex?: number;
 }) {
+  const Icon = kind === 'error' ? CircleAlert : kind === 'success' ? CircleCheck : Info;
   return (
     <Alert
       ref={feedbackRef}
@@ -24,6 +26,7 @@ export function FormFeedback({
         kind === 'status' && 'border-ds-info bg-ds-info-soft text-ds-info'
       )}
     >
+      <Icon aria-hidden="true" />
       <AlertDescription>{children}</AlertDescription>
     </Alert>
   );

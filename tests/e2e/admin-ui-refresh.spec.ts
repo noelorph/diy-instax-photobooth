@@ -17,6 +17,7 @@ async function capture(page: Page, info: TestInfo, name: string) {
     .locator('.public-auth, .admin-shell')
     .filter({ visible: true })
     .waitFor({ state: 'visible' });
+  await page.getByRole('heading', { level: 1 }).waitFor({ state: 'visible' });
   await page.evaluate(() => document.fonts.ready);
   await page.screenshot({ path: info.outputPath(`${name}.png`), fullPage: true });
 }
@@ -61,6 +62,8 @@ for (const width of [320, 768, 1440]) {
         expect(
           await page.locator('.public-auth').evaluate((e) => getComputedStyle(e).backgroundColor)
         ).not.toBe(publicBackground);
+        await noOverflow(page);
+        await capture(page, info, 'booth-sign-in-dark');
         await page.goto('/sign-in');
         await expect
           .poll(

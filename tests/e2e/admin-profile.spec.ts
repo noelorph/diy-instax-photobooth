@@ -54,7 +54,10 @@ for (const width of [390, 768, 1440]) {
       await expect(page.getByRole('radio', { name: 'Light', exact: true })).toBeChecked();
       for (const [first, second] of [
         [page.getByLabel('Email (Admin)'), page.getByLabel('Phone number')],
-        [page.getByLabel('New password', { exact: true }), page.getByLabel('Confirm new password')],
+        [
+          page.getByLabel('New password', { exact: true }),
+          page.getByLabel('Confirm new password', { exact: true }),
+        ],
       ]) {
         const a = (await first.boundingBox())!;
         const b = (await second.boundingBox())!;
@@ -86,6 +89,10 @@ for (const width of [390, 768, 1440]) {
         element.style.zoom = '2';
       });
       await expect(page.getByRole('button', { name: 'Save preferences' })).toBeVisible();
+      await page.screenshot({
+        path: testInfo.outputPath(`profile-css-200-${width}.png`),
+        fullPage: true,
+      });
       expect(
         await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)
       ).toBe(true);
@@ -95,7 +102,7 @@ for (const width of [390, 768, 1440]) {
       if (width === 1440) {
         const password = 'Browser-profile-password-456!';
         await page.getByLabel('New password', { exact: true }).fill(password);
-        await page.getByLabel('Confirm new password').fill(password);
+        await page.getByLabel('Confirm new password', { exact: true }).fill(password);
         await page.getByRole('button', { name: 'Change password' }).click();
         await expect(page.getByText('Password changed.', { exact: false })).toBeVisible();
         expect(
