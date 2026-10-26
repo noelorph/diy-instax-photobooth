@@ -1,0 +1,59 @@
+{
+  "images": {
+    "original": {
+      "id": "sha256:6a32896ae2d1ae2ea2d05ecaf6ed6c8a6b091739b469a8cf860ee89b2604d28f",
+      "repoDigests": [
+        "public.ecr.aws/supabase/storage-api@sha256:6a32896ae2d1ae2ea2d05ecaf6ed6c8a6b091739b469a8cf860ee89b2604d28f"
+      ]
+    },
+    "instrumented": {
+      "id": "sha256:b444a205e23bd41bee6ffeaf53f8f535b8a8bf778aaeb2e1d305bf911aba1884",
+      "repoDigests": [
+        "instax-multipart-isolated@sha256:b444a205e23bd41bee6ffeaf53f8f535b8a8bf778aaeb2e1d305bf911aba1884"
+      ]
+    }
+  },
+  "manifestCounts": {
+    "original": 90513,
+    "instrumented": 90514
+  },
+  "manifestSha256": {
+    "original": "78363493c7c45fbe08fb2586d0eb0704967dc30647777c66a1526d083f2c8493",
+    "instrumented": "022ccc6c7115d4bd8168bc868cf1d5265b88d383345d3d382b826af4052f562f"
+  },
+  "differences": {
+    "app/dist/storage/protocols/s3/s3-handler.js": {
+      "original": {
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "type": "0",
+        "link": "",
+        "size": 45921,
+        "sha256": "aace33b5104341183e2f4efcfa0653a41014858060b11e9776b430d9f3b9c990"
+      },
+      "instrumented": {
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "type": "0",
+        "link": "",
+        "size": 45993,
+        "sha256": "8f684d2aafa819cb82ee963d911276265f4c6ba5f3f896749345b36c5ee79c5b"
+      }
+    },
+    "app/qualification-hook.cjs": {
+      "original": null,
+      "instrumented": {
+        "mode": 420,
+        "uid": 0,
+        "gid": 0,
+        "type": "0",
+        "link": "",
+        "size": 507,
+        "sha256": "d6304ccfd59e05739ed6e6285a6a9298fc84658caaae331af227f02ca87ace3c"
+      }
+    }
+  },
+  "comparison": "All non-directory entries, content, type, mode, uid, gid, link, size. Container-generated hosts/resolv/hostname identical. Timestamps excluded."
+}

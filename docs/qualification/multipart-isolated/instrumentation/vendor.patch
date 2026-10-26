@@ -1,0 +1,10 @@
+--- a/dist/storage/protocols/s3/s3-handler.js
++++ b/dist/storage/protocols/s3/s3-handler.js
+@@ -486,6 +486,7 @@
+       throw import_errors.ERRORS.InvalidUploadId(uploadId);
+     }
+     const signature = this.uploadSignature({ in_progress_size: 0 });
++    await require("/app/qualification-hook.cjs").creationPersistence();
+     await this.storage.db.asSuperUser().createMultipartUpload(
+       uploadId,
+       Bucket,

@@ -1,0 +1,10 @@
+{
+  "name": "instax-local-multipart-qualification",
+  "private": true,
+  "type": "module",
+  "scripts": { "proof": "node proof.mjs" },
+  "devDependencies": {
+    "@aws-sdk/client-s3": "3.1070.0",
+    "@aws-sdk/s3-request-presigner": "3.1070.0"
+  }
+}

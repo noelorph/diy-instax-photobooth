@@ -68,3 +68,7 @@ Unknown older TUS artifacts were untouched. No database reset, service restart, 
 ## Reference boundaries
 
 Supabase documents multipart creation, listing, completion, abort and presigning in its [S3 compatibility guide](https://supabase.com/docs/guides/storage/s3/compatibility). API availability does not itself prove the missing cases. The [Storage schema guide](https://supabase.com/docs/guides/storage/schema/design) distinguishes database metadata from underlying bytes. AWS's [AbortMultipartUpload documentation](https://docs.aws.amazon.com/AmazonS3/latest/API/API_AbortMultipartUpload.html) also requires accounting for in-flight parts; it is not proof of this installed Supabase implementation.
+
+## Later isolated investigation
+
+The separately authorized [isolated original/instrumented-image investigation](issue-30-isolated-multipart-proof.md) records additional controls and its own interruption. It does not alter this earlier run or establish multipart adoption.

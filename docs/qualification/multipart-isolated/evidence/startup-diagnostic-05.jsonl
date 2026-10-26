@@ -1,0 +1,2 @@
+{"timestamp":"2026-10-26T16:12:25.575Z","name":"startup-failed","error":"Docker command failed: inspect"}
+{"timestamp":"2026-10-26T16:12:25.923Z","name":"owned-teardown","project":"instax-multipart-isolated-20261026","note":"forced owned-resource teardown; not protocol proof"}
