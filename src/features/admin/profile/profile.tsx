@@ -6,7 +6,7 @@ import { FormFeedback } from '@/components/shared/form-feedback';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Camera, Moon, Sun } from 'lucide-react';
+import { AlertCircle, Camera, Moon, Sun } from 'lucide-react';
 import { PasswordInput } from '@/components/shared/password-input';
 import styles from './profile.module.css';
 import type { ProfileAction, ProfileData, ProfileState } from './state';
@@ -223,13 +223,18 @@ export function Profile({
                         <span>
                           <Icon size={20} aria-hidden="true" />
                           {choice === 'light' ? 'Light' : 'Dark'}
+                          {theme === choice ? <b aria-hidden="true">✓</b> : null}
                         </span>
                       </label>
                     );
                   })}
                 </fieldset>
                 {state.fieldErrors?.theme ? (
-                  <p id={`${id}-theme-error`} className="text-sm text-ds-danger">
+                  <p
+                    id={`${id}-theme-error`}
+                    className="flex items-center gap-2 text-sm text-ds-danger"
+                  >
+                    <AlertCircle size={16} aria-hidden="true" className="shrink-0" />
                     {state.fieldErrors.theme}
                   </p>
                 ) : null}
@@ -316,8 +321,7 @@ export function Profile({
             Sign out
           </h2>
           <p className="m-0 text-base leading-[1.375rem] text-ds-text-muted">
-            Sign out of Admin on this device. Your other devices stay signed in. Booth Mode stays
-            available under its independent access grant.
+            Sign out of Admin on this device. Your other devices and Booth Mode stay signed in.
           </p>
         </div>
         <ProfileForm action={signOutAction} title="Sign out" pendingText="Signing out…" secondary />

@@ -264,7 +264,7 @@ it('presents four Profile sections, verified email, and saved appearance choices
   expect(email.readOnly).toBe(true);
   expect(email.value).toBe(initial.email);
   expect((screen.getByRole('radio', { name: 'Light' }) as HTMLInputElement).checked).toBe(true);
-  expect(screen.getByText(/Booth Mode stays available/)).toBeTruthy();
+  expect(screen.getByText(/Your other devices and Booth Mode stay signed in/)).toBeTruthy();
 });
 
 it('preserves both preferences and focuses persistent feedback after a failed save', async () => {
@@ -303,4 +303,14 @@ it('keeps an unknown sign-out outcome visible and actionable', async () => {
     false
   );
   await waitFor(() => expect(document.activeElement).toBe(alert));
+});
+it('marks only the chosen appearance with a persistent check and updates it when changed', () => {
+  render(<Profile initial={initial} saveAction={ok} passwordAction={ok} signOutAction={ok} />);
+  const light = screen.getByRole('radio', { name: 'Light' }).closest('label')!;
+  const dark = screen.getByRole('radio', { name: 'Dark' }).closest('label')!;
+  expect(within(light).getByText('✓')).toBeTruthy();
+  expect(within(dark).queryByText('✓')).toBeNull();
+  fireEvent.click(screen.getByRole('radio', { name: 'Dark' }));
+  expect(within(dark).getByText('✓')).toBeTruthy();
+  expect(within(light).queryByText('✓')).toBeNull();
 });

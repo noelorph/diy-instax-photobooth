@@ -70,6 +70,9 @@
   background: var(--color-primary-soft);
   border-color: var(--color-primary);
 }
+.choice input[aria-invalid='true'] + span {
+  border-color: var(--color-danger);
+}
 .choice input:focus-visible + span {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
