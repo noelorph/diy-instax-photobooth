@@ -1,0 +1,6 @@
+{"name":"environment","bucket":"multipart-proof-07c0af67-004f-4ade-a949-3c6e6be65cc2","event":"7a22e569-ae25-42cd-badb-7d3c7c3c4e1f","storage":"v1.79.36","sdk":"3.1070.0","node":"v24.22.1","endpoint":"local:56321","policy":"private bucket; no browser object policies"}
+{"name":"normal-and-lost-complete-recovery","Key":"7a22e569-ae25-42cd-badb-7d3c7c3c4e1f/background.png","UploadId":"4c2eba6a-90c0-41ec-9a04-c28f9593bc9f","bytes":10000000,"parts":2,"objectRecovered":true,"completeRetry":{"status":404,"code":"NoSuchUpload"}}
+{"name":"normal-and-lost-complete-recovery","Key":"7a22e569-ae25-42cd-badb-7d3c7c3c4e1f/montage.mp4","UploadId":"ca4b4eef-8d8b-4f1a-aa7e-2f4ae72ecc64","bytes":50000000,"parts":9,"objectRecovered":true,"completeRetry":{"status":404,"code":"NoSuchUpload"}}
+{"name":"lost-create-response-after-commit","Key":"7a22e569-ae25-42cd-badb-7d3c7c3c4e1f/lost-response","recovered":["2525b289-31e2-4c40-add2-20459a719ffe","69a97ece-1489-4474-9667-c2e721a39561"],"paginated":true,"backendEmpty":true}
+{"name":"proof-result","result":"FAIL","assertion":"Expected values to be strictly equal:","code":"AssertionError"}
+{"name":"fixture-teardown","bucket":"multipart-proof-07c0af67-004f-4ade-a949-3c6e6be65cc2","exactMultipartIds":[],"remainingFiles":0,"note":"Forced owned-resource teardown after evidence; not protocol proof"}
