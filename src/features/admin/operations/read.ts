@@ -150,6 +150,7 @@ export async function listLiveEvents() {
       'id,title,venueAddress:venue_address,timeZone:time_zone,startsAtUtc:starts_at,endsAtUtc:ends_at,filmPackageCount:film_package_count,additional_film_package_entries(packages)'
     )
     .eq('state', 'Live')
+    .eq('accounting_version', 2)
     .is('deleted_at', null);
   return result.error
     ? { status: 'unavailable' as const }

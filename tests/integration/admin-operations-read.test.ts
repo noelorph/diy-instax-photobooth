@@ -3,8 +3,12 @@ import { randomUUID } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
-import { localSupabase, ownerInsert, cleanupEvents } from '../fixtures/local-supabase';
-import { getHistorySummary, getOperationalEvent } from '@/features/admin/operations/read';
+import { localSupabase, ownerInsert, ownerUpdate, cleanupEvents } from '../fixtures/local-supabase';
+import {
+  getHistorySummary,
+  getOperationalEvent,
+  listLiveEvents,
+} from '@/features/admin/operations/read';
 import { createClient } from '@/lib/supabase/server';
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
@@ -50,6 +54,72 @@ it('reads authenticated Event totals and excludes deleted or inaccessible Events
     await cleanupEvents([id]);
   }
   expect((await getOperationalEvent(id)).status).toBe('not_found');
+});
+
+it('excludes legacy Live Events while preserving current additional package totals', async () => {
+  const admin = await local.provisionUser();
+  expect((await local.allowlist(admin.id)).error).toBeNull();
+  const signed = await local.signIn(admin);
+  vi.mocked(createClient).mockResolvedValue(signed.client);
+  const [legacyId, currentId] = [randomUUID(), randomUUID()];
+  const ids = [legacyId, currentId];
+  const booking = {
+    client_name: 'Client',
+    client_email: 'live-read@example.test',
+    client_phone: '123',
+    venue_address: 'Hall',
+    time_zone: 'Asia/Manila',
+    starts_at: '2026-11-01T10:00:00Z',
+    ends_at: '2026-11-01T11:00:00Z',
+  };
+  try {
+    ownerInsert('events', {
+      id: legacyId,
+      ...booking,
+      title: 'Legacy Live',
+      accounting_version: 1,
+      film_package_count: 2,
+      original_print_allowance: 17,
+    });
+    ownerInsert('events', {
+      id: currentId,
+      ...booking,
+      title: 'Current Live',
+      accounting_version: 2,
+      film_package_count: 3,
+    });
+    ownerUpdate('events', legacyId, { state: 'Live', revision: 2 });
+    const visible = await signed.client.from('events').select('id').in('id', ids);
+    expect(visible.error).toBeNull();
+    expect(visible.data?.map((row) => row.id).sort()).toEqual([...ids].sort());
+    expect(await listLiveEvents()).toEqual({ status: 'success', events: [] });
+    ownerUpdate('events', legacyId, { state: 'Cancelled', revision: 3 });
+    ownerUpdate('events', currentId, { state: 'Live', revision: 2 });
+    ownerInsert('additional_film_package_entries', {
+      event_id: currentId,
+      packages: 2,
+      client_request_note: 'Client requested two more packages',
+      actor_id: admin.id,
+      operation_key: randomUUID(),
+    });
+    expect(await listLiveEvents()).toEqual({
+      status: 'success',
+      events: [
+        {
+          id: currentId,
+          title: 'Current Live',
+          venueAddress: 'Hall',
+          timeZone: 'Asia/Manila',
+          startsAtUtc: '2026-11-01T10:00:00+00:00',
+          endsAtUtc: '2026-11-01T11:00:00+00:00',
+          filmPackageCount: 5,
+          state: 'Live',
+        },
+      ],
+    });
+  } finally {
+    cleanupEvents(ids);
+  }
 });
 
 it('pages beyond 100 attempts and keeps readiness and accounting independent of the page', async () => {
