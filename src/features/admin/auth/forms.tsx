@@ -7,6 +7,7 @@ import { useActionState, useEffect, useId, useRef, useState } from 'react';
 import { FormField } from '@/components/shared/form-field';
 import { FormFeedback } from '@/components/shared/form-feedback';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/shared/password-input';
 import { Input } from '@/components/ui/input';
 import { connectionError, type AuthFormAction, type AuthFormState } from './state';
 
@@ -63,10 +64,10 @@ function PublicAuthForm({ action, signIn }: { action: AuthFormAction; signIn: bo
       {signIn ? (
         <FormField id={`${id}-password`} label="Password" error={state.fieldErrors?.password}>
           {(a11y) => (
-            <Input
+            <PasswordInput
               {...a11y}
+              label="Password"
               name="password"
-              type="password"
               autoComplete="current-password"
               required
             />
