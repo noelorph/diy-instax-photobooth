@@ -5,6 +5,7 @@ import { FormFeedback } from '@/components/shared/form-feedback';
 import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { getDraft } from '@/lib/events/drafts';
+import { EventMediaEditor } from '@/features/admin/events/event-media';
 import { DraftForm } from '@/features/admin/events/draft-form';
 import { createDraftAction, updateDraftAction } from '@/features/admin/events/actions';
 
@@ -73,6 +74,7 @@ export default async function EventPage({
         createAction={createDraftAction}
         updateAction={updateDraftAction}
       />
+      <EventMediaEditor eventId={eventId} revision={result.draft.revision} />
       {panel}
     </>
   );

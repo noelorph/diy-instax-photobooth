@@ -14,6 +14,7 @@ export function packageRpcError(error: { message: string } | null): never {
 export async function packageRpc(
   name:
     | 'create_event_draft'
+    | 'event_media_operation'
     | 'package_admin_operation'
     | 'package_booth_operation'
     | 'package_issue_handoff'

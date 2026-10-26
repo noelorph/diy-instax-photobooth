@@ -478,6 +478,57 @@ export type Database = {
           },
         ];
       };
+      event_media_assets: {
+        Row: {
+          byte_length: number | null;
+          content_type: string | null;
+          created_at: string;
+          duration_ms: number | null;
+          event_id: string;
+          id: string;
+          kind: string;
+          path: string;
+          state: string;
+          upload_expires_at: string;
+          uploaded_by: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          byte_length?: number | null;
+          content_type?: string | null;
+          created_at?: string;
+          duration_ms?: number | null;
+          event_id: string;
+          id?: string;
+          kind: string;
+          path: string;
+          state?: string;
+          upload_expires_at?: string;
+          uploaded_by: string;
+        };
+        Update: {
+          byte_length?: number | null;
+          content_type?: string | null;
+          created_at?: string;
+          duration_ms?: number | null;
+          event_id?: string;
+          id?: string;
+          kind?: string;
+          path?: string;
+          state?: string;
+          upload_expires_at?: string;
+          uploaded_by?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'event_media_assets_event_id_fkey';
+            columns: ['event_id'];
+            isOneToOne: false;
+            referencedRelation: 'events';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
       events: {
         Row: {
           accounting_version: number;
@@ -963,6 +1014,17 @@ export type Database = {
         Args: {
           p_admin_session_id: string;
           p_admin_user_id: string;
+          p_operation_id: string;
+          p_payload: Json;
+        };
+        Returns: Json;
+      };
+      event_media_cleanup: { Args: { p_asset_id: string; p_removed: boolean }; Returns: undefined };
+      event_media_operation: {
+        Args: {
+          p_admin_session_id: string;
+          p_admin_user_id: string;
+          p_operation: string;
           p_operation_id: string;
           p_payload: Json;
         };
