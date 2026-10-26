@@ -20,7 +20,6 @@ const draft: DraftEvent = {
   startsAtUtc: '2025-01-10T10:00:00Z',
   endsAtUtc: '2025-01-10T12:00:00Z',
   filmPackageCount: 0,
-  originalPrintAllowance: 0,
 };
 const saved: DraftActionState = {
   status: 'success',
@@ -30,22 +29,23 @@ const saved: DraftActionState = {
 };
 const ok = async () => saved;
 function form(action: () => Promise<DraftActionState> = ok) {
-  return render(<DraftForm initial={draft} createAction={ok} updateAction={action} />);
+  const rendered = render(<DraftForm initial={draft} createAction={ok} updateAction={action} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
+  return rendered;
 }
-it('shows saved Draft values in server-rendered edit fields', () => {
+it('shows the saved Draft booking overview before entering Edit Draft', () => {
   const html = renderToString(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
   const container = document.createElement('div');
   container.innerHTML = html;
 
-  expect((container.querySelector('input[name="title"]') as HTMLInputElement).value).toBe(
-    'Birthday'
-  );
-  expect((container.querySelector('input[name="startsAtLocal"]') as HTMLInputElement).value).toBe(
-    '2025-01-10T18:00'
-  );
+  expect(container.textContent).toContain('Birthday');
+  expect(container.textContent).toContain('Alex');
+  expect(container.textContent).toContain('Manila hall');
+  expect(container.querySelector('form')).toBeNull();
+  expect(container.textContent).toContain('Edit Draft');
 });
 it('keeps the Draft editor unavailable until hydration attaches its form state', () => {
-  const html = renderToString(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  const html = renderToString(<DraftForm createAction={ok} updateAction={ok} />);
   const container = document.createElement('div');
   container.innerHTML = html;
 
@@ -76,7 +76,7 @@ it('offers creation in an empty list and labels venue-local overdue Draft schedu
   expect(screen.getByText(/18:00/)).toBeTruthy();
   expect(screen.getByText(/Asia\/Manila/)).toBeTruthy();
   expect(screen.getByText('Overdue Draft')).toBeTruthy();
-  expect(screen.getByText('Draft', { exact: true })).toBeTruthy();
+  expect(screen.getByRole('row', { name: /Birthday/ }).textContent).toContain('Draft');
   expect(screen.queryByRole('button', { name: 'Create Event' })).toBeNull();
 });
 it('submits an edited registered value after clearing its error while another server error remains', async () => {
@@ -99,6 +99,7 @@ it('submits an edited registered value after clearing its error while another se
       }}
     />
   );
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
   fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
   await screen.findByText('Review this Event name.');
   const title = screen.getByLabelText('Event name');
@@ -123,7 +124,8 @@ it('shows zero booking counts as Draft with venue-local editable times', () => {
     '2025-01-10T18:00'
   );
   expect((screen.getByLabelText('Booked Film Packages') as HTMLInputElement).value).toBe('0');
-  expect((screen.getByLabelText('Original Print Allowance') as HTMLInputElement).value).toBe('0');
+  expect(screen.queryByLabelText('Original Print Allowance')).toBeNull();
+  expect(screen.getByLabelText('Total booked prints').textContent).toBe('0');
   expect(screen.getByText('Draft', { exact: true })).toBeTruthy();
   expect(screen.queryByRole('button', { name: /delete|booth|test print|stock/i })).toBeNull();
 });
@@ -421,6 +423,7 @@ it('does not claim a pending save succeeded and updates the revision after persi
   finish(saved);
   await screen.findByText('Draft saved.');
   expect(screen.getByText('Revision 2')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
   fireEvent.change(screen.getByLabelText('Event name'), { target: { value: 'Unsaved change' } });
   expect(screen.queryByText('Draft saved.')).toBeNull();
 });
@@ -459,7 +462,166 @@ it('preserves a saved schedule with seconds when opening the editor', () => {
       updateAction={ok}
     />
   );
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
   expect((screen.getByLabelText('Scheduled start') as HTMLInputElement).value).toBe(
     '2025-01-10T18:00:45.000'
   );
 });
+
+it('derives booked prints from packages and explains a zero-package Draft cannot start', () => {
+  form();
+  expect(screen.getByText(/Add at least one Film Package before starting/)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText('Booked Film Packages'), { target: { value: '3' } });
+  expect(screen.getByLabelText('Total booked prints').textContent).toBe('30');
+});
+it('freezes a lost creation request and recovers its current revision before later edits', async () => {
+  const requests: FormData[] = [];
+  const updates: { id: string; revision: number; title: FormDataEntryValue | null }[] = [];
+  render(
+    <DraftForm
+      createAction={async (_state, data) => {
+        requests.push(data);
+        if (requests.length === 1) throw new Error('reply lost after commit');
+        return {
+          ...saved,
+          revision: 4,
+          draft: { ...draft, title: 'Current edited booking', revision: 4 },
+        };
+      }}
+      updateAction={async (id, revision, _state, data) => {
+        updates.push({ id, revision, title: data.get('title') });
+        return saved;
+      }}
+    />
+  );
+  const values = {
+    title: 'Frozen creation',
+    clientName: 'Alex',
+    clientEmail: 'alex@example.test',
+    clientPhone: '123',
+    venueAddress: 'Hall',
+    timeZone: 'Asia/Manila',
+    startsAtLocal: '2026-12-01T18:00',
+    endsAtLocal: '2026-12-01T20:00',
+    filmPackageCount: '2',
+  };
+  for (const [name, value] of Object.entries(values))
+    fireEvent.change(document.querySelector(`[name="${name}"]`)!, { target: { value } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByRole('alert');
+  expect((screen.getByLabelText('Event name') as HTMLInputElement).matches(':disabled')).toBe(true);
+  const operationId = requests[0].get('operationId');
+  expect(operationId).toMatch(/^[a-f0-9-]{36}$/);
+  expect(screen.getByRole('link', { name: 'Cancel' }).getAttribute('aria-disabled')).toBe('true');
+  expect(fireEvent.click(screen.getByRole('link', { name: 'Cancel' }))).toBe(false);
+  expect(fireEvent.click(screen.getByRole('link', { name: 'Back to Events' }))).toBe(false);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry save' }));
+  await screen.findByText('Draft saved.');
+  expect([...requests[1]]).toEqual([...requests[0]]);
+  expect(requests[1].get('operationId')).toBe(operationId);
+  expect(requests[1].get('title')).toBe('Frozen creation');
+  expect(requests[1].get('filmPackageCount')).toBe('2');
+  expect(screen.getByRole('heading', { name: 'Current edited booking' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
+  expect((screen.getByLabelText('Event name') as HTMLInputElement).value).toBe(
+    'Current edited booking'
+  );
+  expect((screen.getByLabelText('Event name') as HTMLInputElement).matches(':disabled')).toBe(
+    false
+  );
+  fireEvent.change(screen.getByLabelText('Event name'), { target: { value: 'Later edit' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByText('Draft saved.');
+  expect(updates).toEqual([{ id: draft.id, revision: 4, title: 'Later edit' }]);
+});
+
+it('combines Live and Draft Events with packages, derived prints and filters', () => {
+  render(
+    <DraftList
+      drafts={[{ ...draft, filmPackageCount: 2 }]}
+      liveEvents={[
+        { ...draft, id: 'live-event', title: 'Studio evening', state: 'Live', filmPackageCount: 3 },
+      ]}
+      now={Date.parse('2026-01-01Z')}
+    />
+  );
+  expect(screen.getByRole('row', { name: /Birthday/ }).textContent).toMatch(/2.*20/);
+  expect(screen.getByRole('row', { name: /Studio evening/ }).textContent).toMatch(/3.*30.*Live/);
+  fireEvent.click(screen.getByRole('button', { name: 'Live' }));
+  expect(screen.queryByRole('row', { name: /Birthday/ })).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'All' }));
+  fireEvent.change(screen.getByRole('searchbox', { name: 'Search Events' }), {
+    target: { value: 'Birthday' },
+  });
+  expect(screen.queryByRole('row', { name: /Studio evening/ })).toBeNull();
+  expect(screen.getByRole('row', { name: /Birthday/ })).toBeTruthy();
+});
+
+it('clears a saved confirmation when the package stepper changes the booking', async () => {
+  form();
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByText('Draft saved.');
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Add one Film Package' }));
+  expect(screen.queryByText('Draft saved.')).toBeNull();
+  expect(screen.getByLabelText('Total booked prints').textContent).toBe('10');
+});
+
+it('opens a package booking overview and enters the editor without changing saved data', () => {
+  render(
+    <DraftForm initial={{ ...draft, filmPackageCount: 5 }} createAction={ok} updateAction={ok} />
+  );
+  expect(screen.getByRole('heading', { name: 'Birthday' })).toBeTruthy();
+  expect(screen.getByLabelText('Total booked prints').textContent).toBe('50');
+  expect(screen.getByText('alex@example.test')).toBeTruthy();
+  expect(screen.queryByLabelText('Event name')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
+  expect((screen.getByLabelText('Booked Film Packages') as HTMLInputElement).value).toBe('5');
+});
+
+it('does not show a valid derived total for an empty or fractional package field', () => {
+  form();
+  for (const value of ['', '1.5', '214748365']) {
+    fireEvent.change(screen.getByLabelText('Booked Film Packages'), { target: { value } });
+    expect(screen.getByLabelText('Total booked prints').textContent).toBe('—');
+  }
+});
+
+it.each(['not_found', 'conflict'] as const)(
+  'offers a way back after a confirmed terminal creation result: %s',
+  async (status) => {
+    render(
+      <DraftForm
+        createAction={async () =>
+          status === 'not_found'
+            ? { status }
+            : { status, error: 'This creation request conflicts. Return to Events.' }
+        }
+        updateAction={ok}
+      />
+    );
+    const values = {
+      title: 'Closed creation',
+      clientName: 'Alex',
+      clientEmail: 'alex@example.test',
+      clientPhone: '123',
+      venueAddress: 'Hall',
+      timeZone: 'Asia/Manila',
+      startsAtLocal: '2026-12-01T18:00',
+      endsAtLocal: '2026-12-01T20:00',
+      filmPackageCount: '2',
+    };
+    for (const [name, value] of Object.entries(values))
+      fireEvent.change(document.querySelector(`[name="${name}"]`)!, { target: { value } });
+    fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+    await screen.findByRole('alert');
+    expect((screen.getByLabelText('Event name') as HTMLInputElement).matches(':disabled')).toBe(
+      true
+    );
+    expect(screen.getByRole('button', { name: 'Save Draft' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByRole('link', { name: 'Back to Events' }).getAttribute('aria-disabled')).toBe(
+      'false'
+    );
+    expect(screen.queryByText(/Retry the save to check its result/)).toBeNull();
+  }
+);

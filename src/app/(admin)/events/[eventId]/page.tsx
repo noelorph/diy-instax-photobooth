@@ -23,6 +23,7 @@ export default async function EventPage({
     operations.status === 'success' ? (
       <OperationsPanel
         event={operations.event}
+        startDisabled={result.status === 'success' && result.draft.filmPackageCount === 0}
         simulatorEnabled={
           process.env.NODE_ENV !== 'production' && process.env.BOOTH_SIMULATOR_ENABLED === 'true'
         }

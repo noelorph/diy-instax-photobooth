@@ -2,6 +2,7 @@ import { writeFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
 import { localSupabase, cleanupEvents } from '../fixtures/local-supabase';
+import { createPackageBrowserFixture } from '../fixtures/package-browser';
 
 const longTitle = 'Celebration'.repeat(18);
 const longClient = 'Alexandria'.repeat(18);
@@ -28,11 +29,11 @@ for (const width of [320, 768, 1440]) {
   for (const theme of ['light', 'dark'] as const) {
     test(`Admin visual contracts at ${width}px in ${theme}`, async ({ page }, info) => {
       info.setTimeout(90_000);
-      const local = localSupabase();
-      const admin = await local.provisionUser();
+      const fixture = await createPackageBrowserFixture();
+      const local = fixture.local;
+      const admin = fixture.adminUser;
       let eventId: string | undefined;
       try {
-        expect((await local.allowlist(admin.id)).error).toBeNull();
         expect(
           (await local.service.from('admin_profiles').update({ theme }).eq('id', admin.id)).error
         ).toBeNull();
@@ -124,7 +125,6 @@ for (const width of [320, 768, 1440]) {
           'Client email': 'alex@example.test',
           'Client phone': '+639171234567',
           'Booked Film Packages': '0',
-          'Original Print Allowance': '0',
         }))
           await page.getByLabel(label, { exact: true }).filter({ visible: true }).fill(value);
         // Hold the real server action at the transport boundary to observe pending UI.
@@ -136,13 +136,21 @@ for (const width of [320, 768, 1440]) {
           if (route.request().method() === 'POST') await gate;
           await route.continue();
         });
+        const committedSave = page.waitForResponse(
+          (response) =>
+            response.request().method() === 'POST' &&
+            new URL(response.url()).pathname === '/events/new'
+        );
         await page.getByRole('button', { name: 'Save Draft' }).click();
         try {
           await expect(page.getByRole('button', { name: 'Save Draft' })).toBeDisabled();
-          await expect(page.getByRole('status')).toContainText('Saving Draft');
+          await expect(page.getByRole('status').filter({ hasText: 'Saving Draft…' })).toContainText(
+            'Saving Draft'
+          );
           await capture(page, info, 'draft-pending');
         } finally {
           release();
+          await committedSave;
         }
         await expect(page.getByText('Draft saved.', { exact: true })).toBeVisible();
         await page.unroute('**/events/new');
@@ -163,6 +171,9 @@ for (const width of [320, 768, 1440]) {
         expect(await link.evaluate((e) => e.scrollWidth <= e.clientWidth)).toBe(true);
         await capture(page, info, 'events-long-text');
         await link.click();
+        await expect(page.getByRole('heading', { name: longTitle, exact: true })).toBeVisible();
+        await capture(page, info, 'draft-booking-overview');
+        await page.getByRole('button', { name: 'Edit Draft' }).click();
         await expect(page.getByLabel('Client name')).toHaveValue(longClient);
         await noOverflow(page);
         await capture(page, info, 'draft-detail');
@@ -170,6 +181,7 @@ for (const width of [320, 768, 1440]) {
         await stale.setViewportSize({ width, height: 1000 });
         try {
           await stale.goto(`/events/${eventId}`);
+          await stale.getByRole('button', { name: 'Edit Draft' }).click();
           await expect(stale.getByLabel('Event name')).toHaveValue(longTitle);
           await page.getByLabel('Client name').fill(`${longClient} updated`);
           await page.getByRole('button', { name: 'Save Draft' }).click();
@@ -234,7 +246,7 @@ for (const width of [320, 768, 1440]) {
           const found = await local.service.from('events').select('id').eq('title', longTitle);
           cleanupEvents((found.data ?? []).map((row) => row.id));
         }
-        await local.cleanup();
+        await fixture.dispose();
       }
     });
   }

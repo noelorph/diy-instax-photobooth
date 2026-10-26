@@ -30,7 +30,6 @@ import {
 } from '@/app/api/admin/events/[eventId]/booth/setup-readiness/route';
 import { POST as startRoute } from '@/app/api/admin/events/[eventId]/booth/start/route';
 import { POST as addPackages } from '@/app/api/admin/events/[eventId]/film-packages/route';
-import { POST as reviewDraftBooking } from '@/app/api/admin/events/[eventId]/review-draft-booking/route';
 import { POST as pauseRoute } from '@/app/api/admin/events/[eventId]/booth/pause/route';
 import { POST as completeRoute } from '@/app/api/admin/events/[eventId]/complete/route';
 import { POST as cancelRoute } from '@/app/api/admin/events/[eventId]/cancel/route';
@@ -614,74 +613,6 @@ it('recovers an uncertain package addition through its original receipt and reje
       context
     );
     expect([401, 403]).toContain(revoked.status);
-  } finally {
-    await fixture.dispose();
-  }
-}, 30000);
-
-it('reviews a converted Draft only with current packages, live Admin authority, and a stable receipt', async () => {
-  const fixture = await createPackageFixture({ originalPackages: 2 });
-  try {
-    ownerUpdate('events', fixture.eventId, {
-      booking_review_required: true,
-      booking_review_original_allowance: 25,
-      booking_review_proposed_capacity: 20,
-      revision: 2,
-    });
-    const session = (await fixture.adminClient.auth.getSession()).data.session!;
-    const cookie = sessionCookies(session);
-    const context = { params: Promise.resolve({ eventId: fixture.eventId }) };
-    const operationId = randomUUID();
-    const body = { operationId, expectedRevision: 2, acknowledgedPackages: 2 };
-    expect((await reviewDraftBooking(request(body), context)).status).toBe(401);
-    for (const pair of cookie.split('; ')) {
-      const [name, value] = pair.split('=');
-      jar.set(name, value);
-    }
-    const stale = await reviewDraftBooking(
-      request({ ...body, acknowledgedPackages: 1 }, cookie),
-      context
-    );
-    expect(stale.status).toBe(409);
-    expect((await stale.json()).code).toBe('stale_revision');
-    const first = await reviewDraftBooking(request(body, cookie), context);
-    expect(first.status).toBe(200);
-    const result = await first.json();
-    expect(result.receipt.result).toMatchObject({
-      acknowledgedPackages: 2,
-      proposedCapacity: 20,
-      originalAllowance: 25,
-    });
-    expect((await (await reviewDraftBooking(request(body, cookie), context)).json()).replayed).toBe(
-      true
-    );
-    const conflict = await reviewDraftBooking(
-      request({ ...body, acknowledgedPackages: 1 }, cookie),
-      context
-    );
-    expect(conflict.status).toBe(409);
-    expect((await conflict.json()).code).toBe('operation_conflict');
-    expect(
-      localOwnerSql(
-        `select booking_review_required from public.events where id='${fixture.eventId}'`
-      )[0].booking_review_required
-    ).toBe(false);
-    ownerUpdate('events', fixture.eventId, { film_package_count: 3, revision: 4 });
-    const newKey = randomUUID();
-    const oldAcknowledgement = await reviewDraftBooking(
-      request({ operationId: newKey, expectedRevision: 4, acknowledgedPackages: 2 }, cookie),
-      context
-    );
-    expect(oldAcknowledgement.status).toBe(409);
-    expect((await oldAcknowledgement.json()).code).toBe('stale_revision');
-    expect(
-      (
-        await reviewDraftBooking(
-          request({ operationId: newKey, expectedRevision: 4, acknowledgedPackages: 3 }, cookie),
-          context
-        )
-      ).status
-    ).toBe(200);
   } finally {
     await fixture.dispose();
   }

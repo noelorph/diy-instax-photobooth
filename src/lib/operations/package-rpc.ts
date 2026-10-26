@@ -4,6 +4,7 @@ import { createPrivilegedClient } from './privileged-client';
 import { PackageError, packageErrorStatus } from './package-contract';
 
 export function packageRpcError(error: { message: string } | null): never {
+  if (error?.message === 'A valid venue time zone is required.') throw error;
   const code = error?.message;
   if (code && Object.hasOwn(packageErrorStatus, code))
     throw new PackageError(code as keyof typeof packageErrorStatus);
@@ -12,6 +13,7 @@ export function packageRpcError(error: { message: string } | null): never {
 
 export async function packageRpc(
   name:
+    | 'create_event_draft'
     | 'package_admin_operation'
     | 'package_booth_operation'
     | 'package_issue_handoff'

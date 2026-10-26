@@ -146,12 +146,28 @@ export async function listLiveEvents() {
   const client = await createClient();
   const result = await client
     .from('events')
-    .select('id,title')
+    .select(
+      'id,title,venueAddress:venue_address,timeZone:time_zone,startsAtUtc:starts_at,endsAtUtc:ends_at,filmPackageCount:film_package_count,additional_film_package_entries(packages)'
+    )
     .eq('state', 'Live')
     .is('deleted_at', null);
   return result.error
     ? { status: 'unavailable' as const }
-    : { status: 'success' as const, events: result.data };
+    : {
+        status: 'success' as const,
+        events: result.data.map(({ additional_film_package_entries, ...event }) => ({
+          ...event,
+          title: event.title!,
+          venueAddress: event.venueAddress!,
+          timeZone: event.timeZone!,
+          startsAtUtc: event.startsAtUtc!,
+          endsAtUtc: event.endsAtUtc!,
+          filmPackageCount:
+            event.filmPackageCount! +
+            additional_film_package_entries.reduce((total, entry) => total + entry.packages, 0),
+          state: 'Live' as const,
+        })),
+      };
 }
 export async function getHistorySummary() {
   try {

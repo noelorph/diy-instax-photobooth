@@ -1,6 +1,6 @@
-import type { DraftSaveResult } from '@/lib/events/drafts';
+import type { DraftEvent, DraftSaveResult } from '@/lib/events/drafts';
 
 export type DraftActionState =
   | { status: 'idle' }
   | Exclude<DraftSaveResult, { status: 'success' }>
-  | { status: 'success'; id: string; revision: number; confirmation: string };
+  | { status: 'success'; id: string; revision: number; confirmation: string; draft?: DraftEvent };

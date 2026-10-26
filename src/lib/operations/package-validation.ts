@@ -2,7 +2,6 @@ import { z } from 'zod';
 import { MAX_TOTAL_PACKAGES, PackageError } from './package-contract';
 import { parseOperation } from './validation';
 
-export const originalPackagesSchema = z.number().int().min(0).max(MAX_TOTAL_PACKAGES);
 const revision = z.number().int().positive().max(2_147_483_647);
 const generation = z.number().int().nonnegative().max(2_147_483_647);
 const printerId = z
@@ -78,9 +77,6 @@ export const packageActionSchemas = {
   complete: eventRevisionSchema,
   cancel: eventRevisionSchema,
   deleteDraft: eventRevisionSchema,
-  reviewDraftBooking: eventRevisionSchema.extend({
-    acknowledgedPackages: originalPackagesSchema,
-  }),
   confirmReload: eventRevisionSchema.extend({
     reloadRequestId: z.uuid(),
     printerId,

@@ -1,5 +1,6 @@
 import { Temporal } from '@js-temporal/polyfill';
 import { z, ZodError } from 'zod';
+import { MAX_TOTAL_PACKAGES } from '@/lib/operations/package-contract';
 
 export const scheduleOrderError = 'Scheduled end must be after the scheduled start.';
 export const ambiguousLocalTimeError =
@@ -19,13 +20,10 @@ const bookingSchema = z.object({
   clientEmail: z.string().trim().pipe(z.email('Enter a valid Client email.')),
   clientPhone: z.string().trim().min(1, 'Enter the Client phone.'),
   venueAddress: z.string().trim().min(1, 'Enter the venue address.'),
-  // Match the PostgreSQL integer columns used by Draft persistence.
   filmPackageCount: z
-    .int32('Enter a whole Film Package count up to 2147483647.')
-    .nonnegative('Film Package count cannot be negative.'),
-  originalPrintAllowance: z
-    .int32('Enter a whole Print Allowance up to 2147483647.')
-    .nonnegative('Print Allowance cannot be negative.'),
+    .int('Enter a whole Film Package count.')
+    .nonnegative('Film Package count cannot be negative.')
+    .max(MAX_TOTAL_PACKAGES, 'Enter no more than 214748364 Film Packages.'),
 });
 
 const scheduleInputSchema = z.object({
@@ -136,7 +134,6 @@ export function draftInputFromFormData(data: FormData): Record<string, unknown> 
       ? { state: data.getAll('state').every((value) => value === 'Draft') ? 'Draft' : null }
       : {}),
     filmPackageCount: count('filmPackageCount'),
-    originalPrintAllowance: count('originalPrintAllowance'),
   };
 }
 

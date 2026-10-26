@@ -1,9 +1,15 @@
 // @vitest-environment node
 import { randomUUID } from 'node:crypto';
-import { afterEach, beforeAll, describe, expect, it } from 'vitest';
+import { afterEach, beforeAll, afterAll, describe, expect, it } from 'vitest';
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { parseDraftEventInput } from '@/features/admin/events/draft-event.schema';
-import { localSupabase, cleanupEvents } from '../fixtures/local-supabase';
+import {
+  localSupabase,
+  cleanupEvents,
+  setPackageCreationDefault,
+  ownerInsert,
+  localOwnerSql,
+} from '../fixtures/local-supabase';
 
 const booking = {
   title: 'Evening celebration',
@@ -15,15 +21,17 @@ const booking = {
   starts_at: '2026-12-01T10:00:00+00:00',
   ends_at: '2026-12-01T12:00:00+00:00',
   film_package_count: 0,
-  original_print_allowance: 0,
 };
 
 describe('Draft Event storage through local Auth and the Data API', () => {
   let local: ReturnType<typeof localSupabase>;
   const eventIds: string[] = [];
+  let restoreDefault: () => void;
   beforeAll(() => {
     local = localSupabase();
+    restoreDefault = setPackageCreationDefault();
   });
+  afterAll(() => restoreDefault?.());
   afterEach(async () => {
     if (eventIds.length) {
       cleanupEvents(eventIds.splice(0));
@@ -44,12 +52,13 @@ describe('Draft Event storage through local Auth and the Data API', () => {
   }
 
   async function create(client: SupabaseClient) {
-    const result = await client.from('events').insert(payload()).select().single();
+    const seeded = ownerInsert('events', payload({ accounting_version: 2 }));
+    const result = await client.from('events').select().eq('id', seeded.data.id).single();
     expect(result.error).toBeNull();
     return result.data!;
   }
 
-  it('persists parsed booking values, defaults to Draft revision 1, and edits every booking field', async () => {
+  it('reads current package booking values and edits every booking field', async () => {
     const first = await admin();
     const parsed = parseDraftEventInput({
       title: 'Evening celebration',
@@ -61,20 +70,20 @@ describe('Draft Event storage through local Auth and the Data API', () => {
       startsAtLocal: '2026-12-01T18:00',
       endsAtLocal: '2026-12-01T20:00',
       filmPackageCount: 0,
-      originalPrintAllowance: 0,
     });
-    const inserted = await first.client
-      .from('events')
-      .insert(
-        payload({
-          starts_at: parsed.startsAtUtc,
-          ends_at: parsed.endsAtUtc,
-        })
-      )
-      .select()
-      .single();
+    const seeded = ownerInsert(
+      'events',
+      payload({ accounting_version: 2, starts_at: parsed.startsAtUtc, ends_at: parsed.endsAtUtc })
+    );
+    const inserted = await first.client.from('events').select().eq('id', seeded.data.id).single();
     expect(inserted.error).toBeNull();
-    expect(inserted.data).toMatchObject({ ...booking, state: 'Draft', revision: 1 });
+    expect(inserted.data).toMatchObject({
+      ...booking,
+      state: 'Draft',
+      revision: 1,
+      accounting_version: 2,
+      original_print_allowance: null,
+    });
     const changes = {
       title: 'Updated celebration',
       client_name: 'Robin Client',
@@ -85,7 +94,6 @@ describe('Draft Event storage through local Auth and the Data API', () => {
       starts_at: '2026-12-02T17:00:00+00:00',
       ends_at: '2026-12-02T20:00:00+00:00',
       film_package_count: 3,
-      original_print_allowance: 17,
       revision: 2,
     };
     const changed = await first.client
@@ -206,10 +214,8 @@ describe('Draft Event storage through local Auth and the Data API', () => {
   it.each([
     ['negative package count', { film_package_count: -1 }, '23514'],
     ['fractional package count', { film_package_count: 1.5 }, '22P02'],
+    ['derived prints overflow', { film_package_count: 214748365 }, '23514'],
     ['overflow package count', { film_package_count: 2147483648 }, '22003'],
-    ['negative allowance', { original_print_allowance: -1 }, '23514'],
-    ['fractional allowance', { original_print_allowance: 1.5 }, '22P02'],
-    ['overflow allowance', { original_print_allowance: 2147483648 }, '22003'],
     ['end before start', { ends_at: '2026-12-01T09:00:00Z' }, '23514'],
     ['equal start and end', { ends_at: booking.starts_at }, '23514'],
     ['infinite start', { starts_at: '-infinity' }, '23514'],
@@ -224,9 +230,6 @@ describe('Draft Event storage through local Auth and the Data API', () => {
     const { client } = await admin();
     const event = await create(client);
     expect(
-      (await client.from('events').insert(payload(invalid as Record<string, unknown>))).error?.code
-    ).toBe(code);
-    expect(
       (
         await client
           .from('events')
@@ -240,25 +243,24 @@ describe('Draft Event storage through local Auth and the Data API', () => {
     });
   });
 
-  it('accepts the maximum whole count for both independent counts', async () => {
+  it('accepts the maximum package count without an allowance', async () => {
     const { client } = await admin();
+    const event = await create(client);
     const result = await client
       .from('events')
-      .insert(payload({ film_package_count: 2147483647, original_print_allowance: 2147483647 }))
+      .update({ film_package_count: 214748364, revision: 2 })
+      .eq('id', event.id)
       .select()
       .single();
     expect(result.error).toBeNull();
     expect(result.data).toMatchObject({
-      film_package_count: 2147483647,
-      original_print_allowance: 2147483647,
+      film_package_count: 214748364,
+      original_print_allowance: null,
     });
   });
 
-  it('requires revision 1 on creation and exactly one increment for every direct update', async () => {
+  it('requires exactly one revision increment for every authorized Draft update', async () => {
     const owner = await admin();
-    expect((await owner.client.from('events').insert(payload({ revision: 2 }))).error?.code).toBe(
-      '23514'
-    );
     const event = await create(owner.client);
     const secondDevice = await local.signIn(owner.user);
     const firstSave = await owner.client
@@ -290,4 +292,26 @@ describe('Draft Event storage through local Auth and the Data API', () => {
       (await owner.client.from('events').select().eq('id', event.id).single()).data
     ).toMatchObject({ title: 'First save', revision: 2 });
   });
+});
+
+it('denies direct authenticated creation so every browser save must use the receipt transaction', async () => {
+  const local = localSupabase();
+  const user = await local.provisionUser();
+  const id = randomUUID();
+  try {
+    expect((await local.allowlist(user.id)).error).toBeNull();
+    const signed = await local.signIn(user);
+    expect(
+      (await signed.client.from('events').insert({ id, ...booking, original_print_allowance: 0 }))
+        .error?.code
+    ).toBe('42501');
+    expect(
+      localOwnerSql(
+        "select has_any_column_privilege('authenticated','public.events','INSERT') as insertable"
+      )[0].insertable
+    ).toBe(false);
+  } finally {
+    cleanupEvents([id]);
+    await local.cleanup();
+  }
 });

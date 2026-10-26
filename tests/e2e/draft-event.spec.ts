@@ -1,5 +1,6 @@
 import { test, expect, type Page } from '@playwright/test';
-import { localSupabase, cleanupEvents } from '../fixtures/local-supabase';
+import { cleanupEvents, localOwnerSql } from '../fixtures/local-supabase';
+import { createPackageBrowserFixture } from '../fixtures/package-browser';
 
 async function fillBooking(page: Page, title: string) {
   await page.getByLabel('Event name', { exact: true }).filter({ visible: true }).fill(title);
@@ -11,7 +12,6 @@ async function fillBooking(page: Page, title: string) {
   await page.getByLabel('Client email').filter({ visible: true }).fill('alex@example.test');
   await page.getByLabel('Client phone').filter({ visible: true }).fill('+639171234567');
   await page.getByLabel('Booked Film Packages').filter({ visible: true }).fill('0');
-  await page.getByLabel('Original Print Allowance').filter({ visible: true }).fill('0');
 }
 for (const width of [390, 1440]) {
   test(`create, list, view and edit Drafts by keyboard at ${width}px with supplemental CSS scaling`, async ({
@@ -19,12 +19,12 @@ for (const width of [390, 1440]) {
     context,
     browser,
   }, testInfo) => {
-    const local = localSupabase();
-    const admin = await local.provisionUser();
+    const fixture = await createPackageBrowserFixture();
+    const local = fixture.local;
+    const admin = fixture.adminUser;
     const title = `Draft browser ${admin.id}`;
     let eventId: string | undefined;
     try {
-      expect((await local.allowlist(admin.id)).error).toBeNull();
       if (width === 1440) {
         expect(
           (await local.service.from('admin_profiles').update({ theme: 'dark' }).eq('id', admin.id))
@@ -80,6 +80,9 @@ for (const width of [390, 1440]) {
       const view = page.getByRole('link', { name: 'View saved Draft' });
       eventId = (await view.getAttribute('href'))!.split('/').pop();
       await view.click();
+      await expect(page).toHaveURL(new RegExp(`/events/${eventId}$`));
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await page.getByRole('button', { name: 'Edit Draft' }).click();
       await expect(page.getByLabel('Event name').filter({ visible: true })).toHaveValue(title);
       if (width === 390) {
         const staticContext = await browser.newContext({
@@ -89,16 +92,13 @@ for (const width of [390, 1440]) {
         try {
           const staticPage = await staticContext.newPage();
           await staticPage.goto(`/events/${eventId}`);
-          await expect(staticPage.getByLabel('Event name')).toHaveValue(title);
-          await expect(staticPage.getByLabel('Scheduled start')).toHaveValue('2025-01-10T18:00');
-          await expect(staticPage.getByLabel('Event name')).toBeDisabled();
-          await expect(staticPage.locator('form')).toHaveAttribute('aria-busy', 'false');
-          // Without JavaScript, Next keeps streamed form markup hidden behind
-          // the access-check fallback. Inspect the disabled server form itself.
           await expect(
-            staticPage.locator('form').getByRole('status', { includeHidden: true })
-          ).toHaveText('Preparing Draft editor…');
-          await expect(staticPage.locator('button[type="submit"]')).toBeDisabled();
+            staticPage.getByRole('heading', { name: title, exact: true, includeHidden: true })
+          ).toHaveText(title);
+          await expect(staticPage.getByLabel('Event name')).toHaveCount(0);
+          await expect(
+            staticPage.getByRole('button', { name: 'Edit Draft', includeHidden: true })
+          ).toBeDisabled();
         } finally {
           await staticContext.close();
         }
@@ -106,9 +106,10 @@ for (const width of [390, 1440]) {
       await expect(page.getByLabel('Scheduled start').filter({ visible: true })).toHaveValue(
         '2025-01-10T18:00'
       );
-      await expect(
-        page.getByLabel('Original Print Allowance').filter({ visible: true })
-      ).toHaveValue('0');
+      await expect(page.getByLabel('Total booked prints').filter({ visible: true })).toHaveText(
+        '0'
+      );
+      await expect(page.getByLabel('Original Print Allowance')).toHaveCount(0);
       await expect(
         page.getByText('Draft', { exact: true }).filter({ visible: true })
       ).toBeVisible();
@@ -121,6 +122,7 @@ for (const width of [390, 1440]) {
       }
       const stale = await context.newPage();
       await stale.goto(`/events/${eventId}`);
+      await stale.getByRole('button', { name: 'Edit Draft' }).click();
       await expect(stale.getByLabel('Event name').filter({ visible: true })).toHaveValue(title);
       await stale.getByLabel('Event name').filter({ visible: true }).fill('Retain my stale edit');
       await page.getByLabel('Event name').filter({ visible: true }).fill(`${title} updated`);
@@ -132,12 +134,12 @@ for (const width of [390, 1440]) {
       await page.getByLabel('Client email').filter({ visible: true }).fill('sam@example.test');
       await page.getByLabel('Client phone').filter({ visible: true }).fill('+6491234567');
       await page.getByLabel('Booked Film Packages').filter({ visible: true }).fill('2');
-      await page.getByLabel('Original Print Allowance').filter({ visible: true }).fill('7');
       await page.getByRole('button', { name: 'Save Draft' }).click();
       await expect(
         page.getByText('Draft saved.', { exact: true }).filter({ visible: true })
       ).toBeVisible();
       await page.reload();
+      await page.getByRole('button', { name: 'Edit Draft' }).click();
       for (const [label, value] of Object.entries({
         'Event name': `${title} updated`,
         'Venue address': 'Cebu hall',
@@ -148,7 +150,6 @@ for (const width of [390, 1440]) {
         'Client email': 'sam@example.test',
         'Client phone': '+6491234567',
         'Booked Film Packages': '2',
-        'Original Print Allowance': '7',
       })) {
         await expect(page.getByLabel(label, { exact: true }).filter({ visible: true })).toHaveValue(
           value
@@ -161,6 +162,7 @@ for (const width of [390, 1440]) {
         'Retain my stale edit'
       );
       await stale.getByRole('link', { name: 'Reload latest Draft' }).click();
+      await stale.getByRole('button', { name: 'Edit Draft' }).click();
       await expect(stale.getByLabel('Event name').filter({ visible: true })).toHaveValue(
         `${title} updated`
       );
@@ -202,7 +204,98 @@ for (const width of [390, 1440]) {
         const found = await local.service.from('events').select('id').eq('title', title);
         cleanupEvents((found.data ?? []).map((row) => row.id));
       }
-      await local.cleanup();
+      await fixture.dispose();
     }
   });
 }
+
+test('recovers the real committed creation after its server-action response is lost', async ({
+  page,
+}) => {
+  const fixture = await createPackageBrowserFixture();
+  const title = `Lost creation ${fixture.adminUser.id}`;
+  let eventId: string | undefined;
+  try {
+    await page.goto('/sign-in');
+    await page.getByLabel('Email', { exact: true }).fill(fixture.adminUser.email);
+    await page.getByLabel('Password', { exact: true }).fill(fixture.adminUser.password);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page).toHaveURL(/\/dashboard$/);
+    await page.goto('/events/new');
+    await fillBooking(page, title);
+    await page.getByLabel('Booked Film Packages').fill('2');
+    let dropped = false;
+    await page.route('**/events/new', async (route) => {
+      if (
+        dropped ||
+        route.request().method() !== 'POST' ||
+        !route.request().headers()['next-action']
+      )
+        return route.continue();
+      dropped = true;
+      const response = await route.fetch({ maxRetries: 0 });
+      expect(response.ok()).toBe(true);
+      const found = await fixture.local.service
+        .from('events')
+        .select('id')
+        .eq('title', title)
+        .single();
+      expect(found.error).toBeNull();
+      eventId = found.data!.id;
+      expect(
+        localOwnerSql(
+          `select count(*)::int as count from public.operation_receipts where event_id='${eventId}' and operation_kind='create_draft'`
+        )[0].count
+      ).toBe(1);
+      // The real action has committed. Only its response is discarded.
+      await route.abort('failed');
+    });
+    await page.getByRole('button', { name: 'Save Draft' }).click();
+    await expect(page.getByRole('main').getByRole('alert')).toContainText('could not be confirmed');
+    await expect(page.getByLabel('Event name')).toBeDisabled();
+    expect(eventId).toBeTruthy();
+    // Another editor changes the committed Draft before receipt recovery.
+    const changed = await fixture.adminClient
+      .from('events')
+      .update({ title: `${title} current`, revision: 2 })
+      .eq('id', eventId!);
+    expect(changed.error).toBeNull();
+    await page.getByRole('button', { name: 'Retry save' }).click();
+    await expect(page.getByText('Draft saved.', { exact: true })).toBeVisible();
+    await expect(
+      page.getByRole('heading', { name: `${title} current`, exact: true })
+    ).toBeVisible();
+    await page.getByRole('button', { name: 'Edit Draft' }).click();
+    await expect(page.getByLabel('Event name')).toHaveValue(`${title} current`);
+    await expect(page.getByText('Revision 2')).toBeVisible();
+    await page.getByLabel('Event name').fill(`${title} later edit`);
+    await page.getByRole('button', { name: 'Save Draft' }).click();
+    await expect(page.getByText('Revision 3')).toBeVisible();
+    const rows = await fixture.local.service
+      .from('events')
+      .select('id,title,revision')
+      .in('title', [title, `${title} current`, `${title} later edit`]);
+    expect(rows.data).toEqual([{ id: eventId, title: `${title} later edit`, revision: 3 }]);
+    expect(
+      localOwnerSql(`select operation_kind from public.activity_events where event_id='${eventId}'`)
+        .map((row) => row.operation_kind)
+        .sort()
+    ).toEqual(['create_draft', 'update_draft', 'update_draft']);
+    const staleReview = await page.request.post(
+      `/api/admin/events/${eventId}/review-draft-booking`,
+      { data: { operationId: crypto.randomUUID(), expectedRevision: 3, acknowledgedPackages: 2 } }
+    );
+    expect([404, 405]).toContain(staleReview.status());
+    expect(
+      (await fixture.local.service.from('events').select('revision').eq('id', eventId!).single())
+        .data?.revision
+    ).toBe(3);
+  } finally {
+    if (eventId) cleanupEvents([eventId]);
+    else {
+      const found = await fixture.local.service.from('events').select('id').eq('title', title);
+      cleanupEvents((found.data ?? []).map((row) => row.id));
+    }
+    await fixture.dispose();
+  }
+});

@@ -103,7 +103,6 @@ export type AdminPackageAction =
   | 'complete'
   | 'cancel'
   | 'add_packages'
-  | 'review_draft_booking'
   | 'request_reload'
   | 'confirm_reload'
   | 'recover_attempt'

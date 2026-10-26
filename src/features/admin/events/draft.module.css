@@ -1,7 +1,7 @@
 .content {
   container-type: inline-size;
   min-width: 0;
-  max-width: 64rem;
+  max-width: 80rem;
   overflow-wrap: anywhere;
 }
 
@@ -156,8 +156,195 @@
     display: flex;
     flex-wrap: wrap;
     align-items: center;
+    justify-content: space-between;
   }
   .actions button {
     min-width: 10rem;
   }
+}
+
+.editorGrid {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+.detailsCard,
+.form .bookingCard {
+  padding: 1.5rem;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0.5rem;
+}
+.detailsCard {
+  display: grid;
+  gap: 1.5rem;
+}
+.detailsCard fieldset:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.fullWidth {
+  grid-column: 1 / -1;
+}
+.form .bookingCard legend {
+  float: left;
+  width: 100%;
+  margin-bottom: 1.5rem;
+  padding: 0;
+}
+.stepper {
+  clear: both;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 0.5rem;
+  align-items: center;
+}
+.stepper input {
+  text-align: center;
+}
+.total {
+  display: grid;
+  gap: 0.25rem;
+  margin: 1.5rem 0;
+  padding: 1.5rem;
+  background: var(--color-surface-muted);
+  border-radius: 0.5rem;
+  font-variant-numeric: tabular-nums;
+}
+.total output {
+  font-size: 3rem;
+  line-height: 1.1;
+  font-weight: 600;
+}
+.total span {
+  color: var(--color-text-muted);
+}
+.actions {
+  padding-top: 1.25rem;
+  border-top: 1px solid var(--color-border-subtle);
+}
+@container (min-width: 60rem) {
+  .editorGrid {
+    grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr);
+  }
+}
+
+.filters {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-block: 1.5rem;
+}
+.filterButtons {
+  display: flex;
+  gap: 0.5rem;
+}
+.search {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: 24rem;
+  width: 100%;
+  color: var(--color-text-muted);
+}
+.liveBanner {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+  padding: 1.5rem;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface);
+  border-radius: 0.5rem;
+}
+.liveBanner > div {
+  flex: 1;
+  min-width: 10rem;
+}
+.liveBanner p {
+  margin: 0.25rem 0 0;
+  color: var(--color-text-muted);
+}
+.listCard {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0.5rem;
+  padding: 1.25rem;
+}
+.listFootnote {
+  margin: 1rem 0 0;
+  font-size: 0.875rem;
+  color: var(--color-text-muted);
+}
+.table th,
+.table td {
+  padding-inline: 0.5rem;
+}
+@container (min-width: 40rem) {
+  .table th:first-child {
+    width: 22%;
+  }
+  .table th:nth-child(2) {
+    width: 25%;
+  }
+}
+
+.bookingOverview {
+  max-width: 42rem;
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid var(--color-border-subtle);
+  border-radius: 0.5rem;
+  background: var(--color-surface);
+}
+.bookingOverview h2 {
+  margin: 0 0 1.5rem;
+  font-size: 1.25rem;
+  line-height: 1.5;
+  font-weight: 600;
+}
+.bookingOverview dl {
+  margin: 0;
+}
+.bookingOverview dl > div {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+  gap: 1rem;
+  padding-block: 1rem;
+  border-top: 1px solid var(--color-border-subtle);
+}
+.bookingOverview dl > div:first-child {
+  border-top: 0;
+  padding-top: 0;
+}
+.bookingOverview dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+.bookingOverview dt,
+.bookingOverview dd span {
+  color: var(--color-text-muted);
+}
+@container (max-width: 25rem) {
+  .bookingOverview dl > div {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
+}
+
+.link[aria-disabled='true'],
+.cancel[aria-disabled='true'] {
+  color: var(--color-text-muted);
+  cursor: not-allowed;
+}
+
+.bookingOverview dt {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.bookingOverview dt svg {
+  flex-shrink: 0;
+  color: var(--color-text);
 }

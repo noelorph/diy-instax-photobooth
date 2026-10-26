@@ -1,7 +1,8 @@
 import { chromium, expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { resolve } from 'node:path';
 import { writeFile } from 'node:fs/promises';
-import { localSupabase, cleanupEvents } from '../fixtures/local-supabase';
+import { cleanupEvents } from '../fixtures/local-supabase';
+import { createPackageBrowserFixture } from '../fixtures/package-browser';
 
 async function keyboardActivate(page: Page, control: Locator) {
   await control.focus();
@@ -47,12 +48,13 @@ for (const width of [1000, 1440, 2400]) {
         `--load-extension=${extension}`,
       ],
     });
-    const local = localSupabase();
-    const admin = await local.provisionUser();
+    const fixture = await createPackageBrowserFixture();
+    const local = fixture.local;
+    const admin = fixture.adminUser;
     const title = `Native zoom ${admin.id} ${'Celebration'.repeat(14)}`;
     let eventId: string | undefined;
+    let failed = false;
     try {
-      expect((await local.allowlist(admin.id)).error).toBeNull();
       const page = context.pages()[0];
       await page.goto('/sign-in');
       await page.getByLabel('Email', { exact: true }).fill(admin.email);
@@ -153,11 +155,14 @@ for (const width of [1000, 1440, 2400]) {
         'Client email': 'alex@example.test',
         'Client phone': '+639171234567',
         'Booked Film Packages': '0',
-        'Original Print Allowance': '0',
       })) {
         await page.getByLabel(label, { exact: true }).filter({ visible: true }).fill(value);
       }
-      // Tab follows the last input to the save control at every responsive size.
+      // The package stepper and Cancel stay keyboard accessible before Save.
+      await page.keyboard.press('Tab');
+      await expect(page.getByRole('button', { name: 'Add one Film Package' })).toBeFocused();
+      await page.keyboard.press('Tab');
+      await expect(page.getByRole('link', { name: 'Cancel', exact: true })).toBeFocused();
       await page.keyboard.press('Tab');
       await expect(save).toBeFocused();
       await page.keyboard.press('Enter');
@@ -168,19 +173,23 @@ for (const width of [1000, 1440, 2400]) {
       eventId = (await view.getAttribute('href'))!.split('/').pop();
       await keyboardActivate(page, view);
       await expect(page).toHaveURL(new RegExp(`/events/${eventId}$`));
+      await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible();
+      await keyboardActivate(page, page.getByRole('button', { name: 'Edit Draft' }));
       await expect(page.getByRole('heading', { name: 'Edit Draft', exact: true })).toBeVisible();
       await expect(page.getByLabel('Venue time zone').filter({ visible: true })).toHaveValue(
         'America/Argentina/Rio_Gallegos'
       );
-      await page.getByLabel('Original Print Allowance').filter({ visible: true }).fill('7');
+      await page.getByLabel('Booked Film Packages').filter({ visible: true }).fill('7');
       await keyboardActivate(page, save);
       await expect(
         page.getByText('Draft saved.', { exact: true }).filter({ visible: true })
       ).toBeVisible();
       await page.reload();
-      await expect(
-        page.getByLabel('Original Print Allowance').filter({ visible: true })
-      ).toHaveValue('7');
+      await keyboardActivate(page, page.getByRole('button', { name: 'Edit Draft' }));
+      await expect(page.getByLabel('Booked Film Packages').filter({ visible: true })).toHaveValue(
+        '7'
+      );
+      await expect(page.getByLabel('Total booked prints')).toHaveText('70');
       await expectNoHorizontalOverflow(page);
       await captureNativeViewport(page, testInfo, 'draft-form-native-200.png');
       await keyboardActivate(page, page.getByRole('link', { name: 'Back to Events' }));
@@ -194,15 +203,30 @@ for (const width of [1000, 1440, 2400]) {
       expect((await measure()).width).toBe(after.width);
       await captureNativeViewport(page, testInfo, 'draft-list-native-200.png');
       await keyboardActivate(page, row.getByRole('link', { name: title, exact: true }));
+      await expect(page).toHaveURL(new RegExp(`/events/${eventId}$`));
       await expect(page.getByLabel('Event name').filter({ visible: true })).toHaveValue(title);
+    } catch (error) {
+      failed = true;
+      throw error;
     } finally {
-      await context.close();
-      if (eventId) await cleanupEvents([eventId]);
-      else {
-        const found = await local.service.from('events').select('id').eq('title', title);
-        cleanupEvents((found.data ?? []).map((row) => row.id));
+      try {
+        try {
+          if (eventId) cleanupEvents([eventId]);
+          else {
+            const found = await local.service.from('events').select('id').eq('title', title);
+            cleanupEvents((found.data ?? []).map((row) => row.id));
+          }
+        } finally {
+          await fixture.dispose();
+        }
+      } finally {
+        try {
+          await context.close();
+        } catch (error) {
+          // Chromium may already be closed by a timeout; preserve the test failure.
+          if (!failed) throw error;
+        }
       }
-      await local.cleanup();
     }
   });
 }

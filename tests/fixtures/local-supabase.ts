@@ -190,3 +190,17 @@ export function cleanupEvents(ids: string[]) {
   end $$`);
   return { error: null };
 }
+
+// Serial local creation tests only; never activate accounting or reset a stack.
+export function setPackageCreationDefault() {
+  const rows = localOwnerSql(`select pg_catalog.pg_get_expr(d.adbin,d.adrelid) as expression
+    from pg_catalog.pg_attrdef d join pg_catalog.pg_attribute a on a.attrelid=d.adrelid and a.attnum=d.adnum
+    where d.adrelid='public.events'::regclass and a.attname='accounting_version'`);
+  const expression = String(rows[0]?.expression);
+  if (!/^[12]$/.test(expression)) throw new Error('Unexpected Event creation default.');
+  localOwnerSql('alter table public.events alter column accounting_version set default 2');
+  return () =>
+    localOwnerSql(
+      `alter table public.events alter column accounting_version set default ${expression}`
+    );
+}

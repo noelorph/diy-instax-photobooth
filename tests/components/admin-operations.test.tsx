@@ -425,3 +425,31 @@ it.each(['Guest', 'Test'])(
     expect(screen.getByLabelText('Recovery reason')).toBeTruthy();
   }
 );
+
+it('keeps Draft booking package-based and blocks zero packages even when inherited setup is ready', () => {
+  const readyDraft = {
+    ...event,
+    state: 'Draft',
+    stockReserved: 0,
+    allowanceReserved: 0,
+    eventUnresolved: 0,
+    runState: null,
+    connectionId: 'fixture-ready',
+    usableTestConnectionIds: ['fixture-ready'],
+  };
+  const { rerender } = render(
+    <OperationsPanel event={readyDraft} simulatorEnabled startDisabled />
+  );
+  fireEvent.click(
+    screen.getByRole('checkbox', { name: /Camera, printer and Guided Access setup checked/ })
+  );
+  expect(screen.queryByText('Print Allowance · this Event')).toBeNull();
+  expect(screen.getByRole('button', { name: 'Start Booth Mode' }).hasAttribute('disabled')).toBe(
+    true
+  );
+  expect(screen.getByRole('button', { name: 'Test Print' })).toBeTruthy();
+  rerender(<OperationsPanel event={readyDraft} simulatorEnabled startDisabled={false} />);
+  expect(screen.getByRole('button', { name: 'Start Booth Mode' }).hasAttribute('disabled')).toBe(
+    false
+  );
+});

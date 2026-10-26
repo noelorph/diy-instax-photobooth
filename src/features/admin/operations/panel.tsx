@@ -22,9 +22,11 @@ type Review = {
 export function OperationsPanel({
   event,
   simulatorEnabled,
+  startDisabled = false,
 }: {
   event: OperationalEvent;
   simulatorEnabled: boolean;
+  startDisabled?: boolean;
 }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false),
@@ -199,14 +201,16 @@ export function OperationsPanel({
         {event.state} · {event.runState ?? 'Booth not started'}
       </p>
       <div className={styles.totals}>
-        <section>
-          <h3>Print Allowance · this Event</h3>
-          <p>{available} prints available</p>
-          <p>{event.allowanceReserved} prints reserved</p>
-          <small>
-            Original {event.originalAllowance} · Additional Prints {event.additionalPrints}
-          </small>
-        </section>
+        {event.state !== 'Draft' ? (
+          <section>
+            <h3>Print Allowance · this Event</h3>
+            <p>{available} prints available</p>
+            <p>{event.allowanceReserved} prints reserved</p>
+            <small>
+              Original {event.originalAllowance} · Additional Prints {event.additionalPrints}
+            </small>
+          </section>
+        ) : null}
         <section>
           <h3>Film Stock · shared across Events</h3>
           <p>{event.onHand - event.stockReserved} sheets available</p>
@@ -324,6 +328,7 @@ export function OperationsPanel({
             </Button>
             <Button
               disabled={
+                startDisabled ||
                 !simulatorEnabled ||
                 busy ||
                 !checked ||

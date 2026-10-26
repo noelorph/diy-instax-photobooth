@@ -1,4 +1,3 @@
-import Link from 'next/link';
 import { listLiveEvents } from '@/features/admin/operations/read';
 import { listPendingMediaRemovals } from '@/lib/events/history';
 import { PendingRemovals } from '@/features/admin/operations/pending-removals';
@@ -31,27 +30,16 @@ export default async function EventsPage() {
   const now = Date.now();
   return (
     <>
-      <DraftList drafts={result.drafts} now={now} />
-      <section className="my-8 grid gap-4">
-        <h2 className="text-xl font-semibold">Live Event</h2>
-        {live.status === 'success' ? (
-          live.events.length ? (
-            live.events.map((event) => (
-              <Link
-                className="text-ds-primary underline"
-                key={event.id}
-                href={`/events/${event.id}`}
-              >
-                {event.title}
-              </Link>
-            ))
-          ) : (
-            <p>No Live Event.</p>
-          )
-        ) : (
-          <FormFeedback kind="error">Unable to load the Live Event.</FormFeedback>
-        )}
-      </section>
+      <DraftList
+        drafts={result.drafts}
+        liveEvents={live.status === 'success' ? live.events : []}
+        now={now}
+      />
+      {live.status !== 'success' ? (
+        <FormFeedback kind="error">
+          Unable to load the Live Event. Reload to try again.
+        </FormFeedback>
+      ) : null}
       {pending.status === 'success' ? (
         <PendingRemovals removals={pending.removals} />
       ) : (

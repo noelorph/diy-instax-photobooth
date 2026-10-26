@@ -10,7 +10,6 @@ import {
 } from '@/lib/operations/package-contract';
 import {
   addPackagesSchema,
-  originalPackagesSchema,
   parsePackageOperation,
   packageActionSchemas,
 } from '@/lib/operations/package-validation';
@@ -78,8 +77,7 @@ describe('package accounting contract', () => {
   });
 });
 describe('strict package request boundaries', () => {
-  it('allows zero original packages in Draft and requires positive additions with a note', async () => {
-    expect(originalPackagesSchema.parse(0)).toBe(0);
+  it('requires positive package additions with a note', async () => {
     expect(
       await parsePackageOperation(
         request({ operationId: id, packages: 1, clientRequestNote: ' Client asked ' }),
@@ -233,8 +231,6 @@ it('accepts each specified action shape and rejects authority or missing operati
       ).toBe(false);
     }
   }
-  for (const packages of [-1, 0.5, 214_748_365, Infinity])
-    expect(originalPackagesSchema.safeParse(packages).success).toBe(false);
 });
 
 it('accepts only bounded safe outcome observation fields', () => {

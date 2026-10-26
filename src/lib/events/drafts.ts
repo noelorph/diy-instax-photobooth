@@ -3,6 +3,8 @@ import { z, ZodError } from 'zod';
 import { unstable_rethrow } from 'next/navigation';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { createClient } from '@/lib/supabase/server';
+import { packageRpc } from '@/lib/operations/package-rpc';
+import { PackageError, type PackageOperationResult } from '@/lib/operations/package-contract';
 import {
   draftFieldErrors,
   parseDraftEventInput,
@@ -48,7 +50,7 @@ function validate(input: unknown): { status: 'valid'; values: ValidatedDraftEven
 
 // Return only booking fields needed by the Admin list/detail/form.
 const columns =
-  'id,state,revision,title,clientName:client_name,clientEmail:client_email,clientPhone:client_phone,venueAddress:venue_address,timeZone:time_zone,startsAtUtc:starts_at,endsAtUtc:ends_at,filmPackageCount:film_package_count,originalPrintAllowance:original_print_allowance';
+  'id,state,revision,title,clientName:client_name,clientEmail:client_email,clientPhone:client_phone,venueAddress:venue_address,timeZone:time_zone,startsAtUtc:starts_at,endsAtUtc:ends_at,filmPackageCount:film_package_count';
 
 function bookingColumns(input: ValidatedDraftEvent) {
   return {
@@ -61,7 +63,6 @@ function bookingColumns(input: ValidatedDraftEvent) {
     starts_at: input.startsAtUtc,
     ends_at: input.endsAtUtc,
     film_package_count: input.filmPackageCount,
-    original_print_allowance: input.originalPrintAllowance,
   };
 }
 
@@ -85,6 +86,7 @@ export async function listDrafts(): Promise<DraftListResult> {
       .from('events')
       .select(columns)
       .eq('state', 'Draft')
+      .eq('accounting_version', 2)
       .is('deleted_at', null)
       .order('starts_at')
       .order('id')
@@ -104,6 +106,7 @@ export async function getDraft(id: string): Promise<DraftReadResult> {
       .select(columns)
       .eq('id', id)
       .eq('state', 'Draft')
+      .eq('accounting_version', 2)
       .is('deleted_at', null)
       .returns<DraftEvent[]>()
       .maybeSingle();
@@ -112,20 +115,42 @@ export async function getDraft(id: string): Promise<DraftReadResult> {
   });
 }
 
-export async function createDraft(input: unknown): Promise<DraftSaveResult> {
+export async function createDraft(operationId: string, input: unknown): Promise<DraftSaveResult> {
   return recover<DraftSaveResult>(async () => {
-    await requireAdmin();
+    const admin = await requireAdmin();
+    if (!z.uuid().safeParse(operationId).success)
+      return {
+        status: 'conflict',
+        error: 'This save request is invalid. Return to Events and create a new Draft.',
+      };
     const parsed = validate(input);
     if (parsed.status === 'invalid') return parsed;
-    const client = await createClient();
-    const { data, error } = await client
-      .from('events')
-      .insert(bookingColumns(parsed.values))
-      .select(columns)
-      .returns<DraftEvent[]>()
-      .single();
-    if (error) return saveFailure(error);
-    return { status: 'success' as const, draft: data };
+    try {
+      const result = (await packageRpc('create_event_draft', {
+        p_admin_user_id: admin.userId,
+        p_admin_session_id: admin.sessionId,
+        p_operation_id: operationId,
+        p_payload: bookingColumns(parsed.values),
+      })) as unknown as PackageOperationResult<{ eventId: string }>;
+      return await getDraft(result.receipt.result.eventId);
+    } catch (error) {
+      if (error instanceof PackageError && error.code === 'operation_conflict')
+        return {
+          status: 'conflict',
+          error:
+            'This creation request conflicts with its saved result. Return to Events to open the current booking.',
+        };
+      if (
+        error &&
+        typeof error === 'object' &&
+        'code' in error &&
+        'message' in error &&
+        typeof error.code === 'string' &&
+        typeof error.message === 'string'
+      )
+        return saveFailure({ code: error.code, message: error.message });
+      throw error;
+    }
   });
 }
 
@@ -155,6 +180,7 @@ export async function updateDraft(
       .update({ ...bookingColumns(parsed.values), revision: expectedRevision + 1 })
       .eq('id', id)
       .eq('state', 'Draft')
+      .eq('accounting_version', 2)
       .is('deleted_at', null)
       .eq('revision', expectedRevision)
       .select(columns)
@@ -167,6 +193,7 @@ export async function updateDraft(
     const current = await client
       .from('events')
       .select('id')
+      .eq('accounting_version', 2)
       .eq('id', id)
       .is('deleted_at', null)
       .maybeSingle();

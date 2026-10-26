@@ -18,7 +18,6 @@ const validInput = {
   startsAtLocal: '2026-10-20T18:00',
   endsAtLocal: '2026-10-20T21:00',
   filmPackageCount: 2,
-  originalPrintAllowance: 37,
 };
 
 describe('Draft Event input', () => {
@@ -122,18 +121,20 @@ describe('Draft Event input', () => {
       }
     }
   );
-  it.each([
-    [0, 0],
-    [0, 37],
-    [2, 0],
-    [2147483647, 2147483647],
-  ])('preserves independent Draft counts %i and %i', (filmPackageCount, originalPrintAllowance) => {
-    expect(
-      parseDraftEventInput({ ...validInput, filmPackageCount, originalPrintAllowance })
-    ).toMatchObject({
-      filmPackageCount,
-      originalPrintAllowance,
-    });
+  it.each([0, 2, 214_748_364])(
+    'accepts whole package count %i without an allowance',
+    (filmPackageCount) => {
+      const parsed = parseDraftEventInput({
+        ...validInput,
+        filmPackageCount,
+        originalPrintAllowance: 37,
+      });
+      expect(parsed.filmPackageCount).toBe(filmPackageCount);
+      expect(parsed).not.toHaveProperty('originalPrintAllowance');
+    }
+  );
+  it('rejects a package count whose derived prints overflow the supported total', () => {
+    expectFieldError({ ...validInput, filmPackageCount: 214_748_365 }, 'filmPackageCount');
   });
 
   it.each(['Mars/Olympus', '+08:00', 'Manila'])(
@@ -142,14 +143,11 @@ describe('Draft Event input', () => {
       expectFieldError({ ...validInput, timeZone }, 'timeZone', /IANA.*time zone/i);
     }
   );
-  it.each(['filmPackageCount', 'originalPrintAllowance'])(
-    'rejects negative, fractional, or unrepresentable %s',
-    (field) => {
-      for (const count of [-1, 0.5, 2147483648, Number.MAX_SAFE_INTEGER + 1, Infinity, NaN]) {
-        expectFieldError({ ...validInput, [field]: count }, field);
-      }
+  it.each(['filmPackageCount'])('rejects negative, fractional, or unrepresentable %s', (field) => {
+    for (const count of [-1, 0.5, 2147483648, Number.MAX_SAFE_INTEGER + 1, Infinity, NaN]) {
+      expectFieldError({ ...validInput, [field]: count }, field);
     }
-  );
+  });
   it('rejects an invalid Client email with an actionable field error', () => {
     expectFieldError({ ...validInput, clientEmail: 'alex@' }, 'clientEmail', /valid.*email/i);
   });
@@ -169,11 +167,10 @@ describe('Draft Event input', () => {
     'startsAtLocal',
     'endsAtLocal',
     'filmPackageCount',
-    'originalPrintAllowance',
   ])('rejects whitespace-only %s', (field) => {
     expectFieldError({ ...validInput, [field]: ' \t\n ' }, field);
   });
-  it('trims booking details and preserves independent counts and the venue zone', () => {
+  it('trims booking details and preserves packages and the venue zone', () => {
     expect(parseDraftEventInput(validInput)).toEqual({
       title: 'Birthday party',
       clientName: 'Alex Reyes',
@@ -182,7 +179,6 @@ describe('Draft Event input', () => {
       venueAddress: '123 Main Street',
       timeZone: 'Asia/Manila',
       filmPackageCount: 2,
-      originalPrintAllowance: 37,
       startsAtUtc: '2026-10-20T10:00:00Z',
       endsAtUtc: '2026-10-20T13:00:00Z',
     });
@@ -224,29 +220,27 @@ describe('Draft FormData validation', () => {
     );
     expect(Object.keys(errors)).toEqual(['startsAtLocal', 'endsAtLocal']);
   });
-  it.each(['filmPackageCount', 'originalPrintAllowance'])(
+  it.each(['filmPackageCount'])(
     'reports missing, empty, whitespace, and file values on %s',
     (field) => {
       for (const value of [undefined, '', ' \t\n ', new File(['0'], 'count.txt')]) {
         const data = validFormData();
         if (value === undefined) data.delete(field);
         else data.set(field, value);
-        expect(
-          validateDraftFormData(data)[field as 'filmPackageCount' | 'originalPrintAllowance']
-        ).toEqual(expect.any(String));
+        expect(validateDraftFormData(data)[field as 'filmPackageCount']).toEqual(
+          expect.any(String)
+        );
         expectFieldError(draftInputFromFormData(data), field);
       }
     }
   );
 
-  it('accepts zero counts without changing their independent values', () => {
+  it('accepts zero packages without a separate allowance', () => {
     const data = validFormData();
     data.set('filmPackageCount', '0');
-    data.set('originalPrintAllowance', '0');
     expect(validateDraftFormData(data)).toEqual({});
     expect(parseDraftEventInput(draftInputFromFormData(data))).toMatchObject({
       filmPackageCount: 0,
-      originalPrintAllowance: 0,
     });
   });
 

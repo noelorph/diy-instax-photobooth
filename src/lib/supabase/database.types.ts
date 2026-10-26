@@ -481,6 +481,8 @@ export type Database = {
       events: {
         Row: {
           accounting_version: number;
+          booking_review_original_allowance: number | null;
+          booking_review_proposed_capacity: number | null;
           booking_review_required: boolean;
           client_email: string | null;
           client_name: string | null;
@@ -502,6 +504,8 @@ export type Database = {
         ComputedFields: never;
         Insert: {
           accounting_version?: number;
+          booking_review_original_allowance?: number | null;
+          booking_review_proposed_capacity?: number | null;
           booking_review_required?: boolean;
           client_email?: string | null;
           client_name?: string | null;
@@ -522,6 +526,8 @@ export type Database = {
         };
         Update: {
           accounting_version?: number;
+          booking_review_original_allowance?: number | null;
+          booking_review_proposed_capacity?: number | null;
           booking_review_required?: boolean;
           client_email?: string | null;
           client_name?: string | null;
@@ -723,10 +729,10 @@ export type Database = {
           actor_id: string | null;
           actor_scope: string;
           attempt_id: string;
+          connection_generation: number | null;
           created_at: string;
           evidence_kind: string | null;
           evidence_policy_version: string | null;
-          connection_generation: number | null;
           id: string;
           observation_id: string | null;
           observed_at: string | null;
@@ -740,10 +746,10 @@ export type Database = {
           actor_id?: string | null;
           actor_scope: string;
           attempt_id: string;
+          connection_generation?: number | null;
           created_at?: string;
           evidence_kind?: string | null;
           evidence_policy_version?: string | null;
-          connection_generation?: number | null;
           id?: string;
           observation_id?: string | null;
           observed_at?: string | null;
@@ -756,10 +762,10 @@ export type Database = {
           actor_id?: string | null;
           actor_scope?: string;
           attempt_id?: string;
+          connection_generation?: number | null;
           created_at?: string;
           evidence_kind?: string | null;
           evidence_policy_version?: string | null;
-          connection_generation?: number | null;
           id?: string;
           observation_id?: string | null;
           observed_at?: string | null;
@@ -953,6 +959,15 @@ export type Database = {
         };
         Returns: Json;
       };
+      create_event_draft: {
+        Args: {
+          p_admin_session_id: string;
+          p_admin_user_id: string;
+          p_operation_id: string;
+          p_payload: Json;
+        };
+        Returns: Json;
+      };
       finish_booth_handoff: {
         Args: {
           device_token_hash: string;
@@ -1007,6 +1022,10 @@ export type Database = {
       };
       package_booth_read: {
         Args: { p_grant_hash: string; p_operation_id?: string };
+        Returns: Json;
+      };
+      package_fail_handoff: {
+        Args: { p_device_hash: string; p_handoff_id: string };
         Returns: Json;
       };
       package_issue_handoff: {

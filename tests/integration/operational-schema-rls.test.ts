@@ -119,7 +119,7 @@ describe('operational schema and browser boundary', () => {
     const owner = await admin();
     const id = randomUUID();
     ids.push(id);
-    expect((await owner.client.from('events').insert({ id, ...booking })).error).toBeNull();
+    expect(ownerInsert('events', { id, ...booking }).error).toBeNull();
     expect(
       (await owner.client.from('events').update({ title: 'Edited', revision: 2 }).eq('id', id))
         .error
