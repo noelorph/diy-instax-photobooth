@@ -47,16 +47,38 @@ for (const width of [390, 768, 1440]) {
           'aria-expanded',
           'false'
         );
+      for (const name of ['Account', 'Appearance', 'Change password', 'Sign out']) {
+        await expect(page.getByRole('region', { name, exact: true })).toBeVisible();
+      }
+      await expect(page.getByLabel('Email (Admin)')).toHaveAttribute('readonly', '');
+      await expect(page.getByRole('radio', { name: 'Light', exact: true })).toBeChecked();
+      for (const [first, second] of [
+        [page.getByLabel('Email (Admin)'), page.getByLabel('Phone number')],
+        [page.getByLabel('New password', { exact: true }), page.getByLabel('Confirm new password')],
+      ]) {
+        const a = (await first.boundingBox())!;
+        const b = (await second.boundingBox())!;
+        if (width >= 640) {
+          expect(Math.abs(a.y - b.y)).toBeLessThan(2);
+          expect(b.x).toBeGreaterThan(a.x + a.width);
+        } else {
+          expect(b.y).toBeGreaterThan(a.y + a.height);
+        }
+      }
+      await page.screenshot({
+        path: testInfo.outputPath(`profile-light-${width}.png`),
+        fullPage: true,
+      });
       await page.getByLabel('Phone number').fill('+63 917 123 4567');
-      await page.getByLabel('Appearance').selectOption('dark');
+      await page.getByRole('radio', { name: 'Dark', exact: true }).check();
       await page.getByRole('button', { name: 'Save preferences' }).click();
       await expect(page.getByText('Preferences saved.')).toBeVisible();
-      await expect(page.getByLabel('Appearance')).toHaveValue('dark');
+      await expect(page.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked();
       await expect(page.locator('.admin-shell')).toHaveAttribute('data-theme', 'dark');
       await page.screenshot({ path: testInfo.outputPath(`profile-${width}.png`), fullPage: true });
       await page.reload();
       await expect(page.getByLabel('Phone number')).toHaveValue('+63 917 123 4567');
-      await expect(page.getByLabel('Appearance')).toHaveValue('dark');
+      await expect(page.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked();
       await expect(page.locator('.admin-shell')).toHaveAttribute('data-theme', 'dark');
       // Supplemental CSS scaling only. Native page zoom and media-query changes
       // are verified separately in native-zoom.spec.ts.

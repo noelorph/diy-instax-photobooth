@@ -43,6 +43,21 @@ describe('Profile actions with local Auth and RLS', () => {
     expect((await saveProfile({}, form({ phone: '', theme: 'light' }))).confirmation).toBeTruthy();
     expect((await readProfile(client)).data?.[0].phone).toBeNull();
   });
+  it('reports a preference write failure without changing persisted values', async () => {
+    const { client } = await adminSession();
+    const from = client.from.bind(client);
+    const failure = vi
+      .spyOn(client, 'from')
+      .mockImplementationOnce(from)
+      .mockImplementationOnce(() => {
+        throw new Error('connection lost');
+      });
+    const result = await saveProfile({}, form({ phone: '+639171234567', theme: 'dark' }));
+    expect(result.error).toMatch(/could not be saved/);
+    expect(result.confirmation).toBeUndefined();
+    failure.mockRestore();
+    expect((await readProfile(client)).data?.[0]).toMatchObject({ phone: null, theme: 'light' });
+  });
   it('rejects invalid preferences without changing the saved row', async () => {
     const { client } = await adminSession();
     const result = await saveProfile({}, form({ phone: 'not a phone', theme: 'system' }));

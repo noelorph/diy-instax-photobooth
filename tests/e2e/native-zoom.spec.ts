@@ -118,7 +118,9 @@ for (const width of [1000, 1440, 2400]) {
       await navigate('Profile');
       await expect(page.getByRole('heading', { name: 'Profile', exact: true })).toBeVisible();
       await page.getByLabel('Phone number').fill('+639171234567');
-      await page.getByLabel('Appearance').selectOption('dark');
+      await page.getByRole('radio', { name: 'Light', exact: true }).focus();
+      await page.keyboard.press('ArrowRight');
+      await expect(page.getByRole('radio', { name: 'Dark', exact: true })).toBeChecked();
       await keyboardActivate(page, page.getByRole('button', { name: 'Save preferences' }));
       await expect(page.getByText('Preferences saved.')).toBeVisible();
       await expectNoHorizontalOverflow(page);

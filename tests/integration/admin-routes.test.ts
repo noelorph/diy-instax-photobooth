@@ -34,7 +34,7 @@ async function expectDenied(response: Response, sessionEnded = false) {
   expect(body).not.toContain('Admin foundation');
   expect(body).not.toContain('Event management is not available yet');
   expect(body).not.toContain('Event history is not available yet');
-  expect(body).not.toContain('Account preferences');
+  expect(body).not.toContain('Email (Admin)');
   expect(body).not.toContain('Draft bookings');
   expect(body).not.toContain('Client email');
   expectPrivate(response);
@@ -74,7 +74,7 @@ describe('Admin page responses with local Auth sessions', () => {
         if (rsc) expect(response.headers.get('content-type')).toContain('text/x-component');
         if (destination === '/profile') {
           expect(body).toContain(session.user.email);
-          if (!rsc) expect(body).toContain('Account preferences');
+          if (!rsc) expect(body).toContain('Email (Admin)');
         } else if (destination === '/events') {
           expect(body).toContain('Draft bookings');
           expect(body).toContain('Create Event');
