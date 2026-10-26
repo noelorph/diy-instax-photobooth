@@ -4,6 +4,27 @@ import { ResetPasswordForm } from '@/features/admin/auth/reset-form';
 afterEach(cleanup);
 
 describe('Public password reset form', () => {
+  it('toggles each new password independently without submitting or losing validation', () => {
+    const action = vi.fn();
+    render(<ResetPasswordForm action={action} />);
+    const password = screen.getByLabelText('New password') as HTMLInputElement;
+    const confirmation = screen.getByLabelText('Confirm new password') as HTMLInputElement;
+    fireEvent.change(password, { target: { value: 'A-secure-password!' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Show new password' }));
+    expect(password.type).toBe('text');
+    expect(confirmation.type).toBe('password');
+    expect(password.value).toBe('A-secure-password!');
+    expect(password.autocomplete).toBe('new-password');
+    expect(password.minLength).toBe(12);
+    expect(password.maxLength).toBe(128);
+    expect(
+      screen.getByRole('button', { name: 'Hide new password' }).getAttribute('aria-pressed')
+    ).toBe('true');
+    fireEvent.click(screen.getByRole('button', { name: 'Show confirm new password' }));
+    expect(confirmation.type).toBe('text');
+    expect(action).not.toHaveBeenCalled();
+  });
+
   it('offers labeled new passwords, persistent validation and preserves values for retry', async () => {
     render(
       <ResetPasswordForm
@@ -62,7 +83,9 @@ describe('Public password reset form', () => {
     );
     fireEvent.click(screen.getByRole('button', { name: 'Set new password' }));
     await screen.findByText('Saving password and ending sessions…');
-    expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: 'Set new password' }) as HTMLButtonElement).disabled
+    ).toBe(true);
     expect(screen.queryByText(/Password changed/)).toBeNull();
     fireEvent.submit((screen.getByLabelText('New password') as HTMLInputElement).form!);
     done({ confirmation: 'Password changed. Sign in with your new password.' });
@@ -86,7 +109,9 @@ describe('Public password reset form', () => {
     await waitFor(() =>
       expect(screen.getByRole('alert').textContent).toMatch(/connection.*try again/i)
     );
-    expect((screen.getByRole('button') as HTMLButtonElement).disabled).toBe(false);
+    expect(
+      (screen.getByRole('button', { name: 'Set new password' }) as HTMLButtonElement).disabled
+    ).toBe(false);
   });
 
   it('keeps the saved-but-unrevoked warning visible after a same-password retry', async () => {

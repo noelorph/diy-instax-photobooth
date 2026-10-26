@@ -4,6 +4,7 @@ import { AuthRetryableFetchError } from '@supabase/supabase-js';
 import { createClient } from '@/lib/supabase/server';
 import { saveProfile, changePassword, signOut } from '@/features/admin/profile/actions';
 import { localSupabase, readProfile } from '../fixtures/local-supabase';
+import { createPackageFixture } from '../fixtures/package-contract';
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
 vi.mock('next/cache', () => ({ revalidatePath: vi.fn() }));
@@ -42,6 +43,21 @@ describe('Profile actions with local Auth and RLS', () => {
     expect((await saveProfile({}, form({ phone: '', theme: 'light' }))).confirmation).toBeTruthy();
     expect((await readProfile(client)).data?.[0].phone).toBeNull();
   });
+  it('reports a preference write failure without changing persisted values', async () => {
+    const { client } = await adminSession();
+    const from = client.from.bind(client);
+    const failure = vi
+      .spyOn(client, 'from')
+      .mockImplementationOnce(from)
+      .mockImplementationOnce(() => {
+        throw new Error('connection lost');
+      });
+    const result = await saveProfile({}, form({ phone: '+639171234567', theme: 'dark' }));
+    expect(result.error).toMatch(/could not be saved/);
+    expect(result.confirmation).toBeUndefined();
+    failure.mockRestore();
+    expect((await readProfile(client)).data?.[0]).toMatchObject({ phone: null, theme: 'light' });
+  });
   it('rejects invalid preferences without changing the saved row', async () => {
     const { client } = await adminSession();
     const result = await saveProfile({}, form({ phone: 'not a phone', theme: 'system' }));
@@ -79,6 +95,20 @@ describe('Profile actions with local Auth and RLS', () => {
     expect((await readProfile(local.tokenClient(session.access_token))).data).toEqual([]);
     expect((await other.client.auth.refreshSession()).error).toBeNull();
     expect((await readProfile(other.client)).data?.[0].id).toBe(admin.id);
+  });
+  it('keeps the independent Booth grant active after Profile signs out this device', async () => {
+    const fixture = await createPackageFixture();
+    try {
+      fixture.seedRun();
+      const phone = await fixture.local.signIn(fixture.adminUser);
+      vi.mocked(createClient).mockResolvedValue(fixture.adminClient);
+      expect((await fixture.readBooth()).error).toBeNull();
+      await expect(signOut({}, new FormData())).rejects.toThrow(/NEXT_REDIRECT/);
+      expect((await fixture.readBooth()).error).toBeNull();
+      expect((await readProfile(phone.client)).data).toHaveLength(1);
+    } finally {
+      await fixture.dispose();
+    }
   });
   it('reports a failed local sign-out with a still-active session and permits retry', async () => {
     const { client, session } = await adminSession();

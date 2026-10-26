@@ -138,3 +138,13 @@ it('announces errors assertively and completion politely with a focusable ref', 
   expect(screen.getByRole('status').textContent).toContain('Saved.');
   expect(screen.queryByRole('alert')).toBeNull();
 });
+
+it.each(['error', 'success', 'status'] as const)(
+  'pairs %s feedback with a hidden status icon and readable text',
+  (kind) => {
+    render(<FormFeedback kind={kind}>Account feedback.</FormFeedback>);
+    const feedback = screen.getByRole(kind === 'error' ? 'alert' : 'status');
+    expect(feedback.textContent).toBe('Account feedback.');
+    expect(feedback.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+  }
+);

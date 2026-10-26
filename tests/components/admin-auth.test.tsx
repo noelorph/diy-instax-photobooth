@@ -37,6 +37,19 @@ describe('Public Admin sign-in form', () => {
     expect(screen.queryByRole('button', { name: /sign up/i })).toBeNull();
   });
 
+  it('reveals and hides the password without submitting or changing its value', () => {
+    const action = vi.fn(async () => ({ email: '' }));
+    render(<SignInForm action={action} />);
+    const password = screen.getByLabelText('Password') as HTMLInputElement;
+    fireEvent.change(password, { target: { value: 'private-password' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Show password' }));
+    expect(password.type).toBe('text');
+    expect(password.value).toBe('private-password');
+    fireEvent.click(screen.getByRole('button', { name: 'Hide password' }));
+    expect(password.type).toBe('password');
+    expect(action).not.toHaveBeenCalled();
+  });
+
   it('associates persistent field errors with inputs and preserves email for retry', async () => {
     render(
       <SignInForm
@@ -59,6 +72,7 @@ describe('Public Admin sign-in form', () => {
     }
     expect(email.value).toBe('invalid');
     expect(screen.getByRole('alert').textContent).toMatch(/correct/i);
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('alert')));
     expect((screen.getByRole('button', { name: 'Sign in' }) as HTMLButtonElement).disabled).toBe(
       false
     );
@@ -188,6 +202,7 @@ describe('Public recovery request form', () => {
     await waitFor(() =>
       expect(screen.getByRole('status').textContent).toMatch(/check your email/i)
     );
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('status')));
     expect(email.value).toBe('owner@example.test');
     expect(screen.queryByRole('alert')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: 'Try again' }));

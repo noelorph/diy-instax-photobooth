@@ -38,7 +38,8 @@ body {
 
 :root,
 .public-auth,
-.admin-shell {
+.admin-shell,
+.profile-theme-preview[data-theme='light'] {
   --color-canvas: #f6f5f0;
   --color-surface: #ffffff;
   --color-surface-muted: #ecefea;
@@ -64,6 +65,7 @@ body {
 }
 
 .admin-shell[data-theme='dark'],
+.profile-theme-preview[data-theme='dark'],
 .public-auth:has([data-booth-return='true']) {
   --color-canvas: #101b1b;
   --color-surface: #1a2929;

@@ -3,8 +3,10 @@
 import Link from 'next/link';
 import {
   CalendarDays,
-  History,
-  LayoutDashboard,
+  Camera,
+  ChevronRight,
+  Clock3,
+  House,
   Menu,
   PanelLeftClose,
   PanelLeftOpen,
@@ -16,21 +18,17 @@ import { Button } from '@/components/ui/button';
 import styles from './admin-shell.module.css';
 
 const destinations = [
-  { label: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
+  { label: 'Dashboard', href: '/dashboard', icon: House },
   { label: 'Events', href: '/events', icon: CalendarDays },
-  { label: 'History', href: '/history', icon: History },
+  { label: 'History', href: '/history', icon: Clock3 },
   { label: 'Profile', href: '/profile', icon: UserRound },
 ];
 
 function Brand() {
   return (
     <span className={styles.brand}>
-      <span className={styles.photoFrame} aria-hidden="true" />
-      <span className={styles.brandLabel}>
-        Instax
-        <br />
-        Photo Booth
-      </span>
+      <Camera size={28} aria-hidden="true" />
+      <span className={styles.brandLabel}>Photo Booth</span>
     </span>
   );
 }
@@ -97,6 +95,9 @@ export function AdminNavigation({ pathname }: { pathname: string }) {
                 >
                   <Icon size={20} aria-hidden="true" />
                   <span className={styles.destinationLabel}>{label}</span>
+                  {href === '/profile' && (
+                    <ChevronRight className={styles.profileChevron} size={16} aria-hidden="true" />
+                  )}
                 </Link>
               </li>
             ))}

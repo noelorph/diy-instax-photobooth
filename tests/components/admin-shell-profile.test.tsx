@@ -179,7 +179,7 @@ it('hides saved feedback when either preference differs from the saved values', 
 
   fireEvent.click(screen.getByRole('button', { name: 'Save preferences' }));
   await screen.findByText('Saved.');
-  fireEvent.change(screen.getByLabelText('Appearance'), { target: { value: 'dark' } });
+  fireEvent.click(screen.getByRole('radio', { name: 'Dark' }));
   expect(screen.queryByText('Saved.')).toBeNull();
 });
 it('keeps submitted preferences fixed while saving and restores editing after confirmation', async () => {
@@ -197,7 +197,7 @@ it('keeps submitted preferences fixed while saving and restores editing after co
     />
   );
   const phone = screen.getByLabelText('Phone number') as HTMLInputElement;
-  const theme = screen.getByLabelText('Appearance') as HTMLSelectElement;
+  const theme = screen.getByRole('radio', { name: 'Dark' }) as HTMLInputElement;
   fireEvent.change(phone, { target: { value: '+63 917 123 4567' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save preferences' }));
   await screen.findByText('Saving preferences…');
@@ -208,7 +208,7 @@ it('keeps submitted preferences fixed while saving and restores editing after co
   await screen.findByText('Preferences saved.');
   expect(phone.disabled).toBe(false);
   expect(theme.disabled).toBe(false);
-  fireEvent.change(theme, { target: { value: 'dark' } });
+  fireEvent.click(theme);
   expect(screen.queryByText('Preferences saved.')).toBeNull();
 });
 it('keeps failed sign-out actionable without claiming the session ended', async () => {
@@ -243,7 +243,7 @@ it('associates appearance and password errors with the affected controls', async
   fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
   await screen.findByText('Passwords must match.');
   for (const [label, message] of [
-    ['Appearance', 'Choose an appearance.'],
+    ['Dark', 'Choose an appearance.'],
     ['New password', 'Use a longer password.'],
     ['Confirm new password', 'Passwords must match.'],
   ]) {
@@ -253,4 +253,64 @@ it('associates appearance and password errors with the affected controls', async
       message
     );
   }
+});
+
+it('presents four Profile sections, verified email, and saved appearance choices', () => {
+  render(<Profile initial={initial} saveAction={ok} passwordAction={ok} signOutAction={ok} />);
+  for (const name of ['Account', 'Appearance', 'Change password', 'Sign out']) {
+    expect(screen.getByRole('region', { name })).toBeTruthy();
+  }
+  const email = screen.getByLabelText('Email (Admin)') as HTMLInputElement;
+  expect(email.readOnly).toBe(true);
+  expect(email.value).toBe(initial.email);
+  expect((screen.getByRole('radio', { name: 'Light' }) as HTMLInputElement).checked).toBe(true);
+  expect(screen.getByText(/Your other devices and Booth Mode stay signed in/)).toBeTruthy();
+});
+
+it('preserves both preferences and focuses persistent feedback after a failed save', async () => {
+  render(
+    <Profile
+      initial={initial}
+      saveAction={async () => ({ error: 'Preferences could not be saved.' })}
+      passwordAction={ok}
+      signOutAction={ok}
+    />
+  );
+  fireEvent.change(screen.getByLabelText('Phone number'), { target: { value: '+639171234567' } });
+  fireEvent.click(screen.getByRole('radio', { name: 'Dark' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Save preferences' }));
+  const alert = await screen.findByRole('alert');
+  expect((screen.getByRole('radio', { name: 'Dark' }) as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByLabelText('Phone number') as HTMLInputElement).value).toBe('+639171234567');
+  expect(screen.queryByText('Saved.')).toBeNull();
+  await waitFor(() => expect(document.activeElement).toBe(alert));
+});
+it('keeps an unknown sign-out outcome visible and actionable', async () => {
+  render(
+    <Profile
+      initial={initial}
+      saveAction={ok}
+      passwordAction={ok}
+      signOutAction={async () => {
+        throw new Error('offline');
+      }}
+    />
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Sign out' }));
+  const alert = await screen.findByRole('alert');
+  expect(alert.textContent).toContain('could not be confirmed');
+  expect((screen.getByRole('button', { name: 'Sign out' }) as HTMLButtonElement).disabled).toBe(
+    false
+  );
+  await waitFor(() => expect(document.activeElement).toBe(alert));
+});
+it('marks only the chosen appearance with a persistent check and updates it when changed', () => {
+  render(<Profile initial={initial} saveAction={ok} passwordAction={ok} signOutAction={ok} />);
+  const light = screen.getByRole('radio', { name: 'Light' }).closest('label')!;
+  const dark = screen.getByRole('radio', { name: 'Dark' }).closest('label')!;
+  expect(within(light).getByText('✓')).toBeTruthy();
+  expect(within(dark).queryByText('✓')).toBeNull();
+  fireEvent.click(screen.getByRole('radio', { name: 'Dark' }));
+  expect(within(dark).getByText('✓')).toBeTruthy();
+  expect(within(light).queryByText('✓')).toBeNull();
 });

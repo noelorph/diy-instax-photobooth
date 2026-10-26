@@ -23,7 +23,7 @@ async function SignInContent(props: Props) {
       <p className={styles.description}>
         {from === 'booth'
           ? 'Sign in to review the Event. Resuming Booth Mode requires an explicit Admin action.'
-          : 'Sign in to your Admin account.'}
+          : 'Manage your events and booth.'}
       </p>
       <SessionFeedback {...props} />
       <SignInForm action={signIn} />

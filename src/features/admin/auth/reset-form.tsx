@@ -6,7 +6,7 @@ import { useActionState, useEffect, useId, useRef, useState } from 'react';
 import { FormField } from '@/components/shared/form-field';
 import { FormFeedback } from '@/components/shared/form-feedback';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import { PasswordInput } from '@/components/shared/password-input';
 import { invalidRecoveryLink, type ResetAction, type ResetState } from './reset-state';
 
 export function ResetPasswordForm({
@@ -93,10 +93,10 @@ export function ResetPasswordForm({
           error={state.fieldErrors?.[field]}
         >
           {(a11y) => (
-            <Input
+            <PasswordInput
               {...a11y}
+              label={field === 'password' ? 'New password' : 'Confirm new password'}
               name={field}
-              type="password"
               autoComplete="new-password"
               required
               minLength={12}

@@ -22,6 +22,7 @@ export default function ResetPasswordPage(props: Props) {
   return (
     <>
       <h1 className={styles.heading}>Set a new password</h1>
+      <p className={styles.description}>Choose a strong password for your account.</p>
       <Suspense fallback={<FormFeedback kind="status">Checking recovery link…</FormFeedback>}>
         <Recovery {...props} />
       </Suspense>

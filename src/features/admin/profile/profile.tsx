@@ -6,7 +6,8 @@ import { FormFeedback } from '@/components/shared/form-feedback';
 import { PageHeader } from '@/components/shared/page-header';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { NativeSelect } from '@/components/ui/native-select';
+import { AlertCircle, Camera, Moon, Sun } from 'lucide-react';
+import { PasswordInput } from '@/components/shared/password-input';
 import styles from './profile.module.css';
 import type { ProfileAction, ProfileData, ProfileState } from './state';
 
@@ -16,12 +17,14 @@ function ProfileForm({
   pendingText,
   children,
   showConfirmation = true,
+  secondary = false,
 }: {
   action: ProfileAction;
   title: string;
   pendingText: string;
   children?: (state: ProfileState, id: string, pending: boolean) => ReactNode;
   showConfirmation?: boolean;
+  secondary?: boolean;
 }) {
   const id = useId();
   const feedback = useRef<HTMLDivElement>(null);
@@ -63,7 +66,12 @@ function ProfileForm({
           {state.confirmation}
         </FormFeedback>
       ) : null}
-      <Button type="submit" disabled={pending} className="w-full justify-self-start sm:w-auto">
+      <Button
+        type="submit"
+        variant={secondary ? 'secondary' : 'default'}
+        disabled={pending}
+        className="w-full justify-self-start sm:w-auto"
+      >
         {title}
       </Button>
       {pending ? (
@@ -100,18 +108,22 @@ function Field({
       help={password ? undefined : 'Optional. Include your country code.'}
       error={state.fieldErrors?.[name]}
     >
-      {(a11y) => (
-        <Input
-          {...a11y}
-          name={name}
-          type={password ? 'password' : 'tel'}
-          autoComplete={password ? 'new-password' : 'tel'}
-          value={value}
-          disabled={disabled}
-          onChange={(event) => onChange(event.target.value)}
-          maxLength={password ? 128 : 40}
-        />
-      )}
+      {(a11y) => {
+        const Control = password ? PasswordInput : Input;
+        return (
+          <Control
+            label={label}
+            {...a11y}
+            name={name}
+            {...(password ? {} : { type: 'tel' })}
+            autoComplete={password ? 'new-password' : 'tel'}
+            value={value}
+            disabled={disabled}
+            onChange={(event) => onChange(event.target.value)}
+            maxLength={password ? 128 : 40}
+          />
+        );
+      }}
     </FormField>
   );
 }
@@ -137,65 +149,131 @@ export function Profile({
   return (
     <div className={styles.content}>
       <PageHeader title="Profile" description="Manage your account and how Admin pages appear." />
-      <section aria-labelledby="preferences-heading" className={styles.section}>
-        <div className={styles.sectionDescription}>
-          <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="preferences-heading">
-            Account preferences
-          </h2>
-          <p className={styles.email}>
-            <span className={styles.emailLabel}>Email</span>
-            <br />
-            {initial.email}
-          </p>
-        </div>
-        <ProfileForm
-          action={async (state, data) => {
-            const result = await saveAction(state, data);
-            if (result.confirmation) {
-              setSavedPreferences({
-                phone: String(data.get('phone') ?? ''),
-                theme: data.get('theme') as ProfileData['theme'],
-              });
-            }
-            return result;
-          }}
-          title="Save preferences"
-          pendingText="Saving preferences…"
-          showConfirmation={savedPreferences?.phone === phone && savedPreferences.theme === theme}
-        >
-          {(state, id, pending) => (
-            <>
-              <Field
-                label="Phone number"
-                name="phone"
-                id={id}
-                state={state}
-                value={phone}
-                onChange={setPhone}
-                disabled={pending}
-              />
-              <FormField id={`${id}-theme`} label="Appearance" error={state.fieldErrors?.theme}>
-                {(a11y) => (
-                  <NativeSelect
-                    {...a11y}
-                    name="theme"
-                    value={theme}
-                    disabled={pending}
-                    onChange={(event) => setTheme(event.target.value as 'light' | 'dark')}
+      <ProfileForm
+        action={async (state, data) => {
+          const result = await saveAction(state, data);
+          if (result.confirmation) {
+            setSavedPreferences({
+              phone: String(data.get('phone') ?? ''),
+              theme: data.get('theme') as ProfileData['theme'],
+            });
+          }
+          return result;
+        }}
+        title="Save preferences"
+        pendingText="Saving preferences…"
+        showConfirmation={savedPreferences?.phone === phone && savedPreferences.theme === theme}
+      >
+        {(state, id, pending) => (
+          <>
+            <section aria-labelledby="account-heading" className={styles.section}>
+              <h2 id="account-heading" className={styles.heading}>
+                Account
+              </h2>
+              <div className={styles.fields}>
+                <FormField id={`${id}-email`} label="Email (Admin)">
+                  {(a11y) => (
+                    <Input
+                      {...a11y}
+                      type="email"
+                      value={initial.email}
+                      readOnly
+                      className="bg-ds-surface-muted"
+                    />
+                  )}
+                </FormField>
+                <Field
+                  label="Phone number"
+                  name="phone"
+                  id={id}
+                  state={state}
+                  value={phone}
+                  onChange={setPhone}
+                  disabled={pending}
+                />
+              </div>
+            </section>
+            <section
+              aria-labelledby="appearance-heading"
+              className={`${styles.section} ${styles.appearance}`}
+            >
+              <div>
+                <h2 id="appearance-heading" className={styles.heading}>
+                  Appearance
+                </h2>
+                <p className={styles.description}>Choose the appearance of Admin pages.</p>
+                <fieldset className={styles.choices} disabled={pending}>
+                  <legend className="sr-only">Admin appearance</legend>
+                  {(['light', 'dark'] as const).map((choice) => {
+                    const Icon = choice === 'light' ? Sun : Moon;
+                    return (
+                      <label key={choice} className={styles.choice}>
+                        <input
+                          type="radio"
+                          disabled={pending}
+                          name="theme"
+                          value={choice}
+                          checked={theme === choice}
+                          onChange={() => setTheme(choice)}
+                          aria-invalid={!!state.fieldErrors?.theme}
+                          aria-describedby={
+                            state.fieldErrors?.theme ? `${id}-theme-error` : undefined
+                          }
+                        />
+                        <span>
+                          <Icon size={20} aria-hidden="true" />
+                          {choice === 'light' ? 'Light' : 'Dark'}
+                          {theme === choice ? <b aria-hidden="true">✓</b> : null}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </fieldset>
+                {state.fieldErrors?.theme ? (
+                  <p
+                    id={`${id}-theme-error`}
+                    className="flex items-center gap-2 text-sm text-ds-danger"
                   >
-                    <option value="light">Light</option>
-                    <option value="dark">Dark</option>
-                  </NativeSelect>
-                )}
-              </FormField>
-            </>
-          )}
-        </ProfileForm>
-      </section>
+                    <AlertCircle size={16} aria-hidden="true" className="shrink-0" />
+                    {state.fieldErrors.theme}
+                  </p>
+                ) : null}
+                <p className={styles.description}>Booth Mode keeps its own dark appearance.</p>
+                <p className={styles.description}>
+                  Save preferences to apply your phone number and appearance.
+                </p>
+              </div>
+              <div className={styles.previews} aria-hidden="true">
+                {(['light', 'dark'] as const).map((choice) => (
+                  <div key={choice}>
+                    <div data-theme={choice} className={`profile-theme-preview ${styles.preview}`}>
+                      <div className={styles.previewRail}>
+                        <Camera size={20} />
+                        <i />
+                        <i />
+                        <i />
+                      </div>
+                      <div className={styles.previewContent}>
+                        <i />
+                        <div />
+                        <i />
+                        <div />
+                      </div>
+                    </div>
+                    <p className={styles.description}>
+                      {choice === 'light' ? 'Light appearance' : 'Dark appearance'}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </section>
+          </>
+        )}
+      </ProfileForm>
       <section aria-labelledby="password-heading" className={styles.section}>
         <div className={styles.sectionDescription}>
           <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="password-heading">
-            Password
+            Change password
           </h2>
           <p className="m-0 text-base leading-[1.375rem] text-ds-text-muted">
             Use 12–128 characters for your new password.
@@ -214,7 +292,7 @@ export function Profile({
           pendingText="Changing password…"
         >
           {(state, id) => (
-            <>
+            <div className={styles.fields}>
               <Field
                 label="New password"
                 name="password"
@@ -233,20 +311,20 @@ export function Profile({
                 onChange={setConfirmation}
                 password
               />
-            </>
+            </div>
           )}
         </ProfileForm>
       </section>
       <section aria-labelledby="session-heading" className={styles.section}>
         <div className={styles.sectionDescription}>
           <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="session-heading">
-            This device
+            Sign out
           </h2>
           <p className="m-0 text-base leading-[1.375rem] text-ds-text-muted">
-            Sign out of Admin on this device. Your other devices stay signed in.
+            Sign out of Admin on this device. Your other devices and Booth Mode stay signed in.
           </p>
         </div>
-        <ProfileForm action={signOutAction} title="Sign out" pendingText="Signing out…" />
+        <ProfileForm action={signOutAction} title="Sign out" pendingText="Signing out…" secondary />
       </section>
     </div>
   );

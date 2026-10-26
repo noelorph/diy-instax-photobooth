@@ -3,10 +3,11 @@
 import Link from 'next/link';
 import styles from './auth-form.module.css';
 import { unstable_rethrow } from 'next/navigation';
-import { useActionState, useId, useState } from 'react';
+import { useActionState, useEffect, useId, useRef, useState } from 'react';
 import { FormField } from '@/components/shared/form-field';
 import { FormFeedback } from '@/components/shared/form-feedback';
 import { Button } from '@/components/ui/button';
+import { PasswordInput } from '@/components/shared/password-input';
 import { Input } from '@/components/ui/input';
 import { connectionError, type AuthFormAction, type AuthFormState } from './state';
 
@@ -20,6 +21,7 @@ export function RecoveryRequestForm({ action }: { action: AuthFormAction }) {
 
 function PublicAuthForm({ action, signIn }: { action: AuthFormAction; signIn: boolean }) {
   const id = useId();
+  const feedback = useRef<HTMLDivElement>(null);
   const [email, setEmail] = useState('');
   const [state, formAction, pending] = useActionState<AuthFormState, FormData>(
     async (previous, data) => {
@@ -32,6 +34,9 @@ function PublicAuthForm({ action, signIn }: { action: AuthFormAction; signIn: bo
     },
     { email: '' }
   );
+  useEffect(() => {
+    if (state.fieldErrors || state.error || state.confirmation) feedback.current?.focus();
+  }, [state]);
 
   return (
     <form
@@ -59,10 +64,10 @@ function PublicAuthForm({ action, signIn }: { action: AuthFormAction; signIn: bo
       {signIn ? (
         <FormField id={`${id}-password`} label="Password" error={state.fieldErrors?.password}>
           {(a11y) => (
-            <Input
+            <PasswordInput
               {...a11y}
+              label="Password"
               name="password"
-              type="password"
               autoComplete="current-password"
               required
             />
@@ -70,10 +75,20 @@ function PublicAuthForm({ action, signIn }: { action: AuthFormAction; signIn: bo
         </FormField>
       ) : null}
       {state.fieldErrors ? (
-        <FormFeedback kind="error">Correct the highlighted fields and try again.</FormFeedback>
+        <FormFeedback kind="error" tabIndex={-1} feedbackRef={feedback}>
+          Correct the highlighted fields and try again.
+        </FormFeedback>
       ) : null}
-      {state.error ? <FormFeedback kind="error">{state.error}</FormFeedback> : null}
-      {state.confirmation ? <FormFeedback kind="success">{state.confirmation}</FormFeedback> : null}
+      {state.error ? (
+        <FormFeedback kind="error" tabIndex={-1} feedbackRef={feedback}>
+          {state.error}
+        </FormFeedback>
+      ) : null}
+      {state.confirmation ? (
+        <FormFeedback kind="success" tabIndex={-1} feedbackRef={feedback}>
+          {state.confirmation}
+        </FormFeedback>
+      ) : null}
       <Button type="submit" disabled={pending}>
         {signIn
           ? 'Sign in'

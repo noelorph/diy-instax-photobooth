@@ -6,7 +6,7 @@ export default function ForgotPasswordPage() {
   return (
     <>
       <h1 className={styles.heading}>Forgot password?</h1>
-      <p className={styles.description}>Enter your email to request a recovery link.</p>
+      <p className={styles.description}>Enter your email to receive a recovery link.</p>
       <RecoveryRequestForm action={requestRecovery} />
     </>
   );
