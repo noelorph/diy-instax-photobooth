@@ -21,17 +21,21 @@ export default async function EventPage({
   const result = await getDraft(eventId);
   const panel =
     operations.status === 'success' ? (
-      <OperationsPanel
-        event={operations.event}
-        startDisabled={result.status === 'success' && result.draft.filmPackageCount === 0}
-        simulatorEnabled={
-          process.env.NODE_ENV !== 'production' && process.env.BOOTH_SIMULATOR_ENABLED === 'true'
-        }
-      />
+      <OperationsPanel event={operations.event} />
     ) : (
       <FormFeedback kind="error">
         Unable to load Event operations. Reload to try again.
+        <Button asChild variant="quiet">
+          <a href={`/events/${encodeURIComponent(eventId)}`}>Try again</a>
+        </Button>
       </FormFeedback>
+    );
+  if (operations.status === 'unavailable')
+    return (
+      <section className="max-w-5xl min-w-0">
+        <PageHeader title="Unable to load Event" />
+        {panel}
+      </section>
     );
   if (operations.status === 'success' && operations.event.state !== 'Draft')
     return (

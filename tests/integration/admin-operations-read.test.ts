@@ -1,59 +1,92 @@
 // @vitest-environment node
 import { randomUUID } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { afterEach, expect, it, vi } from 'vitest';
-import { localSupabase, ownerInsert, ownerUpdate, cleanupEvents } from '../fixtures/local-supabase';
 import {
-  getHistorySummary,
-  getOperationalEvent,
-  listLiveEvents,
-} from '@/features/admin/operations/read';
+  localSupabase,
+  ownerInsert,
+  ownerUpdate,
+  cleanupEvents,
+  localOwnerSql,
+} from '../fixtures/local-supabase';
+import { createPackageFixture } from '../fixtures/package-contract';
+import { getOperationalEvent, listLiveEvents } from '@/features/admin/operations/read';
 import { createClient } from '@/lib/supabase/server';
+import { requireAdmin } from '@/lib/auth/require-admin';
+import { createPrivilegedClient } from '@/lib/operations/privileged-client';
+import { packageCounts } from '@/lib/operations/package-contract';
 vi.mock('server-only', () => ({}));
 vi.mock('@/lib/supabase/server', () => ({ createClient: vi.fn() }));
-vi.mock('@/lib/auth/require-admin', () => ({ requireAdmin: vi.fn().mockResolvedValue({}) }));
+vi.mock('@/lib/operations/privileged-client', () => ({ createPrivilegedClient: vi.fn() }));
+vi.mock('@/lib/auth/require-admin', () => ({ requireAdmin: vi.fn() }));
 const local = localSupabase();
 afterEach(async () => {
   await local.cleanup();
 });
-it('reads authenticated Event totals and excludes deleted or inaccessible Events', async () => {
-  const admin = await local.provisionUser();
-  await local.allowlist(admin.id);
-  const signed = await local.signIn(admin);
-  vi.mocked(createClient).mockResolvedValue(signed.client);
-  const created = ownerInsert('events', {
-    title: 'Operations',
-    client_name: 'Client',
-    client_email: 'client@example.test',
-    client_phone: '123',
-    venue_address: 'Hall',
-    time_zone: 'Asia/Manila',
-    starts_at: '2026-11-01T10:00:00Z',
-    ends_at: '2026-11-01T11:00:00Z',
-    film_package_count: 1,
-    original_print_allowance: 10,
-  });
-  expect(created.error).toBeNull();
-  const id = created.data!.id;
+
+it('reads real package totals independently of the attempt page, including the last pending print', async () => {
+  const f = await createPackageFixture({ originalPackages: 5 });
   try {
-    const summary = await getHistorySummary();
-    expect(summary.status).toBe('success');
-    if (summary.status === 'success') {
-      expect(summary.events).toBeGreaterThanOrEqual(1);
-      expect(summary.captures).toBeGreaterThanOrEqual(0);
+    vi.mocked(createClient).mockResolvedValue(f.adminClient);
+    vi.mocked(createPrivilegedClient).mockReturnValue(f.local.service);
+    vi.mocked(requireAdmin).mockResolvedValue({
+      userId: f.adminUser.id,
+      sessionId: f.adminSessionId,
+    });
+    f.seedRun('Paused');
+    localOwnerSql(`insert into public.guest_sessions(id,event_id,run_id,accounting_version,state,closed_at) select gen_random_uuid(),'${f.eventId}','${f.runId}',2,'Printed',now() from generate_series(1,150);
+      insert into public.captures(id,event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) select gen_random_uuid(),event_id,run_id,id,2,now(),gen_random_uuid() from public.guest_sessions where event_id='${f.eventId}';
+      insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id,created_at) select event_id,run_id,session_id,id,2,'Guest',case when row_number() over(order by id)=50 then 'Pending' when row_number() over(order by id)<50 then 'Printed' else 'NotPrinted' end,gen_random_uuid(),gen_random_uuid(),now() - row_number() over(order by id) * interval '1 minute' from public.captures where event_id='${f.eventId}';
+`);
+    const oracle = packageCounts(5, 0, 49, 1);
+    expect(oracle).toMatchObject({
+      totalBookedPrints: 50,
+      printed: 49,
+      unresolved: 1,
+      printsRemaining: 1,
+      printsAvailable: 0,
+    });
+    const server = await f.readAdmin();
+    expect(server.error).toBeNull();
+    expect(server.data.counts).toEqual(oracle);
+    const first = await getOperationalEvent(f.eventId),
+      older = await getOperationalEvent(f.eventId, 1);
+    expect(first.status).toBe('success');
+    expect(older.status).toBe('success');
+    if (first.status === 'success' && older.status === 'success') {
+      expect(first.event.counts).toEqual(server.data.counts);
+      expect(older.event.counts).toEqual(server.data.counts);
+      expect(first.event.runId).toBe(f.runId);
+      expect(first.event.runState).toBe('Paused');
+      expect(first.event.captures).toBe(150);
+      expect(first.event.attempts).toHaveLength(100);
+      expect(first.event.hasOlderAttempts).toBe(true);
+      expect(older.event.attempts).toHaveLength(50);
+      expect(older.event.hasOlderAttempts).toBe(false);
+      expect(first.event.attempts.some((a) => a.state === 'Pending')).toBe(true);
+      expect(first.event).not.toHaveProperty('onHand');
+      expect(first.event).not.toHaveProperty('originalAllowance');
     }
-    const result = await getOperationalEvent(id);
-    expect(result.status).toBe('success');
-    if (result.status === 'success') {
-      expect(result.event.originalAllowance).toBe(10);
-      expect(result.event.allowanceReserved).toBe(0);
-      expect(result.event.confirmedPrints).toBe(0);
-    }
+    expect((await getOperationalEvent(randomUUID())).status).toBe('not_found');
+    const addition = await f.admin('add_packages', {
+      packages: 2,
+      clientRequestNote: 'Client requested more film',
+    });
+    expect(addition.error).toBeNull();
+    const added = await getOperationalEvent(f.eventId);
+    expect(added.status).toBe('success');
+    if (added.status === 'success') expect(added.event.counts).toEqual(packageCounts(5, 2, 49, 1));
+    await f.adminClient.auth.signOut({ scope: 'global' });
+    expect((await getOperationalEvent(f.eventId)).status).toBe('unavailable');
   } finally {
-    await cleanupEvents([id]);
+    await f.dispose();
   }
-  expect((await getOperationalEvent(id)).status).toBe('not_found');
+}, 30000);
+it('returns unavailable without fabricated counts when authorization cannot be read', async () => {
+  vi.mocked(requireAdmin).mockRejectedValueOnce(new Error('Unavailable'));
+  expect(await getOperationalEvent(randomUUID())).toEqual({
+    status: 'unavailable',
+    error: 'Unable to load Event operations. Reload to try again.',
+  });
 });
 
 it('excludes legacy Live Events while preserving current additional package totals', async () => {
@@ -121,88 +154,3 @@ it('excludes legacy Live Events while preserving current additional package tota
     cleanupEvents(ids);
   }
 });
-
-it('pages beyond 100 attempts and keeps readiness and accounting independent of the page', async () => {
-  const admin = await local.provisionUser();
-  await local.allowlist(admin.id);
-  vi.mocked(createClient).mockResolvedValue((await local.signIn(admin)).client);
-  const baseline = await getHistorySummary();
-  expect(baseline.status).toBe('success');
-  const ids = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
-  const [id, other, cancelled, deleted] = ids,
-    connection = randomUUID(),
-    oldGuest = randomUUID();
-  const booking = {
-    title: 'Read model fixture',
-    client_name: 'Client',
-    client_email: 'fixture@example.test',
-    client_phone: '123',
-    venue_address: 'Hall',
-    time_zone: 'Asia/Manila',
-    starts_at: '2026-11-01T10:00Z',
-    ends_at: '2026-11-01T11:00Z',
-    film_package_count: 1,
-    original_print_allowance: 10,
-  };
-  try {
-    expect(
-      (
-        await ownerInsert(
-          'events',
-          ids.map((id) => ({ ...booking, id }))
-        )
-      ).error
-    ).toBeNull();
-    let fixture = `update public.events set state='Live',revision=2 where id='${id}';update public.events set state='Cancelled',revision=2 where id='${cancelled}';update public.events set deleted_at=now(),title=null,client_name=null,client_email=null,client_phone=null,venue_address=null,time_zone=null,starts_at=null,ends_at=null,media_removal_state='pending',revision=2 where id='${deleted}';`;
-    const run = randomUUID();
-    fixture += `insert into public.booth_runs(id,event_id,state,connection_id) values('${run}','${id}','Paused','${connection}');`;
-    for (const [index, state] of ['Confirmed', 'WastedFilm', 'AdminResolvedEjected'].entries()) {
-      const session = randomUUID(),
-        capture = randomUUID(),
-        attempt = index === 0 ? oldGuest : randomUUID();
-      fixture += `insert into public.guest_sessions(id,event_id,run_id,state,closed_at) values('${session}','${id}','${run}','Printed',now());insert into public.captures(id,event_id,run_id,session_id,captured_at) values('${capture}','${id}','${run}','${session}',now());insert into public.print_attempts(id,event_id,run_id,session_id,capture_id,kind,state,request_key,connection_id,created_at) values('${attempt}','${id}','${run}','${session}','${capture}','Guest','${state}',gen_random_uuid(),'${connection}',now()-interval '1 day');`;
-      if (index === 2)
-        fixture += `insert into public.print_attempt_events(attempt_id,actor_scope,state,reason) values('${attempt}','fixture','WastedFilm','Inspected unusable sheet');`;
-    }
-    fixture += `insert into public.print_attempts(event_id,kind,state,request_key,connection_id,test_output_usable,created_at) values('${id}','Test','Confirmed',gen_random_uuid(),'${connection}',true,now()-interval '1 day');insert into public.print_attempts(event_id,kind,state,request_key,connection_id) select '${id}','Test','RejectedUnused',gen_random_uuid(),'${connection}' from generate_series(1,100);insert into public.print_attempts(event_id,kind,state,request_key,connection_id) values('${other}','Test','Reserved',gen_random_uuid(),gen_random_uuid());insert into public.additional_print_entries(event_id,quantity,actor_id) select '${id}',1,'${admin.id}' from generate_series(1,1001);`;
-    sql(fixture);
-    const first = await getOperationalEvent(id),
-      older = await getOperationalEvent(id, 1);
-    expect(first.status).toBe('success');
-    expect(older.status).toBe('success');
-    if (first.status === 'success' && older.status === 'success') {
-      expect(first.event.attempts).toHaveLength(100);
-      expect(first.event.hasOlderAttempts).toBe(true);
-      expect(first.event.attempts.some((a) => a.id === oldGuest)).toBe(false);
-      expect(older.event.attempts.some((a) => a.id === oldGuest && a.state === 'Confirmed')).toBe(
-        true
-      );
-      expect(older.event.hasOlderAttempts).toBe(false);
-      expect(first.event.usableTestConnectionIds).toContain(connection);
-      expect(first.event.eventUnresolved).toBe(0);
-      expect(first.event.stockReserved).toBe(1);
-      expect(first.event.confirmedPrints).toBe(1);
-      expect(first.event.additionalPrints).toBe(1001);
-      expect(first.event.captures).toBe(3);
-    }
-    const summary = await getHistorySummary();
-    expect(summary.status).toBe('success');
-    if (summary.status === 'success' && baseline.status === 'success') {
-      expect(summary.events).toBe(baseline.events + 2);
-      expect(summary.captures).toBe(baseline.captures + 3);
-    }
-    expect((await getOperationalEvent(deleted)).status).toBe('not_found');
-  } finally {
-    for (const id of ids)
-      sql(
-        `delete from public.additional_print_entries where event_id='${id}';delete from public.print_attempt_events where attempt_id in(select id from public.print_attempts where event_id='${id}');delete from public.print_attempts where event_id='${id}';delete from public.captures where event_id='${id}';delete from public.guest_sessions where event_id='${id}';delete from public.booth_runs where event_id='${id}';delete from public.events where id='${id}';`
-      );
-  }
-}, 30000);
-function sql(query: string) {
-  execFileSync(
-    resolve('node_modules/.bin/supabase'),
-    ['db', 'query', '--local', `do $fixture$ begin ${query} end $fixture$`, '-o', 'json'],
-    { stdio: ['ignore', 'pipe', 'pipe'] }
-  );
-}

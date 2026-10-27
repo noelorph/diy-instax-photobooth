@@ -1,27 +1,15 @@
-export type Attempt = {
-  id: string;
-  kind: string;
-  state: string;
-  connection_id: string;
-  test_output_usable: boolean | null;
-};
+import type { AttemptState, PackageCounts, RunState } from '@/lib/operations/package-contract';
+export type Attempt = { id: string; kind: string; state: AttemptState };
 export type OperationalEvent = {
   id: string;
   title: string;
   state: string;
   revision: number;
-  originalAllowance: number;
-  additionalPrints: number;
-  confirmedPrints: number;
+  counts: PackageCounts;
   captures: number;
-  allowanceReserved: number;
-  stockReserved: number;
-  eventUnresolved: number;
   attemptsPage: number;
   hasOlderAttempts: boolean;
-  usableTestConnectionIds: string[];
-  onHand: number;
-  runState: string | null;
-  connectionId: string | null;
+  runId: string | null;
+  runState: RunState | null;
   attempts: Attempt[];
 };

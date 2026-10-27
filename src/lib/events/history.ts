@@ -18,7 +18,6 @@ export type HistoryEvent = {
   starts_at: string;
   ends_at: string;
   film_package_count: number;
-  original_print_allowance: number;
 };
 export type PendingMediaRemoval = {
   eventId: string;
@@ -41,7 +40,7 @@ export async function listHistory() {
     const { data, error } = await client
       .from('events')
       .select(
-        'id,state,revision,title,client_name,client_email,client_phone,venue_address,time_zone,starts_at,ends_at,film_package_count,original_print_allowance'
+        'id,state,revision,title,client_name,client_email,client_phone,venue_address,time_zone,starts_at,ends_at,film_package_count'
       )
       .in('state', ['Completed', 'Cancelled'])
       .is('deleted_at', null)

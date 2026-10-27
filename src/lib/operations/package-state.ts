@@ -1,7 +1,7 @@
 import 'server-only';
 import { createPrivilegedClient } from './privileged-client';
 import { packageRpc } from './package-rpc';
-import { PackageError } from './package-contract';
+import { PackageError, type PackageCounts } from './package-contract';
 
 export async function readPackageAdminState(
   admin: { userId: string; sessionId: string },
@@ -33,6 +33,7 @@ export async function readPackageAdminState(
   return {
     ...state,
     revision: state.revision as number,
+    counts: state.counts as PackageCounts,
     receipt: state.receipt,
     mediaRemovalState: state.mediaRemovalState as string | undefined,
     runId: run.data[0]?.id ?? null,

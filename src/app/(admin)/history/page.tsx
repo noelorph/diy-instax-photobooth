@@ -49,21 +49,19 @@ export default async function HistoryPage() {
                 <p>{event.client_phone}</p>
               </div>
               <div className="my-3 flex flex-wrap gap-x-6 gap-y-2 tabular-nums">
-                <p>{event.film_package_count} Film Packages</p>
-                <p>{event.original_print_allowance} original prints</p>
                 {(() => {
                   const value = totals.get(event.id);
                   return value?.status === 'success' ? (
                     <>
-                      <p>{value.event.additionalPrints} Additional Prints</p>
-                      <p>{value.event.confirmedPrints} Confirmed Prints</p>
                       <p>
-                        {value.event.originalAllowance +
-                          value.event.additionalPrints -
-                          value.event.confirmedPrints -
-                          value.event.allowanceReserved}{' '}
-                        prints remaining
+                        {value.event.counts.originalPackages +
+                          value.event.counts.additionalPackages}{' '}
+                        Film Packages
                       </p>
+                      <p>{value.event.counts.totalBookedPrints} total booked prints</p>
+                      <p>{value.event.counts.printed} printed</p>
+                      <p>{value.event.counts.unresolved} print pending</p>
+                      <p>{value.event.counts.printsRemaining} prints remaining</p>
                       <p>{value.event.captures} Captures recorded</p>
                     </>
                   ) : (

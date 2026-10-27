@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { cleanup, render, screen } from '@testing-library/react';
+import { getOperationalEvent } from '@/features/admin/operations/read';
 import EventPage from '@/app/(admin)/events/[eventId]/page';
 vi.mock('@/lib/events/drafts', () => ({ getDraft: async () => ({ status: 'not_found' }) }));
 vi.mock('@/features/admin/events/actions', () => ({
@@ -8,36 +9,37 @@ vi.mock('@/features/admin/events/actions', () => ({
 }));
 vi.mock('@/features/admin/operations/read', () => ({
   getHistorySummary: async () => ({ status: 'success', events: 3, captures: 7 }),
-  getOperationalEvent: async () => ({
+  getOperationalEvent: vi.fn(async () => ({
     status: 'success',
     event: {
       id: 'a',
       title: 'Live celebration',
       state: 'Live',
       revision: 1,
-      originalAllowance: 10,
-      additionalPrints: 0,
-      confirmedPrints: 0,
+      counts: {
+        originalPackages: 2,
+        additionalPackages: 0,
+        totalBookedPrints: 20,
+        printed: 0,
+        unresolved: 1,
+        printsRemaining: 20,
+        printsAvailable: 19,
+      },
       captures: 0,
-      allowanceReserved: 0,
-      stockReserved: 0,
-      onHand: 0,
+      runId: 'run',
       runState: 'Paused',
-      connectionId: null,
       attempts: [],
-      eventUnresolved: 1,
       attemptsPage: 0,
       hasOlderAttempts: false,
-      usableTestConnectionIds: [],
     },
-  }),
+  })),
 }));
 vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 afterEach(cleanup);
 it('renders Live Event management instead of a missing Draft', async () => {
   render(await EventPage({ params: Promise.resolve({ eventId: 'a' }) }));
   expect(screen.getByRole('heading', { name: 'Live celebration' })).toBeTruthy();
-  expect(screen.getByRole('button', { name: 'Resume Booth Mode' })).toBeTruthy();
+  expect(screen.getByText('20 total booked prints')).toBeTruthy();
 });
 vi.mock('@/lib/auth/require-admin', () => ({ requireAdmin: vi.fn() }));
 vi.mock('@/lib/events/history', () => ({
@@ -55,7 +57,6 @@ vi.mock('@/lib/events/history', () => ({
         client_name: 'Retained client',
         client_email: 'retained@example.test',
         film_package_count: 2,
-        original_print_allowance: 10,
       },
     ],
   }),
@@ -75,5 +76,16 @@ it('shows History and opaque pending cleanup retries', async () => {
   expect(screen.getByText('3 non-cancelled Events')).toBeTruthy();
   expect(screen.getByText('7 Captures')).toBeTruthy();
   expect(screen.getByText('2 Film Packages')).toBeTruthy();
-  expect(screen.getByText('0 Additional Prints')).toBeTruthy();
+  expect(screen.getByText('20 total booked prints')).toBeTruthy();
+});
+
+it('keeps unavailable operations visible with retry and no invented totals', async () => {
+  vi.mocked(getOperationalEvent).mockResolvedValueOnce({
+    status: 'unavailable',
+    error: 'Unable to load Event operations. Reload to try again.',
+  });
+  render(await EventPage({ params: Promise.resolve({ eventId: 'a' }) }));
+  expect(screen.getByRole('alert').textContent).toContain('Unable to load Event operations');
+  expect(screen.getByRole('link', { name: 'Try again' }).getAttribute('href')).toBe('/events/a');
+  expect(screen.queryByText(/total booked prints/)).toBeNull();
 });
