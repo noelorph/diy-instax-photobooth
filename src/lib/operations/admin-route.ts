@@ -97,20 +97,3 @@ export async function resolutionEntries(attemptId: string, outcome: 'ejected' | 
   if (stock.error) throw stock.error;
   return { journalEntryId: journal.data.id, stockEntryId: stock.data.id };
 }
-
-export function stockResult(data: Json) {
-  const r = data as {
-    entry_id: string;
-    previous_on_hand: number;
-    signed_sheets: number;
-    on_hand: number;
-    available_stock: number;
-  };
-  return {
-    entryId: r.entry_id,
-    previousOnHand: r.previous_on_hand,
-    signedSheets: r.signed_sheets,
-    onHand: r.on_hand,
-    availability: { filmSheets: r.available_stock },
-  };
-}

@@ -58,14 +58,11 @@ import { POST as complete } from '@/app/api/admin/events/[eventId]/complete/rout
 import { POST as cancel } from '@/app/api/admin/events/[eventId]/cancel/route';
 import { POST as deleteDraft } from '@/app/api/admin/events/[eventId]/delete-draft/route';
 import { POST as reserve } from '@/app/api/admin/events/[eventId]/test-attempts/route';
-import { POST as additional } from '@/app/api/admin/events/[eventId]/additional-prints/route';
 import { POST as observe } from '@/app/api/admin/print-attempts/[attemptId]/observations/route';
 import { POST as inspect } from '@/app/api/admin/print-attempts/[attemptId]/test-output/route';
 import { POST as recover } from '@/app/api/admin/print-attempts/[attemptId]/recover/route';
 import { POST as settle } from '@/app/api/admin/print-attempts/[attemptId]/resolve/route';
 import { POST as waste } from '@/app/api/admin/print-attempts/[attemptId]/wasted-film/route';
-import { POST as add } from '@/app/api/admin/film-stock/additions/route';
-import { POST as reconcile } from '@/app/api/admin/film-stock/reconciliations/route';
 const local = localSupabase(),
   status = localSupabaseStatus();
 const ids: string[] = [],
@@ -170,13 +167,10 @@ function routes(eventId = randomUUID(), attemptId = randomUUID()) {
     (body: object, origin?: string) => complete(req(body, origin), eventContext(eventId)),
     (body: object, origin?: string) => cancel(req(body, origin), eventContext(eventId)),
     (body: object, origin?: string) => reserve(req(body, origin), eventContext(eventId)),
-    (body: object, origin?: string) => additional(req(body, origin), eventContext(eventId)),
     (body: object, origin?: string) => observe(req(body, origin), attemptContext(attemptId)),
     (body: object, origin?: string) => settle(req(body, origin), attemptContext(attemptId)),
     (body: object, origin?: string) => inspect(req(body, origin), attemptContext(attemptId)),
     (body: object, origin?: string) => waste(req(body, origin), attemptContext(attemptId)),
-    (body: object, origin?: string) => add(req(body, origin)),
-    (body: object, origin?: string) => reconcile(req(body, origin)),
     (body: object, origin?: string) => recover(req(body, origin), attemptContext(attemptId)),
   ];
 }
@@ -219,7 +213,6 @@ describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeo
       { expectedRevision: 1 },
       { expectedRevision: 1 },
       { connectionId: randomUUID() },
-      { quantity: 1 },
       {
         observationKind: 'commandAccepted',
         evidenceCode: 'command_acknowledged',
@@ -228,8 +221,6 @@ describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeo
       { outcome: 'unused', inspectionReason: 'Inspected' },
       { usable: true },
       { reason: 'Damaged' },
-      { sheets: 1, reason: 'New' },
-      { observedSheets: 1, reason: 'Counted' },
       { reason: 'Lost originating browser' },
     ];
     for (const [index, route] of routes().entries()) {
@@ -245,38 +236,6 @@ describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeo
         ).toBe('validation_error');
     }
   });
-  it.each(['stock', 'additional'])(
-    'retries committed %s additions after upstream response loss once',
-    async (kind) => {
-      const f = await fixture();
-      const body = {
-        ...operation(),
-        ...(kind === 'stock' ? { sheets: 3, reason: 'New pack' } : { quantity: 3 }),
-      };
-      const invoke = () =>
-        kind === 'stock' ? add(req(body)) : additional(req(body), eventContext(f.eventId));
-      fault.rpc = true;
-      const failed = await result(await invoke(), 503);
-      expect(failed.code).toBe('operation_unavailable');
-      expect(JSON.stringify(failed)).not.toContain('secret');
-      await result(await invoke());
-      const actor = `admin:${f.user.id}`;
-      expect(
-        sql(
-          `select id from public.operation_receipts where actor_scope='${actor}' and operation_key='${body.operationKey}'`
-        )
-      ).toHaveLength(1);
-      expect(
-        sql(`select id from public.activity_events where actor_scope='${actor}'`)
-      ).toHaveLength(1);
-      const table = kind === 'stock' ? 'film_stock_entries' : 'additional_print_entries';
-      expect(
-        sql(
-          `select id from public.${table} where ${kind === 'stock' ? `actor_scope='${actor}'` : `actor_id='${f.user.id}'`}`
-        )
-      ).toHaveLength(1);
-    }
-  );
   it('returns retryable ambiguity when resolution projection fails after commit', async () => {
     const f = await fixture(),
       a = await testAttempt(f);
@@ -400,54 +359,6 @@ describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeo
       );
     }
   );
-  it('returns stock entries, stable duplicate results and zero difference reconciliation', async () => {
-    const f = await fixture(),
-      body = { ...operation(), sheets: 4, reason: 'New pack' };
-    const added = await result(await add(req(body)));
-    expect(added).toEqual({
-      entryId: expect.any(String),
-      previousOnHand: f.stock,
-      signedSheets: 4,
-      onHand: f.stock + 4,
-      availability: { filmSheets: f.stock + 4 },
-    });
-    expect(await result(await add(req(body)))).toEqual(added);
-    expect((await result(await add(req({ ...body, sheets: 5 })), 409)).code).toBe(
-      'idempotency_conflict'
-    );
-    const reconciled = await result(
-      await reconcile(
-        req({ ...operation(), observedSheets: f.stock + 4, reason: 'Counted physically' })
-      )
-    );
-    expect(reconciled.signedSheets).toBe(0);
-    expect(reconciled.previousOnHand).toBe(f.stock + 4);
-    for (const invalid of [
-      { sheets: 0, reason: 'x' },
-      { sheets: 1, reason: ' ' },
-      { sheets: 1.5, reason: 'x' },
-    ])
-      expect((await result(await add(req({ ...operation(), ...invalid })), 400)).code).toBe(
-        'validation_error'
-      );
-  });
-  it('returns Additional Prints allowance and commits once', async () => {
-    const f = await fixture(),
-      body = { ...operation(), quantity: 3 };
-    const added = await result(await additional(req(body), eventContext(f.eventId)));
-    expect(added).toEqual({
-      entryId: expect.any(String),
-      originalPrintAllowance: 10,
-      additionalPrints: 3,
-      confirmedPrints: 0,
-      reservedPrints: 0,
-      availability: { guestPrints: 13 },
-    });
-    expect(await result(await additional(req(body), eventContext(f.eventId)))).toEqual(added);
-    expect(
-      sql(`select quantity from public.additional_print_entries where event_id='${f.eventId}'`)
-    ).toEqual([{ quantity: 3 }]);
-  });
   it('enforces revisions and maps pause, completion and cancellation states', async () => {
     const f = await fixture(),
       run = randomUUID();
@@ -500,14 +411,6 @@ describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeo
     own.forEach((v, k) => jar.set(k, v));
     const accepted = await result(await observe(req(observation()), attemptContext(a.attemptId)));
     expect(accepted).toMatchObject({ state: 'Accepted', onHand: f.stock, filmHold: 1 });
-    expect(
-      (
-        await result(
-          await reconcile(req({ ...operation(), observedSheets: f.stock, reason: 'Count' })),
-          409
-        )
-      ).code
-    ).toBe('pending_attempt');
     expect(
       (
         await result(

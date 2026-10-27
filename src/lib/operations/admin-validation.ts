@@ -4,12 +4,6 @@ const integer = z.number().int().max(2147483647);
 const reason = z.string().trim().min(1).max(1000);
 export const revisionSchema = operationSchema.extend({ expectedRevision: integer.positive() });
 export const testReservationSchema = operationSchema.extend({ connectionId: z.uuid() });
-export const additionalPrintsSchema = operationSchema.extend({ quantity: integer.positive() });
-export const stockAdditionSchema = operationSchema.extend({ sheets: integer.positive(), reason });
-export const stockReconciliationSchema = operationSchema.extend({
-  observedSheets: integer.nonnegative(),
-  reason,
-});
 export const resolutionSchema = operationSchema.extend({
   outcome: z.enum(['ejected', 'unused']),
   inspectionReason: reason,

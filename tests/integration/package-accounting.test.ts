@@ -253,3 +253,37 @@ it('normalizes whole JSON decimal packages before committing and replaying recei
     await f.dispose();
   }
 }, 30000);
+
+it.each(['Paused', 'Finished'])(
+  'replays a purchase once without changing a %s run or reload state',
+  async (state) => {
+    const f = await createPackageFixture();
+    try {
+      f.seedRun(state);
+      const before = localOwnerSql(
+        `select state,film_loaded_confirmed from public.booth_runs where id='${f.runId}'`
+      );
+      const payload = { packages: 1, clientRequestNote: 'Client requested one more package' };
+      const key = 'ab000000-0000-4000-8000-000000000002';
+      const first = await f.admin('add_packages', payload, key);
+      const replay = await f.admin('add_packages', payload, key);
+      expect(first.error).toBeNull();
+      expect(first.data.receipt.result.totalBookedPrints).toBe(20);
+      expect(replay.data.replayed).toBe(true);
+      expect((await f.readAdmin()).data.counts.additionalPackages).toBe(1);
+      expect(
+        localOwnerSql(
+          `select state,film_loaded_confirmed from public.booth_runs where id='${f.runId}'`
+        )
+      ).toEqual(before);
+      expect(
+        localOwnerSql(
+          `select (select count(*)::int from public.additional_film_package_entries where event_id='${f.eventId}') entries,(select count(*)::int from public.activity_events where event_id='${f.eventId}') audits`
+        )
+      ).toEqual([{ entries: 1, audits: 1 }]);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);

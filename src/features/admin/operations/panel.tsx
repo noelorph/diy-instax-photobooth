@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button';
 import { FormFeedback } from '@/components/shared/form-feedback';
 import type { OperationalEvent } from './types';
 import styles from './panel.module.css';
+import { AddPackages } from './add-packages';
 
 export function OperationsPanel({ event }: { event: OperationalEvent }) {
   const router = useRouter();
@@ -15,7 +16,12 @@ export function OperationsPanel({ event }: { event: OperationalEvent }) {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const operationId = useRef<string | null>(null);
-  const { counts } = event;
+  const [refreshed, setRefreshed] = useState<{
+    source: typeof event.counts;
+    counts: typeof event.counts;
+  } | null>(null);
+  const counts = refreshed?.source === event.counts ? refreshed.counts : event.counts;
+  const setCounts = (counts: typeof event.counts) => setRefreshed({ source: event.counts, counts });
   async function cancelDraft() {
     if (busy) return;
     setBusy(true);
@@ -75,6 +81,13 @@ export function OperationsPanel({ event }: { event: OperationalEvent }) {
           <p>{counts.printsAvailable} prints available</p>
         </section>
       </div>
+      <AddPackages
+        key={event.id}
+        eventId={event.id}
+        eligible={event.state === 'Live'}
+        counts={counts}
+        onCounts={setCounts}
+      />
       <p>{event.captures} Captures</p>
       {counts.unresolved > 0 && (
         <p>A print is pending. Its booked print remains held until resolved.</p>

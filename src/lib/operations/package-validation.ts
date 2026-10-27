@@ -1,6 +1,8 @@
 import { z } from 'zod';
-import { MAX_TOTAL_PACKAGES, PackageError } from './package-contract';
+import { PackageError } from './package-contract';
 import { parseOperation } from './validation';
+import { addPackagesSchema } from './package-purchase-schema';
+export { addPackagesSchema } from './package-purchase-schema';
 
 const revision = z.number().int().positive().max(2_147_483_647);
 const generation = z.number().int().nonnegative().max(2_147_483_647);
@@ -33,10 +35,6 @@ const reason = z.string().trim().min(1);
 export const packageOperationSchema = z.strictObject({ operationId: z.uuid() });
 const eventRevisionSchema = packageOperationSchema.extend({ expectedRevision: revision });
 const runRevisionSchema = eventRevisionSchema.extend({ runId: z.uuid() });
-export const addPackagesSchema = packageOperationSchema.extend({
-  packages: z.number().int().positive().max(MAX_TOTAL_PACKAGES),
-  clientRequestNote: reason,
-});
 export const packageActionSchemas = {
   start: eventRevisionSchema.extend({
     readinessWindowId: z.uuid(),

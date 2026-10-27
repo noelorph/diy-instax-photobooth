@@ -3,13 +3,8 @@ import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { expect, it, vi } from 'vitest';
 import { localOwnerSql, localSupabaseStatus } from '../fixtures/local-supabase';
-const routeMocks = vi.hoisted(() => ({ admin: vi.fn(), rpc: vi.fn() }));
+
 vi.mock('server-only', () => ({}));
-vi.mock('@/lib/operations/admin-authority', () => ({ requireAdminRequest: routeMocks.admin }));
-vi.mock('@/lib/operations/privileged-client', () => ({
-  createPrivilegedClient: () => ({ rpc: routeMocks.rpc }),
-}));
-import { POST as oldStockAddition } from '@/app/api/admin/film-stock/additions/route';
 
 function transaction(sql: string) {
   localSupabaseStatus();
@@ -221,37 +216,6 @@ it('executes retired stock, Test, waste, redaction, handoff and guest RPCs under
     reset role;
     select jsonb_build_object('denied',6,'version',(select active_creation_version from private.booth_contract_guard where id))::text`);
   expect(result).toEqual({ denied: 6, version: 2 });
-  expect(
-    localOwnerSql('select active_creation_version from private.booth_contract_guard where id')[0]
-      .active_creation_version
-  ).toBe(1);
-}, 30000);
-
-it('denies an old stock HTTP route when its RPC executes in an activated disposable transaction', async () => {
-  routeMocks.admin.mockResolvedValue({ userId: randomUUID(), sessionId: randomUUID() });
-  routeMocks.rpc.mockImplementation(async (name: string) => {
-    expect(name).toBe('add_film_stock');
-    try {
-      transaction(`do $$ begin perform private.activate_package_accounting(); end $$;
-        set local role service_role;
-        select public.add_film_stock(null::uuid,null::uuid,null::uuid,1,'test')`);
-    } catch (error) {
-      const stderr = String((error as { stderr?: string | Buffer }).stderr);
-      if (!stderr.includes('permission denied for function add_film_stock')) throw error;
-      return { data: null, error: { message: 'permission denied for function add_film_stock' } };
-    }
-    throw new Error('Retired stock RPC unexpectedly executed.');
-  });
-  const response = await oldStockAddition(
-    new Request('https://booth.test/api/admin/film-stock/additions', {
-      method: 'POST',
-      headers: { origin: 'https://booth.test', 'content-type': 'application/json' },
-      body: JSON.stringify({ operationKey: randomUUID(), sheets: 1, reason: 'test' }),
-    })
-  );
-  expect(response.status).toBe(503);
-  expect((await response.json()).code).toBe('operation_unavailable');
-  expect(routeMocks.rpc).toHaveBeenCalledOnce();
   expect(
     localOwnerSql('select active_creation_version from private.booth_contract_guard where id')[0]
       .active_creation_version
