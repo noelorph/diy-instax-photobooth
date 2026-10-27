@@ -10,6 +10,10 @@ import { createPrivilegedClient } from '@/lib/operations/privileged-client';
 import { removeEventMedia } from '@/lib/operations/draft-media-cleanup';
 import { validateEventMedia, MediaValidationError } from './media-validation';
 import type { MediaKind } from './media-types';
+import {
+  EVENT_MEDIA_UPLOADS_AVAILABLE,
+  EVENT_MEDIA_UNAVAILABLE_MESSAGE,
+} from './media-availability';
 
 const mutation = z.strictObject({
   operationId: z.uuid(),
@@ -22,6 +26,12 @@ export async function beginEventMediaUpload(request: Request, eventId: string): 
     requireSameOrigin(request);
     const admin = await requireAdminRequest(request);
     const { operationId: key, ...payload } = await parseOperation(request, begin);
+    operationId(eventId);
+    if (!EVENT_MEDIA_UPLOADS_AVAILABLE)
+      return operationResponse(
+        { code: 'operation_unavailable', message: EVENT_MEDIA_UNAVAILABLE_MESSAGE },
+        503
+      );
     return operationResponse(
       await packageRpc('event_media_operation', {
         p_admin_user_id: admin.userId,
@@ -102,6 +112,12 @@ export async function commitEventMedia(
       return operationResponse(result);
     }
     if (asset.uploaded_by !== admin.userId) throw new PackageError('operation_forbidden');
+    // Saved metadata can recover an existing receipt; the database rejects every fresh attach.
+    if (!EVENT_MEDIA_UPLOADS_AVAILABLE && !asset.content_type)
+      return operationResponse(
+        { code: 'operation_unavailable', message: EVENT_MEDIA_UNAVAILABLE_MESSAGE },
+        503
+      );
     cleanupId = id;
     if (!asset.content_type) {
       const event = await client

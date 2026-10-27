@@ -1,10 +1,12 @@
 # F2 — Event Preparation and Private Media Implementation Plan
 
+**Current execution scope — 2026-10-27:** [ADR-0031](../../adr/0031-temporarily-disable-event-media-uploads.md) authorizes continued F2 with media uploads temporarily unavailable. Preserve the planned feature, page sections and design assets. Current work is Task 1, safe Task 3 behavior and Task 4A below. Tasks 2 and 4B and complete media-bearing cleanup qualification are retained future work, not release prerequisites while uploads are disabled. Existing dated evidence remains unchanged; no media-complete or qualification pass is implied. #30 closure/follow-up tracking awaits a separate decision.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > **Required throughout:** Use **ponytail:ponytail, full**. Extend existing Draft validation, private storage cleanup and UI. Use maintained format/upload libraries for the nontrivial media work; do not build a general asset manager or custom video decoder.
 
-**Goal:** Prepare a valid Event Draft, manage its private media and safely cancel/delete the Draft, with no legacy allowance or conversion workflow.
+**Goal:** Prepare a valid Event Draft, preserve media sections with unavailable uploads and safely cancel/delete the Draft, with no legacy allowance or conversion workflow.
 
 **Architecture:** Preserve the existing Draft DAL and schedule parser, replacing independent allowance with package-derived capacity and the direct creation insert with a transactional, retry-safe operation. Reuse #9's receipt machinery for creation; add narrowly scoped private media metadata and trusted finalization, keeping immutable object paths until a validated Draft-only swap commits. F5/F7 consume authorized media delivery; F4 owns starting and Live termination.
 
@@ -12,11 +14,11 @@
 
 **Spec:** [Approved design, F2](../specs/2026-10-24-issue-10-functional-breakdown-design.md#f2-event-preparation-and-private-media), [ADR-0027](../../adr/0027-draft-only-event-media.md). Parent #10; #9 prerequisite satisfied; additionally requires F1. [Index/shared rules](2026-10-24-issue-10-implementation-plan.md).
 
-**Published issue:** [#30](https://github.com/noelorph/diy-instax-photobooth/issues/30), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Native prerequisites: [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) (completed), [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29). Published and read-back verified 2026-10-25; implementation remains on hold.
+**Published issue:** [#30](https://github.com/noelorph/diy-instax-photobooth/issues/30), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Native prerequisites: [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) (completed), [F1 #29](https://github.com/noelorph/diy-instax-photobooth/issues/29). Published and read-back verified 2026-10-25; F2 implementation was subsequently authorized and may continue with uploads disabled under ADR-0031.
 
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence. The plan and GitHub publication are approved; implementation remains on hold pending a later user instruction and the capability prerequisites. No hosted activation, new accounting rule or Guest-image upload.
+- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence. The plan, GitHub publication and F2 implementation are authorized; continue the disabled scope under ADR-0031 and preserve capability prerequisites. No hosted activation, new accounting rule or Guest-image upload.
 - Original packages are whole `0..214_748_364`; total is `packages × 10`. Zero saves but cannot start. Reject stale revisions, invalid IANA zones, nonexistent/ambiguous local times and end ≤ start.
 - Draft creation uses one stable actor-scoped `operationId` and normalized payload per submitted save. A committed save with a lost response recovers the same Event and creation audit; changing the payload under that key is a conflict, never another insert.
 - Media upload/replace/remove is Draft-only, including final commit checks. Still JPEG/PNG/WebP ≤10,000,000 bytes; reject animation. MP4 H.264/AVC ≤50,000,000 bytes and `0 < duration ≤ 30` seconds. Preserve old media on failure; no conversion/trimming/editing; terminal media stays retained.
@@ -28,9 +30,9 @@ Follow the [shared command/environment table](2026-10-24-issue-10-implementation
 
 1. Lost creation replies/concurrent retries create one Draft and audit; DST gaps/overlaps, package bounds and stale edits still preserve validation and entered values — task 1.
 2. Renamed, animated, truncated or codec-mismatched media cannot pass client-only validation — task 2.
-3. A competing Start/Cancel or second replacement defeats stale finalization without removing current media — task 2, before editor polish.
+3. A competing Start/Cancel or second replacement defeats stale finalization without removing current media — deferred task 2, before enabled editor work.
 4. A removed Admin, foreign Event path or expired Booth grant cannot access/change media — tasks 2 and 4.
-5. A late upload or failed Storage removal cannot make a deleted Draft appear fully cleaned — task 3, before editor polish.
+5. A late previously authorized upload or failed Storage removal cannot make a deleted Draft appear fully cleaned — task 3; keep pending feedback in Task 4A. Enabled editor work still requires full cleanup proof.
 
 ## File map and new contracts
 
@@ -49,7 +51,7 @@ Proposed shared types in `media-types.ts`: `MediaKind = 'background' | 'montage'
 
 `tests/fixtures/package-browser.ts` exports `createPackageBrowserFixture(): Promise<PackageFixture>`, extending the existing package/local fixtures with exact-ID cleanup and saved/restored simulator policy. Creation cases additionally save/restore the local Event creation default under the index's serial rules, without changing the activation guard. Browser tests use real forms/handlers; owner SQL creates synthetic prerequisites only. F4–F7 reuse this fixture rather than creating another database selection path.
 
-**Execution priority:** after task 1 supplies a saved Draft, complete trusted validation, actual resumable transfers and lifecycle races in task 2, then deletion/late-upload cleanup in task 3. Only then complete the polished media editor/delivery presentation in task 4. Minimal real upload/remove controls are enough for the early browser proof and are extended in place. If the mechanics cannot satisfy ADR-0027, stop the dependent editor work and record the failing case; do not weaken validation or label the risk resolved from a mock.
+**Execution priority now:** verify Task 1's real Draft/save/retry behavior, preserve Task 3's fail-closed cancellation/deletion behavior, then implement Task 4A's unavailable media state and trusted-boundary denials. Keep existing media/recovery regressions meaningful. No further media backend probes are part of this work. Full enabled upload/editor/delivery work below stays deferred; supported cleanup proof and explicit re-enablement are required before enabling it. Publication and completion decisions are separate from test evidence.
 
 ## Task 1: Finish package-based Draft preparation and discovery
 
@@ -76,7 +78,9 @@ The new `private.create_event_draft(p_admin_user_id uuid, p_admin_session_id uui
 - [ ] Rerun focused tests and `npx playwright test --config playwright.config.ts tests/e2e/draft-event.spec.ts`; verify one Draft/audit after the lost-response retry, correct conflicts/authorization, and that zero-package Drafts cannot appear ready to start and stale conversion URLs return 404/405 without mutation. Run local migration lint and changed-file type checks for the corrected creation callers. Expected all pass.
 - [ ] Commit with `feat: complete package based draft preparation`.
 
-## Task 2: Implement validated, immutable private media writes
+## Task 2: Planned enabled media writes — deferred
+
+The detailed implementation/qualification criteria below remain the future enabled-media contract. Preserve prior partial implementation and dated evidence. Do not treat its unchecked items as a current disabled-release blocker or enable uploads to satisfy them.
 
 **Files:** Media content/transactions/routes rows, minimal `event-media.tsx` upload control, `tests/e2e/event-media.spec.ts`, content/unit/integration tests and synthetic fixtures. Add file descriptions and provenance to the fixture README; never use Guest or Client photos.
 
@@ -102,7 +106,9 @@ The new `private.create_event_draft(p_admin_user_id uuid, p_admin_session_id uui
 
 The library choices avoid hand-built upload/video protocols. Read the primary [Supabase resumable upload guide](https://supabase.com/docs/guides/storage/uploads/resumable-uploads), [sharp metadata API](https://sharp.pixelplumbing.com/api-input/) and [MP4Box parsing API](https://github.com/gpac/mp4box.js#api) when implementing. These establish APIs, not physical iPad compatibility. A small bounded PNG chunk check may reject APNG where the image decoder does not expose its animation marker; test it rather than writing another image parser.
 
-## Task 3: Finish safe Draft cancellation/deletion and cleanup
+## Task 3: Preserve safe Draft cancellation/deletion; defer full media cleanup qualification
+
+**Current acceptance:** cancellation retains attached media; Drafts with no media authorization may delete under existing actual-empty verification; any prior-authorized media-bearing Draft stays pending when complete backend cleanup is unproven. Retry recovers the original deletion receipt. Disabled uploads do not discharge existing obligations. Verify current pending feedback and denial regressions. The full completion/race proof below is retained future work; no new backend approach or probing is authorized.
 
 **Files:** Cleanup row above; `tests/integration/package-draft-deletion.test.ts`, `event-media.test.ts`; Draft/media component and browser tests.
 
@@ -122,7 +128,18 @@ The library choices avoid hand-built upload/video protocols. Read the primary [S
 - [ ] Rerun focused tests and `npx playwright test --config playwright.config.ts tests/e2e/draft-event.spec.ts tests/e2e/event-media.spec.ts`; run changed-file lint/type/format and local migration lint. Expected pass, including real Storage deletion evidence.
 - [ ] Commit with `feat: complete safe draft media cleanup`.
 
-## Task 4: Complete upload/replacement/removal UI and authorized delivery
+## Task 4A: Complete preserved media sections with uploads unavailable — current
+
+**Files:** existing Draft/detail media sections, `event-media.tsx` and shared media route/module boundaries; focused unit/component/integration/browser tests already named below. Reuse house components and current media modules; no new asset manager or feature-toggle framework.
+
+- [ ] Keep the Event Media section, background/montage labels and planned design layout on relevant pages. Show persistent **“Media uploads are temporarily unavailable.”** and disabled upload controls with accessible explanatory text. Preserve existing private-media read-only/retention behavior; do not erase records or planned designs.
+- [ ] Reject new upload authorization and upload/attach/replace mutations at trusted product entry points while disabled, preserving current Admin/session/origin checks. Test direct requests as well as UI state. Preserve existing authorized removal/cleanup and receipt recovery; do not add a full interactive editor. Keep the scoped Storage commit guard and cleanup logic for authorizations already issued; do not equate denied new work with terminated old transfers.
+- [ ] Verify real Draft creation/edit/stale recovery, package totals, cancellation, no-authorization deletion and prior-authorized cleanup-pending retry feedback. Keep page/save/start readiness independent of optional unavailable media. F5's current release path uses default presentation; no new upload or full private-delivery workflow is needed.
+- [ ] Run focused changed unit/component/integration checks and ordinary `draft-event.spec.ts` / `event-media.spec.ts` browser cases for the disabled scope. Prove persistent unavailable sections, no new uploads/attachments/replacements, intact Draft behavior and honest pending feedback. Record actual revision/command/config/result in F2-06; preserve old failures and mark deferred enabled proofs accordingly. Documentation or disabled buttons alone are not passing evidence.
+
+## Task 4B: Planned enabled editor and authorized delivery — deferred
+
+This retains the full enabled feature, not a current work order. Before implementation/enabling, obtain supported cleanup proof and explicit re-enablement under ADR-0031. Its original interface and acceptance criteria follow.
 
 **Files:** `event-media.tsx`, `draft-form.tsx`, media routes/modules, `tests/components/event-media.test.tsx`, `tests/e2e/event-media.spec.ts`, `tests/integration/event-media.test.ts`.
 
@@ -139,12 +156,12 @@ The library choices avoid hand-built upload/video protocols. Read the primary [S
   ```
 
 - [ ] Run `npm test -- tests/components/event-media.test.tsx tests/integration/event-media.test.ts`; expect meaningful failures for missing UI/delivery behavior.
-- [ ] Complete the editor around task 2's proven transfer path after task 3's cleanup proof passes. Show transfer versus validation/commit distinctly; transfer completion is not attachment success. Keep credentials/upload URLs out of logs and persistent UI metadata. Retry the same mutation ID/payload after response loss. Use 60-second read URLs issued after Admin/scoped-grant authorization, private/no-store route responses and renewal on expiry; do not persist or log signed URLs. No public bucket or Guest-photo input. Render Live/terminal media read-only and retain old preview until commit succeeds.
+- [ ] For future re-enablement, complete the editor around task 2's proven transfer path after task 3's supported cleanup proof passes. Show transfer versus validation/commit distinctly; transfer completion is not attachment success. Keep credentials/upload URLs out of logs and persistent UI metadata. Retry the same mutation ID/payload after response loss. Use 60-second read URLs issued after Admin/scoped-grant authorization, private/no-store route responses and renewal on expiry; do not persist or log signed URLs. No public bucket or Guest-photo input. Render Live/terminal media read-only and retain old preview until commit succeeds.
 - [ ] Run focused tests and `npx playwright test --config playwright.config.ts tests/e2e/event-media.spec.ts`; verify signed-out/cross-Event access denial, 10 MB image and 50 MB video boundary transfers, stale upload rejection, keyboard labels and persistent error recovery. Expected pass. F5 separately proves welcome playback/default behavior.
 - [ ] Commit with `feat: complete draft media editing and private delivery`.
 
-**Done:** The Admin can finish the Draft preparation/media/cancel/delete workflows using real persistence and private Storage; a lost creation response cannot duplicate a Draft or its creation audit. F4 owns start/Live termination; F5 consumes `EventMedia`; F7 presents retained history. Delete independent allowance and terminal redaction consumers, preserving only the package Draft cleanup implementation. F8 removes their remaining shared SQL/schema dependencies. No media pipeline, editor, Guest gallery or physical qualification is added.
+**Current disabled-scope acceptance:** the Admin can prepare/update/cancel a real Draft and recover lost/stale saves without duplicates, with preserved media sections showing uploads unavailable and trusted-boundary upload/attachment/replacement denials. No-authorization Draft deletion uses actual-empty verification; prior-authorized media-bearing deletion stays pending until supported proof exists. Record these results separately from deferred enabled-media validation, transfers, full cleanup and delivery. F4/F5/F7 retain their ownership; F8 preserves the disabled boundary, existing safety and current contracts in the fresh baseline. This does not decide issue closure or claim the full media feature is complete.
 
 ## 2026-10-26 cleanup boundary follow-up
 
-The user approved the scoped commit guard and synchronized documentation in [ADR-0030](../../adr/0030-fence-event-media-commits-and-require-cleanup-proof.md), requiring actual transfer/backend cleanup proof. The local guard rejects the reproduced late privileged commit, but leftover TUS metadata and missing product-side transfer inventory keep media-bearing Draft deletion pending. This is partial safety work, not completion of Task 3 or F2-04. Task 4 must wait for supported cleanup proof and a further backend decision.
+The user approved the scoped commit guard and synchronized documentation in [ADR-0030](../../adr/0030-fence-event-media-commits-and-require-cleanup-proof.md), requiring actual transfer/backend cleanup proof. The local guard rejects the reproduced late privileged commit, but leftover TUS metadata and missing product-side transfer inventory keep media-bearing Draft deletion pending. This is partial safety work, not completion of Task 3 or F2-04. At that date Task 4 was held. ADR-0031 supersedes the blanket hold: disabled presentation/denial work in Task 4A may proceed; enabled Task 4B and full cleanup completion still require supported proof and a further backend decision.

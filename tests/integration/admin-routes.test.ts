@@ -35,7 +35,7 @@ async function expectDenied(response: Response, sessionEnded = false) {
   expect(body).not.toContain('Event management is not available yet');
   expect(body).not.toContain('Event history is not available yet');
   expect(body).not.toContain('Email (Admin)');
-  expect(body).not.toContain('Draft bookings');
+  expect(body).not.toContain('Plan upcoming Events and manage the live booth.');
   expect(body).not.toContain('Client email');
   expectPrivate(response);
 }
@@ -76,8 +76,10 @@ describe('Admin page responses with local Auth sessions', () => {
           expect(body).toContain(session.user.email);
           if (!rsc) expect(body).toContain('Email (Admin)');
         } else if (destination === '/events') {
-          expect(body).toContain('Draft bookings');
-          expect(body).toContain('Create Event');
+          if (!rsc) {
+            expect(body).toContain('Plan upcoming Events and manage the live booth.');
+            expect(body).toContain('Create Event');
+          }
         } else if (destination === '/events/new') {
           if (!rsc) expect(body).toContain('Create Event');
         } else if (destination.startsWith('/events/')) {
@@ -85,7 +87,7 @@ describe('Admin page responses with local Auth sessions', () => {
           expect(body).not.toContain('Client email');
         } else if (destination === '/history') {
           expect(body).toContain(
-            'Completed and Cancelled Events retain anonymous operational totals.'
+            'Completed and Cancelled Events retain their booking, media and operational history.'
           );
         } else {
           expect(body).toContain('Admin foundation');
@@ -165,7 +167,7 @@ describe('Admin page responses with local Auth sessions', () => {
       .join('; ');
     const revisit = await routes.request('/history', cookie);
     expect(await revisit.text()).toContain(
-      'Completed and Cancelled Events retain anonymous operational totals.'
+      'Completed and Cancelled Events retain their booking, media and operational history.'
     );
   });
 

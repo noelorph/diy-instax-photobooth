@@ -3,7 +3,7 @@ import { spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { afterAll, beforeAll, expect, it } from 'vitest';
 import { createPackageFixture, type PackageFixture } from '../fixtures/package-contract';
-import { localOwnerSql } from '../fixtures/local-supabase';
+import { localOwnerSql, ownerInsert } from '../fixtures/local-supabase';
 
 async function withGuardHeld<T>(work: () => Promise<T>, duringHold?: () => void) {
   const child = spawn('docker', [
@@ -512,18 +512,18 @@ it('rejects a deleted Draft receipt read when its Admin session expires during t
   }
 }, 30000);
 
-it('records Draft deletion as pending until private media is gone', async () => {
+it('keeps Draft deletion pending for an earlier media authorization without claiming backend cleanup', async () => {
   const f = await createPackageFixture();
-  const mediaPath = `${f.eventId}/deletion-proof.txt`;
-  let bucketCreated = false;
   try {
-    const bucket = await f.local.service.storage.createBucket('event_media', { public: false });
-    if (bucket.error && !bucket.error.message.includes('already exists')) throw bucket.error;
-    bucketCreated = !bucket.error;
-    const uploaded = await f.local.service.storage
-      .from('event_media')
-      .upload(mediaPath, new Blob(['pending media'], { type: 'text/plain' }));
-    expect(uploaded.error).toBeNull();
+    // Synthetic pre-hold authorization only: no transfer or backend cleanup probe.
+    const assetId = randomUUID();
+    ownerInsert('event_media_assets', {
+      id: assetId,
+      event_id: f.eventId,
+      kind: 'background',
+      path: `${f.eventId}/${assetId}`,
+      uploaded_by: f.adminUser.id,
+    });
     const begun = await f.admin('begin_delete_draft', { expectedRevision: 1 });
     expect(begun.error).toBeNull();
     const receipt = await f.readAdmin(begun.data.receipt.operationId);
@@ -538,10 +538,8 @@ it('records Draft deletion as pending until private media is gone', async () => 
         ?.message
     ).toBe('not_ready');
     expect(
-      (await f.local.service.storage.from('event_media').remove([mediaPath])).error
-    ).toBeNull();
-    const done = await f.admin('complete_delete_draft', { expectedRevision: begun.data.revision });
-    expect(done.error).toBeNull();
+      localOwnerSql(`select state from public.event_media_assets where id='${assetId}'`)[0].state
+    ).toBe('cleanup_pending');
     expect(
       localOwnerSql(
         `select deleted_at is not null as deleted,client_name from public.events where id='${f.eventId}'`
@@ -550,7 +548,7 @@ it('records Draft deletion as pending until private media is gone', async () => 
     expect(
       (
         await f.admin('start', {
-          expectedRevision: done.data.revision,
+          expectedRevision: begun.data.revision,
           readinessWindowId: randomUUID(),
           deviceHash: f.deviceHash,
           printerId: 'fixture-printer',
@@ -559,8 +557,6 @@ it('records Draft deletion as pending until private media is gone', async () => 
       ).error
     ).not.toBeNull();
   } finally {
-    await f.local.service.storage.from('event_media').remove([mediaPath]);
-    if (bucketCreated) await f.local.service.storage.deleteBucket('event_media');
     await f.dispose();
   }
 }, 30000);

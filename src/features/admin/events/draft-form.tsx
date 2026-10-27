@@ -23,6 +23,7 @@ import {
 } from './draft-event.schema';
 import type { DraftActionState } from './state';
 import { DeleteDraft } from './delete-draft';
+import { EventMediaEditor } from './event-media';
 
 export type DraftFormProps = {
   initial?: DraftEvent;
@@ -47,6 +48,8 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
   const id = useId();
   const feedback = useRef<HTMLDivElement>(null);
   const editor = useRef<HTMLFormElement>(null);
+  const editTrigger = useRef<HTMLButtonElement>(null);
+  const returningToOverview = useRef(false);
   const [current, setCurrent] = useState(initial);
   const [editing, setEditing] = useState(!initial);
   // Keep the revision belonging to this editor; a server refresh must never
@@ -142,6 +145,10 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
   }, [state]);
   useEffect(() => {
     if (editing && current) editor.current?.querySelector('input')?.focus();
+    else if (returningToOverview.current) {
+      editTrigger.current?.focus();
+      returningToOverview.current = false;
+    }
   }, [editing, current]);
   const errors: DraftFieldErrors = state.status === 'invalid' ? { ...state.fieldErrors } : {};
   for (const name of editedErrorFields) delete errors[name];
@@ -217,6 +224,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
           action={
             <>
               <Button
+                ref={editTrigger}
                 type="button"
                 variant="secondary"
                 disabled={!hydrated}
@@ -282,6 +290,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
             </p>
           ) : null}
         </section>
+        <EventMediaEditor />
         {state.status === 'success' && !edited ? (
           <FormFeedback kind="success" feedbackRef={feedback} tabIndex={-1}>
             {state.confirmation}
@@ -466,14 +475,35 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
           </FormFeedback>
         ) : null}
         <div className={styles.actions}>
-          <Link
-            className={`${buttonVariants({ variant: 'secondary' })} ${styles.cancel}`}
-            href="/events"
-            aria-disabled={!saved && (pending || (recoveringCreation && !creationClosed))}
-            onClick={keepPendingCreation}
-          >
-            Cancel
-          </Link>
+          {current ? (
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={pending}
+              onClick={() => {
+                reset({
+                  ...current,
+                  startsAtLocal: localTime(current.startsAtUtc, current.timeZone),
+                  endsAtLocal: localTime(current.endsAtUtc, current.timeZone),
+                });
+                setEditedErrorFields(Object.keys(initialValues) as (keyof DraftEventInput)[]);
+                setLiveErrors({});
+                returningToOverview.current = true;
+                setEditing(false);
+              }}
+            >
+              Cancel
+            </Button>
+          ) : (
+            <Link
+              className={`${buttonVariants({ variant: 'secondary' })} ${styles.cancel}`}
+              href="/events"
+              aria-disabled={!saved && (pending || (recoveringCreation && !creationClosed))}
+              onClick={keepPendingCreation}
+            >
+              Cancel
+            </Link>
+          )}
           <Button type="submit" disabled={pending || !hydrated || creationClosed}>
             {recoveringCreation && !creationClosed ? 'Retry save' : 'Save Draft'}
           </Button>

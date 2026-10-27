@@ -1,8 +1,10 @@
 # Decision index
 
-**2026-10-26 media cleanup clarification:** F2 implementation is authorized. [ADR-0030](0030-fence-event-media-commits-and-require-cleanup-proof.md) adds a scoped Storage commit guard and requires real transfer/backend cleanup proof. Media-bearing Draft deletion remains pending because the current backend does not supply complete proof; F2-04 and dependent Task 4 remain open. Other capability holds and release gates are unchanged.
+**2026-10-27 media availability decision:** [ADR-0031](0031-temporarily-disable-event-media-uploads.md) permits release with media uploads temporarily unavailable while preserving the planned feature, page sections and designs. F2 may continue with disabled media UI; enabled uploads/private delivery and full cleanup qualification remain deferred. Prior-authorized media-bearing Draft deletion stays pending under ADR-0030. Other capability holds and #17/#7 gates remain unchanged.
 
 [ADR-0025](0025-package-accounting-and-booth-recovery.md) and its [replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) govern the current approved target. [ADR-0026](0026-order-captures-by-shutter-time.md) refines Capture ordering by shutter time. [ADR-0027](0027-draft-only-event-media.md) defines Draft-only Event Media changes and approved upload limits. Integrated UI and physical qualification remain pending. Earlier ADRs preserve concise decision history; notices identify superseded scope. Obsolete detailed feature instructions live only in Git history. Historical “Accepted” labels describe acceptance at that time, not authority to restore removed features.
+
+[ADR-0030](0030-fence-event-media-commits-and-require-cleanup-proof.md) preserves the scoped guard and cleanup proof; [ADR-0031](0031-temporarily-disable-event-media-uploads.md) makes enabled media optional before release while preserving the planned feature and designs.
 
 [ADR-0028](0028-define-monthly-event-count.md) clarifies the monthly Dashboard count: Draft, Live and Completed are included; Cancelled is excluded. The plan is approved; F7 implementation remains on hold at the user's request.
 

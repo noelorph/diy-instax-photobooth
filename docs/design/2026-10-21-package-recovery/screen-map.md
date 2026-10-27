@@ -1,5 +1,7 @@
 # Screen map and interaction notes
 
+**Current media availability:** [ADR-0031](../../adr/0031-temporarily-disable-event-media-uploads.md) keeps Event Media sections, planned background/montage designs and assets, with uploads temporarily unavailable. Render persistent unavailable feedback and disabled upload controls; default Booth presentation remains usable. Enabled media/private-delivery and supported cleanup qualification are deferred and optional before release while disabled. Existing retention, authorized private access and prior-authorized Draft cleanup-pending safeguards remain.
+
 **Approved visual reference, 21 October 2026; implementation pending.** Read with the [gallery](index.html), [design system](../../../DESIGN_SYSTEM.md), [routes](../../booth-user-flow.md) and [contract](../../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). This guide maps the approved mockups to the agreed behavior; it does not replace the contract.
 
 ## Route coverage
@@ -58,7 +60,7 @@ Adding one Film Package to the six-package example gives seven packages and 70 b
 
 - Drafts have a whole-number Film Package field and derived total of ten prints per package. There is no separate print-count field.
 - Zero packages may be saved in Draft, but cannot pass start readiness. Negative, fractional or invalid values receive inline validation. Show validation on the field being edited, not alongside a conflicting successful value.
-- Keep Client, schedule and Event Media fields grouped. Media upload/replace/remove is Draft-only. Show the format, size and duration limits from [ADR-0027](../../adr/0027-draft-only-event-media.md); failed/stale replacement preserves existing media, and Live/terminal media is read-only. A stale save preserves entered values and offers Reload latest details.
+- Keep Client, schedule and Event Media fields grouped. Show the unavailable state now; planned enabled media upload/replace/remove is Draft-only. Show the format, size and duration limits from [ADR-0027](../../adr/0027-draft-only-event-media.md); failed/stale replacement preserves existing media, and Live/terminal media is read-only. A stale save preserves entered values and offers Reload latest details.
 - On the booth iPad, start from `/events/[eventId]`. Check camera/live feed, server, correct printer, physical loaded-film/power/Guided Access confirmations and available capacity.
 - Show only: **Always test the printer before starting Booth Mode.** There is no Test Print button, test result or output-inspection prerequisite.
 - Start Booth Mode performs the local sign-out and device handoff. Display Preparing Booth Mode until it succeeds. The phone Admin session remains available.

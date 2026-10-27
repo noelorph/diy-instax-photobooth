@@ -1,8 +1,10 @@
 # Issue #10 — sub-issue flowcharts
 
-**Approved design · 24 October 2026.** F1–F8 are the agreed capability groups, now published as GitHub #29–#36. The detailed plans were approved on 2026-10-25, committed as `0bd7503` and published under your later instruction. Implementation remains on hold. The #9 software prerequisite passed verification and independent review; #9 is closed as completed. Implementation still awaits your later start instruction and the capability prerequisites below.
+**2026-10-27 media scope:** [ADR-0031](../adr/0031-temporarily-disable-event-media-uploads.md) preserves the planned feature and designs while uploads are temporarily unavailable. F2 may deliver disabled media sections and trusted upload/attachment/replacement denial now; enabled transfer/delivery/complete cleanup qualification is deferred and optional before release while disabled. Prior-authorized deletion stays pending. These diagrams do not decide #30 closure or authorize other capabilities.
 
-For your review only, revised 2026-10-25 for complete legacy removal. Each chart shows user behavior. Agents use the written contracts and capability plans; these diagrams are not additional work orders. No implementation or fresh database install is claimed.
+**Approved design · 24 October 2026.** F1–F8 are the agreed capability groups, now published as GitHub #29–#36. The detailed plans were approved on 2026-10-25, committed as `0bd7503` and published under your later instruction. F1 is implemented; F2 is authorized to continue with uploads unavailable under ADR-0031; F3–F8 remain on hold. The #9 software prerequisite passed verification and independent review; #9 is closed as completed. Capability prerequisites below still apply.
+
+For your review only, revised 2026-10-25 for complete legacy removal. Each chart shows user behavior. Agents use the written contracts and capability plans; these diagrams are not additional work orders. The diagrams claim no new implementation evidence or fresh database install.
 
 ## How the sub-issues fit together
 
@@ -10,10 +12,10 @@ Prerequisite paths are shown without redundant transitive arrows. F8 waits for *
 
 ```mermaid
 flowchart TD
-  GATE["#9 verified and closed<br/>Prerequisite satisfied"] --> HOLD["Publication verified<br/>Wait for implementation instruction"]
-  HOLD --> F1["F1 / #29<br/>Admin access and account"]
-  F1 --> F2["F2 / #30<br/>Event preparation and private media"]
-  F2 --> F3["F3 / #31<br/>Booked capacity and package additions"]
+  GATE["#9 verified and closed<br/>Prerequisite satisfied"] --> F1["F1 / #29 implemented<br/>Admin access and account"]
+  F1 --> F2["F2 / #30 authorized<br/>Event preparation; uploads unavailable"]
+  F2 --> HOLD["F3–F8 remain on hold<br/>Further implementation instruction required"]
+  HOLD --> F3["F3 / #31<br/>Booked capacity and package additions"]
   F3 --> F4["F4 / #32<br/>Booth setup, access and lifecycle"]
   F4 --> F5["F5 / #33<br/>Guest capture-to-print journey"]
   F5 --> F6["F6 / #34<br/>Recovery across devices"]
@@ -53,9 +55,9 @@ Profile sign-out affects only that device. Password reset revokes Admin sessions
 
 ## F2. Event preparation and private media
 
-**Outcome:** prepare a valid Draft, manage its private media and safely cancel or delete it. Draft-only changes and upload limits are approved in ADR-0027.
+**Current outcome:** prepare a valid Draft, retain media sections with uploads unavailable and safely cancel or delete it. The future enabled-media path preserves ADR-0027's Draft-only changes and upload limits.
 
-F2 proves real interrupted/resumable transfers, malformed content, Start/Cancel races and late-upload deletion before polishing the editor. Cleanup remains pending while an upload can still create an object; the trace records actual Storage evidence.
+F2 preserves media sections with unavailable feedback and trusted upload/attachment/replacement denial now. The planned enabled feature still needs real interrupted/resumable transfers, malformed-content/lifecycle races and supported cleanup proof before re-enablement. Cleanup remains pending while an upload can still create an object; the trace records actual Storage evidence.
 
 ```mermaid
 flowchart TD
@@ -63,7 +65,9 @@ flowchart TD
   VALID -->|No| FIX["Keep entered values<br/>Show errors or stale-save recovery"]
   VALID -->|Yes| DRAFT["Saved Draft<br/>Total = packages × 10"]
   DRAFT --> ACTION{"Next action"}
-  ACTION -->|Media| MEDIA["Upload, replace or remove<br/>Validate content and recheck Draft"]
+  ACTION -->|Media — current| UNAVAILABLE["Media sections retained<br/>Uploads temporarily unavailable"]
+  ACTION -.->|Future enabled media only| QUALIFY["Supported cleanup qualification<br/>Explicit re-enablement required"]
+  QUALIFY --> MEDIA["Planned upload, replace or remove<br/>Validate content and recheck Draft"]
   MEDIA --> CURRENT{"Change allowed at commit?"}
   CURRENT -->|No| KEEP["Keep existing media<br/>Clean unused upload"]
   CURRENT -->|Yes| SAVE["Save private media change<br/>Track cleanup errors"]
@@ -244,4 +248,4 @@ flowchart LR
   REVIEW --> DONE["Capability issue can close<br/>F8 still verifies the combined application"]
 ```
 
-These are scope and behavior diagrams, not new state-machine contracts or a claim that any functionality is implemented. The written spec and plans remain the implementation authorities.
+These are scope and behavior diagrams, not new state-machine contracts or fresh implementation evidence. The written spec and plans remain the implementation authorities.

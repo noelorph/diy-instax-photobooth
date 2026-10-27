@@ -1,5 +1,7 @@
 # Package accounting and Booth recovery — design mockups
 
+**Current media availability:** [ADR-0031](../../adr/0031-temporarily-disable-event-media-uploads.md) keeps Event Media sections, planned background/montage designs and assets, with uploads temporarily unavailable. Render persistent unavailable feedback and disabled upload controls; default Booth presentation remains usable. Enabled media/private-delivery and supported cleanup qualification are deferred and optional before release while disabled. Existing retention, authorized private access and prior-authorized Draft cleanup-pending safeguards remain.
+
 **Approved by the user · 21 October 2026 · implementation pending.**
 
 Open the [visual gallery](index.html). This set covers the full Admin navigation, phone management/recovery, portrait iPad Booth Mode, and paired phone/iPad recovery examples.

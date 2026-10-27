@@ -1,10 +1,14 @@
 # Issue #30 — isolated multipart qualification
 
+**Current applicability — 2026-10-27:** [ADR-0031](../adr/0031-temporarily-disable-event-media-uploads.md) permits F2 to continue with uploads unavailable and the planned UI preserved. The NOT QUALIFIED verdict and separate original/instrumented evidence below are unchanged. Enabled media and complete media-bearing cleanup remain deferred; no further failure probes are authorized.
+
 Date: 2026-10-27 (Asia/Manila); saved final runs: 2026-10-26 16:17–16:19 UTC. Application base: `fd1dbf4`, branch `feat/issue-30-event-preparation-media`.
 
 **Verdict: NOT QUALIFIED for adoption.** Original-image supported-operation controls passed, and the same controls passed on the instrumented image with its hook disabled. The armed failure attempt was inconclusive, and the concurrency matrix did not run. Application TUS uploads, the scoped guard and pending-deletion behavior are unchanged. F2-04 and Task 4 remain gated.
 
 ## Evidence separation
+
+Support follow-up, 2026-10-27: the [managed Storage capability request](issue-30-supabase-recovery-vendor-draft.md) was sent from authenticated `noelorphiano5@gmail.com` to `support@supabase.com` at 08:58:19 Asia/Manila (00:58:19 UTC). Gmail message/thread ID: `1a17add83a64ebb5`; full read-back confirmed the sender, recipient, body and `SENT` label. No raw artifacts or attachments were sent. A subsequent authenticated automated acknowledgment at 09:03:25 Asia/Manila (01:03:25 UTC) confirms receipt and ticket **SU-526385** (Gmail reply `1a17ae23238dbee1`). It supplies no substantive answer or qualification evidence; no automatic monitoring is configured. No further probes or runtime experiments were run. The NOT QUALIFIED verdict and F2-04/Task 4 blockers remain unchanged pending the vendor answer and subsequent qualification.
 
 | Evidence                                                                                                           | Result                                                 | Scope                                                                                                               |
 | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------ | ------------------------------------------------------------------------------------------------------------------- |

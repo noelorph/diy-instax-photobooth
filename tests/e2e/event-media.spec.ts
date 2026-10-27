@@ -31,7 +31,102 @@ const nearImage = async () =>
     'png'
   );
 
+test('saved Draft retains media presentation without file selection or media requests', async ({
+  page,
+}, info) => {
+  test.setTimeout(90_000);
+  const f = await createPackageBrowserFixture();
+  const mediaRequests: string[] = [];
+  page.on('request', (request) => {
+    if (
+      /\/api\/(?:admin\/events\/[^/]+\/media|booth\/media)(?:\/|\?|$)|\/storage\/v1\//.test(
+        request.url()
+      )
+    )
+      mediaRequests.push(request.url());
+  });
+  try {
+    await signIn(page, f);
+    const media = page.getByRole('region', { name: 'Event Media' });
+    await expect(media.getByRole('status')).toContainText(
+      'Media uploads are temporarily unavailable.'
+    );
+    await expect(media.getByRole('heading', { name: 'Background image' })).toBeVisible();
+    await expect(media.getByRole('heading', { name: 'Welcome montage' })).toBeVisible();
+    await expect(media.getByRole('button', { name: 'Upload image' })).toBeDisabled();
+    await expect(media.getByRole('button', { name: 'Upload montage' })).toBeDisabled();
+    await expect(page.locator('input[type="file"]')).toHaveCount(0);
+    await expect(media.locator('img, video, source')).toHaveCount(0);
+    for (const theme of ['light', 'dark'] as const) {
+      expect(
+        (await f.local.service.from('admin_profiles').update({ theme }).eq('id', f.adminUser.id))
+          .error
+      ).toBeNull();
+      for (const width of [390, 768, 1440]) {
+        await page.setViewportSize({ width, height: 1000 });
+        await page.goto(`/events/${f.eventId}`);
+        await expect(page.locator('.admin-shell')).toHaveAttribute('data-theme', theme);
+        await expect(media).toBeVisible();
+        await page.evaluate(() => document.fonts.ready);
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true
+        );
+        await page.screenshot({
+          path: info.outputPath(`draft-overview-${width}-${theme}.png`),
+          fullPage: true,
+        });
+        await media.screenshot({ path: info.outputPath(`draft-media-${width}-${theme}.png`) });
+        await page.getByRole('button', { name: 'Edit Draft', exact: true }).click();
+        await expect(page.getByLabel('Event name', { exact: true })).toBeEnabled();
+        await page.screenshot({
+          path: info.outputPath(`draft-edit-${width}-${theme}.png`),
+          fullPage: true,
+        });
+        await page.getByRole('button', { name: 'Cancel', exact: true }).click();
+        await expect(media).toBeVisible();
+        const mediaSurfaceColor = await media.evaluate(
+          (card) => getComputedStyle(card).backgroundColor
+        );
+        const deletion = page.getByRole('button', { name: 'Delete Draft', exact: true });
+        await deletion.click();
+        await expect(page.getByRole('dialog')).toBeVisible();
+        expect(
+          await page
+            .getByRole('dialog')
+            .evaluate((dialog) => getComputedStyle(dialog).backgroundColor)
+        ).toBe(mediaSurfaceColor);
+        await expect(
+          page.getByRole('button', { name: 'Close Delete Draft dialog' })
+        ).toHaveAttribute('title', 'Close Delete Draft dialog');
+        await page.screenshot({
+          path: info.outputPath(`draft-delete-confirmation-${width}-${theme}.png`),
+          fullPage: true,
+        });
+        await page.getByRole('button', { name: 'Close Delete Draft dialog' }).click();
+        await expect(deletion).toBeFocused();
+        await page.goto('/events/new');
+        await expect(
+          page.getByRole('heading', { name: 'Create Event', exact: true })
+        ).toBeVisible();
+        await expect(page.getByRole('region', { name: 'Event Media' })).toHaveCount(0);
+        await page.screenshot({
+          path: info.outputPath(`draft-create-${width}-${theme}.png`),
+          fullPage: true,
+        });
+      }
+    }
+    expect(mediaRequests).toEqual([]);
+  } finally {
+    await f.dispose();
+    await page.close();
+  }
+});
+
 test('deletion stays pending while an upload can still finish', async ({ page }) => {
+  test.skip(
+    true,
+    'Media uploads are temporarily unavailable; real transfer and cleanup proof remains deferred.'
+  );
   test.setTimeout(90_000);
   const f = await createPackageBrowserFixture();
   try {
@@ -116,6 +211,10 @@ test('deletion stays pending while an upload can still finish', async ({ page })
 });
 
 test('resumes interrupted transfer and attaches exactly once', async ({ page }) => {
+  test.skip(
+    true,
+    'Media uploads are temporarily unavailable; real transfer and cleanup proof remains deferred.'
+  );
   test.setTimeout(90_000);
   const f = await createPackageBrowserFixture();
   try {
@@ -213,6 +312,10 @@ test('resumes interrupted transfer and attaches exactly once', async ({ page }) 
 
 for (const transition of ['start', 'cancel'])
   test(`start or cancel during upload rejects late attachment: ${transition}`, async ({ page }) => {
+    test.skip(
+      true,
+      'Media uploads are temporarily unavailable; real transfer and cleanup proof remains deferred.'
+    );
     test.setTimeout(90_000);
     const f = await createPackageBrowserFixture();
     let outstanding: string | undefined;

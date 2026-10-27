@@ -1,5 +1,7 @@
 # F7 — Operational Visibility and Retained History Implementation Plan
 
+**Media availability refinement — 2026-10-27:** [ADR-0031](../../adr/0031-temporarily-disable-event-media-uploads.md) permits release with uploads temporarily unavailable; preserve media sections/designs, existing private media, authorized access and prior-authorized cleanup-pending safeguards. Full enabled upload/delivery/playback/cleanup criteria below are retained future work and do not block a disabled release. F5 must prove default welcome/no media readiness dependency; F7 preserves unavailable/read-only sections and retention; F8 must reverify trusted upload/attachment/replacement denial and existing guard/pending safety on the fresh baseline. No full-media pass or issue closure follows.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > **Required throughout:** Use **ponytail:ponytail, full**. Reuse current package Events and activity; delete obsolete history calculations. Add no analytics platform, ledger, charts or legacy reader.

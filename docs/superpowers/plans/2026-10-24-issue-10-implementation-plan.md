@@ -1,5 +1,7 @@
 # Issue #10 Implementation and Publication Plan
 
+**2026-10-27 execution refinement:** F1 is implemented; F2 is authorized to continue under [ADR-0031](../../adr/0031-temporarily-disable-event-media-uploads.md) with uploads temporarily unavailable and media sections/designs preserved. Full enabled media/private-delivery/cleanup qualification is deferred and optional before release while disabled. Preserve prior-authorized pending-deletion safeguards. F3–F8 implementation holds and #17/#7 remain unchanged. This supersedes the earlier blanket media-editor hold; #30 closure/follow-up tracking remains a separate decision.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > **Required throughout every implementation plan:** Use **ponytail:ponytail, full**. Read its installed `SKILL.md` at execution time. Reuse existing contracts/components, choose the smallest complete change, trace affected callers/tests/fixtures, and preserve authorization, privacy, accessibility and printer safety. This applies to every child and every task, including verification and cleanup.
@@ -30,7 +32,7 @@
 ## Review Focus
 
 1. A lost mutation response must not create a duplicate Draft/audit, purchase, handoff or send: F2 task 1, F3 task 2, F4 task 1, F5 task 2.
-2. Interrupted/invalid media, Start/Cancel during upload and deletion with a late transfer must be proven safe before polishing the editor: F2 tasks 2–3; presentation follows in task 4.
+2. Disabled media UI and trusted-boundary denials can proceed in F2 task 4 now. Full interrupted/invalid-transfer, lifecycle, cleanup and delivery proof remains required before re-enablement; deferred media issues need not block release while uploads stay disabled.
 3. Setup readiness cannot be reused blindly after local sign-out/navigation; explicit camera actions can request permission, passive checks cannot prompt, and independent blockers/stops survive: F4 tasks 1–2 and F6 tasks 1–3.
 4. A delayed newer Capture or journal loss must not select another photo or imply no physical send: F5 tasks 1–2 and F6 task 1.
 5. A fresh install must reproduce every current #9 security/accounting safeguard while omitting all legacy objects; resets are restricted to named disposable local projects and never settle a runtime uncertain print: F8 tasks 1–3.
@@ -39,16 +41,16 @@
 
 Each row is **one GitHub sub-issue**, not a separate UI/API/database/testing phase. F1–F8 are stable capability identifiers mapped to published GitHub issues #29–#36 in the publication table below. Human review diagrams are separate from agent execution instructions.
 
-| ID / approved issue title                                            | Plan                                                    | Prerequisites besides #9 | Independently demonstrable outcome                                 |
-| -------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------ |
-| F1: Complete Admin access and account management                     | [F1](2026-10-24-issue-10-f1-admin-access.md)            | None                     | Sign in/recover/manage account with correct session boundaries     |
-| F2: Complete Event preparation and private media                     | [F2](2026-10-24-issue-10-f2-event-preparation-media.md) | F1                       | Valid Draft, private media, safe cancellation/deletion             |
-| F3: Complete booked capacity and Additional Film Packages            | [F3](2026-10-24-issue-10-f3-package-capacity.md)        | F2                       | Real Admin purchase/count workflow, exactly once                   |
-| F4: Complete Booth setup, access and lifecycle                       | [F4](2026-10-24-issue-10-f4-booth-lifecycle.md)         | F1, F2, F3               | Setup/handoff, phone pause/resume/finish and Event termination     |
-| F5: Complete the Guest capture-to-print journey                      | [F5](2026-10-24-issue-10-f5-guest-printing.md)          | F2, F4                   | One reviewed Capture, at most one send, truthful completion        |
-| F6: Complete Booth recovery across devices                           | [F6](2026-10-24-issue-10-f6-booth-recovery.md)          | F3, F4, F5               | Resolve outcome and equipment/access blockers safely               |
-| F7: Complete operational visibility and retained history             | [F7](2026-10-24-issue-10-f7-visibility-history.md)      | F2, F3                   | Accurate summaries/activity and immutable historical detail        |
-| F8: Complete legacy removal, fresh installation and final acceptance | [F8](2026-10-24-issue-10-f8-cutover-acceptance.md)      | F1–F7                    | Package-only schema and combined app pass nonproduction acceptance |
+| ID / approved issue title                                            | Plan                                                    | Prerequisites besides #9 | Independently demonstrable outcome                                  |
+| -------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------- |
+| F1: Complete Admin access and account management                     | [F1](2026-10-24-issue-10-f1-admin-access.md)            | None                     | Sign in/recover/manage account with correct session boundaries      |
+| F2: Complete Event preparation and private media                     | [F2](2026-10-24-issue-10-f2-event-preparation-media.md) | F1                       | Valid Draft, unavailable media sections, safe cancellation/deletion |
+| F3: Complete booked capacity and Additional Film Packages            | [F3](2026-10-24-issue-10-f3-package-capacity.md)        | F2                       | Real Admin purchase/count workflow, exactly once                    |
+| F4: Complete Booth setup, access and lifecycle                       | [F4](2026-10-24-issue-10-f4-booth-lifecycle.md)         | F1, F2, F3               | Setup/handoff, phone pause/resume/finish and Event termination      |
+| F5: Complete the Guest capture-to-print journey                      | [F5](2026-10-24-issue-10-f5-guest-printing.md)          | F2, F4                   | One reviewed Capture, at most one send, truthful completion         |
+| F6: Complete Booth recovery across devices                           | [F6](2026-10-24-issue-10-f6-booth-recovery.md)          | F3, F4, F5               | Resolve outcome and equipment/access blockers safely                |
+| F7: Complete operational visibility and retained history             | [F7](2026-10-24-issue-10-f7-visibility-history.md)      | F2, F3                   | Accurate summaries/activity and immutable historical detail         |
+| F8: Complete legacy removal, fresh installation and final acceptance | [F8](2026-10-24-issue-10-f8-cutover-acceptance.md)      | F1–F7                    | Package-only schema and combined app pass nonproduction acceptance  |
 
 F7 may follow F3 while F4–F6 proceed in dependency order. F4/F5/F6 sequentially extend `src/features/booth/flow.ts` and `booth-client.tsx`; they must not introduce competing orchestration state machines. The dependency graph does not request delegation now. Implementation method is selected later, after the gate and explicit authorization to implement.
 

@@ -1,8 +1,8 @@
 # ADR-0027: Limit Event Media changes to Draft
 
-**2026-10-26 media cleanup clarification:** F2 implementation is authorized. [ADR-0030](0030-fence-event-media-commits-and-require-cleanup-proof.md) adds a scoped Storage commit guard and requires real transfer/backend cleanup proof. Media-bearing Draft deletion remains pending because the current backend does not supply complete proof; F2-04 and dependent Task 4 remain open. Other capability holds and release gates are unchanged.
+**2026-10-27 media availability decision:** [ADR-0031](0031-temporarily-disable-event-media-uploads.md) permits release with media uploads temporarily unavailable while preserving the planned feature, page sections and designs. F2 may continue with disabled media UI; enabled uploads/private delivery and full cleanup qualification remain deferred. Prior-authorized media-bearing Draft deletion stays pending under ADR-0030. Other capability holds and #17/#7 gates remain unchanged.
 
-**Status:** Accepted; implementation belongs to issue #10. Its plan is approved; F1–F8 are published as #29–#36; F1 is implemented and F2 is authorized but cleanup-blocked; F3–F8 implementation remains on hold at the user's request. The #9 software prerequisite is satisfied and #9 is closed as completed.
+**Status:** Accepted; implementation belongs to issue #10. Its plan is approved; F1–F8 are published as #29–#36; F1 is implemented and F2 may continue with uploads disabled under ADR-0031; F3–F8 implementation remains on hold at the user's request. The #9 software prerequisite is satisfied and #9 is closed as completed.
 **Date:** 2026-10-24
 **Refines:** [ADR-0025](0025-package-accounting-and-booth-recovery.md), without replacing its retention, privacy or release gates.
 **Approval:** The user approved the [functional breakdown design](../superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md), including its proposed upload defaults.
@@ -22,4 +22,4 @@ Private Event Media needs explicit editing and upload limits before #10 can be d
 
 ## Consequences
 
-F2 owns this complete functionality; F5 consumes its authorized media delivery. Optional media failure still uses the default Booth presentation without blocking readiness. These are product limits, not platform limits or proof of actual iPad playback. No application behavior, storage bucket or database is changed by this ADR.
+F2 retains ownership of the planned full functionality; F5 consumes authorized media delivery when enabled. [ADR-0031](0031-temporarily-disable-event-media-uploads.md) defers enabled media work and permits release with uploads unavailable, preserving these limits and UI designs. Optional media failure still uses the default Booth presentation without blocking readiness. These are product limits, not platform limits or proof of actual iPad playback. No application behavior, storage bucket or database is changed by this ADR.

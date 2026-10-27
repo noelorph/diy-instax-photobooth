@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, within } from '@testing-library/react';
+import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { renderToString } from 'react-dom/server';
 import { afterEach, expect, it, vi } from 'vitest';
 import { DraftForm } from '@/features/admin/events/draft-form';
@@ -51,6 +51,17 @@ it('shows the saved Draft booking overview before entering Edit Draft', () => {
   expect(container.textContent).toContain('Manila hall');
   expect(container.querySelector('form')).toBeNull();
   expect(container.textContent).toContain('Edit Draft');
+  expect(container.querySelector('section[aria-labelledby="event-media-heading"]')).not.toBeNull();
+});
+it('keeps unavailable media on the saved overview while booking editing remains usable', () => {
+  render(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  expect(screen.getByRole('region', { name: 'Event Media' })).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
+  expect(screen.queryByRole('region', { name: 'Event Media' })).toBeNull();
+  expect((screen.getByLabelText('Event name') as HTMLInputElement).disabled).toBe(false);
+  expect((screen.getByRole('button', { name: 'Save Draft' }) as HTMLButtonElement).disabled).toBe(
+    false
+  );
 });
 it('offers deletion from the saved overview and lets the Admin keep the Draft', async () => {
   render(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
@@ -61,6 +72,56 @@ it('offers deletion from the saved overview and lets the Admin keep the Draft', 
   fireEvent.click(screen.getByRole('button', { name: 'Keep Draft' }));
   expect(screen.queryByRole('dialog')).toBeNull();
   expect(screen.getByText('alex@example.test')).toBeTruthy();
+});
+it('cancels booking edits back to the saved overview and discards unsaved values', () => {
+  const update = vi.fn(ok);
+  form(update);
+  fireEvent.change(screen.getByLabelText('Event name'), { target: { value: 'Unsaved title' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.getByRole('heading', { name: 'Birthday' })).toBeTruthy();
+  expect(screen.getByRole('region', { name: 'Event Media' })).toBeTruthy();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Edit Draft' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
+  expect((screen.getByLabelText('Event name') as HTMLInputElement).value).toBe('Birthday');
+  expect(update).not.toHaveBeenCalled();
+});
+it('discards validation errors belonging to cancelled edits', async () => {
+  form();
+  fireEvent.change(screen.getByLabelText('Client email'), { target: { value: 'invalid' } });
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByText('Enter a valid Client email.');
+  expect(document.activeElement).toBe(screen.getByRole('alert'));
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
+  expect((screen.getByLabelText('Client email') as HTMLInputElement).value).toBe(
+    'alex@example.test'
+  );
+  expect(screen.queryByRole('alert')).toBeNull();
+});
+it('closes the Delete Draft dialog without deleting and returns focus to its trigger', async () => {
+  const requests = vi.fn();
+  vi.stubGlobal('fetch', requests);
+  render(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  const trigger = screen.getByRole('button', { name: 'Delete Draft' });
+  fireEvent.click(trigger);
+  fireEvent.click(screen.getByRole('button', { name: 'Close Delete Draft dialog' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  await waitFor(() => expect(document.activeElement).toBe(trigger));
+  expect(requests).not.toHaveBeenCalled();
+});
+it('keeps the Delete Draft dialog inside the Admin theme and labels its close tooltip', () => {
+  render(
+    <div data-theme="dark">
+      <DraftForm initial={draft} createAction={ok} updateAction={ok} />
+    </div>
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Delete Draft' }));
+  expect
+    .soft(screen.getByRole('dialog').closest('[data-theme]')?.getAttribute('data-theme'))
+    .toBe('dark');
+  expect(
+    screen.getByRole('button', { name: 'Close Delete Draft dialog' }).getAttribute('title')
+  ).toBe('Close Delete Draft dialog');
 });
 it('keeps the same deletion request after a lost response and shows pending cleanup', async () => {
   const bodies: object[] = [];

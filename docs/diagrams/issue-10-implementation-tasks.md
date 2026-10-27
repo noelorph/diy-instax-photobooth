@@ -1,8 +1,10 @@
 # Issue #10 — implementation task flowchart
 
-**23 implementation tasks across eight capability plans.** This is a visual index of the plans revised on 25 October 2026, not a new plan or a completion record. The plan is approved and F1–F8 are published as #29–#36; implementation remains on hold. #9's software prerequisite is already satisfied.
+**2026-10-27 media scope:** [ADR-0031](../adr/0031-temporarily-disable-event-media-uploads.md) preserves the planned feature and designs while uploads are temporarily unavailable. F2 may deliver disabled media sections and trusted upload/attachment/replacement denial now; enabled transfer/delivery/complete cleanup qualification is deferred and optional before release while disabled. Prior-authorized deletion stays pending. These diagrams do not decide #30 closure or authorize other capabilities.
 
-For your review only. This shows the work order and what disappears; agents use the detailed plans, not this chart. No implementation or database reset has happened. The approved documentation was committed as `0bd7503`. You then authorized publication and its verification; that is complete. Implementation still waits for your instruction to start.
+**Original 23-task breakdown across eight capability plans.** This is a visual index of the plans revised on 25 October 2026, not a new plan or a completion record. The plan is approved and F1–F8 are published as #29–#36. F1 is implemented; F2 is authorized to continue with uploads unavailable under ADR-0031; F3–F8 remain on hold. #9's software prerequisite is already satisfied.
+
+For your review only. This shows the work order and what disappears; agents use the detailed plans, not this chart. This chart records no new implementation evidence or database reset. The approved documentation was committed as `0bd7503`. You then authorized publication and its verification; that is complete. That publication-stage implementation hold was later lifted for F1 and the current F2 scope only.
 
 ## The change you approved
 
@@ -17,9 +19,9 @@ flowchart TD
 
 There is no legacy-data migration, old-Draft conversion or legacy History screen. Existing data is disposable test data. Current package History, safe Draft deletion, privacy and printer safety stay.
 
-## Before implementation
+## Publication history and current authorization
 
-P1–P3 publication tasks are complete, separate from the 23 pending implementation tasks. Approval/publication does not itself authorize application implementation.
+P1–P3 publication tasks are complete. The original implementation tasks below are a scope index, not all pending: F1 is implemented and the current F2 scope is authorized. Approval/publication alone did not authorize application implementation; the later F1/F2 instructions did.
 
 ```mermaid
 flowchart TD
@@ -28,8 +30,8 @@ flowchart TD
   P1["P1 complete: approval recorded<br/>#10 and eight child bodies prepared"]
   P2["P2 complete: #10 updated<br/>#29–#36 created with native dependencies"]
   P3["P3 complete: bodies and links verified<br/>Local issue map recorded"]
-  AUTH["ON HOLD: wait for explicit<br/>implementation instruction"]
-  PUBLISH["Publication authorized<br/>Implementation held"]
+  AUTH["Current: F1 implemented; F2 authorized<br/>Uploads unavailable; F3–F8 held"]
+  PUBLISH["Historical: publication authorized<br/>Implementation held at that stage"]
   NINE --> APPROVAL --> PUBLISH --> P1 --> P2 --> P3 --> AUTH
 ```
 
@@ -39,7 +41,7 @@ Each task includes its planned implementation, focused verification and commit. 
 
 ```mermaid
 flowchart TD
-  START["Approval, publication and<br/>implementation authorization satisfied"]
+  START["F1 implemented; current F2 scope authorized<br/>F3–F8 still require implementation instruction"]
 
   subgraph F1["F1 / #29 — Admin access and account management"]
     F1T1["F1.T1: Sign-in and truthful<br/>password recovery"]
@@ -52,8 +54,9 @@ flowchart TD
     F2T1["F2.T1: Package-based Draft<br/>preparation and discovery"]
     F2T2["F2.T2: Validated, immutable<br/>private media writes"]
     F2T3["F2.T3: Safe Draft cancellation,<br/>deletion and cleanup"]
-    F2T4["F2.T4: Upload, replacement and removal UI<br/>with authorized delivery"]
-    F2T1 --> F2T2 --> F2T3 --> F2T4
+    F2T4["F2.T4A: Preserved media sections<br/>uploads unavailable; trusted denial"]
+    F2T1 --> F2T3 --> F2T4
+    F2T2 -.->|Deferred enabled media; cleanup proof required| F2T4
   end
 
   subgraph F3["F3 / #31 — Booked capacity and Additional Film Packages"]
@@ -127,6 +130,6 @@ flowchart TD
 | Old migrations and database objects       | Replaced by a complete verified package-only baseline                               |
 | #9 contracts and evidence                 | Current behavior retained and reverified; dated acceptance preserved                |
 
-F2 still proves media transfer/validation/deletion before polishing its editor. F4 proves fresh equipment readiness after handoff. F5/F6 prove new Guest admission after a package purchase without clearing other blockers or a pause. F7 keeps the approved monthly count: Draft + Live + Completed, excluding Cancelled.
+F2 can render preserved unavailable media sections now; full enabled transfer/validation/deletion/delivery proof remains deferred before re-enablement. F4 proves fresh equipment readiness after handoff. F5/F6 prove new Guest admission after a package purchase without clearing other blockers or a pause. F7 keeps the approved monthly count: Draft + Live + Completed, excluding Cancelled.
 
 These charts are a review aid, not a test result or an instruction to deploy. Real-printer qualification remains #17; actual-iPad release remains #7. Both remain outside #10 software acceptance.

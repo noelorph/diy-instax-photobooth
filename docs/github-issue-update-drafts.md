@@ -1,5 +1,11 @@
 # GitHub issue publication record and remaining drafts
 
+## F2 temporary media scope publication — 2026-10-27
+
+The user authorized [ADR-0031](adr/0031-temporarily-disable-event-media-uploads.md), synchronized documentation, issue #30 updates and continued F2 implementation. [Issue #30](https://github.com/noelorph/diy-instax-photobooth/issues/30) now contains the current disabled-upload scope and pending acceptance checklist, while retaining its entire original enabled-media plan in a clearly historical collapsed section. GitHub body read-back matched the submitted text exactly. #9 and prerequisite #29 were confirmed closed; #30 remains open during implementation/verification.
+
+Uploads remain temporarily unavailable; full feature/design and re-enablement qualification are preserved. The previous Task4 blanket hold is replaced by current disabled presentation and deferred enabled functionality. Prior media-bearing deletion stays pending without cleanup proof. Publication is not a test pass, release, deployment or issue completion. #30 closure/follow-up tracking awaits the focused user decision; no separate follow-up issue has been created.
+
 **Published and read-back verified, 2026-10-25:** #10 contains the approved complete-removal scope and eight native children, F1–F8 (#29–#36). The user approved the plans, requested documentation commit `0bd7503` first, then explicitly authorized issue publication and this local record. Implementation remains on hold. #9 stays closed as completed; #10 and all children stay open. #17/#7 drafts below remain unpublished. The user subsequently authorized committing these publication records; nothing was pushed.
 
 ## Issue #9 accepted prerequisite

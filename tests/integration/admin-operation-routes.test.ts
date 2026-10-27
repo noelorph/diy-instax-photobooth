@@ -184,11 +184,15 @@ describe('Admin operation HTTP contracts with real local Auth and RPCs', { timeo
   it.each([
     ['complete', (request: Request) => complete(request, eventContext(randomUUID()))],
     ['cancel', (request: Request) => cancel(request, eventContext(randomUUID()))],
-    ['delete Draft', (request: Request) => deleteDraft(request, eventContext(randomUUID()))],
     ['recover attempt', (request: Request) => recover(request, attemptContext(randomUUID()))],
     ['resolve attempt', (request: Request) => settle(request, attemptContext(randomUUID()))],
   ])('keeps the legacy %s missing-auth response before version lookup', async (_name, invoke) => {
     expect((await result(await invoke(req(operation())), 401)).code).toBe('unauthorized');
+  });
+  it('uses the package missing-auth response before Draft deletion validation', async () => {
+    expect(
+      (await result(await deleteDraft(req(operation()), eventContext(randomUUID())), 401)).code
+    ).toBe('access_required');
   });
   it('requires live provisioned Admin authority and same origin on every route', async () => {
     for (const route of routes())

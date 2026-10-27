@@ -1,6 +1,6 @@
 # ADR-0025: Use package accounting and keep recovery in Booth Mode
 
-**2026-10-26 media cleanup clarification:** F2 implementation is authorized. [ADR-0030](0030-fence-event-media-commits-and-require-cleanup-proof.md) adds a scoped Storage commit guard and requires real transfer/backend cleanup proof. Media-bearing Draft deletion remains pending because the current backend does not supply complete proof; F2-04 and dependent Task 4 remain open. Other capability holds and release gates are unchanged.
+**2026-10-27 media availability decision:** [ADR-0031](0031-temporarily-disable-event-media-uploads.md) permits release with media uploads temporarily unavailable while preserving the planned feature, page sections and designs. F2 may continue with disabled media UI; enabled uploads/private delivery and full cleanup qualification remain deferred. Prior-authorized media-bearing Draft deletion stays pending under ADR-0030. Other capability holds and #17/#7 gates remain unchanged.
 
 **Status:** Accepted target design. Version-2 contracts and handlers passed #9 software verification; see [dated #9 software acceptance evidence](../implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25). GitHub #9 is closed as completed. Admin/Booth integration, complete removal and fresh package-only installation remain #10 work, under the approved plan and reviewed #9 handoff. F1–F8 are published as #29–#36; implementation remains on hold at the user's request. Physical qualification remains open.
 **Date:** 2026-10-21
