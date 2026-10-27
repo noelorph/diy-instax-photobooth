@@ -6,6 +6,8 @@ The user chose to keep [#30](https://github.com/noelorph/diy-instax-photobooth/i
 
 Removed only the native #30 `blocked_by` edges on #31, #32, #33, #35 and #36. Read-back showed #31 `[9]`, #32 `[9,29,31]`, #33 `[9,32]`, #34 `[9,31,32,33]`, #35 `[9,31]` and #36 `[9,29,31,32,33,34,35]`; all eight updated issue bodies began with the new dated execution section. No issue was closed, no upload was enabled, and no deployment or cleanup proof occurred.
 
+After local commit `3a1b08b`, #30's current checklist was updated to mark the persistent Admin reminder implemented and component-verified, with browser readability still pending. The stale undecided-dependency sentence was replaced with the chosen #30-last order. Exact GitHub body read-back passed and #30 remained OPEN.
+
 ## F2 temporary media scope publication — 2026-10-27
 
 The user authorized [ADR-0031](adr/0031-temporarily-disable-event-media-uploads.md), synchronized documentation, issue #30 updates and continued F2 implementation. [Issue #30](https://github.com/noelorph/diy-instax-photobooth/issues/30) now contains the current disabled-upload scope and verified local acceptance checklist, while retaining its entire original enabled-media plan in a clearly historical collapsed section. GitHub body read-back matched the submitted text exactly. #9 and prerequisite #29 were confirmed closed; #30 remains open pending the user’s closure/follow-up tracking decision.
