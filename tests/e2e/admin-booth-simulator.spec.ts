@@ -692,3 +692,73 @@ test('eligible Live cancellation keeps History and usable confirmation across th
     await f.dispose();
   }
 });
+
+test('a held Admin refresh settles before local handoff signs out; phone polling stays independent', async ({
+  browser,
+}) => {
+  const f = await createPackageBrowserFixture();
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  try {
+    f.seedRun('Finished');
+    localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+    const d = await devices(browser, f);
+    try {
+      let held = false,
+        starts = 0,
+        issues = 0;
+      d.boothPage.on('request', (request) => {
+        if (request.url().endsWith('/booth/start')) starts++;
+        if (/\/booth-handoffs\/[^/]+\/issue$/.test(request.url())) issues++;
+      });
+      await d.boothPage.route(`**/events/${f.eventId}?*`, async (route) => {
+        if (route.request().headers().rsc === '1' && !held) {
+          held = true;
+          await gate;
+        }
+        await route.continue();
+      });
+      await d.phonePage.goto(`/events/${f.eventId}`);
+      await prepare(d.boothPage, f);
+      await expect.poll(() => held).toBe(true);
+      await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
+      await expect(
+        d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true })
+      ).toBeDisabled();
+      await d.boothPage.waitForTimeout(300);
+      expect(starts).toBe(0);
+      expect(issues).toBe(0);
+      expect((await read(d.boothPage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
+        200
+      );
+      const phoneRefresh = d.phonePage.waitForRequest(
+        (request) =>
+          new URL(request.url()).pathname === `/events/${f.eventId}` &&
+          request.headers().rsc === '1'
+      );
+      await d.phonePage.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await phoneRefresh;
+      release();
+      await readyAfterArrival(d.boothPage);
+      expect(starts).toBe(1);
+      expect(issues).toBe(1);
+      expect((await read(d.boothPage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
+        401
+      );
+      expect((await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
+        200
+      );
+      const runs = localOwnerSql(
+        `select state from public.booth_runs where event_id='${f.eventId}' order by created_at`
+      );
+      expect(runs).toEqual([{ state: 'Finished' }, { state: 'Active' }]);
+    } finally {
+      release();
+      await d.close();
+    }
+  } finally {
+    await f.dispose();
+  }
+});

@@ -37,6 +37,9 @@ export async function GET(request: Request, context: { params: Promise<{ eventId
       throw new PackageError('qualification_required');
     }
     const admin = await requireAdminRequest(request);
+    const expectedAdmin = request.headers.get('x-package-admin-id');
+    if (expectedAdmin !== null && expectedAdmin !== admin.userId)
+      throw new PackageError('operation_forbidden');
     const eventId = operationId((await context.params).eventId);
     const url = new URL(request.url);
     const parsed = query.safeParse(Object.fromEntries(url.searchParams));

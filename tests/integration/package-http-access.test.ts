@@ -485,6 +485,27 @@ it('binds setup readiness to the current Admin session and device before Start',
       jar.set(name, value);
     }
     const context = { params: Promise.resolve({ eventId: fixture.eventId }) };
+    const setupUrl = 'https://booth.test/api/test?printerId=fixture-printer&connectionGeneration=0';
+    const wrongRead = await setupRead(
+      new Request(setupUrl, {
+        headers: { cookie: adminCookie, 'x-package-admin-id': randomUUID() },
+      }),
+      context
+    );
+    expect(wrongRead.status).toBe(403);
+    expect(wrongRead.headers.getSetCookie()).toEqual([]);
+    expect(
+      localOwnerSql(
+        `select count(*)::integer n from private.package_readiness_windows where event_id='${fixture.eventId}'`
+      )[0].n
+    ).toBe(0);
+    const matchedRead = await setupRead(
+      new Request(setupUrl, {
+        headers: { cookie: adminCookie, 'x-package-admin-id': fixture.adminUser.id },
+      }),
+      context
+    );
+    expect(matchedRead.status).toBe(200);
     const read = await setupRead(
       new Request('https://booth.test/api/test?printerId=fixture-printer&connectionGeneration=0', {
         headers: { cookie: adminCookie },
@@ -535,16 +556,19 @@ it('binds setup readiness to the current Admin session and device before Start',
         )
       ).status
     ).toBe(400);
-    const report = await setupReport(
-      request(
-        {
-          ...reportBody,
-        },
-        `${adminCookie}; ${deviceCookie}`
-      ),
+    const wrongReport = request(reportBody, `${adminCookie}; ${deviceCookie}`);
+    wrongReport.headers.set('x-package-admin-id', randomUUID());
+    expect((await setupReport(wrongReport, context)).status).toBe(403);
+    const matchedReport = request(reportBody, `${adminCookie}; ${deviceCookie}`);
+    matchedReport.headers.set('x-package-admin-id', fixture.adminUser.id);
+    const report = await setupReport(matchedReport, context);
+    expect(report.status).toBe(200);
+    const compatibleReport = await setupReport(
+      request(reportBody, `${adminCookie}; ${deviceCookie}`),
       context
     );
-    expect(report.status).toBe(200);
+    expect(compatibleReport.status).toBe(200);
+    expect((await compatibleReport.json()).replayed).toBe(true);
     const startBody = {
       operationId: randomUUID(),
       expectedRevision: 1,

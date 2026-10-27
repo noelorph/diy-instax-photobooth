@@ -1,6 +1,5 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
 import { Dialog } from 'radix-ui';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
@@ -38,11 +37,14 @@ const blockerMessages: Record<string, string> = {
 export function BoothControls({
   event,
   adminUserId,
+  refreshAdmin,
+  handoffPending,
 }: {
   event: OperationalEvent;
   adminUserId: string;
+  refreshAdmin: () => void;
+  handoffPending: boolean;
 }) {
-  const router = useRouter();
   const savedKey = `booth-command:${event.id}:${adminUserId}`;
   const pending = useRef<Command | null>(null);
   const trigger = useRef<HTMLButtonElement | null>(null);
@@ -77,7 +79,7 @@ export function BoothControls({
   useEffect(() => {
     if (event.state !== 'Live') return;
     const refresh = () => {
-      if (document.visibilityState === 'visible') router.refresh();
+      if (document.visibilityState === 'visible') refreshAdmin();
     };
     const timer = window.setInterval(refresh, STATE_POLL_MS);
     window.addEventListener('focus', refresh);
@@ -89,7 +91,7 @@ export function BoothControls({
       window.removeEventListener('online', refresh);
       document.removeEventListener('visibilitychange', refresh);
     };
-  }, [event.state, router]);
+  }, [event.state, refreshAdmin]);
   async function submit(action?: Command['action']) {
     if (submitting.current || blocked || !ready) return;
     submitting.current = true;
@@ -142,7 +144,7 @@ export function BoothControls({
             sessionStorage.removeItem(savedKey);
             pending.current = null;
             setUncertain(false);
-            router.refresh();
+            refreshAdmin();
             throw new Error(
               result.code === 'stale_revision'
                 ? 'The Event changed. Review current state before trying again.'
@@ -162,7 +164,7 @@ export function BoothControls({
       setUncertain(false);
       setReview(null);
       setNotice('Booth command recorded. Refreshing current state.');
-      router.refresh();
+      refreshAdmin();
     } catch (cause) {
       setError(
         cause instanceof Error &&
@@ -189,7 +191,7 @@ export function BoothControls({
       )}
     </>
   );
-  const disabled = !ready || busy || uncertain || blocked;
+  const disabled = !ready || busy || uncertain || blocked || handoffPending;
   return (
     <Dialog.Root
       open={review !== null}

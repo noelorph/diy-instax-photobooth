@@ -30,6 +30,8 @@ export function BoothSetup({
   runState,
   possibleDelivery = false,
   adminUserId,
+  prepareHandoff,
+  releaseHandoff,
 }: {
   eventId: string;
   revision: number;
@@ -37,6 +39,8 @@ export function BoothSetup({
   runState?: RunState | null;
   possibleDelivery?: boolean;
   adminUserId?: string;
+  prepareHandoff?: () => Promise<void>;
+  releaseHandoff?: () => void;
 }) {
   const newRun = !runId || runState === 'Finished';
   const replaceAllowed =
@@ -52,11 +56,11 @@ export function BoothSetup({
   const reporting = useRef(false);
   const localSetup = useRef(false);
   const starting = useRef(false);
+  const holdingHandoff = useRef(false);
   const handoff = useRef<{
     id: string;
     issue: string;
     confirm: string;
-    stage: 'prepared' | 'issued' | 'confirmed';
   } | null>(null);
   const startCommand = useRef<{
     kind: 'start' | 'recover_access';
@@ -107,7 +111,9 @@ export function BoothSetup({
       const at = Date.now();
       const data = setupSchema.parse(
         await boothFetch(
-          `${endpoint}/setup-readiness?printerId=${encodeURIComponent(local.printerId)}&connectionGeneration=${local.connectionGeneration}`
+          `${endpoint}/setup-readiness?printerId=${encodeURIComponent(local.printerId)}&connectionGeneration=${local.connectionGeneration}`,
+          undefined,
+          adminUserId
         )
       );
       if (!mounted.current || starting.current) return;
@@ -129,7 +135,7 @@ export function BoothSetup({
         ...confirmations.current,
       });
       const acknowledgement = packageReplySchema.parse(
-        await boothFetch(`${endpoint}/setup-readiness`, body)
+        await boothFetch(`${endpoint}/setup-readiness`, body, adminUserId)
       );
       const serverReady = readinessSchema.parse(acknowledgement.receipt.result);
       if (!mounted.current || starting.current) return;
@@ -173,6 +179,15 @@ export function BoothSetup({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [camera, printer, endpoint, newRun]);
+  useEffect(
+    () => () => {
+      if (holdingHandoff.current) {
+        holdingHandoff.current = false;
+        releaseHandoff?.();
+      }
+    },
+    [releaseHandoff]
+  );
   async function enableCamera() {
     if (cameraBusy || !video.current) return;
     localSetup.current = true;
@@ -212,6 +227,9 @@ export function BoothSetup({
     setBusy(true);
     setError('');
     try {
+      holdingHandoff.current = true;
+      await prepareHandoff?.();
+      if (!mounted.current) return;
       if (!startCommand.current && replacement) {
         startCommand.current = {
           kind: 'recover_access',
@@ -293,11 +311,11 @@ export function BoothSetup({
           id,
           issue: crypto.randomUUID(),
           confirm: crypto.randomUUID(),
-          stage: 'prepared',
         };
         startCommand.current = null;
         setUncertainStart(false);
       }
+      if (!mounted.current) return;
       const pending = handoff.current;
       try {
         packageReplySchema.parse(
@@ -307,7 +325,6 @@ export function BoothSetup({
             adminUserId
           )
         );
-        pending.stage = 'issued';
       } catch {
         throw new Error(
           'Booth access could not be issued. Ask the Admin to recover Booth access; do not start another run.'
@@ -323,7 +340,6 @@ export function BoothSetup({
             })
           )
         );
-        pending.stage = 'confirmed';
       } catch {
         const state = z
           .object({ state: z.enum(['Active', 'Paused']), runId: z.uuid() })
@@ -332,7 +348,6 @@ export function BoothSetup({
           throw new Error(
             'Booth access confirmation is unavailable. Ask the Admin to recover access.'
           );
-        pending.stage = 'confirmed';
       }
       if (mounted.current) {
         camera.stop();
@@ -352,8 +367,14 @@ export function BoothSetup({
       if (mounted.current) {
         setBusy(false);
       }
-      /* An issued/lost reply must never be blindly issued again. */ if (!handoff.current)
+      // An issued/lost reply cannot be blindly reissued; its owner stays suspended.
+      if (!handoff.current) {
         starting.current = false;
+        if (holdingHandoff.current) {
+          holdingHandoff.current = false;
+          releaseHandoff?.();
+        }
+      }
     }
   }
   if (!newRun && !busy && !uncertainStart && !review && !replaceAllowed)

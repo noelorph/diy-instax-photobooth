@@ -70,7 +70,7 @@ it('an in-flight setup readiness window disables Start until the current report 
     });
   });
   vi.stubGlobal('fetch', fetcher);
-  render(<BoothSetup eventId={crypto.randomUUID()} revision={1} />);
+  render(<BoothSetup eventId={crypto.randomUUID()} revision={1} adminUserId="admin-a" />);
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Enable Camera' }));
   });
@@ -88,6 +88,11 @@ it('an in-flight setup readiness window disables Start until the current report 
   expect(screen.getByRole('button', { name: 'Start Booth Mode' }).hasAttribute('disabled')).toBe(
     false
   );
+  expect(
+    fetcher.mock.calls.every(
+      ([, init]) => new Headers(init?.headers).get('x-package-admin-id') === 'admin-a'
+    )
+  ).toBe(true);
   delay = true;
   const beforePoll = fetcher.mock.calls.length;
   await act(async () => {
@@ -357,3 +362,110 @@ it('disables reviewed replacement if Finish or possible delivery arrives before 
     true
   );
 });
+
+it.each(['cancel while waiting', 'cancel after Start', 'readiness expires'] as const)(
+  'does not continue a handoff when %s',
+  async (mode) => {
+    vi.useFakeTimers();
+    const track = { readyState: 'live', stop: vi.fn(), onended: null };
+    vi.stubGlobal('navigator', {
+      onLine: true,
+      mediaDevices: {
+        getUserMedia: async () => ({
+          active: true,
+          getTracks: () => [track],
+          getVideoTracks: () => [track],
+        }),
+      },
+    });
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    vi.spyOn(HTMLVideoElement.prototype, 'videoWidth', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLVideoElement.prototype, 'videoHeight', 'get').mockReturnValue(800);
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const paths: string[] = [];
+    const navigate = vi.fn(),
+      releaseHandoff = vi.fn();
+    const originalWindow = window;
+    vi.stubGlobal(
+      'window',
+      new Proxy(originalWindow, {
+        get: (target, key) =>
+          key === 'location' ? { replace: navigate } : Reflect.get(target, key),
+      })
+    );
+    vi.stubGlobal('fetch', async (path: string, init?: RequestInit) => {
+      paths.push(path);
+      if (!init?.body)
+        return Response.json({
+          revision: 1,
+          readinessWindowId: crypto.randomUUID(),
+          readiness: { ready: true, counts: { printsAvailable: 10 } },
+        });
+      if (path.endsWith('/start') && mode === 'cancel after Start') await gate;
+      const kind = path.endsWith('/start')
+        ? 'start'
+        : path.endsWith('/issue')
+          ? 'issue_handoff'
+          : path.endsWith('/confirm')
+            ? 'confirm_handoff'
+            : 'report_setup_readiness';
+      return Response.json({
+        revision: 2,
+        replayed: false,
+        receipt: {
+          operationId: crypto.randomUUID(),
+          kind,
+          committedRevision: 2,
+          result:
+            kind === 'start'
+              ? { handoffId: crypto.randomUUID() }
+              : { ready: true, counts: { printsAvailable: 10 } },
+        },
+      });
+    });
+    const view = render(
+      <BoothSetup
+        eventId={crypto.randomUUID()}
+        revision={1}
+        prepareHandoff={() => (mode === 'cancel after Start' ? Promise.resolve() : gate)}
+        releaseHandoff={releaseHandoff}
+      />
+    );
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Enable Camera' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Connect to Instax' }));
+    });
+    for (const label of [
+      'Film is physically loaded',
+      'Continuous printer power is connected',
+      'Guided Access is ready',
+    ])
+      await act(async () => {
+        fireEvent.click(screen.getByRole('checkbox', { name: label }));
+      });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Start Booth Mode' }));
+    });
+    if (mode === 'readiness expires')
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5001);
+      });
+    else view.unmount();
+    await act(async () => {
+      release();
+    });
+    expect(paths.filter((path) => path.endsWith('/start'))).toHaveLength(
+      mode === 'cancel after Start' ? 1 : 0
+    );
+    expect(paths.some((path) => path.endsWith('/issue'))).toBe(false);
+    expect(navigate).not.toHaveBeenCalled();
+    expect(releaseHandoff).toHaveBeenCalledOnce();
+    if (mode === 'readiness expires')
+      expect(screen.getByRole('alert').textContent).toMatch(/Recheck setup/);
+  }
+);

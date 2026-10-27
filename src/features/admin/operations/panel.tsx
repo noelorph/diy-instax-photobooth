@@ -1,6 +1,6 @@
 'use client';
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from 'radix-ui';
 import { Button } from '@/components/ui/button';
@@ -19,6 +19,28 @@ export function OperationsPanel({
   adminUserId: string;
 }) {
   const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
+  const [handoffPending, setHandoffPending] = useState(false);
+  const handoffActive = useRef(false);
+  const idleWaiters = useRef<(() => void)[]>([]);
+  const refreshAdmin = useCallback(() => {
+    if (!handoffActive.current) startRefresh(() => router.refresh());
+  }, [router, startRefresh]);
+  // Local sign-out must wait for this device's already-issued Admin refresh.
+  const prepareHandoff = useCallback(() => {
+    handoffActive.current = true;
+    setHandoffPending(true);
+    return new Promise<void>((resolve) => idleWaiters.current.push(resolve));
+  }, []);
+  const releaseHandoff = useCallback(() => {
+    handoffActive.current = false;
+    setHandoffPending(false);
+  }, []);
+  useEffect(() => {
+    if (!refreshing) idleWaiters.current.splice(0).forEach((resolve) => resolve());
+  }, [refreshing, handoffPending]);
+  useEffect(() => () => idleWaiters.current.splice(0).forEach((resolve) => resolve()), []);
+
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState(false);
   const [error, setError] = useState('');
@@ -58,7 +80,7 @@ export function OperationsPanel({
       operationId.current = null;
       setReview(false);
       setNotice('Recorded. Refreshing current totals.');
-      router.refresh();
+      refreshAdmin();
     } catch (error) {
       setError(
         error instanceof Error
@@ -98,12 +120,16 @@ export function OperationsPanel({
           runState={event.runState}
           adminUserId={adminUserId}
           possibleDelivery={event.possibleDelivery}
+          prepareHandoff={prepareHandoff}
+          releaseHandoff={releaseHandoff}
         />
       )}
       <BoothControls
         key={`booth:${event.id}:${adminUserId}`}
         event={event}
         adminUserId={adminUserId}
+        refreshAdmin={refreshAdmin}
+        handoffPending={handoffPending}
       />
       <AddPackages
         key={`${event.id}:${adminUserId}`}
@@ -126,7 +152,7 @@ export function OperationsPanel({
           }}
         >
           <Dialog.Trigger asChild>
-            <Button variant="quiet" disabled={busy || counts.unresolved > 0}>
+            <Button variant="quiet" disabled={busy || handoffPending || counts.unresolved > 0}>
               Cancel Event
             </Button>
           </Dialog.Trigger>
@@ -140,7 +166,7 @@ export function OperationsPanel({
               {error && (
                 <FormFeedback kind="error">
                   {error}{' '}
-                  <Button variant="quiet" onClick={() => router.refresh()}>
+                  <Button variant="quiet" onClick={refreshAdmin}>
                     Reload current state
                   </Button>
                 </FormFeedback>
