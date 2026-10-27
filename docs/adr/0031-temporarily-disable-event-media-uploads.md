@@ -1,6 +1,6 @@
 # ADR-0031: Defer Event Media uploads for release
 
-**Status:** Accepted; F2 implementation may continue with uploads unavailable. Implementation and acceptance remain to be verified.
+**Status:** Accepted; [local disabled-scope implementation and verification](../implementation/issue-30-disabled-media-acceptance.md) recorded on `9d6286f`. Enabled-media qualification and #30 closure remain open.
 **Date:** 2026-10-27
 **Refines:** [ADR-0027](0027-draft-only-event-media.md), [ADR-0030](0030-fence-event-media-commits-and-require-cleanup-proof.md) and [ADR-0025](0025-package-accounting-and-booth-recovery.md).
 **Supersedes:** The requirement to resolve/qualify enabled Event Media before release and the blanket Task 4 editor hold. It does not supersede content validation, private access, retention, cleanup or hardware safeguards.

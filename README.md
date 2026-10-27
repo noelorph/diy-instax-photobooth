@@ -1,6 +1,6 @@
 # DIY Instax Photo Booth
 
-**2026-10-27 media availability decision:** [ADR-0031](docs/adr/0031-temporarily-disable-event-media-uploads.md) permits release with media uploads temporarily unavailable while preserving the planned feature, page sections and designs. F2 may continue with disabled media UI; enabled uploads/private delivery and full cleanup qualification remain deferred. Prior-authorized media-bearing Draft deletion stays pending under ADR-0030. Other capability holds and #17/#7 gates remain unchanged.
+**2026-10-27 media availability decision:** [ADR-0031](docs/adr/0031-temporarily-disable-event-media-uploads.md) permits release with media uploads temporarily unavailable while preserving the planned feature, page sections and designs. F2 has [verified local disabled-scope implementation](docs/implementation/issue-30-disabled-media-acceptance.md); enabled uploads/private delivery and full cleanup qualification remain deferred. Prior-authorized media-bearing Draft deletion stays pending under ADR-0030. Other capability holds and #17/#7 gates remain unchanged.
 
 An Event photo booth with an Admin application and Guest-facing `/booth`. The target release uses iPad A16, Bluefy and Instax Mini Link 3, subject to physical qualification.
 
