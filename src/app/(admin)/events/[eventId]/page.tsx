@@ -21,7 +21,7 @@ export default async function EventPage({
   const result = await getDraft(eventId);
   const panel =
     operations.status === 'success' ? (
-      <OperationsPanel event={operations.event} />
+      <OperationsPanel event={operations.event} adminUserId={operations.adminUserId} />
     ) : (
       <FormFeedback kind="error">
         Unable to load Event operations. Reload to try again.

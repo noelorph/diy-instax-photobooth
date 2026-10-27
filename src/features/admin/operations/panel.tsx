@@ -9,7 +9,13 @@ import type { OperationalEvent } from './types';
 import styles from './panel.module.css';
 import { AddPackages } from './add-packages';
 
-export function OperationsPanel({ event }: { event: OperationalEvent }) {
+export function OperationsPanel({
+  event,
+  adminUserId,
+}: {
+  event: OperationalEvent;
+  adminUserId: string;
+}) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState(false);
@@ -82,8 +88,9 @@ export function OperationsPanel({ event }: { event: OperationalEvent }) {
         </section>
       </div>
       <AddPackages
-        key={event.id}
+        key={`${event.id}:${adminUserId}`}
         eventId={event.id}
+        adminUserId={adminUserId}
         eligible={event.state === 'Live'}
         counts={counts}
         onCounts={setCounts}

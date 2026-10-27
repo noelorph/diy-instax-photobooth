@@ -18,17 +18,19 @@ type Purchase = z.infer<typeof addPackagesSchema>;
 type Result = PackageOperationResult<PackageCounts & { entryId: string }>;
 export function AddPackages({
   eventId,
+  adminUserId,
   eligible,
   counts,
   onCounts,
 }: {
   eventId: string;
+  adminUserId: string;
   eligible: boolean;
   counts: PackageCounts;
   onCounts: (counts: PackageCounts) => void;
 }) {
   const router = useRouter();
-  const storageKey = `film-package-purchase:${eventId}`;
+  const storageKey = `film-package-purchase:${eventId}:${adminUserId}`;
   const [open, setOpen] = useState(false);
   const [ready, setReady] = useState(false);
   const [packages, setPackages] = useState('1');

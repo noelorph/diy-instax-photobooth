@@ -11,6 +11,7 @@ vi.mock('@/features/admin/operations/read', () => ({
   getHistorySummary: async () => ({ status: 'success', events: 3, captures: 7 }),
   getOperationalEvent: vi.fn(async () => ({
     status: 'success',
+    adminUserId: 'admin-a',
     event: {
       id: 'a',
       title: 'Live celebration',

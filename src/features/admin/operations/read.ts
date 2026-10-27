@@ -9,7 +9,7 @@ export async function getOperationalEvent(
   id: string,
   attemptsPage = 0
 ): Promise<
-  | { status: 'success'; event: OperationalEvent }
+  | { status: 'success'; event: OperationalEvent; adminUserId: string }
   | { status: 'not_found' }
   | { status: 'unavailable'; error: string }
 > {
@@ -46,6 +46,7 @@ export async function getOperationalEvent(
     for (const result of [attempts, captures]) if (result.error) throw result.error;
     return {
       status: 'success',
+      adminUserId: admin.userId,
       event: {
         id,
         title: event.data.title!,

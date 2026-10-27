@@ -24,7 +24,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 it('shows server package capacity and preserves the pending print at zero availability', () => {
-  render(<OperationsPanel event={event} />);
+  render(<OperationsPanel adminUserId="admin-a" event={event} />);
   expect(screen.getByText('50 total booked prints')).toBeTruthy();
   expect(screen.getByText('49 printed')).toBeTruthy();
   expect(screen.getByText('1 print pending')).toBeTruthy();
@@ -43,6 +43,7 @@ it('cancels a Draft using the package operation contract', async () => {
   });
   render(
     <OperationsPanel
+      adminUserId="admin-a"
       event={{ ...event, state: 'Draft', counts: packageCounts(5, 0, 0, 0), attempts: [] }}
     />
   );
@@ -60,7 +61,10 @@ it('keeps failed cancellation visible and retries with the same operation identi
       : Response.json({ state: 'Cancelled' });
   });
   render(
-    <OperationsPanel event={{ ...event, state: 'Draft', counts: packageCounts(5, 0, 0, 0) }} />
+    <OperationsPanel
+      adminUserId="admin-a"
+      event={{ ...event, state: 'Draft', counts: packageCounts(5, 0, 0, 0) }}
+    />
   );
   fireEvent.click(screen.getByRole('button', { name: 'Cancel Event' }));
   fireEvent.click(screen.getAllByRole('button', { name: 'Cancel Event' }).at(-1)!);
@@ -71,13 +75,18 @@ it('keeps failed cancellation visible and retries with the same operation identi
   expect(bodies[1]).toEqual(bodies[0]);
 });
 it('retains terminal records without redaction or deletion controls', () => {
-  render(<OperationsPanel event={{ ...event, state: 'Cancelled' }} />);
+  render(<OperationsPanel adminUserId="admin-a" event={{ ...event, state: 'Cancelled' }} />);
   expect(screen.queryByRole('button', { name: 'Cancel Event' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Redact Client' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Delete Draft' })).toBeNull();
 });
 it('preserves attempt pagination links', () => {
-  render(<OperationsPanel event={{ ...event, attemptsPage: 1, hasOlderAttempts: true }} />);
+  render(
+    <OperationsPanel
+      adminUserId="admin-a"
+      event={{ ...event, attemptsPage: 1, hasOlderAttempts: true }}
+    />
+  );
   expect(screen.getByRole('link', { name: 'Older print attempts' }).getAttribute('href')).toContain(
     'attemptPage=2'
   );
@@ -107,7 +116,7 @@ it('recovers a committed purchase after a lost response without issuing another 
       });
     return Response.json({ counts: packageCounts(5, 1, 49, 1), revision: 4 });
   });
-  render(<OperationsPanel event={event} />);
+  render(<OperationsPanel adminUserId="admin-a" event={event} />);
   await waitFor(() =>
     expect(
       (screen.getByRole('button', { name: 'Add Film Packages' }) as HTMLButtonElement).disabled
@@ -129,7 +138,7 @@ it('recovers a committed purchase after a lost response without issuing another 
   expect(screen.getByText('Live · Paused')).toBeTruthy();
   expect(purchases).toBe(1);
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
-  expect(sessionStorage.getItem(`film-package-purchase:${event.id}`)).toBeNull();
+  expect(sessionStorage.getItem(`film-package-purchase:${event.id}:admin-a`)).toBeNull();
 });
 
 it('replays only the frozen original payload when receipt lookup finds no commit', async () => {
@@ -151,7 +160,7 @@ it('replays only the frozen original payload when receipt lookup finds no commit
       replayed: false,
     });
   });
-  render(<OperationsPanel event={event} />);
+  render(<OperationsPanel adminUserId="admin-a" event={event} />);
   await waitFor(() =>
     expect(
       (screen.getByRole('button', { name: 'Add Film Packages' }) as HTMLButtonElement).disabled
@@ -171,23 +180,82 @@ it('replays only the frozen original payload when receipt lookup finds no commit
 });
 
 it('shows fresh server props after another device changes capacity', () => {
-  const view = render(<OperationsPanel event={event} />);
+  const view = render(<OperationsPanel adminUserId="admin-a" event={event} />);
   view.rerender(
-    <OperationsPanel event={{ ...event, revision: 4, counts: packageCounts(5, 1, 49, 1) }} />
+    <OperationsPanel
+      adminUserId="admin-a"
+      event={{ ...event, revision: 4, counts: packageCounts(5, 1, 49, 1) }}
+    />
   );
   expect(screen.getByText('60 total booked prints')).toBeTruthy();
 });
 
 it('keeps receipt recovery available if the Event becomes terminal before acknowledgement', async () => {
   sessionStorage.setItem(
-    `film-package-purchase:${event.id}`,
+    `film-package-purchase:${event.id}:admin-a`,
     JSON.stringify({
       operationId: 'ab000000-0000-4000-8000-000000000002',
       packages: 1,
       clientRequestNote: 'Client request',
     })
   );
-  render(<OperationsPanel event={{ ...event, state: 'Completed' }} />);
+  render(<OperationsPanel adminUserId="admin-a" event={{ ...event, state: 'Completed' }} />);
   await screen.findByRole('button', { name: 'Retry request' });
   expect(screen.getByLabelText('Additional Film Packages').getAttribute('disabled')).not.toBeNull();
+});
+
+it('preserves A’s pending purchase across an Admin switch without letting B replay it', async () => {
+  const adminA = '10000000-0000-4000-8000-000000000001';
+  const adminB = '10000000-0000-4000-8000-000000000002';
+  let actor = adminA;
+  let purchases = 0;
+  let operationId: string;
+  vi.stubGlobal('fetch', async (path: string, options?: RequestInit) => {
+    if (path.endsWith('/film-packages')) {
+      purchases++;
+      operationId = JSON.parse(String(options?.body)).operationId;
+      throw new TypeError('Committed response lost');
+    }
+    if (path.includes('/operations/'))
+      return Response.json({
+        receipt:
+          actor === adminA
+            ? {
+                operationId,
+                kind: 'add_packages',
+                committedRevision: 4,
+                result: { ...packageCounts(5, 1, 49, 1), entryId: 'entry' },
+              }
+            : null,
+        revision: 4,
+      });
+    return Response.json({ counts: packageCounts(5, 1, 49, 1), revision: 4 });
+  });
+  const view = render(<OperationsPanel event={event} adminUserId={adminA} />);
+  await waitFor(() =>
+    expect(
+      (screen.getByRole('button', { name: 'Add Film Packages' }) as HTMLButtonElement).disabled
+    ).toBe(false)
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Add Film Packages' }));
+  fireEvent.change(screen.getByLabelText('Client request note'), {
+    target: { value: 'A requested one more package' },
+  });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Add Film Packages' }).at(-1)!);
+  await screen.findByRole('alert');
+  const saved = Object.entries(sessionStorage);
+  actor = adminB;
+  view.rerender(<OperationsPanel event={event} adminUserId={adminB} />);
+  await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
+  expect(screen.queryByRole('button', { name: 'Retry request' })).toBeNull();
+  expect(Object.entries(sessionStorage)).toEqual(saved);
+  expect(purchases).toBe(1);
+  actor = adminA;
+  view.rerender(<OperationsPanel event={event} adminUserId={adminA} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry request' }));
+  await screen.findByText('Film Packages added.');
+  expect(purchases).toBe(1);
+  expect(screen.getByText('60 total booked prints')).toBeTruthy();
+  fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+  expect(sessionStorage.length).toBe(0);
 });

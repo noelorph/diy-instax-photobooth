@@ -53,6 +53,8 @@ it('reads real package totals independently of the attempt page, including the l
     expect(first.status).toBe('success');
     expect(older.status).toBe('success');
     if (first.status === 'success' && older.status === 'success') {
+      expect(first.adminUserId).toBe(f.adminUser.id);
+      expect(older.adminUserId).toBe(f.adminUser.id);
       expect(first.event.counts).toEqual(server.data.counts);
       expect(older.event.counts).toEqual(server.data.counts);
       expect(first.event.runId).toBe(f.runId);
