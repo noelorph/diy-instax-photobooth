@@ -29,6 +29,7 @@ import {
 } from '@/app/api/admin/events/[eventId]/booth/setup-readiness/route';
 import { POST as startRoute } from '@/app/api/admin/events/[eventId]/booth/start/route';
 import { POST as addPackages } from '@/app/api/admin/events/[eventId]/film-packages/route';
+import { POST as recoverAccessRoute } from '@/app/api/admin/events/[eventId]/booth/recover-access/route';
 import { POST as pauseRoute } from '@/app/api/admin/events/[eventId]/booth/pause/route';
 import { POST as completeRoute } from '@/app/api/admin/events/[eventId]/complete/route';
 import { POST as cancelRoute } from '@/app/api/admin/events/[eventId]/cancel/route';
@@ -492,6 +493,9 @@ it('binds setup readiness to the current Admin session and device before Start',
     );
     expect(read.status).toBe(200);
     expect(read.headers.get('cache-control')).toContain('no-store');
+    expect(read.headers.getSetCookie()).toEqual(
+      expect.arrayContaining([expect.stringContaining(`__Host-booth-return=${fixture.eventId};`)])
+    );
     const deviceCookie = read.headers
       .getSetCookie()
       .find((value) => value.startsWith('__Host-booth-device='))!
@@ -857,6 +861,31 @@ it('rejects the retained legacy SQL redaction operation for package History', as
         `select client_name,media_removal_state,redacted_at from public.events where id='${f.eventId}'`
       )[0]
     ).toEqual({ client_name: 'Client', media_removal_state: 'none', redacted_at: null });
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('fences replacement and terminal commands to their expected Admin', async () => {
+  const f = await createPackageFixture();
+  try {
+    f.seedRun();
+    const session = (await f.adminClient.auth.getSession()).data.session!;
+    const cookie = sessionCookies(session);
+    for (const pair of cookie.split('; ')) {
+      const [name, value] = pair.split('=');
+      jar.set(name, value);
+    }
+    const context = { params: Promise.resolve({ eventId: f.eventId }) };
+    for (const [route, body] of [
+      [recoverAccessRoute, { operationId: randomUUID(), runId: f.runId, expectedRevision: 2 }],
+      [completeRoute, { operationId: randomUUID(), expectedRevision: 2 }],
+      [cancelRoute, { operationId: randomUUID(), expectedRevision: 2 }],
+    ] as const) {
+      const wrong = request(body, cookie);
+      wrong.headers.set('x-package-admin-id', randomUUID());
+      expect((await route(wrong, context)).status).toBe(403);
+    }
   } finally {
     await f.dispose();
   }

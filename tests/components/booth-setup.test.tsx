@@ -1,7 +1,15 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { BoothSetup } from '@/features/admin/operations/booth-setup';
-vi.mock('next/navigation', () => ({ useRouter: () => ({ replace: vi.fn(), refresh: vi.fn() }) }));
+beforeEach(() => {
+  const originalWindow = window;
+  vi.stubGlobal(
+    'window',
+    new Proxy(originalWindow, {
+      get: (target, key) => (key === 'location' ? { replace: vi.fn() } : Reflect.get(target, key)),
+    })
+  );
+});
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
@@ -117,7 +125,7 @@ it('a delayed setup readiness reply after unmount cannot report or touch a new c
   vi.stubGlobal('fetch', fetcher);
   const surface = render(<BoothSetup eventId={crypto.randomUUID()} revision={1} />);
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(2000);
+    fireEvent.click(screen.getByRole('button', { name: 'Connect to Instax' }));
   });
   expect(fetcher).toHaveBeenCalledOnce();
   surface.unmount();
@@ -238,3 +246,114 @@ it.each(['receipt', 'exact replay'])(
     expect(paths.some((path) => path.endsWith(`/${handoffId}/issue`))).toBe(true);
   }
 );
+
+it.each(['receipt', 'exact replay'])(
+  'replaces access into the same run using %s without starting or resuming',
+  async (mode) => {
+    const eventId = crypto.randomUUID();
+    const runId = crypto.randomUUID();
+    const handoffId = crypto.randomUUID();
+    let original: Record<string, unknown> | undefined;
+    let attempts = 0;
+    const paths: string[] = [];
+    const receipt = (kind: string, result: object) => ({
+      receipt: { operationId: String(original?.operationId), kind, committedRevision: 4, result },
+      revision: 4,
+      replayed: false,
+    });
+    vi.stubGlobal('fetch', async (path: string, init?: RequestInit) => {
+      paths.push(path);
+      if (path.includes('/setup-readiness'))
+        return Response.json({
+          revision: 3,
+          readinessWindowId: crypto.randomUUID(),
+          readiness: { ready: false, counts: { printsAvailable: 9 } },
+        });
+      if (path.endsWith('/recover-access')) {
+        attempts++;
+        const body = JSON.parse(String(init?.body));
+        if (!original) {
+          original = body;
+          throw new TypeError('lost');
+        }
+        expect(body).toEqual(original);
+        return Response.json(receipt('recover_access', { handoffId, runId }));
+      }
+      if (path.includes('/operations/')) {
+        if (mode === 'exact replay' && attempts === 1) throw new TypeError('offline');
+        return Response.json(receipt('recover_access', { handoffId, runId }));
+      }
+      return Response.json(
+        receipt(path.endsWith('/issue') ? 'issue_handoff' : 'confirm_handoff', {})
+      );
+    });
+    const view = render(
+      <BoothSetup
+        eventId={eventId}
+        revision={3}
+        runId={runId}
+        runState="Active"
+        adminUserId="admin-a"
+      />
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Replace Booth access' }));
+    expect(paths).toHaveLength(0);
+    expect(screen.getByRole('dialog').textContent).toMatch(/Paused/);
+    fireEvent.click(screen.getByRole('button', { name: 'Confirm replacement' }));
+    if (mode === 'exact replay') {
+      await screen.findByRole('alert');
+      view.rerender(
+        <BoothSetup
+          eventId={eventId}
+          revision={9}
+          runId={runId}
+          runState="Paused"
+          adminUserId="admin-a"
+        />
+      );
+      fireEvent.click(screen.getByRole('button', { name: 'Retry access replacement' }));
+    }
+    await waitFor(() =>
+      expect(paths.some((path) => path.endsWith(`/${handoffId}/issue`))).toBe(true)
+    );
+    expect(original).toEqual({ operationId: expect.any(String), expectedRevision: 3, runId });
+    expect(paths.some((path) => path.endsWith('/start') || path.endsWith('/resume'))).toBe(false);
+  }
+);
+
+it('does not issue setup windows from a passive phone view before a local equipment gesture', async () => {
+  vi.useFakeTimers();
+  const fetcher = vi.fn();
+  vi.stubGlobal('fetch', fetcher);
+  render(
+    <BoothSetup
+      eventId={crypto.randomUUID()}
+      revision={5}
+      runId={crypto.randomUUID()}
+      runState="Finished"
+    />
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(6000);
+  });
+  expect(fetcher).not.toHaveBeenCalled();
+});
+
+it('disables reviewed replacement if Finish or possible delivery arrives before confirmation', () => {
+  const props = {
+    eventId: crypto.randomUUID(),
+    revision: 3,
+    runId: crypto.randomUUID(),
+    runState: 'Paused' as const,
+  };
+  const view = render(<BoothSetup {...props} />);
+  fireEvent.click(screen.getByRole('button', { name: 'Replace Booth access' }));
+  view.rerender(<BoothSetup {...props} runState="Finishing" />);
+  expect(screen.getByRole('button', { name: 'Confirm replacement' }).hasAttribute('disabled')).toBe(
+    true
+  );
+  view.rerender(<BoothSetup {...props} possibleDelivery />);
+  expect(screen.getByRole('button', { name: 'Confirm replacement' }).hasAttribute('disabled')).toBe(
+    true
+  );
+});

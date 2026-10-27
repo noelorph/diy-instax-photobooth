@@ -12,6 +12,7 @@ export type OperationalEvent = {
   runId: string | null;
   runState: RunState | null;
   resumeAllowed: boolean;
+  possibleDelivery: boolean;
   blockers: string[];
   attempts: Attempt[];
 };

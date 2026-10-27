@@ -10,8 +10,12 @@ import type { OperationalEvent } from './types';
 import styles from './panel.module.css';
 
 const commandSchema = z.object({
-  action: z.enum(['pause', 'resume', 'finish']),
-  body: z.object({ operationId: z.uuid(), expectedRevision: z.number().int(), runId: z.string() }),
+  action: z.enum(['pause', 'resume', 'finish', 'complete', 'cancel']),
+  body: z.object({
+    operationId: z.uuid(),
+    expectedRevision: z.number().int(),
+    runId: z.string().optional(),
+  }),
 });
 type Command = z.infer<typeof commandSchema>;
 const blockerMessages: Record<string, string> = {
@@ -41,13 +45,14 @@ export function BoothControls({
   const router = useRouter();
   const savedKey = `booth-command:${event.id}:${adminUserId}`;
   const pending = useRef<Command | null>(null);
+  const trigger = useRef<HTMLButtonElement | null>(null);
   const reviewedFinish = useRef<Command | null>(null);
   const submitting = useRef(false);
   const [ready, setReady] = useState(false);
   const [busy, setBusy] = useState(false);
   const [uncertain, setUncertain] = useState(false);
   const [blocked, setBlocked] = useState(false);
-  const [review, setReview] = useState(false);
+  const [review, setReview] = useState<'finish' | 'complete' | 'cancel' | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   useEffect(() => {
@@ -95,18 +100,17 @@ export function BoothControls({
       let command = pending.current;
       const recovering = !!command;
       if (!command) {
-        if (!action || !event.runId) return;
-        command =
-          action === 'finish'
-            ? reviewedFinish.current
-            : {
-                action,
-                body: {
-                  operationId: crypto.randomUUID(),
-                  expectedRevision: event.revision,
-                  runId: event.runId,
-                },
-              };
+        if (!action || (['pause', 'resume'].includes(action) && !event.runId)) return;
+        command = ['finish', 'complete', 'cancel'].includes(action)
+          ? reviewedFinish.current
+          : {
+              action,
+              body: {
+                operationId: crypto.randomUUID(),
+                expectedRevision: event.revision,
+                runId: event.runId!,
+              },
+            };
         if (!command) return;
         sessionStorage.setItem(savedKey, JSON.stringify(command));
         pending.current = command;
@@ -123,7 +127,10 @@ export function BoothControls({
         receipt = (await lookup.json()).receipt;
       }
       if (!receipt) {
-        const response = await fetch(`/api/admin/events/${event.id}/booth/${command.action}`, {
+        const path = ['complete', 'cancel'].includes(command.action)
+          ? command.action
+          : `booth/${command.action}`;
+        const response = await fetch(`/api/admin/events/${event.id}/${path}`, {
           method: 'POST',
           cache: 'no-store',
           headers,
@@ -153,7 +160,7 @@ export function BoothControls({
       sessionStorage.removeItem(savedKey);
       pending.current = null;
       setUncertain(false);
-      setReview(false);
+      setReview(null);
       setNotice('Booth command recorded. Refreshing current state.');
       router.refresh();
     } catch (cause) {
@@ -172,6 +179,7 @@ export function BoothControls({
   }
   const feedback = (
     <>
+      {busy && <FormFeedback kind="status">Recording Booth command. Please wait.</FormFeedback>}
       {error && <FormFeedback kind="error">{error}</FormFeedback>}
       {notice && <FormFeedback kind="status">{notice}</FormFeedback>}
       {uncertain && (
@@ -184,9 +192,9 @@ export function BoothControls({
   const disabled = !ready || busy || uncertain || blocked;
   return (
     <Dialog.Root
-      open={review}
+      open={review !== null}
       onOpenChange={(open) => {
-        if (!busy && !uncertain) setReview(open);
+        if (!open && !busy && !uncertain) setReview(null);
       }}
     >
       <section aria-label="Booth controls">
@@ -215,13 +223,15 @@ export function BoothControls({
                 <Button
                   variant="secondary"
                   disabled={disabled}
-                  onClick={() => {
+                  onClick={(e) => {
+                    trigger.current = e.currentTarget;
+                    setReview('finish');
                     if (event.runId)
                       reviewedFinish.current = {
                         action: 'finish',
                         body: {
                           operationId: crypto.randomUUID(),
-                          runId: event.runId,
+                          runId: event.runId!,
                           expectedRevision: event.revision,
                         },
                       };
@@ -232,6 +242,41 @@ export function BoothControls({
               </Dialog.Trigger>
             )}
           </div>
+        )}
+        {event.state === 'Live' && (
+          <>
+            <div className={styles.actions}>
+              {(['complete', 'cancel'] as const).map((action) => (
+                <Dialog.Trigger key={action} asChild>
+                  <Button
+                    variant={action === 'cancel' ? 'destructive' : 'secondary'}
+                    disabled={
+                      disabled || event.runState !== 'Finished' || event.counts.unresolved > 0
+                    }
+                    onClick={(e) => {
+                      trigger.current = e.currentTarget;
+                      reviewedFinish.current = {
+                        action,
+                        body: {
+                          operationId: crypto.randomUUID(),
+                          expectedRevision: event.revision,
+                        },
+                      };
+                      setReview(action);
+                    }}
+                  >
+                    {action === 'complete' ? 'Complete Event' : 'Cancel Event'}
+                  </Button>
+                </Dialog.Trigger>
+              ))}
+            </div>
+            {(event.runState !== 'Finished' || event.counts.unresolved > 0) && (
+              <p>
+                Finish every Booth run and resolve all print outcomes before completing or
+                cancelling this Event.
+              </p>
+            )}
+          </>
         )}
         {event.state === 'Live' && event.runState !== 'Finished' && event.blockers.length > 0 && (
           <ul aria-label="Booth readiness blockers">
@@ -246,16 +291,34 @@ export function BoothControls({
 
         <Dialog.Portal>
           <Dialog.Overlay className={styles.overlay} />
-          <Dialog.Content className={styles.dialog}>
-            <Dialog.Title>Finish Booth Mode</Dialog.Title>
+          <Dialog.Content
+            className={styles.dialog}
+            onCloseAutoFocus={(e) => {
+              e.preventDefault();
+              trigger.current?.focus();
+            }}
+          >
+            <Dialog.Title>
+              {review === 'complete'
+                ? 'Complete Event'
+                : review === 'cancel'
+                  ? 'Cancel Event'
+                  : 'Finish Booth Mode'}
+            </Dialog.Title>
             <Dialog.Description>
-              Stop new Guests and finish this run. A command already sent may still print; Booth
-              Mode waits for its outcome. The Event stays Live.
+              {review === 'finish'
+                ? 'Stop new Guests and finish this run. A command already sent may still print; Booth Mode waits for its outcome. The Event stays Live.'
+                : `${review === 'complete' ? 'Complete' : 'Cancel'} this Event. Its booking, counts, Captures, Print Attempts, Event Media and audit history remain in History. Booth Mode cannot restart for this Event.`}
             </Dialog.Description>
             {feedback}
             <div className={styles.actions}>
-              <Button disabled={disabled} onClick={() => void submit('finish')}>
-                Confirm Finish Booth Mode
+              <Button disabled={disabled} onClick={() => void submit(review ?? undefined)}>
+                Confirm{' '}
+                {review === 'complete'
+                  ? 'Complete Event'
+                  : review === 'cancel'
+                    ? 'Cancel Event'
+                    : 'Finish Booth Mode'}
               </Button>
               <Dialog.Close asChild>
                 <Button variant="quiet" disabled={busy || uncertain}>

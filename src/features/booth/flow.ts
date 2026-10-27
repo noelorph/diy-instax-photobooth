@@ -108,14 +108,28 @@ export class BoothFlow {
   }
   private failure(error: unknown) {
     this.acknowledgedAt = 0;
-    const access =
-      typeof error === 'object' &&
-      error !== null &&
-      'status' in error &&
-      (error.status === 401 || error.status === 403);
+    const status =
+      typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
+    const access = status === 401 || status === 403 || this.view.phase === 'access-required';
+    if (access) this.state = undefined;
     this.show({
-      phase: access ? 'access-required' : 'unavailable',
-      blockers: [access ? 'access_required' : 'server_unreachable'],
+      ...(!access ? this.view : {}),
+      phase: access
+        ? 'access-required'
+        : this.state?.state === 'Paused'
+          ? 'paused'
+          : this.state?.state === 'Finishing'
+            ? 'finishing'
+            : 'unavailable',
+      blockers: access
+        ? ['access_required']
+        : [
+            ...new Set([
+              ...this.view.blockers,
+              'readiness_stale',
+              ...(status === 409 ? [] : ['server_unreachable']),
+            ]),
+          ],
       allowedActions: access ? emptyActions : this.view.allowedActions,
     });
   }
@@ -311,12 +325,19 @@ export class BoothFlow {
     this.listeners.clear();
   }
 }
-export const boothFetch: BoothTransport = async (path, body) => {
+export const boothFetch = async (
+  path: string,
+  body?: Record<string, unknown>,
+  adminUserId?: string
+): Promise<unknown> => {
   const response = await fetch(path, {
     method: body ? 'POST' : 'GET',
     cache: 'no-store',
     credentials: 'same-origin',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
+    headers: {
+      ...(body ? { 'Content-Type': 'application/json' } : {}),
+      ...(adminUserId ? { 'x-package-admin-id': adminUserId } : {}),
+    },
     body: body ? JSON.stringify(body) : undefined,
   });
   if (!response.ok)

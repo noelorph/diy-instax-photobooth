@@ -57,6 +57,7 @@ it('reads real package totals independently of the attempt page, including the l
       expect(older.adminUserId).toBe(f.adminUser.id);
       expect(first.event.counts).toEqual(server.data.counts);
       expect(older.event.counts).toEqual(server.data.counts);
+      expect(older.event.possibleDelivery).toBe(true);
       expect(first.event.runId).toBe(f.runId);
       expect(first.event.runState).toBe('Paused');
       expect(first.event.resumeAllowed).toBe(false);
@@ -158,3 +159,33 @@ it('excludes legacy Live Events while preserving current additional package tota
     cleanupEvents(ids);
   }
 });
+
+it('distinguishes a known unsent reservation from possible delivery in the recovery read model', async () => {
+  const f = await createPackageFixture();
+  try {
+    vi.mocked(createClient).mockResolvedValue(f.adminClient);
+    vi.mocked(createPrivilegedClient).mockReturnValue(f.local.service);
+    vi.mocked(requireAdmin).mockResolvedValue({
+      userId: f.adminUser.id,
+      sessionId: f.adminSessionId,
+    });
+    f.seedRun('Paused');
+    const sessionId = localOwnerSql(
+      `insert into public.guest_sessions(event_id,run_id,accounting_version) values('${f.eventId}','${f.runId}',2) returning id`
+    )[0].id;
+    const captureId = localOwnerSql(
+      `insert into public.captures(event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) values('${f.eventId}','${f.runId}','${sessionId}',2,clock_timestamp(),gen_random_uuid()) returning id`
+    )[0].id;
+    localOwnerSql(
+      `insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) values('${f.eventId}','${f.runId}','${sessionId}','${captureId}',2,'Guest','Reserved',gen_random_uuid(),gen_random_uuid())`
+    );
+    const current = await getOperationalEvent(f.eventId);
+    expect(current.status).toBe('success');
+    if (current.status === 'success') {
+      expect(current.event.counts.unresolved).toBe(1);
+      expect(current.event.possibleDelivery).toBe(false);
+    }
+  } finally {
+    await f.dispose();
+  }
+}, 30000);

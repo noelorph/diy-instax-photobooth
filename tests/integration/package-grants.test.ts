@@ -356,3 +356,83 @@ it('expires inactive handoff at five minutes and refuses an expired proof', asyn
     await f.dispose();
   }
 }, 30000);
+
+it.each(['Prepared', 'Active', 'Paused'])(
+  'replacement from %s activates the same Paused run with unchanged counts',
+  async (state) => {
+    const f = await createPackageFixture();
+    try {
+      f.seedRun(state);
+      const before = (await f.readAdmin()).data.counts;
+      const replacement = await f.admin('recover_access', {
+        runId: f.runId,
+        expectedRevision: 2,
+        deviceHash: f.deviceHash,
+      });
+      expect(replacement.error).toBeNull();
+      expect(replacement.data.receipt.result.runId).toBe(f.runId);
+      const hash = 'c'.repeat(64),
+        handoffId = replacement.data.receipt.result.handoffId;
+      localOwnerSql(`delete from auth.sessions where id='${f.adminSessionId}'`);
+      expect(
+        (
+          await f.local.service.rpc('package_issue_handoff', {
+            p_handoff_id: handoffId,
+            p_device_hash: f.deviceHash,
+            p_operation_id: randomUUID(),
+            p_grant_hash: hash,
+          })
+        ).error
+      ).toBeNull();
+      expect(
+        (
+          await f.local.service.rpc('package_booth_operation', {
+            p_grant_hash: hash,
+            p_operation: 'confirm_handoff',
+            p_operation_id: randomUUID(),
+            p_payload: { handoffId, deviceHash: f.deviceHash },
+          })
+        ).error
+      ).toBeNull();
+      const run = localOwnerSql(
+        `select id,state from public.booth_runs where event_id='${f.eventId}'`
+      );
+      expect(run).toEqual([{ id: f.runId, state: 'Paused' }]);
+      const after = await f.local.service.rpc('package_booth_read', {
+        p_grant_hash: hash,
+        p_operation_id: null,
+      });
+      expect(after.error).toBeNull();
+      expect(after.data.counts).toEqual(before);
+      expect(after.data.allowedActions.startGuest).toBe(false);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
+
+it('cannot replace a Finished run', async () => {
+  const f = await createPackageFixture();
+  try {
+    f.seedRun();
+    const finish = await f.admin('finish', { runId: f.runId, expectedRevision: 2 });
+    expect(finish.error).toBeNull();
+    expect(
+      (
+        await f.admin('recover_access', {
+          runId: f.runId,
+          expectedRevision: finish.data.revision,
+          deviceHash: f.deviceHash,
+        })
+      ).error?.message
+    ).toBe('invalid_transition');
+    expect(
+      localOwnerSql(
+        `select count(*)::integer n from public.booth_runs where event_id='${f.eventId}'`
+      )[0].n
+    ).toBe(1);
+  } finally {
+    await f.dispose();
+  }
+}, 30000);

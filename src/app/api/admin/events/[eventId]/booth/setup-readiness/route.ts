@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { boothReturnCookie } from '@/features/admin/auth/booth-return';
 import { requireAdminRequest } from '@/lib/operations/admin-authority';
 import {
   cookieOptions,
@@ -51,6 +52,7 @@ export async function GET(request: Request, context: { params: Promise<{ eventId
     });
     const response = operationResponse(result);
     response.cookies.set(deviceCookie, device, { ...cookieOptions, maxAge: 172800 });
+    response.cookies.set(boothReturnCookie, eventId, { ...cookieOptions, maxAge: 172800 });
     return response;
   } catch (error) {
     return packageErrorResponse(error);

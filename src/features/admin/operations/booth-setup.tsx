@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { Dialog } from 'radix-ui';
+import type { RunState } from '@/lib/operations/package-contract';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { FormFeedback } from '@/components/shared/form-feedback';
@@ -22,13 +23,34 @@ const setupSchema = z.object({
   readinessWindowId: z.uuid(),
   readiness: readinessSchema,
 });
-export function BoothSetup({ eventId, revision }: { eventId: string; revision: number }) {
-  const router = useRouter();
+export function BoothSetup({
+  eventId,
+  revision,
+  runId,
+  runState,
+  possibleDelivery = false,
+  adminUserId,
+}: {
+  eventId: string;
+  revision: number;
+  runId?: string | null;
+  runState?: RunState | null;
+  possibleDelivery?: boolean;
+  adminUserId?: string;
+}) {
+  const newRun = !runId || runState === 'Finished';
+  const replaceAllowed =
+    !!runId && ['Prepared', 'Active', 'Paused'].includes(runState ?? '') && !possibleDelivery;
+  const [review, setReview] = useState(false);
+  const reviewedReplacement = useRef<z.infer<typeof packageActionSchemas.recoverAccess> | null>(
+    null
+  );
   const [camera] = useState(() => new BrowserBoothCamera());
   const [printer] = useState(getBoothPrinter);
   const video = useRef<HTMLVideoElement>(null);
   const mounted = useRef(false);
   const reporting = useRef(false);
+  const localSetup = useRef(false);
   const starting = useRef(false);
   const handoff = useRef<{
     id: string;
@@ -36,11 +58,18 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
     confirm: string;
     stage: 'prepared' | 'issued' | 'confirmed';
   } | null>(null);
-  const startCommand = useRef<z.infer<typeof packageActionSchemas.start> | null>(null);
+  const startCommand = useRef<{
+    kind: 'start' | 'recover_access';
+    path: string;
+    body:
+      | z.infer<typeof packageActionSchemas.start>
+      | z.infer<typeof packageActionSchemas.recoverAccess>;
+  } | null>(null);
   const [uncertainStart, setUncertainStart] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cameraBusy, setCameraBusy] = useState(false);
   const [error, setError] = useState('');
+  const [accessRequired, setAccessRequired] = useState(false);
   const [ready, setReady] = useState(false);
   const confirmations = useRef({
     filmLoadedConfirmed: false,
@@ -61,7 +90,15 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
   } | null>(null);
   const endpoint = `/api/admin/events/${eventId}/booth`;
   async function refresh() {
-    if (!mounted.current || reporting.current || starting.current || startCommand.current) return;
+    if (
+      !newRun ||
+      !localSetup.current ||
+      !mounted.current ||
+      reporting.current ||
+      starting.current ||
+      startCommand.current
+    )
+      return;
     reporting.current = true;
     setReady(false);
     try {
@@ -135,9 +172,10 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
       camera.stop();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [camera, printer, endpoint]);
+  }, [camera, printer, endpoint, newRun]);
   async function enableCamera() {
     if (cameraBusy || !video.current) return;
+    localSetup.current = true;
     setCameraBusy(true);
     setError('');
     try {
@@ -161,16 +199,26 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
       if (mounted.current) setCameraBusy(false);
     }
   }
-  async function start() {
+  async function start(replacement = false) {
     if (
       starting.current ||
-      (!startCommand.current && (reporting.current || !ready || !latest.current))
+      (!startCommand.current &&
+        (replacement
+          ? !replaceAllowed || !reviewedReplacement.current
+          : reporting.current || !ready || !latest.current))
     )
       return;
     starting.current = true;
     setBusy(true);
     setError('');
     try {
+      if (!startCommand.current && replacement) {
+        startCommand.current = {
+          kind: 'recover_access',
+          path: `${endpoint}/recover-access`,
+          body: reviewedReplacement.current!,
+        };
+      }
       if (!startCommand.current) {
         const observed = latest.current!;
         const local = await printer.readReadiness();
@@ -183,19 +231,32 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
           Date.now() - observed.at > READINESS_MAX_AGE_MS
         )
           throw new Error('Equipment changed. Recheck setup before starting.');
-        startCommand.current = packageActionSchemas.start.parse({
-          operationId: crypto.randomUUID(),
-          expectedRevision: observed.revision ?? revision,
-          readinessWindowId: observed.window,
-          printerId: local.printerId,
-          connectionGeneration: local.connectionGeneration,
-        });
+        startCommand.current = {
+          kind: 'start',
+          path: `${endpoint}/start`,
+          body: packageActionSchemas.start.parse({
+            operationId: crypto.randomUUID(),
+            expectedRevision: observed.revision ?? revision,
+            readinessWindowId: observed.window,
+            printerId: local.printerId,
+            connectionGeneration: local.connectionGeneration,
+          }),
+        };
       }
       if (!handoff.current) {
-        const body = startCommand.current!;
+        const { body, path, kind } = startCommand.current!;
+        if (kind === 'recover_access') {
+          // Bind this browser's device; readiness is reestablished under the scoped grant.
+          const local = await printer.readReadiness();
+          await boothFetch(
+            `${endpoint}/setup-readiness?printerId=${encodeURIComponent(local.printerId)}&connectionGeneration=${local.connectionGeneration}`,
+            undefined,
+            adminUserId
+          );
+        }
         let result;
         try {
-          result = packageReplySchema.parse(await boothFetch(`${endpoint}/start`, body));
+          result = packageReplySchema.parse(await boothFetch(path, body, adminUserId));
         } catch (error) {
           if (
             typeof error === 'object' &&
@@ -209,16 +270,22 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
           }
           const recovered = z
             .object({ receipt: packageReplySchema.shape.receipt.nullable() })
-            .parse(await boothFetch(`/api/admin/events/${eventId}/operations/${body.operationId}`));
+            .parse(
+              await boothFetch(
+                `/api/admin/events/${eventId}/operations/${body.operationId}`,
+                undefined,
+                adminUserId
+              )
+            );
           if (recovered.receipt) {
             if (
               recovered.receipt.operationId !== body.operationId ||
-              recovered.receipt.kind !== 'start'
+              recovered.receipt.kind !== kind
             )
-              throw new Error('Start receipt does not match this command.');
+              throw new Error('Setup receipt does not match this command.');
             result = recovered;
           } else {
-            result = packageReplySchema.parse(await boothFetch(`${endpoint}/start`, body));
+            result = packageReplySchema.parse(await boothFetch(path, body, adminUserId));
           }
         }
         const id = z.object({ handoffId: z.uuid() }).parse(result.receipt?.result).handoffId;
@@ -236,7 +303,8 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
         packageReplySchema.parse(
           await boothFetch(
             `/api/admin/booth-handoffs/${pending.id}/issue`,
-            packageOperationSchema.parse({ operationId: pending.issue })
+            packageOperationSchema.parse({ operationId: pending.issue }),
+            adminUserId
           )
         );
         pending.stage = 'issued';
@@ -268,12 +336,13 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
       }
       if (mounted.current) {
         camera.stop();
-        router.replace('/booth');
-        router.refresh();
+        // A cached /booth tree may own a disposed controller and released equipment.
+        window.location.replace('/booth');
       }
     } catch (error) {
       if (mounted.current) {
         setUncertainStart(!!startCommand.current && !handoff.current);
+        setAccessRequired(!!handoff.current);
         setReady(false);
         setError(
           error instanceof Error ? error.message : 'Unable to start Booth. Reload current state.'
@@ -287,6 +356,77 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
         starting.current = false;
     }
   }
+  if (!newRun && !busy && !uncertainStart && !review && !replaceAllowed)
+    return possibleDelivery ? (
+      <p>Resolve the pending print outcome before replacing Booth access.</p>
+    ) : null;
+  const feedback = error && (
+    <FormFeedback kind="error">
+      {error}
+      {accessRequired && (
+        <Button asChild variant="quiet">
+          <a href="/sign-in?from=booth">Admin sign in</a>
+        </Button>
+      )}
+    </FormFeedback>
+  );
+  if (!newRun || review)
+    return (
+      <Dialog.Root
+        open={review}
+        onOpenChange={(open) => {
+          if (!busy && !uncertainStart) setReview(open);
+        }}
+      >
+        <section aria-label="Booth access setup" className={styles.panel}>
+          <p>Exceptional access replacement must be performed on the Booth device.</p>
+          <Dialog.Trigger asChild>
+            <Button
+              variant="secondary"
+              disabled={!replaceAllowed || busy || uncertainStart}
+              onClick={() => {
+                reviewedReplacement.current = packageActionSchemas.recoverAccess.parse({
+                  operationId: crypto.randomUUID(),
+                  expectedRevision: revision,
+                  runId,
+                });
+              }}
+            >
+              Replace Booth access
+            </Button>
+          </Dialog.Trigger>
+          {!review && feedback}
+          <Dialog.Portal>
+            <Dialog.Overlay className={styles.overlay} />
+            <Dialog.Content className={styles.dialog}>
+              <Dialog.Title>Replace Booth access</Dialog.Title>
+              <Dialog.Description>
+                Replace access for this same run on this Booth device. Admin signs out locally; the
+                phone stays signed in. The run stays Paused after replacement. Restore equipment
+                readiness, then explicitly Resume Booth from the phone. Counts do not reset.
+              </Dialog.Description>
+              {feedback}
+              {busy && (
+                <FormFeedback kind="status">Preparing replacement Booth access.</FormFeedback>
+              )}
+              <div className={styles.actions}>
+                <Button
+                  disabled={busy || (!uncertainStart && !replaceAllowed)}
+                  onClick={() => void start(true)}
+                >
+                  {uncertainStart ? 'Retry access replacement' : 'Confirm replacement'}
+                </Button>
+                <Dialog.Close asChild>
+                  <Button variant="quiet" disabled={busy || uncertainStart}>
+                    Back
+                  </Button>
+                </Dialog.Close>
+              </div>
+            </Dialog.Content>
+          </Dialog.Portal>
+        </section>
+      </Dialog.Root>
+    );
   return (
     <section aria-label="Booth setup" className={styles.panel}>
       <h3>Booth setup</h3>
@@ -305,6 +445,7 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
         <Button
           disabled={busy}
           onClick={() => {
+            localSetup.current = true;
             void printer
               .connect()
               .then(refresh)
@@ -343,7 +484,7 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
           ? 'Equipment ready. Start within five seconds of the latest check.'
           : 'Complete equipment setup and physical confirmations.'}
       </p>
-      {error && <FormFeedback kind="error">{error}</FormFeedback>}
+      {feedback}
       <Button disabled={busy || (!ready && !uncertainStart)} onClick={() => void start()}>
         {uncertainStart ? 'Retry Start Booth Mode' : 'Start Booth Mode'}
       </Button>

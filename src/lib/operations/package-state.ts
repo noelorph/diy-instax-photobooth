@@ -17,7 +17,7 @@ export async function readPackageAdminState(
   const client = createPrivilegedClient();
   const { data, error } = await client
     .from('print_attempts')
-    .select('id,state,run_id')
+    .select('id,state,run_id,dispatch_id')
     .eq('event_id', eventId)
     .eq('accounting_version', 2)
     .in('state', ['Reserved', 'Dispatching', 'Accepted', 'Pending']);
@@ -40,6 +40,9 @@ export async function readPackageAdminState(
     mediaRemovalState: state.mediaRemovalState as string | undefined,
     runId: run.data[0]?.id ?? null,
     runState: run.data[0]?.state ?? null,
+    possibleDelivery: data.some(
+      (attempt) => attempt.state !== 'Reserved' || attempt.dispatch_id !== null
+    ),
     pendingAttempts: data.map(({ id, state, run_id }) => ({ attemptId: id, state, runId: run_id })),
   };
 }

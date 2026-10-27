@@ -89,8 +89,16 @@ export function OperationsPanel({
           <p>{counts.printsAvailable} prints available</p>
         </section>
       </div>
-      {event.state === 'Draft' && !event.runId && (
-        <BoothSetup eventId={event.id} revision={event.revision} />
+      {['Draft', 'Live'].includes(event.state) && (
+        <BoothSetup
+          key={`setup:${event.id}:${adminUserId}`}
+          eventId={event.id}
+          revision={event.revision}
+          runId={event.runId}
+          runState={event.runState}
+          adminUserId={adminUserId}
+          possibleDelivery={event.possibleDelivery}
+        />
       )}
       <BoothControls
         key={`booth:${event.id}:${adminUserId}`}

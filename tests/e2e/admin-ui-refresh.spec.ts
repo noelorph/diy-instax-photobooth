@@ -59,7 +59,7 @@ for (const width of [320, 768, 1440]) {
           /geist/i
         );
         await page.goto('/sign-in?from=booth');
-        await expect(page.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
+        await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
         expect(
           await page.locator('.public-auth').evaluate((e) => getComputedStyle(e).backgroundColor)
         ).not.toBe(publicBackground);

@@ -172,3 +172,59 @@ it('rejects late Capture when the original grant would already be expired', asyn
     await f.dispose();
   }
 }, 30000);
+
+it.each(['pause', 'finish'])(
+  'preserves exact pre-stop metadata receipts after %s without restoring Guest authority',
+  async (action) => {
+    const f = await createPackageFixture();
+    try {
+      f.seedRun();
+      localOwnerSql(
+        `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+      );
+      const session = await f.booth('start_session', { expectedRevision: 2 });
+      expect(session.error).toBeNull();
+      const sessionId = session.data.receipt.result.sessionId;
+      const capturedAt = String(localOwnerSql('select clock_timestamp() as at')[0].at);
+      const stop = await f.admin(action, {
+        runId: f.runId,
+        expectedRevision: session.data.revision,
+      });
+      expect(stop.error).toBeNull();
+      const input = { sessionId, captureId: randomUUID(), capturedAt },
+        key = randomUUID();
+      const late = await f.booth('record_capture', input, key);
+      expect(late.error).toBeNull();
+      const replay = await f.booth('record_capture', input, key);
+      expect(replay.error).toBeNull();
+      expect(replay.data.replayed).toBe(true);
+      expect(replay.data.receipt).toEqual(late.data.receipt);
+      expect(
+        (await f.booth('record_capture', { ...input, captureId: randomUUID() }, key)).error?.message
+      ).toBe('operation_conflict');
+      expect(
+        (await f.booth('record_capture', { ...input, sessionId: randomUUID() })).error?.message
+      ).toBe('invalid_transition');
+      expect(
+        (await f.booth('start_session', { expectedRevision: late.data.revision })).error
+      ).not.toBeNull();
+      expect(
+        (
+          await f.booth('reserve', {
+            sessionId,
+            captureId: input.captureId,
+            expectedRevision: late.data.revision,
+          })
+        ).error
+      ).not.toBeNull();
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.captures where event_id='${f.eventId}'`
+        )[0].n
+      ).toBe(1);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);

@@ -203,6 +203,10 @@ test('unusable issue reply fails closed without a second run or blind reissue', 
       });
       await d.boothPage.getByRole('button', { name: 'Start Booth Mode' }).click();
       await expect(d.boothPage.getByText(/Booth access could not be issued/)).toBeVisible();
+      await expect(d.boothPage.getByRole('link', { name: 'Admin sign in' })).toHaveAttribute(
+        'href',
+        '/sign-in?from=booth'
+      );
       await expect(d.boothPage.getByRole('button', { name: 'Start Booth Mode' })).toBeDisabled();
       expect(issues).toBe(1);
       expect(
@@ -410,6 +414,7 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
         `insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) values('${f.eventId}','${current.runId}','${sessionId}','${captureId}',2,'Guest','Pending',gen_random_uuid(),gen_random_uuid()) returning id,state`
       )[0];
       await expect(d.phonePage.getByText('1 print pending', { exact: true })).toBeVisible();
+      await expect(d.phonePage.getByText('Live · Active', { exact: true })).toBeVisible();
       await d.phonePage.getByRole('button', { name: 'Finish Booth Mode', exact: true }).click();
       await d.phonePage
         .getByRole('button', { name: 'Confirm Finish Booth Mode', exact: true })
@@ -431,8 +436,255 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
           `select count(*)::integer n from public.guest_sessions where event_id='${f.eventId}'`
         )[0].n
       ).toBe(1);
+      await expect(
+        d.phonePage.getByRole('button', { name: 'Complete Event', exact: true })
+      ).toBeDisabled();
+      await expect(
+        d.phonePage.getByRole('button', { name: 'Cancel Event', exact: true })
+      ).toBeDisabled();
+      await expect(d.phonePage.getByRole('button', { name: 'Replace Booth access' })).toHaveCount(
+        0
+      );
+      await expect(d.phonePage.getByRole('button', { name: 'Start Booth Mode' })).toHaveCount(0);
       await expect(d.phonePage.getByRole('button', { name: 'Resume Booth' })).toHaveCount(0);
       await expect(d.boothPage.getByRole('link', { name: 'Admin sign in' })).toHaveCount(0);
+    } finally {
+      await d.close();
+    }
+  } finally {
+    await f.dispose();
+  }
+});
+
+async function reviewPhoneCommand(page: Page, action: 'finish' | 'complete', runId?: string) {
+  let rejected: { operationId: string; expectedRevision: number } | undefined;
+  const title = action === 'finish' ? 'Finish Booth Mode' : 'Complete Event';
+  const endpoint = action === 'finish' ? '/booth/finish' : '/complete';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    await page.getByRole('button', { name: title, exact: true }).click();
+    if (action === 'complete') await expect(page.getByRole('dialog')).toContainText('History');
+    const response = page.waitForResponse(
+      (r) => r.url().endsWith(endpoint) && r.request().method() === 'POST'
+    );
+    await page.getByRole('button', { name: `Confirm ${title}`, exact: true }).click();
+    const result = await response;
+    const submitted = result.request().postDataJSON();
+    if (action === 'finish') expect(submitted.runId).toBe(runId);
+    else expect(submitted.runId).toBeUndefined();
+    if (rejected) {
+      expect(submitted.operationId).not.toBe(rejected.operationId);
+      expect(submitted.expectedRevision).toBeGreaterThan(rejected.expectedRevision);
+    }
+    if (result.status() === 409) {
+      rejected = submitted;
+      console.log('Explicit stale command re-review:', action);
+      expect((await result.json()).code).toBe('stale_revision');
+      await expect(page.getByRole('dialog')).toContainText(
+        'The Event changed. Review current state'
+      );
+      await page.getByRole('button', { name: 'Back', exact: true }).click();
+      await page.reload();
+      continue;
+    }
+    expect(result.status()).toBe(200);
+    await expect(page.getByRole('dialog')).toHaveCount(0);
+    return;
+  }
+  throw new Error('State changed again after explicit re-review');
+}
+async function signInFromBooth(page: Page, f: Fixture) {
+  await page.getByRole('link', { name: 'Admin sign in' }).click();
+  await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
+  expect(
+    await page.locator('.public-auth').evaluate((el) => getComputedStyle(el).backgroundColor)
+  ).toBe('rgb(16, 27, 27)');
+  await page.getByLabel('Email', { exact: true }).fill(f.adminUser.email);
+  await page.getByLabel('Password', { exact: true }).fill(f.adminUser.password);
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page).toHaveURL(new RegExp(`/events/${f.eventId}$`));
+}
+function seedOutcome(f: Fixture, runId: string, state: 'Printed' | 'Pending') {
+  const sessionId = localOwnerSql(
+    `insert into public.guest_sessions(event_id,run_id,accounting_version,state,closed_at) values('${f.eventId}','${runId}',2,'Printed',clock_timestamp()) returning id`
+  )[0].id;
+  const captureId = localOwnerSql(
+    `insert into public.captures(event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) values('${f.eventId}','${runId}','${sessionId}',2,clock_timestamp(),gen_random_uuid()) returning id`
+  )[0].id;
+  return String(
+    localOwnerSql(
+      `insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) values('${f.eventId}','${runId}','${sessionId}','${captureId}',2,'Guest','${state}',gen_random_uuid(),gen_random_uuid()) returning id`
+    )[0].id
+  );
+}
+test('protected replacement preserves the same Paused run and counts; phone Resume, new run and Complete remain explicit', async ({
+  browser,
+}) => {
+  const f = await createPackageBrowserFixture();
+  try {
+    localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+    const d = await devices(browser, f);
+    try {
+      await prepare(d.boothPage, f);
+      await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
+      await readyAfterArrival(d.boothPage);
+      const original = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
+      const printedId = seedOutcome(f, original.runId, 'Printed');
+      const before = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
+      localOwnerSql(
+        `update public.booth_grants set state='Revoked',revoked_at=clock_timestamp() where event_id='${f.eventId}' and state='Active'`
+      );
+      await expect(d.boothPage.getByRole('heading', { name: 'Booth access ended' })).toBeVisible();
+      await expect(d.boothPage.getByRole('heading', { name: 'Booth access ended' })).toBeFocused();
+      expect(
+        await d.boothPage.getByRole('main').evaluate((el) => getComputedStyle(el).backgroundColor)
+      ).toBe('rgb(16, 27, 27)');
+      await signInFromBooth(d.boothPage, f);
+      let recoveries = 0;
+      await d.boothPage.route('**/booth/recover-access', async (route) => {
+        recoveries++;
+        await route.fetch();
+        await route.abort();
+      });
+      await d.boothPage.getByRole('button', { name: 'Replace Booth access' }).click();
+      await expect(d.boothPage.getByRole('dialog')).toContainText('Counts do not reset');
+      await d.boothPage.getByRole('button', { name: 'Confirm replacement' }).click();
+      await expect(d.boothPage).toHaveURL(/\/booth$/, { timeout: 20000 });
+      await expect(d.boothPage.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
+      expect(recoveries).toBe(1);
+      const after = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
+      expect(after.runId).toBe(original.runId);
+      expect(after.runState).toBe('Paused');
+      expect(after.counts).toEqual(before.counts);
+      expect((await admit(d.boothPage)).status).toBe(409);
+      const camera = d.boothPage.getByRole('button', { name: 'Enable Camera' });
+      const printer = d.boothPage.getByRole('button', { name: 'Connect to Instax' });
+      if (await camera.isVisible()) await camera.click();
+      if (await printer.isVisible()) await printer.click();
+      await d.phonePage.goto(`/events/${f.eventId}`);
+      await expect(
+        d.phonePage.getByRole('button', { name: 'Complete Event', exact: true })
+      ).toBeDisabled();
+      await expect(
+        d.phonePage.getByRole('button', { name: 'Resume Booth', exact: true })
+      ).toBeEnabled({ timeout: 15000 });
+      await d.phonePage.getByRole('button', { name: 'Resume Booth', exact: true }).click();
+      await expect(d.boothPage.getByRole('heading', { name: 'Make a memory' })).toBeVisible();
+      await expect(d.phonePage.getByText('Live · Active', { exact: true })).toBeVisible();
+      await reviewPhoneCommand(d.phonePage, 'finish', original.runId);
+      await expect(d.boothPage.getByRole('heading', { name: 'Booth Mode finished' })).toBeVisible();
+      await signInFromBooth(d.boothPage, f);
+      await prepare(d.boothPage, f);
+      await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
+      await readyAfterArrival(d.boothPage);
+      const second = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
+      expect(second.runId).not.toBe(original.runId);
+      expect(second.counts).toEqual(before.counts);
+      await expect(
+        d.phonePage.getByRole('button', { name: 'Finish Booth Mode', exact: true })
+      ).toBeVisible();
+      await expect(d.phonePage.getByText('Live · Active', { exact: true })).toBeVisible();
+      await reviewPhoneCommand(d.phonePage, 'finish', second.runId);
+      const finishedSecond = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`))
+        .body;
+      expect(finishedSecond.runId).toBe(second.runId);
+      expect(finishedSecond.runState).toBe('Finished');
+      expect(finishedSecond.counts).toEqual(before.counts);
+      await expect(
+        d.phonePage.getByRole('button', { name: 'Complete Event', exact: true })
+      ).toBeEnabled();
+      await reviewPhoneCommand(d.phonePage, 'complete');
+      await expect(d.phonePage.getByText('Completed · Finished')).toBeVisible();
+      expect(
+        localOwnerSql(`select state from public.print_attempts where id='${printedId}'`)[0].state
+      ).toBe('Printed');
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.booth_runs where event_id='${f.eventId}'`
+        )[0].n
+      ).toBe(2);
+      const retained = (
+        await f.local.service
+          .from('events')
+          .select('state,client_name,deleted_at')
+          .eq('id', f.eventId)
+          .single()
+      ).data;
+      expect(retained?.state).toBe('Completed');
+      expect(retained?.client_name).toBeTruthy();
+      expect(retained?.deleted_at).toBeNull();
+    } finally {
+      await d.close();
+    }
+  } finally {
+    await f.dispose();
+  }
+});
+
+test('eligible Live cancellation keeps History and usable confirmation across themes, widths and zoom', async ({
+  browser,
+}) => {
+  const f = await createPackageBrowserFixture();
+  try {
+    f.seedRun('Finished');
+    const d = await devices(browser, f);
+    try {
+      const page = d.phonePage;
+      await page.emulateMedia({ reducedMotion: 'reduce' });
+      for (const theme of ['light', 'dark'] as const) {
+        expect(
+          (await f.local.service.from('admin_profiles').update({ theme }).eq('id', f.adminUser.id))
+            .error
+        ).toBeNull();
+        for (const width of [320, 1440]) {
+          await page.setViewportSize({ width, height: 900 });
+          await page.goto(`/events/${f.eventId}`);
+          await expect(page.locator('.admin-shell')).toHaveAttribute('data-theme', theme);
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+          ).toBe(true);
+          const trigger = page.getByRole('button', { name: 'Cancel Event', exact: true });
+          await expect(trigger).toBeEnabled();
+          await trigger.focus();
+          await page.keyboard.press('Enter');
+          const dialog = page.getByRole('dialog');
+          await expect(dialog).toContainText('History');
+          expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+          await page.keyboard.press('Tab');
+          expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
+          const button = page.getByRole('button', { name: 'Confirm Cancel Event' });
+          expect(
+            await button.evaluate((el) => el.getBoundingClientRect().height)
+          ).toBeGreaterThanOrEqual(44);
+          expect(await button.evaluate((el) => getComputedStyle(el).transitionProperty)).toBe(
+            'none'
+          );
+          const box = await dialog.boundingBox();
+          expect(box!.x).toBeGreaterThanOrEqual(0);
+          expect(box!.x + box!.width).toBeLessThanOrEqual(width);
+          await page.keyboard.press('Escape');
+          await expect(trigger).toBeFocused();
+        }
+      }
+      await page.setViewportSize({ width: 640, height: 900 });
+      await page.evaluate(() => {
+        document.body.style.zoom = '2';
+      });
+      await page.getByRole('button', { name: 'Cancel Event', exact: true }).click();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+        true
+      );
+      await expect(page.getByRole('button', { name: 'Confirm Cancel Event' })).toBeVisible();
+      await page.getByRole('button', { name: 'Confirm Cancel Event' }).click();
+      await expect(page.getByText('Cancelled · Finished')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
+      const retained = (
+        await f.local.service
+          .from('events')
+          .select('state,client_name,deleted_at')
+          .eq('id', f.eventId)
+          .single()
+      ).data;
+      expect(retained).toEqual({ state: 'Cancelled', client_name: 'Client', deleted_at: null });
     } finally {
       await d.close();
     }

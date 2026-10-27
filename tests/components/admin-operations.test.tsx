@@ -16,6 +16,7 @@ const event: OperationalEvent = {
   runId: 'run',
   runState: 'Paused',
   resumeAllowed: false,
+  possibleDelivery: true,
   blockers: ['print_pending'],
   attempts: [{ id: 'pending', kind: 'Guest', state: 'Pending' }],
   attemptsPage: 0,
@@ -651,6 +652,7 @@ it('coalesces repeated phone Pause gestures while the command is in flight', asy
   fireEvent.click(button);
   fireEvent.click(button);
   expect(submissions).toBe(1);
+  expect(screen.getByRole('status').textContent).toContain('Recording Booth command. Please wait.');
   await act(async () => {
     release();
   });
@@ -676,4 +678,101 @@ it('keeps Finish confirmation bound to the reviewed run and revision', async () 
   fireEvent.click(screen.getByRole('button', { name: 'Confirm Finish Booth Mode' }));
   await screen.findByText('Booth command recorded. Refreshing current state.');
   expect(submitted!).toMatchObject({ runId: 'run', expectedRevision: 3 });
+});
+
+it('offers a new local setup after Finished, separately from Event completion', async () => {
+  render(
+    <OperationsPanel
+      adminUserId="admin-a"
+      event={{ ...event, runState: 'Finished', counts: packageCounts(5, 0, 49, 0), attempts: [] }}
+    />
+  );
+  expect(screen.getByRole('button', { name: 'Start Booth Mode' })).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Resume Booth' })).toBeNull();
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Complete Event' }).hasAttribute('disabled')).toBe(
+      false
+    )
+  );
+  expect(screen.getByRole('button', { name: 'Cancel Event' })).toBeTruthy();
+});
+
+it.each(['Active', 'Paused', 'Finishing'] as const)(
+  'blocks Event termination while run is %s',
+  async (runState) => {
+    render(
+      <OperationsPanel
+        adminUserId="admin-a"
+        event={{ ...event, runState, counts: packageCounts(5, 0, 49, 0) }}
+      />
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Complete Event' }).hasAttribute('disabled')).toBe(
+        true
+      )
+    );
+    expect(screen.getByRole('button', { name: 'Cancel Event' }).hasAttribute('disabled')).toBe(
+      true
+    );
+  }
+);
+
+it.each(['complete', 'cancel'])(
+  'confirms Live %s separately and recovers its frozen command after a lost response',
+  async (action) => {
+    let submitted: Record<string, unknown>;
+    let posts = 0;
+    const actors: (string | null)[] = [];
+    vi.stubGlobal('fetch', async (path: string, options?: RequestInit) => {
+      actors.push(new Headers(options?.headers).get('x-package-admin-id'));
+      if (path.includes('/operations/'))
+        return Response.json({ receipt: { operationId: submitted.operationId, kind: action } });
+      expect(path).toBe(`/api/admin/events/${event.id}/${action}`);
+      submitted = JSON.parse(String(options?.body));
+      posts++;
+      throw new TypeError('lost response');
+    });
+    const finished = {
+      ...event,
+      runState: 'Finished' as const,
+      counts: packageCounts(5, 0, 49, 0),
+      attempts: [],
+    };
+    const view = render(<OperationsPanel adminUserId="admin-a" event={finished} />);
+    const name = action === 'complete' ? 'Complete Event' : 'Cancel Event';
+    const trigger = screen.getByRole('button', { name });
+    await waitFor(() => expect(trigger.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(trigger);
+    expect(posts).toBe(0);
+    expect(screen.getByRole('dialog').textContent).toMatch(/History/);
+    view.rerender(<OperationsPanel adminUserId="admin-a" event={{ ...finished, revision: 8 }} />);
+    fireEvent.click(screen.getByRole('button', { name: `Confirm ${name}` }));
+    await screen.findByRole('alert');
+    expect(submitted!).toEqual({ operationId: expect.any(String), expectedRevision: 3 });
+    fireEvent.click(screen.getByRole('button', { name: 'Retry Booth command' }));
+    await screen.findByText('Booth command recorded. Refreshing current state.');
+    expect(posts).toBe(1);
+    expect(actors).toEqual(['admin-a', 'admin-a']);
+  }
+);
+
+it('keeps server-proven unsent recovery distinct from possible delivery and Finishing', () => {
+  const view = render(
+    <OperationsPanel adminUserId="admin-a" event={{ ...event, possibleDelivery: false }} />
+  );
+  expect(
+    screen.getByRole('button', { name: 'Replace Booth access' }).hasAttribute('disabled')
+  ).toBe(false);
+  view.rerender(
+    <OperationsPanel adminUserId="admin-a" event={{ ...event, possibleDelivery: true }} />
+  );
+  expect(screen.queryByRole('button', { name: 'Replace Booth access' })).toBeNull();
+  view.rerender(
+    <OperationsPanel
+      adminUserId="admin-a"
+      event={{ ...event, runState: 'Finishing', possibleDelivery: false }}
+    />
+  );
+  expect(screen.queryByRole('button', { name: 'Replace Booth access' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Start Booth Mode' })).toBeNull();
 });

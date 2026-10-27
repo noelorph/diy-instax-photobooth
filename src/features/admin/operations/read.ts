@@ -59,6 +59,7 @@ export async function getOperationalEvent(
         runId: packageState.runId,
         runState: packageState.runState as RunState | null,
         resumeAllowed: packageState.allowedActions?.resume === true,
+        possibleDelivery: packageState.possibleDelivery,
         blockers: packageState.blockers,
         attempts: attempts.data!,
       },

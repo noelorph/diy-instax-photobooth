@@ -34,10 +34,13 @@ function setup() {
   let state = 'Active';
   let calls = 0;
   let fail = false;
+  let failStatus = 401;
+  let readinessError = false;
   const printer = new SimulatedPrinterV2('simulator');
   const transport = async (path: string, body?: Record<string, unknown>) => {
-    if (fail) throw Object.assign(new Error('denied'), { status: 401 });
+    if (fail) throw Object.assign(new Error('denied'), { status: failStatus });
     if (path === '/api/booth/readiness') {
+      if (readinessError) throw Object.assign(new Error('not ready'), { status: 409 });
       calls++;
       observations.push(body?.observation);
       await ackGate;
@@ -83,6 +86,9 @@ function setup() {
     holdAck: (gate?: Promise<void>) => {
       ackGate = gate;
     },
+    rejectReadiness: () => {
+      readinessError = true;
+    },
     observations,
     flow,
     printer,
@@ -90,8 +96,9 @@ function setup() {
     state: (s: string) => {
       state = s;
     },
-    deny: () => {
+    deny: (status = 401) => {
       fail = true;
+      failStatus = status;
     },
   };
 }
@@ -280,4 +287,34 @@ it('invalidates known camera loss before awaiting a blocked printer read', async
   gate.resolve();
   await pending;
   expect(phase).toBe('unavailable');
+});
+
+it.each(['Paused', 'Finishing'])(
+  'keeps %s visible when restored access still needs equipment recovery',
+  async (state) => {
+    const s = setup();
+    s.state(state);
+    await s.flow.initialize();
+    s.rejectReadiness();
+    await s.flow.reportEquipment(observation);
+    expect(s.flow.getSnapshot().phase).toBe(state.toLowerCase());
+    expect(s.flow.getSnapshot().allowedActions.connectPrinter).toBe(true);
+    expect(s.flow.getSnapshot().blockers).toContain('readiness_stale');
+    expect(s.flow.getSnapshot().blockers).toContain('printer_connection');
+    expect(s.flow.getSnapshot().counts).toEqual(counts);
+  }
+);
+
+it('keeps access loss above a prior pause when a later status refresh is unavailable', async () => {
+  const s = setup();
+  s.state('Paused');
+  await s.flow.initialize();
+  s.deny();
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().phase).toBe('access-required');
+  s.deny(503);
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().phase).toBe('access-required');
+  expect(s.flow.getSnapshot().allowedActions.connectPrinter).toBe(false);
+  expect(s.flow.getSnapshot().counts).toBeUndefined();
 });

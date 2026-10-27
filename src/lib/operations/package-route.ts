@@ -133,7 +133,16 @@ export async function runPackageAdminOperation<T extends { operationId: string }
     const expectedAdmin = request.headers.get('x-package-admin-id');
     if (
       (action === 'add_packages' && expectedAdmin !== admin.userId) ||
-      (['pause', 'resume', 'finish'].includes(action) &&
+      ([
+        'start',
+        'recover_access',
+        'pause',
+        'resume',
+        'finish',
+        'complete',
+        'cancel',
+        'report_setup_readiness',
+      ].includes(action) &&
         expectedAdmin !== null &&
         expectedAdmin !== admin.userId)
     )

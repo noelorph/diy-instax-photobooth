@@ -19,7 +19,7 @@ async function SignInContent(props: Props) {
   const { from } = await props.searchParams;
   return (
     <div data-booth-return={from === 'booth' ? 'true' : undefined}>
-      <h1 className={styles.heading}>{from === 'booth' ? 'Booth paused' : 'Sign in'}</h1>
+      <h1 className={styles.heading}>Sign in</h1>
       <p className={styles.description}>
         {from === 'booth'
           ? 'Sign in to review the Event. Resuming Booth Mode requires an explicit Admin action.'

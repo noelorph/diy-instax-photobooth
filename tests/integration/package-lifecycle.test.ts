@@ -771,3 +771,64 @@ it('replays an authorized start receipt after the Event becomes terminal', async
     await f.dispose();
   }
 }, 30000);
+
+it.each(['complete', 'cancel'])(
+  'retains the terminal %s record only after every run and attempt settles',
+  async (action) => {
+    const f = await createPackageFixture();
+    try {
+      f.seedRun('Paused');
+      expect((await f.admin(action, { expectedRevision: 2 })).error?.message).toBe('print_pending');
+      const sessionId = localOwnerSql(
+        `insert into public.guest_sessions(event_id,run_id,accounting_version) values('${f.eventId}','${f.runId}',2) returning id`
+      )[0].id;
+      const captureId = localOwnerSql(
+        `insert into public.captures(event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) values('${f.eventId}','${f.runId}','${sessionId}',2,clock_timestamp(),gen_random_uuid()) returning id`
+      )[0].id;
+      const attemptId = localOwnerSql(
+        `insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) values('${f.eventId}','${f.runId}','${sessionId}','${captureId}',2,'Guest','Pending',gen_random_uuid(),gen_random_uuid()) returning id`
+      )[0].id;
+      const finish = await f.admin('finish', { runId: f.runId, expectedRevision: 2 });
+      expect(finish.data.receipt.result.state).toBe('Finishing');
+      expect(
+        (await f.admin(action, { expectedRevision: finish.data.revision })).error?.message
+      ).toBe('print_pending');
+      localOwnerSql(
+        `update public.print_attempts set state='Printed',resolved_at=clock_timestamp() where id='${attemptId}'`
+      );
+      localOwnerSql(`select private.package_finish_if_clear('${f.eventId}','${f.runId}')`);
+      const current = await f.readAdmin();
+      const terminal = await f.admin(action, { expectedRevision: current.data.revision });
+      expect(terminal.error).toBeNull();
+      expect(
+        localOwnerSql(
+          `select state,client_name,deleted_at from public.events where id='${f.eventId}'`
+        )[0]
+      ).toEqual({
+        state: action === 'complete' ? 'Completed' : 'Cancelled',
+        client_name: 'Client',
+        deleted_at: null,
+      });
+      expect(
+        localOwnerSql(`select state from public.print_attempts where id='${attemptId}'`)[0].state
+      ).toBe('Printed');
+      expect((await f.readAdmin()).data.counts).toMatchObject({
+        printed: 1,
+        unresolved: 0,
+        printsAvailable: 9,
+      });
+      expect(
+        localOwnerSql(`select count(*)::integer n from public.captures where id='${captureId}'`)[0]
+          .n
+      ).toBe(1);
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.activity_events where event_id='${f.eventId}' and operation_kind='${action}'`
+        )[0].n
+      ).toBe(1);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);

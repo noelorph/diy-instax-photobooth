@@ -31,6 +31,7 @@ vi.mock('@/features/admin/operations/read', () => ({
       runId: 'run',
       runState: 'Paused',
       resumeAllowed: false,
+      possibleDelivery: true,
       blockers: ['print_pending'],
       attempts: [],
       attemptsPage: 0,
