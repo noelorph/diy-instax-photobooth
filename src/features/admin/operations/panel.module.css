@@ -76,3 +76,17 @@
   display: grid;
   gap: 1rem;
 }
+
+.camera {
+  width: min(100%, 22rem);
+  aspect-ratio: 3 / 4;
+  object-fit: cover;
+  border-radius: 0.5rem;
+  transform: scaleX(-1);
+}
+.panel .confirmation {
+  display: flex;
+  gap: 0.75rem;
+  align-items: center;
+  min-height: 2.75rem;
+}

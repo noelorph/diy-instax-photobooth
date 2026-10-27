@@ -8,6 +8,7 @@ import { FormFeedback } from '@/components/shared/form-feedback';
 import type { OperationalEvent } from './types';
 import styles from './panel.module.css';
 import { AddPackages } from './add-packages';
+import { BoothSetup } from './booth-setup';
 
 export function OperationsPanel({
   event,
@@ -87,6 +88,9 @@ export function OperationsPanel({
           <p>{counts.printsAvailable} prints available</p>
         </section>
       </div>
+      {event.state === 'Draft' && !event.runId && (
+        <BoothSetup eventId={event.id} revision={event.revision} />
+      )}
       <AddPackages
         key={`${event.id}:${adminUserId}`}
         eventId={event.id}

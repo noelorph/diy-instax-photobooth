@@ -2,11 +2,8 @@
 import { describe, expect, it, vi } from 'vitest';
 import { z } from 'zod';
 vi.mock('server-only', () => ({}));
-import {
-  parseOperation,
-  prepareHandoffSchema,
-  requireSameOrigin,
-} from '@/lib/operations/validation';
+import { parseOperation, requireSameOrigin } from '@/lib/operations/validation';
+import { packageActionSchemas } from '@/lib/operations/package-action-schemas';
 import { operationResponse, operationErrorResponse } from '@/lib/operations/responses';
 const key = '11111111-1111-4111-8111-111111111111';
 const schema = z.strictObject({
@@ -24,12 +21,13 @@ describe('operation input boundary', () => {
     await expect(
       parseOperation(
         request({
-          operationKey: key,
+          operationId: key,
           expectedRevision: 2147483648,
-          connectionId: key,
-          setupEvidence: { cameraReady: true, printerReady: true, guidedAccessReady: true },
+          readinessWindowId: key,
+          printerId: 'simulator',
+          connectionGeneration: 1,
         }),
-        prepareHandoffSchema
+        packageActionSchemas.start
       )
     ).rejects.toMatchObject({ code: 'validation_error' });
   });
