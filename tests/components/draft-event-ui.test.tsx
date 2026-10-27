@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { webcrypto } from 'node:crypto';
 import { renderToString } from 'react-dom/server';
-import { afterEach, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { DraftForm } from '@/features/admin/events/draft-form';
 import { DraftList } from '@/features/admin/events/draft-list';
 import type { DraftEvent } from '@/lib/events/drafts';
@@ -11,7 +12,16 @@ vi.mock('next/navigation', async (original) => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
+const adminUserId = '00000000-0000-4000-8000-000000000001';
+const recoverCreation = vi.fn(
+  async (): Promise<DraftActionState | { status: 'missing_receipt' }> => ({
+    status: 'missing_receipt',
+  })
+);
+beforeEach(() => vi.stubGlobal('crypto', webcrypto));
 afterEach(() => {
+  sessionStorage.clear();
+  vi.restoreAllMocks();
   cleanup();
   vi.unstubAllGlobals();
 });
@@ -37,12 +47,28 @@ const saved: DraftActionState = {
 };
 const ok = async () => saved;
 function form(action: () => Promise<DraftActionState> = ok) {
-  const rendered = render(<DraftForm initial={draft} createAction={ok} updateAction={action} />);
+  const rendered = render(
+    <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
+      initial={draft}
+      createAction={ok}
+      updateAction={action}
+    />
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
   return rendered;
 }
 it('shows the saved Draft booking overview before entering Edit Draft', () => {
-  const html = renderToString(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  const html = renderToString(
+    <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
+      initial={draft}
+      createAction={ok}
+      updateAction={ok}
+    />
+  );
   const container = document.createElement('div');
   container.innerHTML = html;
 
@@ -54,7 +80,15 @@ it('shows the saved Draft booking overview before entering Edit Draft', () => {
   expect(container.querySelector('section[aria-labelledby="event-media-heading"]')).not.toBeNull();
 });
 it('keeps unavailable media on the saved overview while booking editing remains usable', () => {
-  render(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  render(
+    <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
+      initial={draft}
+      createAction={ok}
+      updateAction={ok}
+    />
+  );
   expect(screen.getByRole('region', { name: 'Event Media' })).toBeTruthy();
   fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
   expect(screen.queryByRole('region', { name: 'Event Media' })).toBeNull();
@@ -64,7 +98,15 @@ it('keeps unavailable media on the saved overview while booking editing remains 
   );
 });
 it('offers deletion from the saved overview and lets the Admin keep the Draft', async () => {
-  render(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  render(
+    <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
+      initial={draft}
+      createAction={ok}
+      updateAction={ok}
+    />
+  );
   const trigger = screen.getByRole('button', { name: 'Delete Draft' });
   expect(trigger.closest('header')).not.toBeNull();
   fireEvent.click(trigger);
@@ -101,7 +143,15 @@ it('discards validation errors belonging to cancelled edits', async () => {
 it('closes the Delete Draft dialog without deleting and returns focus to its trigger', async () => {
   const requests = vi.fn();
   vi.stubGlobal('fetch', requests);
-  render(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  render(
+    <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
+      initial={draft}
+      createAction={ok}
+      updateAction={ok}
+    />
+  );
   const trigger = screen.getByRole('button', { name: 'Delete Draft' });
   fireEvent.click(trigger);
   fireEvent.click(screen.getByRole('button', { name: 'Close Delete Draft dialog' }));
@@ -112,7 +162,13 @@ it('closes the Delete Draft dialog without deleting and returns focus to its tri
 it('keeps the Delete Draft dialog inside the Admin theme and labels its close tooltip', () => {
   render(
     <div data-theme="dark">
-      <DraftForm initial={draft} createAction={ok} updateAction={ok} />
+      <DraftForm
+        adminUserId={adminUserId}
+        recoverAction={recoverCreation}
+        initial={draft}
+        createAction={ok}
+        updateAction={ok}
+      />
     </div>
   );
   fireEvent.click(screen.getByRole('button', { name: 'Delete Draft' }));
@@ -130,7 +186,15 @@ it('keeps the same deletion request after a lost response and shows pending clea
     if (bodies.length === 1) throw new Error('reply lost');
     return Response.json({ mediaRemovalState: 'pending' });
   });
-  render(<DraftForm initial={draft} createAction={ok} updateAction={ok} />);
+  render(
+    <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
+      initial={draft}
+      createAction={ok}
+      updateAction={ok}
+    />
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Delete Draft' }));
   fireEvent.click(within(screen.getByRole('dialog')).getByRole('button', { name: 'Delete Draft' }));
   await screen.findByRole('alert');
@@ -144,7 +208,14 @@ it('keeps the same deletion request after a lost response and shows pending clea
   expect(bodies[1]).toEqual(bodies[0]);
 });
 it('keeps the Draft editor unavailable until hydration attaches its form state', () => {
-  const html = renderToString(<DraftForm createAction={ok} updateAction={ok} />);
+  const html = renderToString(
+    <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
+      createAction={ok}
+      updateAction={ok}
+    />
+  );
   const container = document.createElement('div');
   container.innerHTML = html;
 
@@ -182,6 +253,8 @@ it('submits an edited registered value after clearing its error while another se
   const submissions: FormData[] = [];
   render(
     <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
       initial={draft}
       createAction={ok}
       updateAction={async (_id, _revision, _state, data) => {
@@ -556,6 +629,8 @@ it('preserves values after transport failure and allows retry', async () => {
 it('preserves a saved schedule with seconds when opening the editor', () => {
   render(
     <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
       initial={{ ...draft, startsAtUtc: '2025-01-10T10:00:45Z' }}
       createAction={ok}
       updateAction={ok}
@@ -578,6 +653,8 @@ it('freezes a lost creation request and recovers its current revision before lat
   const updates: { id: string; revision: number; title: FormDataEntryValue | null }[] = [];
   render(
     <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
       createAction={async (_state, data) => {
         requests.push(data);
         if (requests.length === 1) throw new Error('reply lost after commit');
@@ -592,6 +669,9 @@ it('freezes a lost creation request and recovers its current revision before lat
         return saved;
       }}
     />
+  );
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Save Draft' }).hasAttribute('disabled')).toBe(false)
   );
   const values = {
     title: 'Frozen creation',
@@ -668,7 +748,13 @@ it('clears a saved confirmation when the package stepper changes the booking', a
 
 it('opens a package booking overview and enters the editor without changing saved data', () => {
   render(
-    <DraftForm initial={{ ...draft, filmPackageCount: 5 }} createAction={ok} updateAction={ok} />
+    <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recoverCreation}
+      initial={{ ...draft, filmPackageCount: 5 }}
+      createAction={ok}
+      updateAction={ok}
+    />
   );
   expect(screen.getByRole('heading', { name: 'Birthday' })).toBeTruthy();
   expect(screen.getByLabelText('Total booked prints').textContent).toBe('50');
@@ -691,6 +777,8 @@ it.each(['not_found', 'conflict'] as const)(
   async (status) => {
     render(
       <DraftForm
+        adminUserId={adminUserId}
+        recoverAction={recoverCreation}
         createAction={async () =>
           status === 'not_found'
             ? { status }
@@ -698,6 +786,11 @@ it.each(['not_found', 'conflict'] as const)(
         }
         updateAction={ok}
       />
+    );
+    await waitFor(() =>
+      expect(screen.getByRole('button', { name: 'Save Draft' }).hasAttribute('disabled')).toBe(
+        false
+      )
     );
     const values = {
       title: 'Closed creation',
@@ -724,3 +817,113 @@ it.each(['not_found', 'conflict'] as const)(
     expect(screen.queryByText(/Retry the save to check its result/)).toBeNull();
   }
 );
+
+it('recovers after remount using only opaque metadata and re-enters an unsent request under the same ID', async () => {
+  const requests: FormData[] = [];
+  const create = vi.fn(
+    async (_state: DraftActionState, data: FormData): Promise<DraftActionState> => {
+      requests.push(data);
+      if (requests.length === 1) throw new TypeError('Request did not arrive');
+      return { ...saved, draft };
+    }
+  );
+  const recover = vi.fn(async () => ({ status: 'missing_receipt' as const }));
+  const props = { adminUserId, recoverAction: recover, createAction: create, updateAction: ok };
+  const values = {
+    title: 'Private booking',
+    clientName: 'Alex',
+    clientEmail: 'alex@example.test',
+    clientPhone: '123',
+    venueAddress: 'Hall',
+    timeZone: 'Asia/Manila',
+    startsAtLocal: '2026-12-01T18:00',
+    endsAtLocal: '2026-12-01T20:00',
+    filmPackageCount: '2',
+  };
+  const fill = (title = values.title) => {
+    for (const [name, value] of Object.entries({ ...values, title }))
+      fireEvent.change(document.querySelector(`[name="${name}"]`)!, { target: { value } });
+  };
+  const view = render(<DraftForm {...props} />);
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Save Draft' }).hasAttribute('disabled')).toBe(false)
+  );
+  fill();
+  fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
+  await screen.findByRole('alert');
+  const storageKey = `draft-creation:${adminUserId}`;
+  const metadata = JSON.parse(sessionStorage.getItem(storageKey)!);
+  expect(metadata).toEqual({
+    operationId: requests[0].get('operationId'),
+    fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+  });
+  view.unmount();
+  render(<DraftForm {...props} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Recover Draft' }));
+  await screen.findByText(/Re-enter the original booking details/);
+  fill('Changed booking');
+  fireEvent.click(screen.getByRole('button', { name: 'Recover Draft' }));
+  await screen.findByText(/details do not match the original save/);
+  expect(create).toHaveBeenCalledTimes(1);
+  fill();
+  fireEvent.click(screen.getByRole('button', { name: 'Recover Draft' }));
+  await screen.findByText('Draft saved.');
+  expect(recover).toHaveBeenCalledWith(metadata.operationId, adminUserId);
+  expect([...requests[1]]).toEqual([...requests[0]]);
+  expect(sessionStorage.getItem(storageKey)).toBeNull();
+});
+
+it('blocks creation on storage failure and preserves opaque references belonging to other actors', async () => {
+  const otherKey = 'draft-creation:other-admin';
+  sessionStorage.setItem(
+    otherKey,
+    JSON.stringify({ operationId: crypto.randomUUID(), fingerprint: 'a'.repeat(64) })
+  );
+  const original = sessionStorage.getItem(otherKey);
+  const read = vi.spyOn(Storage.prototype, 'getItem').mockImplementationOnce(() => {
+    throw new DOMException('Blocked', 'SecurityError');
+  });
+  const create = vi.fn();
+  const recover = vi.fn();
+  render(
+    <DraftForm
+      adminUserId={adminUserId}
+      recoverAction={recover}
+      createAction={create}
+      updateAction={ok}
+    />
+  );
+  await screen.findByText(/Saved request reference could not be read/);
+  expect(screen.getByRole('button', { name: 'Save Draft' }).hasAttribute('disabled')).toBe(true);
+  fireEvent.click(screen.getByRole('button', { name: 'Retry saved reference' }));
+  expect(read).toHaveBeenCalledTimes(2);
+  expect(screen.getByRole('button', { name: 'Save Draft' }).hasAttribute('disabled')).toBe(false);
+  expect(create).not.toHaveBeenCalled();
+  expect(recover).not.toHaveBeenCalled();
+  expect(sessionStorage.getItem(otherKey)).toBe(original);
+});
+
+it('settles a deleted creation receipt without recreating it or blocking a later deliberate new Event', async () => {
+  const storageKey = `draft-creation:${adminUserId}`;
+  sessionStorage.setItem(
+    storageKey,
+    JSON.stringify({ operationId: crypto.randomUUID(), fingerprint: 'a'.repeat(64) })
+  );
+  const recover = vi.fn(async () => ({ status: 'not_found' as const }));
+  const create = vi.fn();
+  const props = { adminUserId, recoverAction: recover, createAction: create, updateAction: ok };
+  const view = render(<DraftForm {...props} />);
+  fireEvent.click(await screen.findByRole('button', { name: 'Recover Draft' }));
+  await screen.findByText('Draft not found. Return to Events to choose a Draft.');
+  expect(create).not.toHaveBeenCalled();
+  expect(sessionStorage.getItem(storageKey)).toBeNull();
+  expect(screen.getByRole('link', { name: 'Back to Events' }).getAttribute('aria-disabled')).toBe(
+    'false'
+  );
+  view.unmount();
+  render(<DraftForm {...props} />);
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Save Draft' }).hasAttribute('disabled')).toBe(false)
+  );
+  expect(screen.queryByRole('button', { name: 'Recover Draft' })).toBeNull();
+});

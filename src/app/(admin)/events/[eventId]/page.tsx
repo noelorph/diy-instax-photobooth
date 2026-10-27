@@ -6,7 +6,11 @@ import { Button } from '@/components/ui/button';
 import Link from 'next/link';
 import { getDraft } from '@/lib/events/drafts';
 import { DraftForm } from '@/features/admin/events/draft-form';
-import { createDraftAction, updateDraftAction } from '@/features/admin/events/actions';
+import {
+  createDraftAction,
+  recoverDraftCreationAction,
+  updateDraftAction,
+} from '@/features/admin/events/actions';
 
 export default async function EventPage({
   params,
@@ -72,6 +76,8 @@ export default async function EventPage({
     <>
       <DraftForm
         key={result.draft.id}
+        adminUserId={operations.status === 'success' ? operations.adminUserId : ''}
+        recoverAction={recoverDraftCreationAction}
         initial={result.draft}
         createAction={createDraftAction}
         updateAction={updateDraftAction}

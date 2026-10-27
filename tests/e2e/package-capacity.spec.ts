@@ -17,7 +17,7 @@ async function signOut(page: Page) {
   await expect(page).toHaveURL(/\/sign-in/);
 }
 
-test('phone purchase survives a lost response and reload with one immutable addition', async ({
+test('phone purchase survives a lost response, reload and storage access failure with one immutable addition', async ({
   page,
 }) => {
   const f = await createPackageBrowserFixture();
@@ -35,6 +35,11 @@ test('phone purchase survives a lost response and reload with one immutable addi
     for (const value of ['0', '-1', '1.5', '214748364']) {
       await page.getByLabel('Additional Film Packages').fill(value);
       await expect(submit).toBeDisabled();
+      const errorId = await page
+        .getByLabel('Additional Film Packages')
+        .getAttribute('aria-describedby');
+      expect(errorId).toBeTruthy();
+      await expect(page.locator(`[id="${errorId}"]`)).toBeVisible();
     }
     await page.getByLabel('Additional Film Packages').fill('1');
     await page.getByLabel('Client request note').fill('   ');
@@ -47,7 +52,22 @@ test('phone purchase survives a lost response and reload with one immutable addi
     });
     await dialog.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
     await expect(dialog.getByRole('alert')).toBeVisible();
+    await page.addInitScript(() => {
+      const getItem = Storage.prototype.getItem;
+      Storage.prototype.getItem = function (key) {
+        if (key.startsWith('film-package-purchase:')) {
+          Storage.prototype.getItem = getItem;
+          throw new DOMException('Temporarily unavailable', 'SecurityError');
+        }
+        return getItem.call(this, key);
+      };
+    });
     await page.reload();
+    await expect(dialog.getByRole('alert')).toContainText('Browser storage is unavailable');
+    await page.keyboard.press('Escape');
+    await expect(dialog).toHaveCount(0);
+    await page.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
+    await dialog.getByRole('button', { name: 'Retry saved request' }).click();
     await expect(dialog).toBeVisible();
     await expect(page.getByLabel('Additional Film Packages')).toBeDisabled();
     await dialog.getByRole('button', { name: 'Retry request' }).focus();

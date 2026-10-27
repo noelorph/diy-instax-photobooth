@@ -22,6 +22,7 @@ afterEach(() => {
   cleanup();
   sessionStorage.clear();
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 it('shows server package capacity and preserves the pending print at zero availability', () => {
   render(<OperationsPanel adminUserId="admin-a" event={event} />);
@@ -262,4 +263,154 @@ it('preserves A’s pending purchase across an Admin switch without letting B re
   expect(expectedActors).toEqual([adminA, adminA]);
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
   expect(sessionStorage.length).toBe(0);
+});
+
+it('retries a blocked storage read without losing the original purchase or trapping Cancel', async () => {
+  const purchase = {
+    operationId: crypto.randomUUID(),
+    packages: 2,
+    clientRequestNote: 'Original request',
+  };
+  sessionStorage.setItem(`film-package-purchase:${event.id}:admin-a`, JSON.stringify(purchase));
+  const read = vi.spyOn(Storage.prototype, 'getItem').mockImplementationOnce(() => {
+    throw new DOMException('Blocked', 'SecurityError');
+  });
+  const fetcher = vi.fn(async (path: string) =>
+    path.includes('/operations/')
+      ? Response.json({
+          receipt: {
+            operationId: purchase.operationId,
+            kind: 'add_packages',
+            result: { entryId: 'entry' },
+          },
+        })
+      : Response.json({ counts: packageCounts(5, 2, 49, 1) })
+  );
+  vi.stubGlobal('fetch', fetcher);
+  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  await screen.findByRole('alert');
+  fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
+  expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Add Film Packages' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Retry saved request' }));
+  await waitFor(() =>
+    expect((screen.getByLabelText('Additional Film Packages') as HTMLInputElement).value).toBe('2')
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Retry request' }));
+  await screen.findByText('Film Packages added.');
+  expect(fetcher.mock.calls.some(([path]) => path.endsWith('/film-packages'))).toBe(false);
+  expect(screen.getByText('70 total booked prints')).toBeTruthy();
+  expect(read).toHaveBeenCalledTimes(2);
+});
+
+it.each([
+  ['', 'Enter the number of Film Packages to add.'],
+  ['0', 'Enter at least one Film Package.'],
+  ['-1', 'Enter at least one Film Package.'],
+  ['1.5', 'Enter a whole number of Film Packages.'],
+  ['214748364', 'You can add at most 214748359 Film Packages to this Event.'],
+])('explains invalid package quantity %s beside its field', async (value, message) => {
+  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  await waitFor(() =>
+    expect(
+      (screen.getByRole('button', { name: 'Add Film Packages' }) as HTMLButtonElement).disabled
+    ).toBe(false)
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Add Film Packages' }));
+  const field = screen.getByLabelText('Additional Film Packages') as HTMLInputElement;
+  fireEvent.change(field, { target: { value } });
+  expect(screen.getByText(message).id).toBe(field.getAttribute('aria-describedby'));
+  expect(field.value).toBe(value);
+  expect(field.getAttribute('aria-invalid')).toBe('true');
+});
+
+it.each([true, false])(
+  'recovers only a receipt for damaged purchase payloads (receipt exists: %s)',
+  async (committed) => {
+    const operationId = crypto.randomUUID();
+    const storageKey = `film-package-purchase:${event.id}:admin-a`;
+    const damaged = JSON.stringify({ operationId, packages: 'damaged' });
+    sessionStorage.setItem(storageKey, damaged);
+    const fetcher = vi.fn(async (path: string) =>
+      path.includes('/operations/')
+        ? Response.json({
+            receipt: committed
+              ? { operationId, kind: 'add_packages', result: { entryId: 'original-entry' } }
+              : null,
+          })
+        : Response.json({ counts: packageCounts(5, 1, 49, 1) })
+    );
+    vi.stubGlobal('fetch', fetcher);
+    render(<OperationsPanel adminUserId="admin-a" event={event} />);
+    await screen.findByText(/Saved purchase details are damaged/);
+    fireEvent.click(screen.getByRole('button', { name: 'Retry request' }));
+    if (committed) {
+      await screen.findByText('Film Packages added.');
+      const remove = vi.spyOn(Storage.prototype, 'removeItem').mockImplementationOnce(() => {
+        throw new DOMException('Blocked', 'SecurityError');
+      });
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+      await screen.findByText(/saved reference could not be cleared/);
+      expect(sessionStorage.getItem(storageKey)).toBe(damaged);
+      fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+      expect(remove).toHaveBeenCalledTimes(2);
+      expect(sessionStorage.getItem(storageKey)).toBeNull();
+    } else {
+      await screen.findByText(/No receipt is available yet/);
+      expect(sessionStorage.getItem(storageKey)).toBe(damaged);
+    }
+    expect(fetcher.mock.calls.some(([path]) => path.endsWith('/film-packages'))).toBe(false);
+  }
+);
+
+it('keeps an unreadable purchase identity blocked until the original saved request is restored', async () => {
+  const storageKey = `film-package-purchase:${event.id}:admin-a`;
+  sessionStorage.setItem(storageKey, '{broken');
+  const fetcher = vi.fn();
+  vi.stubGlobal('fetch', fetcher);
+  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  await screen.findByText(/reference cannot be read/);
+  fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
+  expect(screen.queryByRole('dialog')).toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Add Film Packages' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Retry saved request' }));
+  expect(sessionStorage.getItem(storageKey)).toBe('{broken');
+  expect(fetcher).not.toHaveBeenCalled();
+  const purchase = {
+    operationId: crypto.randomUUID(),
+    packages: 2,
+    clientRequestNote: 'Restored original',
+  };
+  sessionStorage.setItem(storageKey, JSON.stringify(purchase));
+  fireEvent.click(screen.getByRole('button', { name: 'Retry saved request' }));
+  expect((screen.getByLabelText('Client request note') as HTMLInputElement).value).toBe(
+    purchase.clientRequestNote
+  );
+  expect(screen.getByRole('button', { name: 'Retry request' })).toBeTruthy();
+});
+
+it('does not send a purchase when storage cannot retain it and allows retry after access returns', async () => {
+  const fetcher = vi.fn(async () => {
+    throw new TypeError('Response lost');
+  });
+  vi.stubGlobal('fetch', fetcher);
+  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  await waitFor(() =>
+    expect(screen.getByRole('button', { name: 'Add Film Packages' }).hasAttribute('disabled')).toBe(
+      false
+    )
+  );
+  fireEvent.click(screen.getByRole('button', { name: 'Add Film Packages' }));
+  fireEvent.change(screen.getByLabelText('Client request note'), {
+    target: { value: 'Keep this note' },
+  });
+  vi.spyOn(Storage.prototype, 'setItem').mockImplementationOnce(() => {
+    throw new DOMException('Blocked', 'SecurityError');
+  });
+  fireEvent.click(screen.getAllByRole('button', { name: 'Add Film Packages' }).at(-1)!);
+  await screen.findByText(/purchase was not sent/);
+  expect(fetcher).not.toHaveBeenCalled();
+  fireEvent.click(screen.getAllByRole('button', { name: 'Add Film Packages' }).at(-1)!);
+  await screen.findByText(/Your request details have been kept/);
+  expect(fetcher).toHaveBeenCalledTimes(1);
 });

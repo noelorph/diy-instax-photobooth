@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
@@ -11,7 +11,8 @@ import {
   type PackageCounts,
   type PackageOperationResult,
 } from '@/lib/operations/package-contract';
-import type { z } from 'zod';
+import { z } from 'zod';
+import { FormField } from '@/components/shared/form-field';
 import styles from './panel.module.css';
 
 type Purchase = z.infer<typeof addPackagesSchema>;
@@ -30,44 +31,71 @@ export function AddPackages({
   onCounts: (counts: PackageCounts) => void;
 }) {
   const router = useRouter();
+  const id = useId();
   const storageKey = `film-package-purchase:${eventId}:${adminUserId}`;
   const [open, setOpen] = useState(false);
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const [ready, setReady] = useState(false);
   const [packages, setPackages] = useState('1');
   const [note, setNote] = useState('');
-  const [pending, setPending] = useState<Purchase | null>(null);
+  const [pending, setPending] = useState<Purchase | Pick<Purchase, 'operationId'> | null>(null);
   const [receipt, setReceipt] = useState<Result['receipt'] | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
   const [current, setCurrent] = useState(false);
+  const [storageBlocked, setStorageBlocked] = useState(false);
   const submitting = useRef(false);
+  const readSavedRequest = useCallback(() => {
+    let saved: string | null;
+    try {
+      saved = sessionStorage.getItem(storageKey);
+    } catch {
+      setStorageBlocked(true);
+      setOpen(true);
+      setError(
+        'Browser storage is unavailable. Restore storage access, then retry the saved request.'
+      );
+      return;
+    }
+    try {
+      if (saved) {
+        const value = JSON.parse(saved);
+        const parsed = addPackagesSchema.safeParse(value);
+        setOpen(true);
+        if (!parsed.success) {
+          if (!z.uuid().safeParse(value?.operationId).success) throw new Error();
+          setPending({ operationId: value.operationId });
+          setError(
+            'Saved purchase details are damaged. Retry to check its receipt; the purchase will not be sent again.'
+          );
+        } else {
+          setPending(parsed.data);
+          setPackages(String(parsed.data.packages));
+          setNote(parsed.data.clientRequestNote);
+          setError(
+            'We could not confirm whether the Film Packages were added. Retry to check the original request.'
+          );
+        }
+      } else {
+        setError('');
+      }
+      setStorageBlocked(false);
+    } catch {
+      setOpen(true);
+      setStorageBlocked(true);
+      setError(
+        'Saved request data is damaged and its reference cannot be read. Restore the original saved request, then retry. Do not clear it or start another purchase while its outcome is unknown.'
+      );
+    }
+  }, [storageKey]);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       setPortalContainer(document.querySelector<HTMLElement>('.admin-shell'));
-      try {
-        const saved = sessionStorage.getItem(storageKey);
-        if (!saved) return;
-        const purchase = addPackagesSchema.parse(JSON.parse(saved));
-        setPending(purchase);
-        setPackages(String(purchase.packages));
-        setNote(purchase.clientRequestNote);
-        setOpen(true);
-        setError(
-          'We could not confirm whether the Film Packages were added. Retry to check the original request.'
-        );
-      } catch {
-        setOpen(true);
-        setError(
-          'Saved request details could not be read. Recover the original request before making another purchase.'
-        );
-        submitting.current = true;
-      } finally {
-        setReady(true);
-      }
+      readSavedRequest();
+      setReady(true);
     });
     return () => cancelAnimationFrame(frame);
-  }, [storageKey]);
+  }, [readSavedRequest]);
   async function refreshCounts() {
     const response = await fetch(`/api/admin/events/${eventId}/booth/state`, { cache: 'no-store' });
     if (!response.ok)
@@ -80,7 +108,7 @@ export function AddPackages({
     setCurrent(true);
   }
   async function submit() {
-    if (submitting.current) return;
+    if (submitting.current || storageBlocked) return;
     submitting.current = true;
     setBusy(true);
     setError('');
@@ -108,7 +136,13 @@ export function AddPackages({
         }
         purchase = parsed.data;
         // Persist before sending so a reload cannot create a second purchase identity.
-        sessionStorage.setItem(storageKey, JSON.stringify(purchase));
+        try {
+          sessionStorage.setItem(storageKey, JSON.stringify(purchase));
+        } catch {
+          throw new Error(
+            'The purchase was not sent because browser storage is unavailable. Restore storage access and try again.'
+          );
+        }
         setPending(purchase);
       } else {
         const lookup = await fetch(
@@ -131,6 +165,10 @@ export function AddPackages({
           return;
         }
       }
+      if (!('packages' in purchase))
+        throw new Error(
+          'No receipt is available yet. Restore the original saved purchase details and reload, or retry the receipt check. No new purchase has been sent.'
+        );
       const response = await fetch(`/api/admin/events/${eventId}/film-packages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'x-package-admin-id': adminUserId },
@@ -169,10 +207,18 @@ export function AddPackages({
       setBusy(false);
     }
   }
-  const valid =
-    Number.isInteger(Number(packages)) &&
-    Number(packages) > 0 &&
-    Number(packages) + counts.originalPackages + counts.additionalPackages <= MAX_TOTAL_PACKAGES;
+  const maximum = MAX_TOTAL_PACKAGES - counts.originalPackages - counts.additionalPackages;
+  const quantityError =
+    packages.trim() === ''
+      ? 'Enter the number of Film Packages to add.'
+      : !Number.isInteger(Number(packages))
+        ? 'Enter a whole number of Film Packages.'
+        : Number(packages) < 1
+          ? 'Enter at least one Film Package.'
+          : Number(packages) > maximum
+            ? `You can add at most ${maximum} Film Packages to this Event.`
+            : undefined;
+  const valid = !quantityError;
   return (
     <Dialog.Root
       open={open}
@@ -206,24 +252,29 @@ export function AddPackages({
                 Current: {counts.originalPackages + counts.additionalPackages} packages ·{' '}
                 {counts.totalBookedPrints} prints
               </p>
-              <label>
-                Additional Film Packages
-                <Input
-                  type="number"
-                  aria-invalid={!valid}
-                  min="1"
-                  step="1"
-                  max={MAX_TOTAL_PACKAGES - counts.originalPackages - counts.additionalPackages}
-                  value={packages}
-                  disabled={busy || !!pending}
-                  onChange={(e) => setPackages(e.target.value)}
-                />
-              </label>
+              <FormField
+                id={`${id}-packages`}
+                label="Additional Film Packages"
+                error={quantityError}
+              >
+                {(a11y) => (
+                  <Input
+                    {...a11y}
+                    type="number"
+                    min="1"
+                    step="1"
+                    max={maximum}
+                    value={packages}
+                    disabled={busy || !!pending || storageBlocked}
+                    onChange={(e) => setPackages(e.target.value)}
+                  />
+                )}
+              </FormField>
               <label>
                 Client request note
                 <Input
                   value={note}
-                  disabled={busy || !!pending}
+                  disabled={busy || !!pending || storageBlocked}
                   onChange={(e) => setNote(e.target.value)}
                 />
               </label>
@@ -249,7 +300,14 @@ export function AddPackages({
             {receipt && current ? (
               <Button
                 onClick={() => {
-                  sessionStorage.removeItem(storageKey);
+                  try {
+                    sessionStorage.removeItem(storageKey);
+                  } catch {
+                    setError(
+                      'The purchase is recorded, but its saved reference could not be cleared. Restore browser storage access and select Done again.'
+                    );
+                    return;
+                  }
                   setPending(null);
                   setReceipt(null);
                   setPackages('1');
@@ -261,6 +319,8 @@ export function AddPackages({
               >
                 Done
               </Button>
+            ) : storageBlocked ? (
+              <Button onClick={readSavedRequest}>Retry saved request</Button>
             ) : (
               <Button disabled={busy || (!pending && (!valid || !note.trim()))} onClick={submit}>
                 {pending || receipt ? 'Retry request' : 'Add Film Packages'}

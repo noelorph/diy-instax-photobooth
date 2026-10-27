@@ -123,12 +123,18 @@ for (const width of [390, 1440]) {
       await expect(
         page.getByText('Draft', { exact: true }).filter({ visible: true })
       ).toBeVisible();
-      await expect(page.getByRole('button', { name: 'Add Film Stock', exact: true })).toBeVisible();
-      for (const name of ['Start Booth Mode', 'Test Print']) {
-        const control = page.getByRole('button', { name, exact: true });
-        await expect(control).toBeVisible();
-        await expect(control).toBeDisabled();
-      }
+      for (const name of ['Add Film Stock', 'Test Print'])
+        await expect(page.getByRole('button', { name, exact: true })).toHaveCount(0);
+      await expect(
+        page
+          .getByText('Add at least one Film Package before starting Booth Mode.', { exact: true })
+          .filter({ visible: true })
+      ).toBeVisible();
+      await expect(
+        page
+          .getByRole('button', { name: 'Start Booth Mode', exact: true })
+          .and(page.locator(':enabled'))
+      ).toHaveCount(0);
       const stale = await context.newPage();
       await stale.goto(`/events/${eventId}`);
       await stale.getByRole('button', { name: 'Edit Draft' }).click();
@@ -218,7 +224,7 @@ for (const width of [390, 1440]) {
   });
 }
 
-test('recovers the real committed creation after its server-action response is lost', async ({
+test('recovers the real committed creation after its server-action response is lost and the page reloads', async ({
   page,
 }) => {
   const fixture = await createPackageBrowserFixture();
@@ -263,13 +269,23 @@ test('recovers the real committed creation after its server-action response is l
     await expect(page.getByRole('main').getByRole('alert')).toContainText('could not be confirmed');
     await expect(page.getByLabel('Event name')).toBeDisabled();
     expect(eventId).toBeTruthy();
+    const metadata = await page.evaluate(
+      (actor) => JSON.parse(sessionStorage.getItem(`draft-creation:${actor}`)!),
+      fixture.adminUser.id
+    );
+    expect(metadata).toEqual({
+      operationId: expect.stringMatching(/^[a-f0-9-]{36}$/),
+      fingerprint: expect.stringMatching(/^[a-f0-9]{64}$/),
+    });
     // Another editor changes the committed Draft before receipt recovery.
     const changed = await fixture.adminClient
       .from('events')
       .update({ title: `${title} current`, revision: 2 })
       .eq('id', eventId!);
     expect(changed.error).toBeNull();
-    await page.getByRole('button', { name: 'Retry save' }).click();
+    await page.reload();
+    await expect(page.getByLabel('Event name')).toBeDisabled();
+    await page.getByRole('button', { name: 'Recover Draft' }).click();
     await expect(page.getByText('Draft saved.', { exact: true })).toBeVisible();
     await expect(
       page.getByRole('heading', { name: `${title} current`, exact: true })
@@ -290,6 +306,17 @@ test('recovers the real committed creation after its server-action response is l
         .map((row) => row.operation_kind)
         .sort()
     ).toEqual(['create_draft', 'update_draft', 'update_draft']);
+    expect(
+      localOwnerSql(
+        `select count(*)::int as count from public.operation_receipts where event_id='${eventId}' and operation_kind='create_draft'`
+      )[0].count
+    ).toBe(1);
+    expect(
+      await page.evaluate(
+        (actor) => sessionStorage.getItem(`draft-creation:${actor}`),
+        fixture.adminUser.id
+      )
+    ).toBeNull();
     const staleReview = await page.request.post(
       `/api/admin/events/${eventId}/review-draft-booking`,
       { data: { operationId: crypto.randomUUID(), expectedRevision: 3, acknowledgedPackages: 2 } }

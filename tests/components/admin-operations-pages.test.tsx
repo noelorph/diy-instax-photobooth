@@ -5,6 +5,7 @@ import EventPage from '@/app/(admin)/events/[eventId]/page';
 vi.mock('@/lib/events/drafts', () => ({ getDraft: async () => ({ status: 'not_found' }) }));
 vi.mock('@/features/admin/events/actions', () => ({
   createDraftAction: vi.fn(),
+  recoverDraftCreationAction: vi.fn(),
   updateDraftAction: vi.fn(),
 }));
 vi.mock('@/features/admin/operations/read', () => ({

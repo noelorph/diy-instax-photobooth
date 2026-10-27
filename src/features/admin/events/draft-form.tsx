@@ -1,8 +1,17 @@
 'use client';
 
 import Link from 'next/link';
+import { z } from 'zod';
 import { unstable_rethrow } from 'next/navigation';
-import { useActionState, useEffect, useId, useRef, useState, useSyncExternalStore } from 'react';
+import {
+  useActionState,
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from 'react';
 import { useForm, useWatch } from 'react-hook-form';
 import { Temporal } from '@js-temporal/polyfill';
 import { MapPin, Package, Printer, UserRound } from 'lucide-react';
@@ -27,6 +36,11 @@ import { EventMediaEditor } from './event-media';
 
 export type DraftFormProps = {
   initial?: DraftEvent;
+  adminUserId: string;
+  recoverAction: (
+    operationId: string,
+    adminUserId: string
+  ) => Promise<DraftActionState | { status: 'missing_receipt' }>;
   createAction: (state: DraftActionState, data: FormData) => Promise<DraftActionState>;
   updateAction: (
     id: string,
@@ -44,7 +58,26 @@ const subscribeToHydration = () => () => {};
 const hydratedSnapshot = () => true;
 const serverSnapshot = () => false;
 
-export function DraftForm({ initial, createAction, updateAction }: DraftFormProps) {
+const creationMetadataSchema = z.object({
+  operationId: z.uuid(),
+  fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
+});
+async function creationFingerprint(data: FormData) {
+  const payload = parseDraftEventInput(draftInputFromFormData(data));
+  const digest = await crypto.subtle.digest(
+    'SHA-256',
+    new TextEncoder().encode(JSON.stringify(payload))
+  );
+  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('');
+}
+
+export function DraftForm({
+  initial,
+  adminUserId,
+  createAction,
+  recoverAction,
+  updateAction,
+}: DraftFormProps) {
   const id = useId();
   const feedback = useRef<HTMLDivElement>(null);
   const editor = useRef<HTMLFormElement>(null);
@@ -58,6 +91,12 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
     initial ? { id: initial.id, revision: initial.revision } : undefined
   );
   const creation = useRef<FormData | null>(null);
+  const creationMetadata = useRef<z.infer<typeof creationMetadataSchema> | null>(null);
+  const storageKey = `draft-creation:${adminUserId}`;
+  const [storageReady, setStorageReady] = useState(!!initial);
+  const [storageError, setStorageError] = useState('');
+  const [reloadedCreation, setReloadedCreation] = useState(false);
+  const [reenterCreation, setReenterCreation] = useState(false);
   const [recoveringCreation, setRecoveringCreation] = useState(false);
   const [edited, setEdited] = useState(false);
   const [editedErrorFields, setEditedErrorFields] = useState<(keyof DraftEventInput)[]>([]);
@@ -91,47 +130,138 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
     Number.isInteger(packages) &&
     packages >= 0 &&
     packages <= 214_748_364;
+  const readCreationMetadata = useCallback(() => {
+    try {
+      const stored = sessionStorage.getItem(storageKey);
+      creationMetadata.current = stored ? creationMetadataSchema.parse(JSON.parse(stored)) : null;
+      setReloadedCreation(!!stored);
+      setRecoveringCreation(!!stored);
+      setStorageError('');
+      setStorageReady(true);
+    } catch {
+      setStorageReady(false);
+      setStorageError(
+        'Saved request reference could not be read. Restore browser storage access or the original reference, then retry. Do not clear an uncertain save.'
+      );
+    }
+  }, [storageKey]);
+  useEffect(() => {
+    if (initial) return;
+    const frame = requestAnimationFrame(readCreationMetadata);
+    return () => cancelAnimationFrame(frame);
+  }, [initial, readCreationMetadata]);
+
+  function acceptSaved(result: Extract<DraftActionState, { status: 'success' }>, data: FormData) {
+    setSaved({ id: result.id, revision: result.revision });
+    const latest = result.draft ?? {
+      ...parseDraftEventInput(draftInputFromFormData(data)),
+      id: result.id,
+      revision: result.revision,
+      state: 'Draft' as const,
+    };
+    setCurrent(latest);
+    reset({
+      ...latest,
+      startsAtLocal: localTime(latest.startsAtUtc, latest.timeZone),
+      endsAtLocal: localTime(latest.endsAtUtc, latest.timeZone),
+    });
+    setEditing(false);
+    creation.current = null;
+    creationMetadata.current = null;
+    setRecoveringCreation(false);
+    setReloadedCreation(false);
+    setReenterCreation(false);
+    // A retained opaque reference is safe: reload recovers the current Draft, never recreates it.
+    if (!saved) {
+      try {
+        sessionStorage.removeItem(storageKey);
+      } catch {
+        /* Recover again after storage access returns. */
+      }
+    }
+  }
+
   const [state, submit, pending] = useActionState<DraftActionState, FormData>(
     async (previous, data) => {
       setEdited(false);
       setEditedErrorFields([]);
       setLiveErrors({});
+      if (!saved && !storageReady)
+        return { status: 'unavailable', error: 'Restore browser storage access before saving.' };
       data = creation.current ?? data;
-      const fieldErrors = validateDraftFormData(data);
-      if (Object.keys(fieldErrors).length) return { status: 'invalid', fieldErrors };
-      if (!saved && !creation.current) {
-        data.set('operationId', crypto.randomUUID());
-        creation.current = data;
-      }
       try {
+        if (!saved && reloadedCreation && creationMetadata.current) {
+          const recovered = await recoverAction(creationMetadata.current.operationId, adminUserId);
+          if (recovered.status === 'success') {
+            acceptSaved(recovered, data);
+            return recovered;
+          }
+          if (recovered.status === 'not_found') {
+            sessionStorage.removeItem(storageKey);
+            creationMetadata.current = null;
+          }
+          if (recovered.status !== 'missing_receipt') return recovered;
+          if (!reenterCreation) {
+            setReenterCreation(true);
+            setRecoveringCreation(false);
+            return {
+              status: 'unavailable',
+              error:
+                'No saved result is available yet. Re-enter the original booking details to retry the same request, or check again. Contact details were not stored in this browser.',
+            };
+          }
+        }
+        const fieldErrors = validateDraftFormData(data);
+        if (Object.keys(fieldErrors).length) return { status: 'invalid', fieldErrors };
+        if (!saved && !creation.current) {
+          const fingerprint = await creationFingerprint(data);
+          if (creationMetadata.current && fingerprint !== creationMetadata.current.fingerprint)
+            return {
+              status: 'unavailable',
+              error:
+                'These details do not match the original save. Re-enter the original booking or check again for its saved result.',
+            };
+          const metadata = creationMetadata.current ?? {
+            operationId: crypto.randomUUID(),
+            fingerprint,
+          };
+          try {
+            sessionStorage.setItem(storageKey, JSON.stringify(metadata));
+          } catch {
+            return {
+              status: 'unavailable',
+              error:
+                'The save was not sent because browser storage is unavailable. Restore storage access and try again.',
+            };
+          }
+          creationMetadata.current = metadata;
+          data.set('operationId', metadata.operationId);
+          data.set('adminUserId', adminUserId);
+          creation.current = data;
+        }
         const result = saved
           ? await updateAction(saved.id, saved.revision, previous, data)
           : await createAction(previous, data);
         if (result.status === 'success') {
-          setSaved({ id: result.id, revision: result.revision });
-          const latest = result.draft ?? {
-            ...parseDraftEventInput(draftInputFromFormData(data)),
-            id: result.id,
-            revision: result.revision,
-            state: 'Draft' as const,
-          };
-          setCurrent(latest);
-          reset({
-            ...latest,
-            startsAtLocal: localTime(latest.startsAtUtc, latest.timeZone),
-            endsAtLocal: localTime(latest.endsAtUtc, latest.timeZone),
-          });
-          setEditing(false);
-          creation.current = null;
-          setRecoveringCreation(false);
+          acceptSaved(result, data);
         } else if (!saved) {
-          if (result.status === 'invalid') creation.current = null;
+          if (result.status === 'not_found') {
+            sessionStorage.removeItem(storageKey);
+            creationMetadata.current = null;
+          }
+          if (result.status === 'invalid') {
+            sessionStorage.removeItem(storageKey);
+            creation.current = null;
+            creationMetadata.current = null;
+            setReloadedCreation(false);
+            setReenterCreation(false);
+          }
           setRecoveringCreation(result.status !== 'invalid');
         }
         return result;
       } catch (error) {
         unstable_rethrow(error);
-        if (!saved) setRecoveringCreation(true);
+        if (!saved && creation.current) setRecoveringCreation(true);
         return {
           status: 'unavailable',
           error: 'The save could not be confirmed. Check your connection and try again.',
@@ -347,10 +477,18 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
           if (pending) event.preventDefault();
         }}
       >
+        {storageError ? (
+          <FormFeedback kind="error">
+            {storageError}{' '}
+            <Button type="button" onClick={readCreationMetadata}>
+              Retry saved reference
+            </Button>
+          </FormFeedback>
+        ) : null}
         {!hydrated ? <FormFeedback kind="status">Preparing Draft editor…</FormFeedback> : null}
         <div className={styles.editorGrid}>
           <section className={styles.detailsCard}>
-            <fieldset disabled={pending || !hydrated || recoveringCreation}>
+            <fieldset disabled={pending || !hydrated || !storageReady || recoveringCreation}>
               <legend>Event details</legend>
               <div className={styles.fields}>
                 <div className={styles.fullWidth}>{field('title', 'Event name')}</div>
@@ -365,7 +503,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
                 </div>
               </div>
             </fieldset>
-            <fieldset disabled={pending || !hydrated || recoveringCreation}>
+            <fieldset disabled={pending || !hydrated || !storageReady || recoveringCreation}>
               <legend>Schedule</legend>
               <p className={styles.help}>
                 Venue-local time{timeZone ? ` · ${timeZone}` : ' · enter the venue time zone above'}
@@ -386,7 +524,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
                 )}
               </div>
             </fieldset>
-            <fieldset disabled={pending || !hydrated || recoveringCreation}>
+            <fieldset disabled={pending || !hydrated || !storageReady || recoveringCreation}>
               <legend>Client contact</legend>
               <p className={styles.help}>These contact details belong to this Event.</p>
               <div className={styles.fields}>
@@ -398,7 +536,7 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
           </section>
           <fieldset
             className={styles.bookingCard}
-            disabled={pending || !hydrated || recoveringCreation}
+            disabled={pending || !hydrated || !storageReady || recoveringCreation}
           >
             <legend>Booking</legend>
             <div className={styles.stepper}>
@@ -454,8 +592,9 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
         ) : null}
         {recoveringCreation && !creationClosed ? (
           <FormFeedback kind="status">
-            Your request details have been kept. Retry the save to check its result before editing
-            this booking.
+            {reloadedCreation
+              ? 'A previous save needs recovery. Check its result before creating another Event.'
+              : 'Your request details have been kept. Retry the save to check its result before editing this booking.'}
           </FormFeedback>
         ) : null}
         {(state.status === 'conflict' || errors.expectedRevision) && saved ? (
@@ -504,8 +643,12 @@ export function DraftForm({ initial, createAction, updateAction }: DraftFormProp
               Cancel
             </Link>
           )}
-          <Button type="submit" disabled={pending || !hydrated || creationClosed}>
-            {recoveringCreation && !creationClosed ? 'Retry save' : 'Save Draft'}
+          <Button type="submit" disabled={pending || !hydrated || !storageReady || creationClosed}>
+            {reloadedCreation
+              ? 'Recover Draft'
+              : recoveringCreation && !creationClosed
+                ? 'Retry save'
+                : 'Save Draft'}
           </Button>
         </div>
         {pending ? <FormFeedback kind="status">Saving Draft…</FormFeedback> : null}

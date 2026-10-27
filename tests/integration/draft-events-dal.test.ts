@@ -7,7 +7,11 @@ import { createClient } from '@/lib/supabase/server';
 import { createDraft, getDraft, listDrafts, updateDraft } from '@/lib/events/drafts';
 import { listLiveEvents } from '@/features/admin/operations/read';
 import { parseDraftEventInput } from '@/features/admin/events/draft-event.schema';
-import { createDraftAction, updateDraftAction } from '@/features/admin/events/actions';
+import {
+  createDraftAction,
+  recoverDraftCreationAction,
+  updateDraftAction,
+} from '@/features/admin/events/actions';
 import {
   localSupabase,
   cleanupEvents,
@@ -46,6 +50,7 @@ function form(overrides: Record<string, string> = {}) {
 describe('protected Draft DAL with local Auth and Data API', () => {
   let local: ReturnType<typeof localSupabase>;
   const eventIds: string[] = [];
+  let adminUserId: string;
   let restoreDefault: () => void;
   beforeAll(() => {
     local = localSupabase();
@@ -63,6 +68,7 @@ describe('protected Draft DAL with local Auth and Data API', () => {
   });
   async function admin() {
     const user = await local.provisionUser();
+    adminUserId = user.id;
     expect((await local.allowlist(user.id)).error).toBeNull();
     const device = await local.signIn(user);
     vi.mocked(createClient).mockResolvedValue(device.client);
@@ -75,6 +81,7 @@ describe('protected Draft DAL with local Auth and Data API', () => {
     return result;
   }
   async function trackedCreateAction(...args: Parameters<typeof createDraftAction>) {
+    if (args[1] instanceof FormData) args[1].set('adminUserId', adminUserId);
     const result = await createDraftAction(...args);
     if (result.status === 'success' && !eventIds.includes(result.id)) eventIds.push(result.id);
     return result;
@@ -243,6 +250,8 @@ describe('protected Draft DAL with local Auth and Data API', () => {
 
   it('rejects duplicated and file operation IDs before creating a Draft', async () => {
     await admin();
+    const before = await listDrafts();
+    expect(before.status).toBe('success');
     const duplicate = form();
     duplicate.append('operationId', randomUUID());
     const file = form();
@@ -251,7 +260,7 @@ describe('protected Draft DAL with local Auth and Data API', () => {
       expect(await trackedCreateAction({ status: 'idle' }, data)).toMatchObject({
         status: 'conflict',
       });
-    expect(await listDrafts()).toEqual({ status: 'success', drafts: [] });
+    expect(await listDrafts()).toEqual(before);
   });
 
   it('denies receipt replay after Admin authority is revoked', async () => {
@@ -264,6 +273,72 @@ describe('protected Draft DAL with local Auth and Data API', () => {
       (await local.service.auth.admin.signOut(owner.session.access_token, 'global')).error
     ).toBeNull();
     await expect(trackedCreate(operationId, booking)).rejects.toMatchObject({
+      digest: expect.stringContaining('/sign-in'),
+    });
+  });
+
+  it('recovers creation by actor and opaque ID without replaying or overwriting an edited or deleted Draft', async () => {
+    const owner = await admin();
+    const operationId = randomUUID();
+    expect(await recoverDraftCreationAction(operationId, owner.user.id)).toEqual({
+      status: 'missing_receipt',
+    });
+    const first = await trackedCreate(operationId, booking);
+    if (first.status !== 'success') throw new Error('creation failed');
+    expect(
+      await updateDraft(first.draft.id, 1, { ...booking, title: 'Current booking' })
+    ).toMatchObject({ status: 'success' });
+    expect(await recoverDraftCreationAction(operationId, owner.user.id)).toMatchObject({
+      status: 'success',
+      draft: { id: first.draft.id, revision: 2, title: 'Current booking' },
+    });
+    expect(await recoverDraftCreationAction(operationId, randomUUID())).toMatchObject({
+      status: 'unavailable',
+    });
+    const other = await admin();
+    expect(await recoverDraftCreationAction(operationId, other.user.id)).toEqual({
+      status: 'missing_receipt',
+    });
+    vi.mocked(createClient).mockResolvedValue(owner.client);
+    const deleted = await local.service.rpc('package_admin_operation', {
+      p_admin_user_id: owner.user.id,
+      p_admin_session_id: sessionId(owner.session),
+      p_operation: 'begin_delete_draft',
+      p_operation_id: randomUUID(),
+      p_payload: { eventId: first.draft.id, expectedRevision: 2 },
+    });
+    expect(deleted.error).toBeNull();
+    expect(await recoverDraftCreationAction(operationId, owner.user.id)).toEqual({
+      status: 'not_found',
+    });
+    expect(
+      localOwnerSql(
+        `select count(*)::int as count from public.operation_receipts where event_id='${first.draft.id}' and operation_kind='create_draft'`
+      )[0].count
+    ).toBe(1);
+    expect(
+      localOwnerSql(
+        `select count(*)::int as count from public.activity_events where event_id='${first.draft.id}' and operation_kind='create_draft'`
+      )[0].count
+    ).toBe(1);
+  });
+
+  it('denies stale-actor creation and receipt recovery with revoked sessions', async () => {
+    const owner = await admin();
+    const operationId = randomUUID();
+    await trackedCreate(operationId, booking);
+    const data = form();
+    data.set('adminUserId', randomUUID());
+    expect(await createDraftAction({ status: 'idle' }, data)).toMatchObject({
+      status: 'unavailable',
+    });
+    expect(
+      (await local.service.auth.admin.signOut(owner.session.access_token, 'global')).error
+    ).toBeNull();
+    await expect(recoverDraftCreationAction(operationId, owner.user.id)).rejects.toMatchObject({
+      digest: expect.stringContaining('/sign-in'),
+    });
+    await expect(recoverDraftCreationAction(randomUUID(), owner.user.id)).rejects.toMatchObject({
       digest: expect.stringContaining('/sign-in'),
     });
   });
@@ -323,6 +398,8 @@ describe('protected Draft DAL with local Auth and Data API', () => {
 
   it('validates the trusted creation boundary without inserting malformed payloads', async () => {
     const owner = await admin();
+    const before = await listDrafts();
+    expect(before.status).toBe('success');
     const valid = creationPayload();
     for (const invalid of [
       null,
@@ -340,17 +417,19 @@ describe('protected Draft DAL with local Auth and Data API', () => {
       expect(result.error).not.toBeNull();
     }
     expect((await creationRpc(owner, null, valid)).error?.message).toBe('invalid_input');
-    expect(await listDrafts()).toEqual({ status: 'success', drafts: [] });
+    expect(await listDrafts()).toEqual(before);
   });
 
   it('refuses creation while the configured local default is still version 1', async () => {
     const owner = await admin();
+    const before = await listDrafts();
+    expect(before.status).toBe('success');
     localOwnerSql('alter table public.events alter column accounting_version set default 1');
     try {
       expect((await creationRpc(owner, randomUUID(), creationPayload())).error?.message).toBe(
         'operation_unavailable'
       );
-      expect(await listDrafts()).toEqual({ status: 'success', drafts: [] });
+      expect(await listDrafts()).toEqual(before);
     } finally {
       localOwnerSql('alter table public.events alter column accounting_version set default 2');
     }
@@ -443,6 +522,8 @@ describe('protected Draft DAL with local Auth and Data API', () => {
 
   it('does not read or edit a disposable version-1 Draft as a package booking', async () => {
     await admin();
+    const before = await listDrafts();
+    expect(before.status).toBe('success');
     const id = randomUUID();
     eventIds.push(id);
     ownerInsert('events', {
@@ -452,7 +533,7 @@ describe('protected Draft DAL with local Auth and Data API', () => {
       original_print_allowance: 17,
     });
     expect(await getDraft(id)).toEqual({ status: 'not_found' });
-    expect(await listDrafts()).toEqual({ status: 'success', drafts: [] });
+    expect(await listDrafts()).toEqual(before);
     expect(await updateDraft(id, 1, { ...booking, title: 'Implicit legacy edit' })).toEqual({
       status: 'not_found',
     });

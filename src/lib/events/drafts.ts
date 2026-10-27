@@ -3,6 +3,7 @@ import { z, ZodError } from 'zod';
 import { unstable_rethrow } from 'next/navigation';
 import { requireAdmin } from '@/lib/auth/require-admin';
 import { createClient } from '@/lib/supabase/server';
+import { createPrivilegedClient } from '@/lib/operations/privileged-client';
 import { packageRpc } from '@/lib/operations/package-rpc';
 import { PackageError, type PackageOperationResult } from '@/lib/operations/package-contract';
 import {
@@ -112,6 +113,36 @@ export async function getDraft(id: string): Promise<DraftReadResult> {
       .maybeSingle();
     if (error) throw error;
     return data ? { status: 'success', draft: data } : { status: 'not_found' };
+  });
+}
+
+export async function recoverDraftCreation(
+  operationId: string,
+  expectedAdminUserId: string
+): Promise<DraftReadResult | { status: 'missing_receipt' }> {
+  return recover(async () => {
+    const admin = await requireAdmin();
+    if (admin.userId !== expectedAdminUserId || !z.uuid().safeParse(operationId).success)
+      return {
+        status: 'unavailable' as const,
+        error: 'Sign in as the original Admin to recover this save.',
+      };
+    const { data, error } = await createPrivilegedClient()
+      .from('operation_receipts')
+      .select('event_id')
+      .eq('accounting_version', 2)
+      .eq('actor_scope', `admin:${admin.userId}`)
+      .eq('operation_kind', 'create_draft')
+      .eq('operation_key', operationId)
+      .maybeSingle();
+    if (error) throw error;
+    await requireAdmin();
+    // A missing receipt may still be in flight; it never authorizes a new creation ID.
+    return data
+      ? data.event_id
+        ? getDraft(data.event_id)
+        : { status: 'not_found' as const }
+      : { status: 'missing_receipt' as const };
   });
 }
 
