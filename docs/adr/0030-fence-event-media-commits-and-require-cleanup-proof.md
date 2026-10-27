@@ -1,6 +1,6 @@
 # ADR-0030: Fence Event Media commits and require backend cleanup proof
 
-**2026-10-27 refinement:** [ADR-0031](0031-temporarily-disable-event-media-uploads.md) replaces the blanket Task 4 hold with continued disabled-media UI work and permits release with uploads unavailable. Supported cleanup proof still gates re-enablement and completion of prior-authorized media-bearing Draft deletion. The dated observations below remain unchanged.
+**2026-10-27 refinement:** [ADR-0032](0032-build-full-f2-with-uploads-unavailable.md) permits full F2 implementation, including dormant editor/private delivery, while ADR-0031 keeps runtime uploads unavailable. Supported cleanup proof still gates re-enablement, full #30 acceptance and completion of prior-authorized media-bearing Draft deletion. The dated observations below remain unchanged.
 
 **Status:** Accepted scoped guard and fail-closed behavior; complete media-bearing Draft deletion remains blocked.
 **Date:** 2026-10-26
@@ -20,7 +20,7 @@ The real integration regression `deletion stays pending while an upload can stil
 - Beginning eligible Draft deletion retires its assets in the same transaction as erasing identifying details. Cleanup removes visible retired objects; attached Live/terminal assets are retained. Cancellation retains the Event and attached media.
 - Never infer complete cleanup from invalidated rows, an empty public listing, denied downloads, a known-URL termination, or an elapsed application expiration alone. Require supported assurance that all authorized transfers have drained/terminated and all backend versions, staging bytes and metadata have been removed, followed by a final rescan.
 - The current direct-upload interface supplies no complete transfer inventory or backend-drain acknowledgment. Consequently any Draft with an authorized media asset remains cleanup pending; no service cleanup acknowledgment can mark it removed, and the completion transaction independently refuses it. A Draft with no media authorization can complete deletion after actual empty-prefix verification. Retrying uses its original actor-scoped deletion receipt.
-- Do not build Docker/file inspection into production. Do not add a proxy or change backend under this decision. Those require a further reviewed decision. F2 Task 3 and its full F2-04 cleanup completion criterion remain open. Under ADR-0031, only enabled Task 4 transfer/editor/delivery work retains the cleanup-proof prerequisite; disabled presentation may proceed.
+- Do not build Docker/file inspection into production. Do not add a proxy or change backend under this decision. Those require a further reviewed decision. F2 Task 3 and its full F2-04 cleanup completion criterion remain open. ADR-0032 permits dormant Task 4 transfer/editor/delivery implementation before cleanup proof; runtime activation and full acceptance retain that prerequisite.
 
 ## Physical evidence and limits
 

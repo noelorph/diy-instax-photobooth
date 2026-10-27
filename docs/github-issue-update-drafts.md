@@ -1,5 +1,11 @@
 # GitHub issue publication record and remaining drafts
 
+## F2 final-in-#10 sequencing publication — 2026-10-27
+
+The user chose to keep [#30](https://github.com/noelorph/diy-instax-photobooth/issues/30) under [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10) and finish it last. Updated the live #10 and #30–#36 bodies with the current execution order: F3–F8 may proceed using the verified upload-disabled F2 milestone; #30 stays open and is the final blocker to #10 closure. F8 can finish fresh-schema, retirement and integrated acceptance for that disabled state, but full media cleanup, transfer and private-delivery qualification remain in #30. The historical bodies below record their original publication, not current sequencing.
+
+Removed only the native #30 `blocked_by` edges on #31, #32, #33, #35 and #36. Read-back showed #31 `[9]`, #32 `[9,29,31]`, #33 `[9,32]`, #34 `[9,31,32,33]`, #35 `[9,31]` and #36 `[9,29,31,32,33,34,35]`; all eight updated issue bodies began with the new dated execution section. No issue was closed, no upload was enabled, and no deployment or cleanup proof occurred.
+
 ## F2 temporary media scope publication — 2026-10-27
 
 The user authorized [ADR-0031](adr/0031-temporarily-disable-event-media-uploads.md), synchronized documentation, issue #30 updates and continued F2 implementation. [Issue #30](https://github.com/noelorph/diy-instax-photobooth/issues/30) now contains the current disabled-upload scope and verified local acceptance checklist, while retaining its entire original enabled-media plan in a clearly historical collapsed section. GitHub body read-back matched the submitted text exactly. #9 and prerequisite #29 were confirmed closed; #30 remains open pending the user’s closure/follow-up tracking decision.

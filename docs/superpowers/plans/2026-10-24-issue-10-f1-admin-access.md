@@ -12,11 +12,11 @@
 
 **Spec:** [Approved design, F1](../specs/2026-10-24-issue-10-functional-breakdown-design.md#f1-admin-access-and-account-management). Parent #10; #9 prerequisite satisfied; no additional capability prerequisite. [Plan index and shared execution rules](2026-10-24-issue-10-implementation-plan.md).
 
-**Published issue:** [#29](https://github.com/noelorph/diy-instax-photobooth/issues/29), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Native prerequisites: [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) (completed). Published and read-back verified 2026-10-25; implementation remains on hold.
+**Published issue:** [#29](https://github.com/noelorph/diy-instax-photobooth/issues/29), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Native prerequisites: [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) (completed). Published and read-back verified 2026-10-25. F1 is implemented; see the dated acceptance evidence in the shared trace.
 
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed. Verify the index evidence; this plan and GitHub publication are approved, but implementation remains on hold pending a later user instruction.
+- #9 passed on reviewed candidate `2f89a96` and is closed. Verify the index evidence; F1 implementation and its dated acceptance are recorded in the shared trace.
 - Reset succeeds only after a different password and confirmed global Admin-session revocation. Profile sign-out is local; an independent Booth grant survives both.
 - No public signup, Client account, new role or authentication-driven automatic Booth start.
 - Use [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), [screen map](../../design/2026-10-21-package-recovery/screen-map.md), sheets [08 authentication](../../design/2026-10-21-package-recovery/admin/08-authentication.png), [10 profile](../../design/2026-10-21-package-recovery/admin/10-profile.png), [11 feedback](../../design/2026-10-21-package-recovery/admin/11-dialogs-feedback.png) and shared shell in [01 dashboard](../../design/2026-10-21-package-recovery/admin/01-dashboard.png).

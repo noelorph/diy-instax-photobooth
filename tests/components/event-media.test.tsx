@@ -14,6 +14,9 @@ it('keeps planned media visible without file selection or upload requests during
   const media = screen.getByRole('region', { name: 'Event Media' });
 
   expect(within(media).getByRole('status').textContent).toMatch(/temporarily unavailable/i);
+  expect(within(media).getByRole('status').textContent).toMatch(
+    /before re-enabling uploads, verify cleanup of interrupted or late uploads and leftover files/i
+  );
   expect(within(media).getByRole('heading', { name: 'Background image' })).toBeTruthy();
   expect(within(media).getByRole('heading', { name: 'Welcome montage' })).toBeTruthy();
   expect(container.querySelector('input[type="file"]')).toBeNull();

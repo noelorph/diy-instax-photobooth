@@ -1,6 +1,6 @@
 # Development, qualification and release flow
 
-**Current target:** [ADR-0025](../adr/0025-package-accounting-and-booth-recovery.md), approved 2026-10-21. Version-2 contracts and handlers passed #9 software verification, and #9 is closed as completed. #10's plan is approved; F1–F8 are published as #29–#36; implementation remains on hold at the user's request. Hosted activation and physical qualification remain open.
+**Current target:** [ADR-0025](../adr/0025-package-accounting-and-booth-recovery.md), approved 2026-10-21. Version-2 contracts and handlers passed #9 software verification, and #9 is closed as completed. #10's plan is approved; F1–F8 are published as #29–#36; F1 is implemented; dormant full F2 work is authorized with runtime uploads unavailable under ADR-0032. F3–F8 may proceed against the verified upload-disabled F2 milestone and their other prerequisites; #30 stays open in #10 and is completed last as the final blocker to parent closure. Hosted activation and physical qualification remain open.
 
 ```mermaid
 flowchart TD

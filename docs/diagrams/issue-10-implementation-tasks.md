@@ -1,10 +1,10 @@
 # Issue #10 — implementation task flowchart
 
-**2026-10-27 media scope:** [ADR-0031](../adr/0031-temporarily-disable-event-media-uploads.md) preserves the planned feature and designs while uploads are temporarily unavailable. F2 may deliver disabled media sections and trusted upload/attachment/replacement denial now; enabled transfer/delivery/complete cleanup qualification is deferred and optional before release while disabled. Prior-authorized deletion stays pending. These diagrams do not decide #30 closure or authorize other capabilities.
+**2026-10-27 F2 scope:** [ADR-0032](../adr/0032-build-full-f2-with-uploads-unavailable.md) restores full dormant F2/#30 editor/private-delivery implementation while runtime uploads remain unavailable. Keep trusted denials, media designs, the visible Admin cleanup reminder and prior-authorized deletion pending. Full cleanup and enabled transfer/failure/concurrency/private-delivery/playback proof remain required for #30 completion. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 remains open in #10 and is completed last as its final closure blocker. These diagrams do not change native dependencies or claim acceptance.
 
-**Original 23-task breakdown across eight capability plans.** This is a visual index of the plans revised on 25 October 2026, not a new plan or a completion record. The plan is approved and F1–F8 are published as #29–#36. F1 is implemented; F2 is authorized to continue with uploads unavailable under ADR-0031; F3–F8 remain on hold. #9's software prerequisite is already satisfied.
+**Original 23-task breakdown across eight capability plans.** This is a visual index of the plans revised on 25 October 2026, not a new plan or a completion record. The plan is approved and F1–F8 are published as #29–#36. F1 is implemented; full dormant F2 implementation is authorized under ADR-0032 with uploads unavailable under ADR-0031; F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure. #9's software prerequisite is already satisfied.
 
-For your review only. This shows the work order and what disappears; agents use the detailed plans, not this chart. This chart records no new implementation evidence or database reset. The approved documentation was committed as `0bd7503`. You then authorized publication and its verification; that is complete. That publication-stage implementation hold was later lifted for F1 and the current F2 scope only.
+For your review only. This shows the work order and what disappears; agents use the detailed plans, not this chart. This chart records no new implementation evidence or database reset. The approved documentation was committed as `0bd7503`. You then authorized publication and its verification; that is complete. That publication-stage hold was later superseded: F1 is implemented, dormant full F2 work is authorized with uploads unavailable, and F3–F8 may proceed using the verified disabled F2 milestone and their other prerequisites. #30 remains open under #10 and finishes last before parent closure.
 
 ## The change you approved
 
@@ -21,7 +21,7 @@ There is no legacy-data migration, old-Draft conversion or legacy History screen
 
 ## Publication history and current authorization
 
-P1–P3 publication tasks are complete. The original implementation tasks below are a scope index, not all pending: F1 is implemented and the current F2 scope is authorized. Approval/publication alone did not authorize application implementation; the later F1/F2 instructions did.
+P1–P3 publication tasks are complete. The original implementation tasks below are a scope index, not all pending: F1 is implemented and the current F2 scope is authorized. Approval/publication alone did not authorize application implementation; later instructions authorized F1/F2 and continuation of other #10 work with uploads unavailable. #30 remains open in #10 and is completed last before #10 closure.
 
 ```mermaid
 flowchart TD
@@ -30,18 +30,18 @@ flowchart TD
   P1["P1 complete: approval recorded<br/>#10 and eight child bodies prepared"]
   P2["P2 complete: #10 updated<br/>#29–#36 created with native dependencies"]
   P3["P3 complete: bodies and links verified<br/>Local issue map recorded"]
-  AUTH["Current: F1 implemented; F2 authorized<br/>Uploads unavailable; F3–F8 held"]
+  AUTH["Current: F1 implemented; F2 authorized<br/>Uploads unavailable; other #10 work eligible; use disabled F2 milestone; #30 closes last"]
   PUBLISH["Historical: publication authorized<br/>Implementation held at that stage"]
   NINE --> APPROVAL --> PUBLISH --> P1 --> P2 --> P3 --> AUTH
 ```
 
 ## All implementation tasks
 
-Each task includes its planned implementation, focused verification and commit. Cross-capability arrows require the preceding capability's acceptance and recorded evidence. Redundant transitive arrows are omitted: F7 can follow F3 alongside the F4–F6 sequence, and F8 waits for **all F1–F7**. The arrows express dependencies, not a request to delegate work.
+Each task includes its planned implementation, focused verification and commit. F3–F8 consume the verified upload-disabled F2 milestone; other capability prerequisites require recorded acceptance. F7 can follow F3 alongside the F4–F6 sequence. F8 may complete its disabled-scope acceptance after F1/F3–F7 and the F2 milestone; full #30 finishes last before parent closure. The arrows express dependencies, not a request to delegate work.
 
 ```mermaid
 flowchart TD
-  START["F1 implemented; current F2 scope authorized<br/>F3–F8 still require implementation instruction"]
+  START["F1 implemented; current F2 scope authorized<br/>Other #10 work eligible; use disabled F2 milestone; #30 closes last"]
 
   subgraph F1["F1 / #29 — Admin access and account management"]
     F1T1["F1.T1: Sign-in and truthful<br/>password recovery"]
@@ -52,11 +52,12 @@ flowchart TD
 
   subgraph F2["F2 / #30 — Event preparation and private media"]
     F2T1["F2.T1: Package-based Draft<br/>preparation and discovery"]
-    F2T2["F2.T2: Validated, immutable<br/>private media writes"]
-    F2T3["F2.T3: Safe Draft cancellation,<br/>deletion and cleanup"]
+    F2T2["F2.T2/4B: Dormant editor, validated writes<br/>and authorized private delivery"]
+    F2T3["F2.T3: Retain verified safe cancellation,<br/>no-authorization deletion and cleanup pending"]
     F2T4["F2.T4A: Preserved media sections<br/>uploads unavailable; trusted denial"]
     F2T1 --> F2T3 --> F2T4
-    F2T2 -.->|Deferred enabled media; cleanup proof required| F2T4
+    F2FULL["Full #30: supported cleanup and enabled<br/>transfer/failure/concurrency/delivery/playback proof"]
+    F2T2 -.-> F2FULL
   end
 
   subgraph F3["F3 / #31 — Booked capacity and Additional Film Packages"]
@@ -92,12 +93,12 @@ flowchart TD
     F7T1 --> F7T2
   end
 
-  ACCEPTED["All F1–F7 accepted<br/>Owner evidence recorded"]
+  ACCEPTED["F1 and F3–F7 accepted<br/>Verified disabled F2 milestone retained"]
 
   subgraph F8["F8 / #36 — Complete removal and fresh installation"]
     F8T1["F8.T1: Trace and delete<br/>all remaining legacy application paths"]
     F8T2["F8.T2: Replace the old migration chain<br/>Prove a fresh package-only installation"]
-    F8T3["F8.T3: Verify the complete candidate<br/>and record #10 acceptance"]
+    F8T3["F8.T3: Verify disabled candidate<br/>and record F8 acceptance; #30 remains open"]
     F8T1 --> F8T2 --> F8T3
   end
 
@@ -113,7 +114,9 @@ flowchart TD
   F6T3 --> ACCEPTED
   F7T2 --> ACCEPTED
   ACCEPTED --> F8T1
-  F8T3 --> DONE
+  F8T3 --> F2FULL
+  F2FULL --> RECHECK["Reverify affected combined candidate<br/>Current contracts and fresh baseline"]
+  RECHECK --> DONE
 ```
 
 ## What disappears and what stays
@@ -130,6 +133,6 @@ flowchart TD
 | Old migrations and database objects       | Replaced by a complete verified package-only baseline                               |
 | #9 contracts and evidence                 | Current behavior retained and reverified; dated acceptance preserved                |
 
-F2 can render preserved unavailable media sections now; full enabled transfer/validation/deletion/delivery proof remains deferred before re-enablement. F4 proves fresh equipment readiness after handoff. F5/F6 prove new Guest admission after a package purchase without clearing other blockers or a pause. F7 keeps the approved monthly count: Draft + Live + Completed, excluding Cancelled.
+F2 can build its full editor/private delivery dormant now with the unavailable sections and cleanup reminder retained; full enabled transfer/failure/concurrency/validation/deletion/delivery/playback proof remains required for #30 acceptance and later explicit re-enablement. F4 proves fresh equipment readiness after handoff. F5/F6 prove new Guest admission after a package purchase without clearing other blockers or a pause. F7 keeps the approved monthly count: Draft + Live + Completed, excluding Cancelled.
 
 These charts are a review aid, not a test result or an instruction to deploy. Real-printer qualification remains #17; actual-iPad release remains #7. Both remain outside #10 software acceptance.

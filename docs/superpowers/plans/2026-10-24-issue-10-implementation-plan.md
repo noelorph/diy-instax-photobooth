@@ -1,6 +1,6 @@
 # Issue #10 Implementation and Publication Plan
 
-**2026-10-27 execution refinement:** F1 is implemented; F2 is authorized to continue under [ADR-0031](../../adr/0031-temporarily-disable-event-media-uploads.md) with uploads temporarily unavailable and media sections/designs preserved. Full enabled media/private-delivery/cleanup qualification is deferred and optional before release while disabled. Preserve prior-authorized pending-deletion safeguards. F3–F8 implementation holds and #17/#7 remain unchanged. This supersedes the earlier blanket media-editor hold; #30 closure/follow-up tracking remains a separate decision.
+**2026-10-27 F2 scope:** [ADR-0032](../../adr/0032-build-full-f2-with-uploads-unavailable.md) restores original full F2/#30 implementation, including the dormant editor and private delivery. Runtime uploads/attachments/replacements remain denied under ADR-0031; preserve sections/designs, retention and prior-authorized cleanup-pending safeguards. Add the visible Admin Event Media reminder about cleanup verification for interrupted/late uploads and leftover files. Supported cleanup and enabled transfer/failure/concurrency/private-delivery/playback proof remain required for full #30 acceptance; disabled-scope evidence is unchanged. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure.
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
@@ -14,7 +14,7 @@
 
 **Spec:** [Approved functional design](../specs/2026-10-24-issue-10-functional-breakdown-design.md), [replacement contract](../specs/2026-10-21-package-accounting-booth-recovery-design.md), [ADR-0027](../../adr/0027-draft-only-event-media.md).
 
-**Status:** The user approved the revised complete-removal plan on 2026-10-25 under [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md); the approved documentation was committed as `0bd7503` after checkpoint `1de2272`. The user then clarified that approval recording and GitHub publication may proceed while implementation remains on hold. #10 and F1–F8 (#29–#36) are published and read-back verified. #9 remains accepted and closed; #10 and all children remain open. No application implementation, database reset, physical test or push is authorized. The user subsequently authorized committing this publication-record update.
+**Publication-stage status — 2026-10-25 (historical):** The user approved the revised complete-removal plan on 2026-10-25 under [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md); the approved documentation was committed as `0bd7503` after checkpoint `1de2272`. The user then clarified that approval recording and GitHub publication may proceed while implementation remains on hold. #10 and F1–F8 (#29–#36) are published and read-back verified. #9 remains accepted and closed; #10 and all children remain open. No application implementation, database reset, physical test or push is authorized. The user subsequently authorized committing this publication-record update.
 
 ## Global Constraints
 
@@ -32,7 +32,7 @@
 ## Review Focus
 
 1. A lost mutation response must not create a duplicate Draft/audit, purchase, handoff or send: F2 task 1, F3 task 2, F4 task 1, F5 task 2.
-2. Disabled media UI and trusted-boundary denials can proceed in F2 task 4 now. Full interrupted/invalid-transfer, lifecycle, cleanup and delivery proof remains required before re-enablement; deferred media issues need not block release while uploads stay disabled.
+2. Full dormant F2 editor/private delivery can proceed with runtime denials intact. Keep a visible interrupted/late-upload and leftover-file cleanup reminder. Full interrupted/invalid-transfer, lifecycle/concurrency, supported cleanup, private delivery and playback proof remains required for #30 completion and later re-enablement. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure.
 3. Setup readiness cannot be reused blindly after local sign-out/navigation; explicit camera actions can request permission, passive checks cannot prompt, and independent blockers/stops survive: F4 tasks 1–2 and F6 tasks 1–3.
 4. A delayed newer Capture or journal loss must not select another photo or imply no physical send: F5 tasks 1–2 and F6 task 1.
 5. A fresh install must reproduce every current #9 security/accounting safeguard while omitting all legacy objects; resets are restricted to named disposable local projects and never settle a runtime uncertain print: F8 tasks 1–3.
@@ -41,22 +41,22 @@
 
 Each row is **one GitHub sub-issue**, not a separate UI/API/database/testing phase. F1–F8 are stable capability identifiers mapped to published GitHub issues #29–#36 in the publication table below. Human review diagrams are separate from agent execution instructions.
 
-| ID / approved issue title                                            | Plan                                                    | Prerequisites besides #9 | Independently demonstrable outcome                                  |
-| -------------------------------------------------------------------- | ------------------------------------------------------- | ------------------------ | ------------------------------------------------------------------- |
-| F1: Complete Admin access and account management                     | [F1](2026-10-24-issue-10-f1-admin-access.md)            | None                     | Sign in/recover/manage account with correct session boundaries      |
-| F2: Complete Event preparation and private media                     | [F2](2026-10-24-issue-10-f2-event-preparation-media.md) | F1                       | Valid Draft, unavailable media sections, safe cancellation/deletion |
-| F3: Complete booked capacity and Additional Film Packages            | [F3](2026-10-24-issue-10-f3-package-capacity.md)        | F2                       | Real Admin purchase/count workflow, exactly once                    |
-| F4: Complete Booth setup, access and lifecycle                       | [F4](2026-10-24-issue-10-f4-booth-lifecycle.md)         | F1, F2, F3               | Setup/handoff, phone pause/resume/finish and Event termination      |
-| F5: Complete the Guest capture-to-print journey                      | [F5](2026-10-24-issue-10-f5-guest-printing.md)          | F2, F4                   | One reviewed Capture, at most one send, truthful completion         |
-| F6: Complete Booth recovery across devices                           | [F6](2026-10-24-issue-10-f6-booth-recovery.md)          | F3, F4, F5               | Resolve outcome and equipment/access blockers safely                |
-| F7: Complete operational visibility and retained history             | [F7](2026-10-24-issue-10-f7-visibility-history.md)      | F2, F3                   | Accurate summaries/activity and immutable historical detail         |
-| F8: Complete legacy removal, fresh installation and final acceptance | [F8](2026-10-24-issue-10-f8-cutover-acceptance.md)      | F1–F7                    | Package-only schema and combined app pass nonproduction acceptance  |
+| ID / approved issue title                                            | Plan                                                    | Prerequisites besides #9         | Independently demonstrable outcome                                                    |
+| -------------------------------------------------------------------- | ------------------------------------------------------- | -------------------------------- | ------------------------------------------------------------------------------------- |
+| F1: Complete Admin access and account management                     | [F1](2026-10-24-issue-10-f1-admin-access.md)            | None                             | Sign in/recover/manage account with correct session boundaries                        |
+| F2: Complete Event preparation and private media                     | [F2](2026-10-24-issue-10-f2-event-preparation-media.md) | F1                               | Valid Draft, dormant full media workflow, runtime denials, safe cancellation/deletion |
+| F3: Complete booked capacity and Additional Film Packages            | [F3](2026-10-24-issue-10-f3-package-capacity.md)        | F2 disabled milestone            | Real Admin purchase/count workflow, exactly once                                      |
+| F4: Complete Booth setup, access and lifecycle                       | [F4](2026-10-24-issue-10-f4-booth-lifecycle.md)         | F1, F2 disabled milestone, F3    | Setup/handoff, phone pause/resume/finish and Event termination                        |
+| F5: Complete the Guest capture-to-print journey                      | [F5](2026-10-24-issue-10-f5-guest-printing.md)          | F2 disabled milestone, F4        | One reviewed Capture, at most one send, truthful completion                           |
+| F6: Complete Booth recovery across devices                           | [F6](2026-10-24-issue-10-f6-booth-recovery.md)          | F3, F4, F5                       | Resolve outcome and equipment/access blockers safely                                  |
+| F7: Complete operational visibility and retained history             | [F7](2026-10-24-issue-10-f7-visibility-history.md)      | F2 disabled milestone, F3        | Accurate summaries/activity and immutable historical detail                           |
+| F8: Complete legacy removal, fresh installation and final acceptance | [F8](2026-10-24-issue-10-f8-cutover-acceptance.md)      | F1, F2 disabled milestone, F3–F7 | Package-only schema and combined app pass nonproduction acceptance                    |
 
-F7 may follow F3 while F4–F6 proceed in dependency order. F4/F5/F6 sequentially extend `src/features/booth/flow.ts` and `booth-client.tsx`; they must not introduce competing orchestration state machines. The dependency graph does not request delegation now. Implementation method is selected later, after the gate and explicit authorization to implement.
+The F2 disabled milestone is the [verified local scope](../../implementation/issue-30-disabled-media-acceptance.md), not full #30 closure. F3–F8 may consume it; #30 stays under #10 and is finished last. F8 may complete fresh-schema, retirement and integrated acceptance for uploads unavailable while full-media evidence remains open under #30. Later F2 changes require affected current #9/integration/fresh-schema checks before parent closure. F7 may follow F3 while F4–F6 proceed in dependency order. F4/F5/F6 sequentially extend `src/features/booth/flow.ts` and `booth-client.tsx`; they must not introduce competing orchestration state machines. The dependency graph does not request delegation now. Implementation method is selected later, after the gate and explicit authorization to implement.
 
 ## Acceptance ownership before implementation
 
-The [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md#acceptance-trace) is populated now with requirements, accountable capability/task, named test scenarios and pending evidence. Each owner records revision, exact command/config/environment, result and evidence location before its issue closes. Refer to that single table from child issues instead of maintaining divergent copies. F8 audits and reruns accumulated evidence on the combined candidate; it does not first assign missing requirements at the end.
+The [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md#acceptance-trace) is populated now with requirements, accountable capability/task, named test scenarios and pending evidence. Each owner records revision, exact command/config/environment, result and evidence location before its issue closes. Refer to that single table from child issues instead of maintaining divergent copies. F8 audits and reruns the upload-disabled candidate evidence, leaving full #30 media proof explicitly open. It does not first assign missing requirements at the end or record final #10 acceptance before #30 completes.
 
 In particular, F3 owns the exactly-once purchase; **F5 owns exhaustion → phone purchase → a newly admitted Guest**, and F6 owns the variants where pause or another blocker still prevents admission. F4 owns fresh camera/printer readiness after setup handoff. Every required test not yet written or run remains explicitly pending.
 
@@ -155,16 +155,16 @@ Each child records controls, callers, actions, routes, SQL objects, fixtures and
 - [x] Replace the pending values below with real issue numbers/URLs, link the plans from the approved design, and record publication status without claiming implementation completion.
 - [x] Verified the publication-record changes: local links/anchors and published plan snapshots match; all 27 changed Markdown files pass Prettier and `git diff --check`. The initial approved documentation commit is `0bd7503`. The user subsequently authorized committing these publication records after verifying their relation to the published issues. No push or application execution occurred.
 
-| Local ID | GitHub sub-issue                                                   | Publication status               |
-| -------- | ------------------------------------------------------------------ | -------------------------------- |
-| F1       | [#29](https://github.com/noelorph/diy-instax-photobooth/issues/29) | Verified; implementation on hold |
-| F2       | [#30](https://github.com/noelorph/diy-instax-photobooth/issues/30) | Verified; implementation on hold |
-| F3       | [#31](https://github.com/noelorph/diy-instax-photobooth/issues/31) | Verified; implementation on hold |
-| F4       | [#32](https://github.com/noelorph/diy-instax-photobooth/issues/32) | Verified; implementation on hold |
-| F5       | [#33](https://github.com/noelorph/diy-instax-photobooth/issues/33) | Verified; implementation on hold |
-| F6       | [#34](https://github.com/noelorph/diy-instax-photobooth/issues/34) | Verified; implementation on hold |
-| F7       | [#35](https://github.com/noelorph/diy-instax-photobooth/issues/35) | Verified; implementation on hold |
-| F8       | [#36](https://github.com/noelorph/diy-instax-photobooth/issues/36) | Verified; implementation on hold |
+| Local ID | GitHub sub-issue                                                   | Publication and current execution status                             |
+| -------- | ------------------------------------------------------------------ | -------------------------------------------------------------------- |
+| F1       | [#29](https://github.com/noelorph/diy-instax-photobooth/issues/29) | Implemented; dated acceptance recorded                               |
+| F2       | [#30](https://github.com/noelorph/diy-instax-photobooth/issues/30) | Full dormant implementation authorized; full acceptance open         |
+| F3       | [#31](https://github.com/noelorph/diy-instax-photobooth/issues/31) | Publication verified; may use disabled F2 milestone; #30 closes last |
+| F4       | [#32](https://github.com/noelorph/diy-instax-photobooth/issues/32) | Publication verified; may use disabled F2 milestone; #30 closes last |
+| F5       | [#33](https://github.com/noelorph/diy-instax-photobooth/issues/33) | Publication verified; may use disabled F2 milestone; #30 closes last |
+| F6       | [#34](https://github.com/noelorph/diy-instax-photobooth/issues/34) | Publication verified; may use disabled F2 milestone; #30 closes last |
+| F7       | [#35](https://github.com/noelorph/diy-instax-photobooth/issues/35) | Publication verified; may use disabled F2 milestone; #30 closes last |
+| F8       | [#36](https://github.com/noelorph/diy-instax-photobooth/issues/36) | Publication verified; may use disabled F2 milestone; #30 closes last |
 
 ## Completion and self-review
 
@@ -174,4 +174,4 @@ Review each capability against the current PRD, architecture, glossary, ADR-0025
 
 Read-back on 2026-10-25 verified the complete #10 body, all eight child bodies/native parents and 27 child blocker edges against the approved scope, dependency table, 23 tasks and 27 pending acceptance rows. #10 retains its own #9 dependency. #9's body, completed state, metadata and update timestamp are unchanged; its old preservation clauses remain dated evidence superseded for #10 by ADR-0029. The [publication record](../../github-issue-update-drafts.md#publication-verification-2026-10-25) records the result.
 
-The user has authorized publication and its documentation commit; application implementation remains on hold. P1–P3 and their documentation checks are complete; F1–F8 and all 27 implementation-evidence rows remain pending. Wait for a later explicit implementation instruction and the capability prerequisites. No code changes, database reset, physical test, issue closure or push occurred; the user authorized committing the related publication-record changes.
+**Historical publication handoff — 2026-10-25:** The user had authorized publication and its documentation commit; application implementation remained on hold at that stage. Current implementation authorization is governed by ADR-0032 above. P1–P3 and their documentation checks are complete; F1–F8 and all 27 implementation-evidence rows remain pending. Wait for a later explicit implementation instruction and the capability prerequisites. No code changes, database reset, physical test, issue closure or push occurred; the user authorized committing the related publication-record changes.

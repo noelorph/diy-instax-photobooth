@@ -1,6 +1,6 @@
 # Package accounting and Booth recovery — design mockups
 
-**Current media availability:** [ADR-0031](../../adr/0031-temporarily-disable-event-media-uploads.md) keeps Event Media sections, planned background/montage designs and assets, with uploads temporarily unavailable. Render persistent unavailable feedback and disabled upload controls; default Booth presentation remains usable. Enabled media/private-delivery and supported cleanup qualification are deferred and optional before release while disabled. Existing retention, authorized private access and prior-authorized Draft cleanup-pending safeguards remain.
+**Current F2 scope — 2026-10-27:** [ADR-0032](../../adr/0032-build-full-f2-with-uploads-unavailable.md) restores full F2/#30 implementation, including the dormant media editor and private delivery, while runtime uploads remain unavailable. Preserve media sections/designs, disabled controls, trusted mutation denials, private access/retention and prior-authorized cleanup-pending safeguards. The Admin Event Media page must visibly state that interrupted/late uploads and leftover files need cleanup verification before re-enabling. Supported cleanup and enabled transfer/failure/concurrency/private-delivery/playback qualification remain required for full #30 acceptance; existing disabled-scope evidence is unchanged. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure.
 
 **Approved by the user · 21 October 2026 · implementation pending.**
 

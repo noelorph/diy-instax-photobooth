@@ -1,28 +1,30 @@
 # Issue #10 — sub-issue flowcharts
 
-**2026-10-27 media scope:** [ADR-0031](../adr/0031-temporarily-disable-event-media-uploads.md) preserves the planned feature and designs while uploads are temporarily unavailable. F2 may deliver disabled media sections and trusted upload/attachment/replacement denial now; enabled transfer/delivery/complete cleanup qualification is deferred and optional before release while disabled. Prior-authorized deletion stays pending. These diagrams do not decide #30 closure or authorize other capabilities.
+**2026-10-27 F2 scope:** [ADR-0032](../adr/0032-build-full-f2-with-uploads-unavailable.md) restores full dormant F2/#30 editor/private-delivery implementation while runtime uploads remain unavailable. Keep trusted denials, media designs, the visible Admin cleanup reminder and prior-authorized deletion pending. Full cleanup and enabled transfer/failure/concurrency/private-delivery/playback proof remain required for #30 completion. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 remains open in #10 and is completed last as its final closure blocker. these diagrams do not change native dependencies or claim acceptance.
 
-**Approved design · 24 October 2026.** F1–F8 are the agreed capability groups, now published as GitHub #29–#36. The detailed plans were approved on 2026-10-25, committed as `0bd7503` and published under your later instruction. F1 is implemented; F2 is authorized to continue with uploads unavailable under ADR-0031; F3–F8 remain on hold. The #9 software prerequisite passed verification and independent review; #9 is closed as completed. Capability prerequisites below still apply.
+**Approved design · 24 October 2026.** F1–F8 are the agreed capability groups, now published as GitHub #29–#36. The detailed plans were approved on 2026-10-25, committed as `0bd7503` and published under your later instruction. F1 is implemented; full dormant F2 implementation is authorized under ADR-0032 with uploads unavailable under ADR-0031; F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure. The #9 software prerequisite passed verification and independent review; #9 is closed as completed. Capability prerequisites below still apply.
 
 For your review only, revised 2026-10-25 for complete legacy removal. Each chart shows user behavior. Agents use the written contracts and capability plans; these diagrams are not additional work orders. The diagrams claim no new implementation evidence or fresh database install.
 
 ## How the sub-issues fit together
 
-Prerequisite paths are shown without redundant transitive arrows. F8 waits for **all F1–F7**. This is the approved dependency order, not permission to begin.
+Prerequisite paths are shown without redundant transitive arrows. F3–F8 consume the verified upload-disabled F2 milestone; F8 requires F1 and F3–F7 acceptance plus that milestone. Full #30 remains open in #10 and is completed last before parent closure. These are current execution boundaries, not a tracker read-back or passing evidence.
 
 ```mermaid
 flowchart TD
   GATE["#9 verified and closed<br/>Prerequisite satisfied"] --> F1["F1 / #29 implemented<br/>Admin access and account"]
-  F1 --> F2["F2 / #30 authorized<br/>Event preparation; uploads unavailable"]
-  F2 --> HOLD["F3–F8 remain on hold<br/>Further implementation instruction required"]
-  HOLD --> F3["F3 / #31<br/>Booked capacity and package additions"]
+  F1 --> F2M["Verified F2 upload-disabled milestone<br/>Drafts, denials and pending-cleanup safety"]
+  F2M --> F3["F3 / #31<br/>Booked capacity and package additions"]
   F3 --> F4["F4 / #32<br/>Booth setup, access and lifecycle"]
   F4 --> F5["F5 / #33<br/>Guest capture-to-print journey"]
   F5 --> F6["F6 / #34<br/>Recovery across devices"]
   F3 --> F7["F7 / #35<br/>Operational visibility and history"]
-  F6 --> F8["F8 / #36<br/>Complete removal and fresh installation"]
+  F6 --> F8["F8 / #36<br/>Retirement, fresh schema and disabled-scope acceptance"]
   F7 --> F8
-  F8 --> DONE["#10 complete<br/>Nonproduction acceptance only"]
+  F2M -.-> F2FULL["F2 / #30 remains open<br/>Full cleanup and enabled media qualification; finish last"]
+  F8 --> F2FULL
+  F2FULL --> RECHECK["Reverify affected combined candidate<br/>Current contracts and fresh baseline"]
+  RECHECK --> DONE["#10 closure eligible only after all evidence<br/>No physical release implied"]
 ```
 
 Real-printer qualification (#17) and the actual-iPad release gate (#7) remain separate and open. These diagrams do not move either gate into #10.

@@ -8,7 +8,10 @@ export function EventMediaEditor() {
   return (
     <section className={styles.media} aria-labelledby="event-media-heading">
       <h2 id="event-media-heading">Event Media</h2>
-      <FormFeedback kind="status">{EVENT_MEDIA_UNAVAILABLE_MESSAGE}</FormFeedback>
+      <FormFeedback kind="status">
+        {EVENT_MEDIA_UNAVAILABLE_MESSAGE} Before re-enabling uploads, verify cleanup of interrupted
+        or late uploads and leftover files.
+      </FormFeedback>
       <div className={styles.mediaItem}>
         <div className={styles.mediaPlaceholder}>
           <ImageIcon size={32} aria-hidden="true" />

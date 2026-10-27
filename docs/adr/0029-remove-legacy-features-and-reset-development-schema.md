@@ -1,6 +1,6 @@
 # ADR-0029: Remove legacy features and replace the development schema
 
-**Status:** Decision accepted by the user on 2026-10-25. The revised #10 implementation/publication plans were approved on 2026-10-25. The approved documentation was committed as `0bd7503`, then the user authorized publishing #10 and F1–F8 (#29–#36). Implementation remains on hold; code and databases are unchanged.
+**Status:** Decision accepted by the user on 2026-10-25. The revised #10 implementation/publication plans were approved on 2026-10-25. The approved documentation was committed as `0bd7503`, then the user authorized publishing #10 and F1–F8 (#29–#36). Other #10 work may proceed with uploads unavailable under [ADR-0032](0032-build-full-f2-with-uploads-unavailable.md); #30 stays open in #10 and is completed last before #10 closure. This documentation change leaves code and databases unchanged.
 
 **Supersedes:** The legacy-data preservation, Draft conversion, historical-reader and applied-migration retention requirements in [ADR-0025](0025-package-accounting-and-booth-recovery.md) and section 8 of its [contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). All other package, access, privacy, recovery and physical qualification rules remain in force.
 
@@ -34,4 +34,4 @@ Remove obsolete feature specs/plans, source prompts and superseded mockups from 
 - F8 proves absence of legacy source/schema/RPCs, safe denial of stale requests, an empty-database install, current package creation by default, and the complete application/security/accounting suites on the final baseline.
 - Historical documentation may name a removed feature to explain evidence or supersession. Maintained implementation instructions may only name it as removal work or an absence assertion.
 - #17 automatic normal full-ejection/recovery qualification and #7 actual-iPad release remain separate and open. Keep required hardware calibration/proof evidence; isolated qualification tooling must use current contracts or independent transport, never legacy accounting routes.
-- If the disposable-data assumption changes before execution, stop the reset and revisit this decision. The approved documentation was committed and GitHub publication was separately authorized. Implementation remains on hold; no reset, code change or push has occurred.
+- If the disposable-data assumption changes before execution, stop the reset and revisit this decision. The approved documentation was committed and GitHub publication was separately authorized. The original publication-stage hold is superseded by ADR-0032 for work with uploads unavailable; #30 stays open in #10 and is completed last before #10 closure. This documentation change performs no reset, code change or push.
