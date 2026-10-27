@@ -138,6 +138,7 @@ export function OperationsPanel({
         eligible={event.state === 'Live'}
         counts={counts}
         onCounts={setCounts}
+        refreshAdmin={refreshAdmin}
       />
       <p>{event.captures} Captures</p>
       {counts.unresolved > 0 && (

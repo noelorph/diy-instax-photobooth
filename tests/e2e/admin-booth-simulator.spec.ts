@@ -693,72 +693,134 @@ test('eligible Live cancellation keeps History and usable confirmation across th
   }
 });
 
-test('a held Admin refresh settles before local handoff signs out; phone polling stays independent', async ({
-  browser,
-}) => {
-  const f = await createPackageBrowserFixture();
-  let release!: () => void;
-  const gate = new Promise<void>((resolve) => {
-    release = resolve;
-  });
-  try {
-    f.seedRun('Finished');
-    localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
-    const d = await devices(browser, f);
+for (const refreshOrigin of ['Admin', 'package reload']) {
+  test(`a held ${refreshOrigin} refresh settles before local handoff signs out; phone polling stays independent`, async ({
+    browser,
+  }) => {
+    const f = await createPackageBrowserFixture();
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
     try {
-      let held = false,
-        starts = 0,
-        issues = 0;
-      d.boothPage.on('request', (request) => {
-        if (request.url().endsWith('/booth/start')) starts++;
-        if (/\/booth-handoffs\/[^/]+\/issue$/.test(request.url())) issues++;
-      });
-      await d.boothPage.route(`**/events/${f.eventId}?*`, async (route) => {
-        if (route.request().headers().rsc === '1' && !held) {
-          held = true;
-          await gate;
+      f.seedRun('Finished');
+      localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+      const d = await devices(browser, f);
+      try {
+        let holdEnabled = refreshOrigin === 'Admin';
+        const inFlightRefreshes = new Set<unknown>();
+        let held = false,
+          starts = 0,
+          issues = 0;
+        d.boothPage.on('requestfinished', (request) => inFlightRefreshes.delete(request));
+        d.boothPage.on('requestfailed', (request) => inFlightRefreshes.delete(request));
+        d.boothPage.on('request', (request) => {
+          if (
+            new URL(request.url()).pathname === `/events/${f.eventId}` &&
+            request.headers().rsc === '1'
+          )
+            inFlightRefreshes.add(request);
+          if (request.url().endsWith('/booth/start')) starts++;
+          if (/\/booth-handoffs\/[^/]+\/issue$/.test(request.url())) issues++;
+        });
+        await d.boothPage.route(`**/events/${f.eventId}?*`, async (route) => {
+          if (holdEnabled && route.request().headers().rsc === '1' && !held) {
+            held = true;
+            await gate;
+          }
+          await route.continue();
+        });
+        await d.phonePage.goto(`/events/${f.eventId}`);
+        await prepare(d.boothPage, f);
+        if (refreshOrigin === 'package reload') {
+          await d.boothPage.route(
+            `**/api/admin/events/${f.eventId}/film-packages`,
+            async (route) => {
+              const response = await route.fetch({
+                postData: JSON.stringify({ ...route.request().postDataJSON(), packages: 0 }),
+              });
+              expect(response.status()).toBe(400);
+              await route.fulfill({ response });
+            }
+          );
+          await d.boothPage.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
+          await d.boothPage.getByLabel('Client request note').fill('Client asked for one package');
+          await d.boothPage
+            .getByRole('dialog')
+            .getByRole('button', { name: 'Add Film Packages', exact: true })
+            .click();
+          await expect(d.boothPage.getByRole('alert')).toContainText(
+            'The purchase was not recorded'
+          );
+          expect(
+            await d.boothPage.evaluate(
+              (key) => sessionStorage.getItem(key),
+              `film-package-purchase:${f.eventId}:${f.adminUser.id}`
+            )
+          ).toBeNull();
+          // Isolate this manual reload: no tracked scheduled poll may mask its transition.
+          await d.boothPage.evaluate(() =>
+            Object.defineProperty(document, 'visibilityState', {
+              configurable: true,
+              get: () => 'hidden',
+            })
+          );
+          await expect.poll(() => inFlightRefreshes.size).toBe(0);
+          holdEnabled = true;
+          await d.boothPage
+            .getByRole('button', { name: 'Reload current state', exact: true })
+            .click();
+          await expect.poll(() => held).toBe(true);
+          await d.boothPage.getByRole('button', { name: 'Cancel', exact: true }).click();
+          await expect(d.boothPage.getByRole('dialog')).toHaveCount(0);
+          await d.boothPage.getByRole('button', { name: 'Connect to Instax', exact: true }).click();
+          await expect(
+            d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true })
+          ).toBeEnabled();
+          expect(
+            localOwnerSql(
+              `select count(*)::integer n from public.additional_film_package_entries where event_id='${f.eventId}'`
+            )[0].n
+          ).toBe(0);
         }
-        await route.continue();
-      });
-      await d.phonePage.goto(`/events/${f.eventId}`);
-      await prepare(d.boothPage, f);
-      await expect.poll(() => held).toBe(true);
-      await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
-      await expect(
-        d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true })
-      ).toBeDisabled();
-      await d.boothPage.waitForTimeout(300);
-      expect(starts).toBe(0);
-      expect(issues).toBe(0);
-      expect((await read(d.boothPage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
-        200
-      );
-      const phoneRefresh = d.phonePage.waitForRequest(
-        (request) =>
-          new URL(request.url()).pathname === `/events/${f.eventId}` &&
-          request.headers().rsc === '1'
-      );
-      await d.phonePage.evaluate(() => window.dispatchEvent(new Event('focus')));
-      await phoneRefresh;
-      release();
-      await readyAfterArrival(d.boothPage);
-      expect(starts).toBe(1);
-      expect(issues).toBe(1);
-      expect((await read(d.boothPage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
-        401
-      );
-      expect((await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
-        200
-      );
-      const runs = localOwnerSql(
-        `select state from public.booth_runs where event_id='${f.eventId}' order by created_at`
-      );
-      expect(runs).toEqual([{ state: 'Finished' }, { state: 'Active' }]);
+        await expect.poll(() => held).toBe(true);
+        await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
+        await expect(
+          d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true })
+        ).toBeDisabled();
+        await d.boothPage.waitForTimeout(300);
+        expect(starts).toBe(0);
+        expect(issues).toBe(0);
+        expect((await read(d.boothPage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
+          200
+        );
+        const phoneRefresh = d.phonePage.waitForRequest(
+          (request) =>
+            new URL(request.url()).pathname === `/events/${f.eventId}` &&
+            request.headers().rsc === '1'
+        );
+        await d.phonePage.evaluate(() => window.dispatchEvent(new Event('focus')));
+        await phoneRefresh;
+        release();
+        await readyAfterArrival(d.boothPage);
+        expect(starts).toBe(1);
+        expect(issues).toBe(1);
+        expect((await read(d.boothPage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
+          401
+        );
+        expect((await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
+          200
+        );
+        const runs = localOwnerSql(
+          `select state from public.booth_runs where event_id='${f.eventId}' order by created_at`
+        );
+        expect(runs).toEqual([{ state: 'Finished' }, { state: 'Active' }]);
+      } finally {
+        release();
+        await d.close();
+      }
     } finally {
-      release();
-      await d.close();
+      await f.dispose();
     }
-  } finally {
-    await f.dispose();
-  }
-});
+  });
+}
