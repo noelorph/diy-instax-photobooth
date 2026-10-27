@@ -1,3 +1,4 @@
+import { PackageError } from '@/lib/operations/package-contract';
 import { requireAdminRequest } from '@/lib/operations/admin-authority';
 import { packageErrorResponse } from '@/lib/operations/package-route';
 import { readPackageAdminState } from '@/lib/operations/package-state';
@@ -9,6 +10,9 @@ export async function GET(
 ) {
   try {
     const admin = await requireAdminRequest(request);
+    const expectedAdmin = request.headers.get('x-package-admin-id');
+    if (expectedAdmin !== null && expectedAdmin !== admin.userId)
+      throw new PackageError('operation_forbidden');
     const { eventId, operationId: key } = await context.params;
     const state = await readPackageAdminState(admin, operationId(eventId), operationId(key));
     return operationResponse({ revision: state.revision, receipt: state.receipt });

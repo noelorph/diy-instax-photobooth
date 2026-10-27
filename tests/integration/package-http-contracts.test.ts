@@ -76,7 +76,12 @@ const readyObservation = {
 function request(body: object, origin = 'https://booth.test', requestCookie = cookie) {
   return new Request('https://booth.test/api/test', {
     method: 'POST',
-    headers: { origin, cookie: requestCookie, 'content-type': 'application/json' },
+    headers: {
+      origin,
+      cookie: requestCookie,
+      'content-type': 'application/json',
+      'x-package-admin-id': id,
+    },
     body: JSON.stringify(body),
   });
 }
@@ -424,3 +429,16 @@ it('returns an ambiguous 503 without exposing lower-layer details', async () => 
   expect(body.code).toBe('operation_unavailable');
   expect(JSON.stringify(body)).not.toContain('secret');
 });
+
+it.each([null, '55555555-5555-4555-8555-555555555555'])(
+  'denies a purchase without the matching expected Admin %s before its RPC',
+  async (expectedAdmin) => {
+    const req = request({ operationId: id, packages: 1, clientRequestNote: 'One more' });
+    if (expectedAdmin) req.headers.set('x-package-admin-id', expectedAdmin);
+    else req.headers.delete('x-package-admin-id');
+    const response = await addPackages(req, { params: Promise.resolve({ eventId }) });
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe('operation_forbidden');
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  }
+);

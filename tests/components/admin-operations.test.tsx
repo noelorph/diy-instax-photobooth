@@ -209,8 +209,11 @@ it('preserves A’s pending purchase across an Admin switch without letting B re
   const adminB = '10000000-0000-4000-8000-000000000002';
   let actor = adminA;
   let purchases = 0;
+  const expectedActors: (string | null)[] = [];
   let operationId: string;
   vi.stubGlobal('fetch', async (path: string, options?: RequestInit) => {
+    if (path.endsWith('/film-packages') || path.includes('/operations/'))
+      expectedActors.push(new Headers(options?.headers).get('x-package-admin-id'));
     if (path.endsWith('/film-packages')) {
       purchases++;
       operationId = JSON.parse(String(options?.body)).operationId;
@@ -256,6 +259,7 @@ it('preserves A’s pending purchase across an Admin switch without letting B re
   await screen.findByText('Film Packages added.');
   expect(purchases).toBe(1);
   expect(screen.getByText('60 total booked prints')).toBeTruthy();
+  expect(expectedActors).toEqual([adminA, adminA]);
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
   expect(sessionStorage.length).toBe(0);
 });

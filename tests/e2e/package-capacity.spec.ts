@@ -1,4 +1,6 @@
-import { test, expect, type Page } from '@playwright/test';
+import { writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { test, expect, chromium, type Page } from '@playwright/test';
 import { createPackageBrowserFixture } from '../fixtures/package-browser';
 import { localOwnerSql } from '../fixtures/local-supabase';
 
@@ -153,6 +155,251 @@ test('an Admin switch preserves the original actor’s journal without replaying
     await page.getByRole('button', { name: 'Done' }).click();
     expect(await page.evaluate((key) => sessionStorage.getItem(key), keyA)).toBeNull();
   } finally {
+    await f.dispose();
+  }
+});
+
+test('a stale mounted purchase cannot mutate with another tab’s Admin cookies', async ({
+  page,
+  context,
+}) => {
+  const f = await createPackageBrowserFixture();
+  const otherTab = await context.newPage();
+  try {
+    f.seedRun('Paused');
+    const adminB = await f.local.provisionUser();
+    expect((await f.local.allowlist(adminB.id)).error).toBeNull();
+    await signIn(page, f.adminUser);
+    await page.goto(`/events/${f.eventId}`);
+    await page.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
+    await page.getByLabel('Client request note').fill('Original Admin requested another package');
+    let purchasePosts = 0;
+    await page.route(`**/api/admin/events/${f.eventId}/film-packages`, async (route) => {
+      purchasePosts++;
+      expect((await route.fetch()).status()).toBe(200);
+      await route.abort('failed');
+    });
+    await page
+      .getByRole('dialog')
+      .getByRole('button', { name: 'Add Film Packages', exact: true })
+      .click();
+    await expect(page.getByRole('dialog').getByRole('alert')).toBeVisible();
+    const keyA = `film-package-purchase:${f.eventId}:${f.adminUser.id}`;
+    const savedA = await page.evaluate((key) => sessionStorage.getItem(key), keyA);
+    expect(savedA).not.toBeNull();
+    await signOut(otherTab);
+    await signIn(otherTab, adminB);
+    const stale = await page.request.post(`/api/admin/events/${f.eventId}/film-packages`, {
+      headers: { 'x-package-admin-id': f.adminUser.id, origin: 'http://127.0.0.1:1437' },
+      data: JSON.parse(savedA!),
+    });
+    expect(stale.status()).toBe(403);
+    const lookup = page.waitForResponse((response) =>
+      response.url().includes(`/api/admin/events/${f.eventId}/operations/`)
+    );
+    await page.getByRole('button', { name: 'Retry request' }).click();
+    expect((await lookup).status()).toBe(403);
+    await expect(page.getByRole('dialog').getByRole('alert')).toContainText(
+      'Unable to check the original request'
+    );
+    expect(purchasePosts).toBe(1);
+    expect(await page.evaluate((key) => sessionStorage.getItem(key), keyA)).toBe(savedA);
+    expect(
+      localOwnerSql(
+        `select (select count(*)::int from public.additional_film_package_entries where event_id='${f.eventId}') entries,(select count(*)::int from public.activity_events where event_id='${f.eventId}') audits`
+      )
+    ).toEqual([{ entries: 1, audits: 1 }]);
+    await signOut(otherTab);
+    await signIn(otherTab, f.adminUser);
+    await page.getByRole('button', { name: 'Retry request' }).click();
+    await expect(page.getByRole('dialog')).toContainText('Film Packages added.');
+    expect(purchasePosts).toBe(1);
+    await page.getByRole('button', { name: 'Done' }).click();
+    expect(await page.evaluate((key) => sessionStorage.getItem(key), keyA)).toBeNull();
+  } finally {
+    await otherTab.close();
+    await f.dispose();
+  }
+});
+
+test('purchase dialog uses theme colors and fits medium, wide and landscape safe areas with reduced motion', async ({
+  page,
+  context,
+}, testInfo) => {
+  const f = await createPackageBrowserFixture();
+  const cdp = await context.newCDPSession(page);
+  const evidence: object[] = [];
+  try {
+    f.seedRun('Paused');
+    await signIn(page, f.adminUser);
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await cdp.send('Emulation.setSafeAreaInsetsOverride', {
+      insets: { top: 44, right: 44, bottom: 34, left: 44 },
+    });
+    for (const theme of ['light', 'dark'] as const) {
+      expect(
+        (await f.local.service.from('admin_profiles').update({ theme }).eq('id', f.adminUser.id))
+          .error
+      ).toBeNull();
+      await page.goto(`/events/${f.eventId}`);
+      const shell = page.locator('.admin-shell');
+      await expect(shell).toHaveAttribute('data-theme', theme);
+      for (const [width, height] of [
+        [768, 1024],
+        [1440, 1000],
+        [844, 390],
+      ]) {
+        await page.setViewportSize({ width, height });
+        await page.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
+        const dialog = page.getByRole('dialog');
+        const palette = await shell.evaluate((element) => {
+          const swatch = document.createElement('div');
+          swatch.style.backgroundColor = 'var(--color-surface)';
+          swatch.style.color = 'var(--color-text)';
+          element.append(swatch);
+          const palette = {
+            background: getComputedStyle(swatch).backgroundColor,
+            text: getComputedStyle(swatch).color,
+          };
+          swatch.remove();
+          return palette;
+        });
+        expect(
+          await dialog.evaluate((element) => ({
+            background: getComputedStyle(element).backgroundColor,
+            text: getComputedStyle(element).color,
+          }))
+        ).toEqual(palette);
+        const bounds = (await dialog.boundingBox())!;
+        expect(bounds.x).toBeGreaterThanOrEqual(44);
+        expect(bounds.y).toBeGreaterThanOrEqual(44);
+        expect(bounds.x + bounds.width).toBeLessThanOrEqual(width - 44);
+        expect(bounds.y + bounds.height).toBeLessThanOrEqual(height - 34);
+        expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+          true
+        );
+        expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+          true
+        );
+        expect(
+          await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)
+        ).toBe(true);
+        await expect(dialog.getByRole('button', { name: 'Cancel', exact: true })).toHaveCSS(
+          'transition-property',
+          'none'
+        );
+        await page.getByLabel('Client request note').fill('Presentation check');
+        const purchase = dialog.getByRole('button', { name: 'Add Film Packages', exact: true });
+        await purchase.focus();
+        await expect(purchase).toBeFocused();
+        await expect(purchase).toBeInViewport();
+        evidence.push({
+          theme,
+          viewport: { width, height },
+          safeAreaInsets: { top: 44, right: 44, bottom: 34, left: 44 },
+          dialog: bounds,
+          palette,
+          reducedMotion: true,
+        });
+        await page.screenshot({
+          path: testInfo.outputPath(`purchase-${theme}-${width}x${height}-safe-reduced.png`),
+        });
+        await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+      }
+    }
+    await writeFile(
+      testInfo.outputPath('purchase-presentation-metrics.json'),
+      JSON.stringify(evidence, null, 2)
+    );
+  } finally {
+    await cdp.detach();
+    await f.dispose();
+  }
+});
+
+test('purchase dialog remains keyboard usable at native 200% browser zoom', async ({
+  baseURL,
+}, testInfo) => {
+  const extension = resolve('tests/fixtures/native-zoom-extension');
+  const context = await chromium.launchPersistentContext('', {
+    channel: 'chromium',
+    headless: true,
+    viewport: null,
+    baseURL,
+    args: [
+      '--window-size=1440,1000',
+      `--disable-extensions-except=${extension}`,
+      `--load-extension=${extension}`,
+    ],
+  });
+  const f = await createPackageBrowserFixture();
+  try {
+    f.seedRun('Paused');
+    const page = context.pages()[0];
+    await signIn(page, f.adminUser);
+    await page.goto(`/events/${f.eventId}`);
+    const before = await page.evaluate(() => ({ width: innerWidth, dpr: devicePixelRatio }));
+    const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
+    const zoom = await worker.evaluate(async () => {
+      const { tabs } = (
+        globalThis as unknown as {
+          chrome: {
+            tabs: {
+              query(query: { url: string }): Promise<{ id: number }[]>;
+              setZoom(id: number, zoom: number): Promise<void>;
+              getZoom(id: number): Promise<number>;
+            };
+          };
+        }
+      ).chrome;
+      const [tab] = await tabs.query({ url: 'http://127.0.0.1:1437/*' });
+      await tabs.setZoom(tab.id, 2);
+      return tabs.getZoom(tab.id);
+    });
+    expect(zoom).toBe(2);
+    await expect.poll(() => page.evaluate(() => innerWidth)).toBe(before.width / 2);
+    expect(await page.evaluate(() => devicePixelRatio)).toBe(before.dpr * 2);
+    expect(await page.evaluate(() => getComputedStyle(document.documentElement).zoom)).toBe('1');
+    await page.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
+    const dialog = page.getByRole('dialog');
+    await page.getByLabel('Client request note').fill('Native zoom check');
+    const purchase = dialog.getByRole('button', { name: 'Add Film Packages', exact: true });
+    await purchase.focus();
+    await expect(purchase).toBeFocused();
+    await expect(purchase).toBeInViewport();
+    expect(await dialog.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(
+      true
+    );
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true
+    );
+    await writeFile(
+      testInfo.outputPath('purchase-native-zoom-metrics.json'),
+      JSON.stringify(
+        {
+          zoom,
+          before,
+          after: await page.evaluate(() => ({
+            width: innerWidth,
+            dpr: devicePixelRatio,
+            cssZoom: getComputedStyle(document.documentElement).zoom,
+          })),
+          dialog: await dialog.boundingBox(),
+        },
+        null,
+        2
+      )
+    );
+    const cdp = await context.newCDPSession(page);
+    const { data } = await cdp.send('Page.captureScreenshot', { format: 'png' });
+    await writeFile(
+      testInfo.outputPath('purchase-native-200-percent.png'),
+      Buffer.from(data, 'base64')
+    );
+    await cdp.detach();
+    await dialog.getByRole('button', { name: 'Cancel', exact: true }).click();
+  } finally {
+    await context.close();
     await f.dispose();
   }
 });

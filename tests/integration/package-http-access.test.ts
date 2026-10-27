@@ -577,6 +577,11 @@ it('recovers an uncertain package addition through its original receipt and reje
       const [name, value] = pair.split('=');
       jar.set(name, value);
     }
+    const purchaseRequest = (body: object) => {
+      const req = request(body, adminCookie);
+      req.headers.set('x-package-admin-id', fixture.adminUser.id);
+      return req;
+    };
     const context = { params: Promise.resolve({ eventId: fixture.eventId }) };
     const operationId = randomUUID();
     const body = {
@@ -584,17 +589,15 @@ it('recovers an uncertain package addition through its original receipt and reje
       packages: 1,
       clientRequestNote: 'Client requested another package',
     };
-    const first = await addPackages(request(body, adminCookie), context);
+    const first = await addPackages(purchaseRequest(body), context);
     expect(first.status).toBe(200);
     const committed = await first.json();
     const receipt = await adminReceipt(request(), {
       params: Promise.resolve({ eventId: fixture.eventId, operationId }),
     });
     expect((await receipt.json()).receipt).toEqual(committed.receipt);
-    expect((await (await addPackages(request(body, adminCookie), context)).json()).replayed).toBe(
-      true
-    );
-    const conflict = await addPackages(request({ ...body, packages: 2 }, adminCookie), context);
+    expect((await (await addPackages(purchaseRequest(body), context)).json()).replayed).toBe(true);
+    const conflict = await addPackages(purchaseRequest({ ...body, packages: 2 }), context);
     expect(conflict.status).toBe(409);
     expect((await conflict.json()).code).toBe('operation_conflict');
     const stale = await pauseRoute(
@@ -608,7 +611,7 @@ it('recovers an uncertain package addition through its original receipt and reje
     expect((await stale.json()).code).toBe('stale_revision');
     localOwnerSql(`delete from auth.sessions where id='${fixture.adminSessionId}'`);
     const revoked = await addPackages(
-      request({ ...body, operationId: randomUUID() }, adminCookie),
+      purchaseRequest({ ...body, operationId: randomUUID() }),
       context
     );
     expect([401, 403]).toContain(revoked.status);

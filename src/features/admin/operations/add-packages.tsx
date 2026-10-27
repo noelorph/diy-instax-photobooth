@@ -32,6 +32,7 @@ export function AddPackages({
   const router = useRouter();
   const storageKey = `film-package-purchase:${eventId}:${adminUserId}`;
   const [open, setOpen] = useState(false);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const [ready, setReady] = useState(false);
   const [packages, setPackages] = useState('1');
   const [note, setNote] = useState('');
@@ -43,6 +44,7 @@ export function AddPackages({
   const submitting = useRef(false);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
+      setPortalContainer(document.querySelector<HTMLElement>('.admin-shell'));
       try {
         const saved = sessionStorage.getItem(storageKey);
         if (!saved) return;
@@ -111,7 +113,7 @@ export function AddPackages({
       } else {
         const lookup = await fetch(
           `/api/admin/events/${eventId}/operations/${purchase.operationId}`,
-          { cache: 'no-store' }
+          { cache: 'no-store', headers: { 'x-package-admin-id': adminUserId } }
         );
         if (!lookup.ok)
           throw new Error(
@@ -131,7 +133,7 @@ export function AddPackages({
       }
       const response = await fetch(`/api/admin/events/${eventId}/film-packages`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'x-package-admin-id': adminUserId },
         cache: 'no-store',
         body: JSON.stringify(purchase),
       });
@@ -185,7 +187,7 @@ export function AddPackages({
           </Button>
         </Dialog.Trigger>
       )}
-      <Dialog.Portal>
+      <Dialog.Portal container={portalContainer}>
         <Dialog.Overlay className={styles.overlay} />
         <Dialog.Content className={styles.dialog}>
           <Dialog.Title>Add Film Packages</Dialog.Title>
