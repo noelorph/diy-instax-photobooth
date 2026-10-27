@@ -36,7 +36,8 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
     confirm: string;
     stage: 'prepared' | 'issued' | 'confirmed';
   } | null>(null);
-  const startId = useRef<string | null>(null);
+  const startCommand = useRef<z.infer<typeof packageActionSchemas.start> | null>(null);
+  const [uncertainStart, setUncertainStart] = useState(false);
   const [busy, setBusy] = useState(false);
   const [cameraBusy, setCameraBusy] = useState(false);
   const [error, setError] = useState('');
@@ -60,7 +61,7 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
   } | null>(null);
   const endpoint = `/api/admin/events/${eventId}/booth`;
   async function refresh() {
-    if (!mounted.current || reporting.current || starting.current) return;
+    if (!mounted.current || reporting.current || starting.current || startCommand.current) return;
     reporting.current = true;
     setReady(false);
     try {
@@ -161,39 +162,74 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
     }
   }
   async function start() {
-    if (starting.current || reporting.current || !ready || !latest.current) return;
+    if (
+      starting.current ||
+      (!startCommand.current && (reporting.current || !ready || !latest.current))
+    )
+      return;
     starting.current = true;
     setBusy(true);
     setError('');
     try {
-      const observed = latest.current;
-      const local = await printer.readReadiness();
-      if (
-        !hasLiveCamera(video.current) ||
-        !local.connected ||
-        !local.ready ||
-        local.printerId !== observed.printerId ||
-        local.connectionGeneration !== observed.connectionGeneration ||
-        Date.now() - observed.at > READINESS_MAX_AGE_MS
-      )
-        throw new Error('Equipment changed. Recheck setup before starting.');
-      if (!handoff.current) {
-        startId.current ??= crypto.randomUUID();
-        const body = packageActionSchemas.start.parse({
-          operationId: startId.current,
+      if (!startCommand.current) {
+        const observed = latest.current!;
+        const local = await printer.readReadiness();
+        if (
+          !hasLiveCamera(video.current) ||
+          !local.connected ||
+          !local.ready ||
+          local.printerId !== observed.printerId ||
+          local.connectionGeneration !== observed.connectionGeneration ||
+          Date.now() - observed.at > READINESS_MAX_AGE_MS
+        )
+          throw new Error('Equipment changed. Recheck setup before starting.');
+        startCommand.current = packageActionSchemas.start.parse({
+          operationId: crypto.randomUUID(),
           expectedRevision: observed.revision ?? revision,
           readinessWindowId: observed.window,
           printerId: local.printerId,
           connectionGeneration: local.connectionGeneration,
         });
-        const result = packageReplySchema.parse(await boothFetch(`${endpoint}/start`, body));
-        const id = z.object({ handoffId: z.uuid() }).parse(result.receipt.result).handoffId;
+      }
+      if (!handoff.current) {
+        const body = startCommand.current!;
+        let result;
+        try {
+          result = packageReplySchema.parse(await boothFetch(`${endpoint}/start`, body));
+        } catch (error) {
+          if (
+            typeof error === 'object' &&
+            error !== null &&
+            'status' in error &&
+            typeof error.status === 'number' &&
+            error.status < 500
+          ) {
+            startCommand.current = null;
+            throw error;
+          }
+          const recovered = z
+            .object({ receipt: packageReplySchema.shape.receipt.nullable() })
+            .parse(await boothFetch(`/api/admin/events/${eventId}/operations/${body.operationId}`));
+          if (recovered.receipt) {
+            if (
+              recovered.receipt.operationId !== body.operationId ||
+              recovered.receipt.kind !== 'start'
+            )
+              throw new Error('Start receipt does not match this command.');
+            result = recovered;
+          } else {
+            result = packageReplySchema.parse(await boothFetch(`${endpoint}/start`, body));
+          }
+        }
+        const id = z.object({ handoffId: z.uuid() }).parse(result.receipt?.result).handoffId;
         handoff.current = {
           id,
           issue: crypto.randomUUID(),
           confirm: crypto.randomUUID(),
           stage: 'prepared',
         };
+        startCommand.current = null;
+        setUncertainStart(false);
       }
       const pending = handoff.current;
       try {
@@ -237,6 +273,7 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
       }
     } catch (error) {
       if (mounted.current) {
+        setUncertainStart(!!startCommand.current && !handoff.current);
         setReady(false);
         setError(
           error instanceof Error ? error.message : 'Unable to start Booth. Reload current state.'
@@ -307,8 +344,8 @@ export function BoothSetup({ eventId, revision }: { eventId: string; revision: n
           : 'Complete equipment setup and physical confirmations.'}
       </p>
       {error && <FormFeedback kind="error">{error}</FormFeedback>}
-      <Button disabled={busy || !ready} onClick={() => void start()}>
-        Start Booth Mode
+      <Button disabled={busy || (!ready && !uncertainStart)} onClick={() => void start()}>
+        {uncertainStart ? 'Retry Start Booth Mode' : 'Start Booth Mode'}
       </Button>
     </section>
   );

@@ -126,3 +126,115 @@ it('a delayed setup readiness reply after unmount cannot report or touch a new c
   });
   expect(fetcher).toHaveBeenCalledOnce();
 });
+it.each(['receipt', 'exact replay'])(
+  'recovers a committed lost Start through %s before issuing the handoff',
+  async (mode) => {
+    vi.useFakeTimers();
+    let attempts = 0;
+    const track = { readyState: 'live', stop: vi.fn(), onended: null };
+    vi.stubGlobal('navigator', {
+      onLine: true,
+      mediaDevices: {
+        getUserMedia: async () => ({
+          active: true,
+          getTracks: () => [track],
+          getVideoTracks: () => [track],
+        }),
+      },
+    });
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    vi.spyOn(HTMLVideoElement.prototype, 'videoWidth', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLVideoElement.prototype, 'videoHeight', 'get').mockReturnValue(800);
+    const handoffId = crypto.randomUUID();
+    let original: Record<string, unknown> | undefined;
+    const receipt = (operationId: string, kind: string, result: object) => ({
+      operationId,
+      kind,
+      committedRevision: 2,
+      result,
+    });
+    const paths: string[] = [];
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async (path: string, init?: RequestInit) => {
+        paths.push(path);
+        if (path.endsWith('/start')) {
+          attempts++;
+          const body = JSON.parse(String(init?.body));
+          if (attempts === 1) {
+            original = body;
+            throw new TypeError('committed response lost');
+          }
+          expect(body).toEqual(original);
+          return Response.json({
+            revision: 2,
+            replayed: true,
+            receipt: receipt(String(original?.operationId), 'start', { handoffId }),
+          });
+        }
+        if (path.includes('/operations/')) {
+          if (mode === 'exact replay') throw new TypeError('receipt unavailable');
+          return Response.json({
+            revision: 2,
+            receipt: receipt(String(original?.operationId), 'start', { handoffId }),
+          });
+        }
+        if (path.includes('/setup-readiness') && !init?.body)
+          return Response.json({
+            revision: 1,
+            readinessWindowId: crypto.randomUUID(),
+            readiness: { ready: true, counts: { printsAvailable: 10 } },
+          });
+        const kind = path.endsWith('/issue')
+          ? 'issue_handoff'
+          : path.endsWith('/confirm')
+            ? 'confirm_handoff'
+            : 'report_setup_readiness';
+        return Response.json({
+          revision: 2,
+          replayed: false,
+          receipt: receipt(
+            crypto.randomUUID(),
+            kind,
+            kind === 'report_setup_readiness'
+              ? { ready: true, counts: { printsAvailable: 10 } }
+              : {}
+          ),
+        });
+      })
+    );
+    render(<BoothSetup eventId={crypto.randomUUID()} revision={1} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Enable Camera' }));
+    });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Connect to Instax' }));
+    });
+    for (const label of [
+      'Film is physically loaded',
+      'Continuous printer power is connected',
+      'Guided Access is ready',
+    ])
+      await act(async () => {
+        fireEvent.click(screen.getByRole('checkbox', { name: label }));
+      });
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Start Booth Mode' }));
+    });
+    if (mode === 'exact replay') {
+      const before = paths.length;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(paths).toHaveLength(before);
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Retry Start Booth Mode' }));
+      });
+    }
+    expect(paths.some((path) => path.endsWith(`/operations/${original?.operationId}`))).toBe(true);
+    expect(paths.filter((path) => path.endsWith('/start'))).toHaveLength(
+      mode === 'receipt' ? 1 : 2
+    );
+    expect(paths.some((path) => path.endsWith(`/${handoffId}/issue`))).toBe(true);
+  }
+);

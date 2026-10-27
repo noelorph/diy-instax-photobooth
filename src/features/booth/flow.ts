@@ -53,6 +53,12 @@ const stateSchema = z.object({
   readinessWindowId: z.uuid(),
 });
 type State = z.infer<typeof stateSchema>;
+type EquipmentObservation = {
+  observation: z.infer<typeof readinessObservationSchema>;
+  at: number;
+  epoch: number;
+  readinessWindowId?: string;
+};
 const emptyActions = { connectPrinter: false, enableCamera: false };
 /** One controller for scoped authority; setup observations never cross this ownership boundary. */
 export class BoothFlow {
@@ -62,7 +68,8 @@ export class BoothFlow {
   private initialized?: Promise<void>;
   private refreshing?: Promise<void>;
   private reporting?: Promise<void>;
-  private nextObservation?: z.infer<typeof readinessObservationSchema>;
+  private nextObservation?: EquipmentObservation;
+  private expiry?: ReturnType<typeof setTimeout>;
   private equipmentEpoch = 0;
   private state?: State;
   private equipment?: {
@@ -89,6 +96,15 @@ export class BoothFlow {
     if (this.disposed) return;
     this.view = view;
     this.listeners.forEach((listener) => listener());
+  }
+  private invalidateAdmission(blocker: string) {
+    this.acknowledgedAt = 0;
+    if (this.view.phase === 'welcome')
+      this.show({
+        ...this.view,
+        phase: 'unavailable',
+        blockers: [...new Set([...this.view.blockers, blocker])],
+      });
   }
   private failure(error: unknown) {
     this.acknowledgedAt = 0;
@@ -190,9 +206,17 @@ export class BoothFlow {
     if (this.disposed) return Promise.resolve();
     const parsed = readinessObservationSchema.parse(observation);
     this.equipmentEpoch++;
-    this.nextObservation = parsed;
+    this.nextObservation = {
+      observation: parsed,
+      at: Date.now(),
+      epoch: this.equipmentEpoch,
+      // A newer window cannot attest equipment observed before it was issued.
+      readinessWindowId: this.state?.readinessWindowId,
+    };
     if (!parsed.cameraLive || !parsed.cameraPermission || !parsed.printerConnected) {
-      this.acknowledgedAt = 0;
+      this.invalidateAdmission(
+        !parsed.cameraLive || !parsed.cameraPermission ? 'camera' : 'printer_connection'
+      );
       if (this.equipment) this.equipment.observation = parsed;
       void this.project();
     }
@@ -203,25 +227,33 @@ export class BoothFlow {
   private async drainReports() {
     while (this.nextObservation && !this.disposed) {
       const observation = this.nextObservation;
-      const epoch = this.equipmentEpoch;
       this.nextObservation = undefined;
-      await this.report(observation, epoch);
+      await this.report(observation);
     }
   }
-  private async report(observation: z.infer<typeof readinessObservationSchema>, epoch: number) {
+  private current(observation: EquipmentObservation) {
+    return (
+      !this.disposed &&
+      observation.epoch === this.equipmentEpoch &&
+      Date.now() - observation.at <= READINESS_MAX_AGE_MS
+    );
+  }
+  private async report(pending: EquipmentObservation) {
+    const { observation, at } = pending;
     try {
+      if (!this.current(pending)) return;
       await this.refresh();
-      if (!this.state || this.disposed) return;
-      const at = Date.now();
+      if (!this.state || !pending.readinessWindowId || !this.current(pending)) return;
       const printer = await this.dependencies.printer.readReadiness();
-      if (this.disposed) return;
+      if (!this.current(pending)) return;
       this.equipment = { observation, at, printer };
       this.acknowledgedAt = 0;
       await this.project();
+      if (!this.current(pending)) return;
       const body = packageActionSchemas.reportReadiness.parse({
         operationId: crypto.randomUUID(),
-        readinessWindowId: this.state.readinessWindowId,
-        observedAgeMs: printer.observedAgeMs,
+        readinessWindowId: pending.readinessWindowId,
+        observedAgeMs: printer.observedAgeMs + Date.now() - at,
         printerId: printer.printerId,
         connectionGeneration: printer.connectionGeneration,
         observation: {
@@ -232,9 +264,13 @@ export class BoothFlow {
         },
       });
       packageReplySchema.parse(await this.dependencies.transport('/api/booth/readiness', body));
-      if (this.disposed) return;
-      if (epoch !== this.equipmentEpoch) return;
+      if (!this.current(pending)) return;
       this.acknowledgedAt = at;
+      clearTimeout(this.expiry);
+      this.expiry = setTimeout(
+        () => this.invalidateAdmission('readiness_stale'),
+        Math.max(0, READINESS_MAX_AGE_MS - (Date.now() - at)) + 1
+      );
       await this.readState();
     } catch (error) {
       this.failure(error);
@@ -270,6 +306,7 @@ export class BoothFlow {
   }
   dispose() {
     this.disposed = true;
+    clearTimeout(this.expiry);
     this.acknowledgedAt = 0;
     this.listeners.clear();
   }

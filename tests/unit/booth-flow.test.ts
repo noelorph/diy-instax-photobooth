@@ -19,15 +19,28 @@ const observation = {
   printerReady: true,
   oldJobCleared: true,
 };
+function deferred() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((done) => {
+    resolve = done;
+  });
+  return { promise, resolve };
+}
+const owned: BoothFlow[] = [];
 function setup() {
+  let stateGate: Promise<void> | undefined;
+  let ackGate: Promise<void> | undefined;
+  const observations: unknown[] = [];
   let state = 'Active';
   let calls = 0;
   let fail = false;
   const printer = new SimulatedPrinterV2('simulator');
-  const transport = async (path: string) => {
+  const transport = async (path: string, body?: Record<string, unknown>) => {
     if (fail) throw Object.assign(new Error('denied'), { status: 401 });
     if (path === '/api/booth/readiness') {
       calls++;
+      observations.push(body?.observation);
+      await ackGate;
       return {
         revision: 3,
         receipt: {
@@ -39,6 +52,7 @@ function setup() {
         replayed: false,
       };
     }
+    await stateGate;
     return {
       revision: 3,
       runId: crypto.randomUUID(),
@@ -61,7 +75,15 @@ function setup() {
     printer,
     journal: new BrowserBoothMetadataJournal(sessionStorage),
   });
+  owned.push(flow);
   return {
+    holdState: (gate?: Promise<void>) => {
+      stateGate = gate;
+    },
+    holdAck: (gate?: Promise<void>) => {
+      ackGate = gate;
+    },
+    observations,
     flow,
     printer,
     reports: () => calls,
@@ -74,6 +96,7 @@ function setup() {
   };
 }
 afterEach(() => {
+  owned.splice(0).forEach((flow) => flow.dispose());
   sessionStorage.clear();
   vi.useRealTimers();
 });
@@ -121,11 +144,59 @@ it('disposed owners ignore late readiness acknowledgements', async () => {
   const s = setup();
   await s.printer.connect();
   await s.flow.initialize();
-  const original = s.flow.getSnapshot();
+  const gate = deferred();
+  s.holdAck(gate.promise);
+  const reporting = s.flow.reportEquipment(observation);
+  await vi.waitFor(() => expect(s.reports()).toBe(1));
   s.flow.dispose();
-  await s.flow.reportEquipment(observation);
+  const original = s.flow.getSnapshot();
+  gate.resolve();
+  await reporting;
   expect(s.flow.getSnapshot()).toBe(original);
+});
+it('expires local welcome while a state request remains unresolved', async () => {
+  vi.useFakeTimers();
+  const s = setup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  expect(s.flow.getSnapshot().phase).toBe('welcome');
+  const gate = deferred();
+  s.holdState(gate.promise);
+  const pending = s.flow.reportEquipment(observation);
+  await vi.advanceTimersByTimeAsync(5001);
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  expect(s.flow.getSnapshot().blockers).toContain('readiness_stale');
+  gate.resolve();
+  await pending;
+});
+it('never sends a positive observation superseded while its state read is pending', async () => {
+  const s = setup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  const gate = deferred();
+  s.holdState(gate.promise);
+  const positive = s.flow.reportEquipment(observation);
+  const negative = s.flow.reportEquipment({ ...observation, cameraLive: false });
+  s.holdState();
+  gate.resolve();
+  await Promise.all([positive, negative]);
+  expect(s.observations).toEqual([{ ...observation, cameraLive: false }]);
+});
+it('never retimestamps an observation held beyond its freshness window', async () => {
+  vi.useFakeTimers();
+  const s = setup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  const gate = deferred();
+  s.holdState(gate.promise);
+  const pending = s.flow.reportEquipment(observation);
+  await vi.advanceTimersByTimeAsync(5001);
+  s.holdState();
+  gate.resolve();
+  await pending;
   expect(s.reports()).toBe(0);
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
 });
 it('reports a new connection generation before using reconnected printer readiness', async () => {
   const printer = new SimulatedPrinterV2('simulator');
@@ -170,4 +241,43 @@ it('reports a new connection generation before using reconnected printer readine
   expect(flow.getSnapshot().phase).toBe('unavailable');
   await flow.reportEquipment(observation);
   expect(flow.getSnapshot().phase).toBe('welcome');
+});
+it.each([2, 3])(
+  'rechecks observation epoch after awaited printer work %s before POST',
+  async (blockedRead) => {
+    const s = setup();
+    await s.printer.connect();
+    await s.flow.initialize();
+    const gate = deferred();
+    const read = s.printer.readReadiness.bind(s.printer);
+    let reads = 0;
+    vi.spyOn(s.printer, 'readReadiness').mockImplementation(async () => {
+      reads++;
+      if (reads === blockedRead) await gate.promise;
+      return read();
+    });
+    const positive = s.flow.reportEquipment(observation);
+    await vi.waitFor(() => expect(reads).toBe(blockedRead));
+    const negative = s.flow.reportEquipment({ ...observation, cameraLive: false });
+    gate.resolve();
+    await Promise.all([positive, negative]);
+    expect(s.observations).toEqual([{ ...observation, cameraLive: false }]);
+  }
+);
+it('invalidates known camera loss before awaiting a blocked printer read', async () => {
+  const s = setup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  const gate = deferred(),
+    read = s.printer.readReadiness.bind(s.printer);
+  vi.spyOn(s.printer, 'readReadiness').mockImplementation(async () => {
+    await gate.promise;
+    return read();
+  });
+  const pending = s.flow.reportEquipment({ ...observation, cameraLive: false });
+  const phase = s.flow.getSnapshot().phase;
+  gate.resolve();
+  await pending;
+  expect(phase).toBe('unavailable');
 });
