@@ -344,6 +344,7 @@ describe('accounting ledger operations', () => {
     ] as const)
       expect((await rpc(name, { ...a.args, ...params })).error?.message).toBe('forbidden');
   });
+  // Each privilege probe starts the local Supabase CLI.
   it('keeps stock and allowance ledgers append-only for application roles', () => {
     for (const table of ['film_stock_entries', 'additional_print_entries'])
       expect(
@@ -351,5 +352,5 @@ describe('accounting ledger operations', () => {
           `select has_table_privilege('service_role','public.${table}','UPDATE,DELETE') as mutable`
         )[0].mutable
       ).toBe(false);
-  });
+  }, 30000);
 });
