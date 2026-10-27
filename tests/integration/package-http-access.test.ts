@@ -640,6 +640,9 @@ it('scopes Admin run commands and replays only their original payload', async ()
       localOwnerSql(`select state from public.booth_runs where id='${fixture.runId}'`)[0].state
     ).toBe('Active');
     const body = { operationId: randomUUID(), runId: fixture.runId, expectedRevision: 2 };
+    const wrongActor = request(body, adminCookie);
+    wrongActor.headers.set('x-package-admin-id', randomUUID());
+    expect((await pauseRoute(wrongActor, context)).status).toBe(403);
     const first = await pauseRoute(request(body, adminCookie), context);
     expect(first.status).toBe(200);
     const committed = await first.json();

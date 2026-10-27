@@ -91,12 +91,14 @@ export function BoothClient({
     };
     const timer = window.setInterval(tick, STATE_POLL_MS);
     document.addEventListener('visibilitychange', tick);
+    window.addEventListener('focus', tick);
     window.addEventListener('online', tick);
     window.addEventListener('offline', tick);
     return () => {
       owner.current = null;
       clearInterval(timer);
       document.removeEventListener('visibilitychange', tick);
+      window.removeEventListener('focus', tick);
       window.removeEventListener('online', tick);
       window.removeEventListener('offline', tick);
       queueMicrotask(() => {
@@ -173,6 +175,11 @@ export function BoothClient({
             </p>
           )}
         </div>
+        {!!view.counts?.unresolved && (
+          <p role="status">
+            A print outcome is pending. Please inform the Admin. New Guests must wait.
+          </p>
+        )}
         <div className={styles.actions}>
           {view.allowedActions.enableCamera && (
             <button disabled={busy} onClick={() => void enableCamera()}>
@@ -184,7 +191,9 @@ export function BoothClient({
               Connect to Instax
             </button>
           )}
-          {view.phase === 'access-required' && <a href="/sign-in?from=booth">Admin sign in</a>}
+          {(view.phase === 'access-required' || view.phase === 'finished') && (
+            <a href="/sign-in?from=booth">Admin sign in</a>
+          )}
         </div>
       </section>
     </main>

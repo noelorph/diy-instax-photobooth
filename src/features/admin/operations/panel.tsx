@@ -9,6 +9,7 @@ import type { OperationalEvent } from './types';
 import styles from './panel.module.css';
 import { AddPackages } from './add-packages';
 import { BoothSetup } from './booth-setup';
+import { BoothControls } from './booth-controls';
 
 export function OperationsPanel({
   event,
@@ -91,6 +92,11 @@ export function OperationsPanel({
       {event.state === 'Draft' && !event.runId && (
         <BoothSetup eventId={event.id} revision={event.revision} />
       )}
+      <BoothControls
+        key={`booth:${event.id}:${adminUserId}`}
+        event={event}
+        adminUserId={adminUserId}
+      />
       <AddPackages
         key={`${event.id}:${adminUserId}`}
         eventId={event.id}

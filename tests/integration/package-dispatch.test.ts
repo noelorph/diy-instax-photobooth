@@ -850,7 +850,15 @@ it('keeps Finish waiting for a possible print when dispatch wins the guard', asy
     expect(
       localOwnerSql(`select state from public.print_attempts where id='${attemptId}'`)[0].state
     ).toBe('Dispatching');
-    expect((await f.readAdmin()).data.counts).toMatchObject({ unresolved: 1, printsAvailable: 9 });
+    const beforeAdmission = (await f.readAdmin()).data.counts;
+    expect(beforeAdmission).toMatchObject({ unresolved: 1, printsAvailable: 9 });
+    const newSession = await f.booth('start_session', { expectedRevision: finish.data.revision });
+    expect(newSession.error).not.toBeNull();
+    expect(newSession.data).toBeNull();
+    expect((await f.readAdmin()).data.counts).toEqual(beforeAdmission);
+    expect(
+      localOwnerSql(`select state from public.print_attempts where id='${attemptId}'`)[0].state
+    ).not.toBe('NotPrinted');
   } finally {
     await f.dispose();
   }
@@ -913,10 +921,9 @@ it('keeps session end from cancelling a competing committed dispatch', async () 
   }
 }, 30000);
 
-function legacyEvent(f: Awaited<ReturnType<typeof createPackageFixture>>) {
-  const id = randomUUID();
+function legacyEvent(f: Awaited<ReturnType<typeof createPackageFixture>>, id: string) {
   localOwnerSql(
-    `insert into public.events(id,title,client_name,client_email,client_phone,venue_address,time_zone,starts_at,ends_at,film_package_count,original_print_allowance) select '${id}',title,client_name,client_email,client_phone,venue_address,time_zone,starts_at,ends_at,1,10 from public.events where id='${f.eventId}'`
+    `insert into public.events(id,accounting_version,title,client_name,client_email,client_phone,venue_address,time_zone,starts_at,ends_at,film_package_count,original_print_allowance) select '${id}',1,title,client_name,client_email,client_phone,venue_address,time_zone,starts_at,ends_at,1,10 from public.events where id='${f.eventId}'`
   );
   localOwnerSql(
     `insert into public.film_stock_entries(event_id,kind,signed_sheets,actor_scope) values('${id}','Addition',10,'fixture')`
@@ -935,8 +942,9 @@ function cleanupLegacy(id: string) {
 
 it('rejects legacy Test while a v2 run is Paused', async () => {
   const f = await createPackageFixture();
-  const id = legacyEvent(f);
+  const id = randomUUID();
   try {
+    legacyEvent(f, id);
     f.seedRun('Paused');
     const result = await f.local.service.rpc('reserve_test_attempt', {
       admin_user_id: f.adminUser.id,
@@ -952,8 +960,11 @@ it('rejects legacy Test while a v2 run is Paused', async () => {
       )[0].n
     ).toBe(0);
   } finally {
-    cleanupLegacy(id);
-    await f.dispose();
+    try {
+      cleanupLegacy(id);
+    } finally {
+      await f.dispose();
+    }
   }
 }, 30000);
 
@@ -961,8 +972,9 @@ it.each([true, false])(
   'serializes legacy Test and v2 start with Test first=%s',
   async (testFirst) => {
     const f = await createPackageFixture();
-    const id = legacyEvent(f);
+    const id = randomUUID();
     try {
+      legacyEvent(f, id);
       const setup = await f.reportSetup();
       expect(setup.error).toBeNull();
       const payload = {
@@ -998,8 +1010,11 @@ it.each([true, false])(
         )[0].n
       ).toBe(testFirst ? 1 : 0);
     } finally {
-      cleanupLegacy(id);
-      await f.dispose();
+      try {
+        cleanupLegacy(id);
+      } finally {
+        await f.dispose();
+      }
     }
   },
   30000

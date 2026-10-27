@@ -59,6 +59,8 @@ it('reads real package totals independently of the attempt page, including the l
       expect(older.event.counts).toEqual(server.data.counts);
       expect(first.event.runId).toBe(f.runId);
       expect(first.event.runState).toBe('Paused');
+      expect(first.event.resumeAllowed).toBe(false);
+      expect(first.event.blockers).toContain('print_pending');
       expect(first.event.captures).toBe(150);
       expect(first.event.attempts).toHaveLength(100);
       expect(first.event.hasOlderAttempts).toBe(true);

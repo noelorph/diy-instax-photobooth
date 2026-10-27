@@ -35,6 +35,8 @@ export async function readPackageAdminState(
     revision: state.revision as number,
     counts: state.counts as PackageCounts,
     receipt: state.receipt,
+    allowedActions: state.allowedActions as { resume?: boolean } | undefined,
+    blockers: Array.isArray(state.blockers) ? (state.blockers as string[]) : ['readiness_stale'],
     mediaRemovalState: state.mediaRemovalState as string | undefined,
     runId: run.data[0]?.id ?? null,
     runState: run.data[0]?.state ?? null,

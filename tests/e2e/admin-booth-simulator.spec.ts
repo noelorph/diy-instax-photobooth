@@ -362,3 +362,81 @@ test('a committed lost Start recovers its receipt and completes exactly one hand
     await f.dispose();
   }
 });
+
+test('phone Pause, receipt recovery, Resume and pending Finish retain scoped safety', async ({
+  browser,
+}) => {
+  const f = await createPackageBrowserFixture();
+  try {
+    localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+    const d = await devices(browser, f);
+    try {
+      await prepare(d.boothPage, f);
+      await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
+      await readyAfterArrival(d.boothPage);
+      await d.phonePage.goto(`/events/${f.eventId}`);
+      const original = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
+      let pauses = 0;
+      await d.phonePage.route('**/booth/pause', async (route) => {
+        pauses++;
+        await route.fetch();
+        await route.abort();
+      });
+      await d.phonePage.getByRole('button', { name: 'Pause Booth', exact: true }).click();
+      await expect(d.phonePage.getByText(/Booth command outcome is unconfirmed/)).toBeVisible();
+      await d.phonePage.getByRole('button', { name: 'Retry Booth command' }).click();
+      await expect(
+        d.phonePage.getByText('Booth command recorded. Refreshing current state.')
+      ).toBeVisible();
+      expect(pauses).toBe(1);
+      await expect(d.boothPage.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
+      expect((await admit(d.boothPage)).status).toBe(409);
+      expect((await read(d.boothPage, '/api/booth/state')).status).toBe(200);
+      expect(
+        localOwnerSql(`select state from public.booth_grants where event_id='${f.eventId}'`)[0]
+          .state
+      ).toBe('Active');
+      await d.phonePage.getByRole('button', { name: 'Resume Booth', exact: true }).click();
+      await expect(d.boothPage.getByRole('heading', { name: 'Make a memory' })).toBeVisible();
+      const current = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
+      expect(current.runId).toBe(original.runId);
+      const sessionId = localOwnerSql(
+        `insert into public.guest_sessions(event_id,run_id,accounting_version) values('${f.eventId}','${current.runId}',2) returning id`
+      )[0].id;
+      const captureId = localOwnerSql(
+        `insert into public.captures(event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) values('${f.eventId}','${current.runId}','${sessionId}',2,clock_timestamp(),gen_random_uuid()) returning id`
+      )[0].id;
+      const attempt = localOwnerSql(
+        `insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) values('${f.eventId}','${current.runId}','${sessionId}','${captureId}',2,'Guest','Pending',gen_random_uuid(),gen_random_uuid()) returning id,state`
+      )[0];
+      await expect(d.phonePage.getByText('1 print pending', { exact: true })).toBeVisible();
+      await d.phonePage.getByRole('button', { name: 'Finish Booth Mode', exact: true }).click();
+      await d.phonePage
+        .getByRole('button', { name: 'Confirm Finish Booth Mode', exact: true })
+        .click();
+      await expect(
+        d.boothPage.getByRole('heading', { name: 'Finishing Booth Mode' })
+      ).toBeVisible();
+      await expect(d.boothPage.getByText(/A print outcome is pending/)).toBeVisible();
+      expect((await admit(d.boothPage)).status).toBe(409);
+      const state = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
+      expect(state.runId).toBe(original.runId);
+      expect(state.runState).toBe('Finishing');
+      expect(state.counts).toMatchObject({ printed: 0, unresolved: 1, printsAvailable: 9 });
+      expect(
+        localOwnerSql(`select state from public.print_attempts where id='${attempt.id}'`)[0].state
+      ).toBe('Pending');
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.guest_sessions where event_id='${f.eventId}'`
+        )[0].n
+      ).toBe(1);
+      await expect(d.phonePage.getByRole('button', { name: 'Resume Booth' })).toHaveCount(0);
+      await expect(d.boothPage.getByRole('link', { name: 'Admin sign in' })).toHaveCount(0);
+    } finally {
+      await d.close();
+    }
+  } finally {
+    await f.dispose();
+  }
+});

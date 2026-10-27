@@ -58,6 +58,8 @@ export async function getOperationalEvent(
         hasOlderAttempts: (attemptsPage + 1) * 100 < attempts.count!,
         runId: packageState.runId,
         runState: packageState.runState as RunState | null,
+        resumeAllowed: packageState.allowedActions?.resume === true,
+        blockers: packageState.blockers,
         attempts: attempts.data!,
       },
     };

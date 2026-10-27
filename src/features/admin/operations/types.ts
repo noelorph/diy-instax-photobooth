@@ -11,5 +11,7 @@ export type OperationalEvent = {
   hasOlderAttempts: boolean;
   runId: string | null;
   runState: RunState | null;
+  resumeAllowed: boolean;
+  blockers: string[];
   attempts: Attempt[];
 };
