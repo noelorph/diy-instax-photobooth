@@ -177,6 +177,7 @@ export function BoothClient({
         ? 'Please ask the Admin to add another Film Package.'
         : 'Please inform the Admin.',
   };
+  const needsAdmin = view.phase === 'access-required' || view.phase === 'unavailable';
   const showPreview = view.phase === 'welcome';
   const StatusIcon =
     view.phase === 'paused'
@@ -205,13 +206,15 @@ export function BoothClient({
           />
         </div>
         <div role="status" className={styles.status}>
-          {messages[view.phase] && <p>{messages[view.phase]}</p>}
+          {!needsAdmin && messages[view.phase] && <p>{messages[view.phase]}</p>}
         </div>
-        {!!view.counts?.unresolved && (
-          <p role="status">
-            A print outcome is pending. Please inform the Admin. New Guests must wait.
-          </p>
-        )}
+        <p role="alert" className={styles.alert}>
+          {view.counts?.unresolved
+            ? 'A print outcome is pending. Please inform the Admin. New Guests must wait.'
+            : needsAdmin
+              ? messages[view.phase]
+              : null}
+        </p>
         <div className={styles.actions}>
           {view.allowedActions.enableCamera && (
             <button disabled={busy} onClick={() => void enableCamera()}>

@@ -47,6 +47,9 @@
 .status:empty {
   display: none;
 }
+.alert:empty {
+  position: absolute;
+}
 .frame {
   width: min(100%, 27rem);
   aspect-ratio: 3 / 4;

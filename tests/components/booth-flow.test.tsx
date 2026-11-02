@@ -129,11 +129,32 @@ it('shows a truthful pending status during a deliberate pause without local take
   const camera = { start: vi.fn(async () => {}), stop: vi.fn(), capture: vi.fn() };
   render(<BoothClient flow={flow} camera={camera} />);
   expect(screen.getByRole('heading', { name: 'Booth paused' })).toBeTruthy();
-  expect(screen.getByText(/A print outcome is pending/)).toBeTruthy();
+  expect(screen.getByRole('alert').textContent).toMatch(/A print outcome is pending/);
   expect(screen.getByText('Please wait for the Admin to resume from the phone.')).toBeTruthy();
   expect(document.querySelector('video')?.closest('[hidden]')).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Sign in' })).toBeNull();
 });
+
+it.each(['access-required', 'unavailable'] as const)(
+  'announces required Admin intervention assertively in %s',
+  (phase) => {
+    const flow = new BoothFlow({
+      printer: new SimulatedPrinterV2('simulator'),
+      journal: new BrowserBoothMetadataJournal(sessionStorage),
+      transport: async () => ({}),
+    });
+    vi.spyOn(flow, 'initialize').mockResolvedValue();
+    vi.spyOn(flow, 'getSnapshot').mockReturnValue({
+      phase,
+      blockers: [],
+      allowedActions: { enableCamera: false, connectPrinter: false },
+    });
+    vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
+    const camera = { start: vi.fn(async () => {}), stop: vi.fn(), capture: vi.fn() };
+    render(<BoothClient flow={flow} camera={camera} />);
+    expect(screen.getByRole('alert').textContent).toMatch(/inform the Admin/);
+  }
+);
 
 it('polls lifecycle independently of a held readiness report and preserves Finished after release', async () => {
   vi.useFakeTimers();
