@@ -1,24 +1,12 @@
 // @vitest-environment node
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { localSupabase, ownerInsert, ownerUpdate } from '../fixtures/local-supabase';
+import { localOwnerSql, localSupabase, ownerInsert, ownerUpdate } from '../fixtures/local-supabase';
 
 function sql(query: string) {
-  const output = execFileSync(
-    resolve('node_modules/.bin/supabase'),
-    [
-      'db',
-      'query',
-      '--local',
-      query.includes(';') && !query.startsWith('do $$') ? `do $$ begin ${query} end $$` : query,
-      '-o',
-      'json',
-    ],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+  return localOwnerSql(
+    query.includes(';') && !query.startsWith('do $$') ? `do $$ begin ${query} end $$` : query
   );
-  return output.trim().startsWith('{') ? JSON.parse(output).rows : [];
 }
 
 describe('accounting ledger operations', () => {
