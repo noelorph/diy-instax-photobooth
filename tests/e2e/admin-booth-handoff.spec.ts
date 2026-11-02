@@ -1,52 +1,33 @@
 import { expect, test } from '@playwright/test';
-import { localSupabase, ownerInsert, cleanupEvents } from '../fixtures/local-supabase';
-test('paused sign-in is neutral and returns only an authorized Event without resuming', async ({
-  page,
-  context,
-}) => {
-  const local = localSupabase();
-  const admin = await local.provisionUser();
-  await local.allowlist(admin.id);
-  const row = await ownerInsert('events', {
-    state: 'Live',
-    title: 'Paused private Event',
-    client_name: 'Client',
-    client_email: 'private@example.test',
-    client_phone: '123',
-    venue_address: 'Hall',
-    time_zone: 'Asia/Manila',
-    starts_at: '2026-11-01T10:00:00Z',
-    ends_at: '2026-11-01T11:00:00Z',
-    film_package_count: 1,
-    original_print_allowance: 10,
-  });
-  expect(row.error).toBeNull();
-  const id = row.data!.id;
+import { createPackageBrowserFixture } from '../fixtures/package-browser';
+test('production cannot activate simulation through equipment setup', async ({ page }) => {
+  const f = await createPackageBrowserFixture();
   try {
-    await context.addCookies([
-      {
-        name: '__Host-booth-return',
-        value: id,
-        domain: '127.0.0.1',
-        path: '/',
-        secure: true,
-        httpOnly: true,
-        sameSite: 'Strict',
-      },
-    ]);
-    await page.goto('/sign-in?from=booth');
-    await expect(page.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
-    await expect(page.getByText('Paused private Event')).toHaveCount(0);
-    await page.getByLabel('Email', { exact: true }).fill(admin.email);
-    await page.getByLabel('Password', { exact: true }).fill(admin.password);
+    await page.goto('/sign-in');
+    await page.getByLabel('Email', { exact: true }).fill(f.adminUser.email);
+    await page.getByLabel('Password', { exact: true }).fill(f.adminUser.password);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-    await expect(page).toHaveURL(`/events/${id}`);
-    await expect(page.getByRole('button', { name: 'Resume Booth Mode' })).toBeDisabled();
-    await expect(page.getByText(/#17/)).toBeVisible();
-    expect((await context.cookies()).some((c) => c.name === '__Host-booth-return')).toBe(false);
+    await expect(page).toHaveURL(/dashboard$/);
+    await page.goto(`/events/${f.eventId}`);
+    await expect(
+      page.getByText('Always test the printer before starting Booth Mode.')
+    ).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Start Booth Mode' })).toBeDisabled();
+    const result = await page.evaluate(async (id) => {
+      const response = await fetch(
+        `/api/admin/events/${id}/booth/setup-readiness?printerId=simulator&connectionGeneration=1`
+      );
+      return { status: response.status, body: await response.json() };
+    }, f.eventId);
+    expect(result.status).toBe(403);
+    expect(result.body.code).toBe('qualification_required');
+    await page.goto('/booth');
+    await expect(page.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
+    expect(
+      (await f.local.service.from('booth_runs').select('id').eq('event_id', f.eventId)).data
+    ).toEqual([]);
   } finally {
-    await cleanupEvents([id]);
-    await local.cleanup();
+    await f.dispose();
   }
 });
 test('Guest cannot reach Admin operations', async ({ page }) => {

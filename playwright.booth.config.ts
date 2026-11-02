@@ -15,8 +15,7 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: 'npm run dev -- --hostname 127.0.0.1 --port 1438',
-    env: { BOOTH_SIMULATOR_ENABLED: 'true', NEXT_TELEMETRY_DISABLED: '1' },
+    command: 'node tests/fixtures/admin-booth-server.mjs 1438',
     url: 'http://127.0.0.1:1438/booth',
     timeout: 120000,
     reuseExistingServer: false,

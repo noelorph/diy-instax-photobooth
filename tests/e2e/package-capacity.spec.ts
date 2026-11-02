@@ -74,7 +74,7 @@ test('phone purchase survives a lost response, reload and storage access failure
     await page.keyboard.press('Enter');
     await expect(dialog).toContainText('Film Packages added.');
     await expect(page.getByText('20 total booked prints', { exact: true })).toBeVisible();
-    await expect(page.getByText('Live · Paused', { exact: true })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Booth paused', exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
       true
     );
@@ -191,6 +191,10 @@ test('a stale mounted purchase cannot mutate with another tab’s Admin cookies'
     expect((await f.local.allowlist(adminB.id)).error).toBeNull();
     await signIn(page, f.adminUser);
     await page.goto(`/events/${f.eventId}`);
+    // Keep the old tab in the background while another tab changes Admin cookies.
+    await page.evaluate(() =>
+      Object.defineProperty(document, 'visibilityState', { configurable: true, value: 'hidden' })
+    );
     await page.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
     await page.getByLabel('Client request note').fill('Original Admin requested another package');
     let purchasePosts = 0;

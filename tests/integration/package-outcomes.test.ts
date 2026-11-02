@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, expect, it } from 'vitest';
+import { afterAll, beforeAll, expect, it, vi } from 'vitest';
 import { createPackageFixture, type PackageFixture } from '../fixtures/package-contract';
 import { localOwnerSql } from '../fixtures/local-supabase';
 
@@ -32,7 +32,7 @@ async function attempt(f: PackageFixture, dispatch = true) {
       await f.booth('record_capture', {
         sessionId,
         captureId,
-        capturedAt: new Date().toISOString(),
+        capturedAt: String(localOwnerSql('select clock_timestamp() as at')[0].at),
       })
     ).error
   ).toBeNull();
@@ -239,7 +239,7 @@ it.each(['definitely_not_sent', 'server_cancelled'])(
         (await observation(f, attemptId, 'command_accepted', {}, randomUUID(), 1)).error?.message
       ).toBe('invalid_transition');
       localOwnerSql(
-        `update public.booth_grants set expires_at=clock_timestamp()-interval '1 second' where id='${f.grantId}'`
+        `update public.booth_grants set created_at=clock_timestamp()-interval '2 minutes',expires_at=clock_timestamp()-interval '1 minute' where id='${f.grantId}'`
       );
       expect((await observation(f, attemptId, 'command_accepted', {}, id)).error?.message).toBe(
         'access_required'
@@ -404,69 +404,83 @@ it('a printed outcome still blocks a new job until qualified idle evidence arriv
   }
 }, 30000);
 
-it('an earlier attempt cannot clear the safety block after a later job settles', async () => {
-  const f = await createPackageFixture();
-  try {
-    const firstId = await attempt(f);
-    expect((await observation(f, firstId, 'full_ejection_confirmed')).error).toBeNull();
-    expect((await observation(f, firstId, 'ready_for_new_job')).error).toBeNull();
-    const firstSessionId = localOwnerSql(
-      `select session_id from public.print_attempts where id='${firstId}'`
-    )[0].session_id;
-    expect(
-      (await f.booth('end_session', { sessionId: firstSessionId, reason: 'page_reload' })).error
-    ).toBeNull();
-    ready(f);
-    const started = await f.booth('start_session', {
-      expectedRevision: (await f.readBooth()).data.revision,
-    });
-    expect(started.error).toBeNull();
-    const sessionId = started.data.receipt.result.sessionId as string;
-    const captureId = randomUUID();
-    expect(
-      (
-        await f.booth('record_capture', {
-          sessionId,
-          captureId,
-          capturedAt: new Date().toISOString(),
-        })
-      ).error
-    ).toBeNull();
-    ready(f);
-    const reserved = await f.booth('reserve', {
-      sessionId,
-      captureId,
-      expectedRevision: (await f.readBooth()).data.revision,
-    });
-    expect(reserved.error).toBeNull();
-    const secondId = reserved.data.receipt.result.attemptId as string;
-    ready(f);
-    expect(
-      (
-        await f.booth('dispatch', {
-          attemptId: secondId,
-          printerId: 'fixture-printer',
-          connectionGeneration: 0,
-          expectedRevision: reserved.data.revision,
-        })
-      ).error
-    ).toBeNull();
-    expect((await observation(f, secondId, 'full_ejection_confirmed')).error).toBeNull();
-    expect(
-      localOwnerSql(
-        `select old_job_safety_confirmed from public.booth_runs where id='${f.runId}'`
-      )[0].old_job_safety_confirmed
-    ).toBe(false);
-    expect((await observation(f, firstId, 'ready_for_new_job')).error).toBeNull();
-    expect(
-      localOwnerSql(
-        `select old_job_safety_confirmed from public.booth_runs where id='${f.runId}'`
-      )[0].old_job_safety_confirmed
-    ).toBe(false);
-  } finally {
-    await f.dispose();
-  }
-}, 30000);
+it.each([-60_000, 0, 60_000])(
+  'an earlier attempt cannot clear the safety block after a later job settles (host clock offset %i ms)',
+  async (offset) => {
+    const f = await createPackageFixture();
+    try {
+      const firstId = await attempt(f);
+      expect((await observation(f, firstId, 'full_ejection_confirmed')).error).toBeNull();
+      expect((await observation(f, firstId, 'ready_for_new_job')).error).toBeNull();
+      const firstSessionId = localOwnerSql(
+        `select session_id from public.print_attempts where id='${firstId}'`
+      )[0].session_id;
+      expect(
+        (await f.booth('end_session', { sessionId: firstSessionId, reason: 'page_reload' })).error
+      ).toBeNull();
+      ready(f);
+      const started = await f.booth('start_session', {
+        expectedRevision: (await f.readBooth()).data.revision,
+      });
+      expect(started.error).toBeNull();
+      const sessionId = started.data.receipt.result.sessionId as string;
+      const captureId = randomUUID();
+      const hostTime = Date.now() + offset;
+      let capturedAt: string;
+      vi.useFakeTimers({ toFake: ['Date'] });
+      try {
+        vi.setSystemTime(hostTime);
+        // Synthetic shutters share the database timeline; host/VM clocks can differ.
+        capturedAt = String(localOwnerSql('select clock_timestamp() as at')[0].at);
+      } finally {
+        vi.useRealTimers();
+      }
+      const captured = await f.booth('record_capture', { sessionId, captureId, capturedAt });
+      if (captured.error !== null) {
+        const timing = localOwnerSql(
+          `select created_at, state, closed_at, clock_timestamp() as checked_at from public.guest_sessions where id='${sessionId}'`
+        );
+        throw new Error(
+          `Capture failed: ${captured.error.message}; capturedAt=${capturedAt}; session=${JSON.stringify(timing)}`
+        );
+      }
+      ready(f);
+      const reserved = await f.booth('reserve', {
+        sessionId,
+        captureId,
+        expectedRevision: (await f.readBooth()).data.revision,
+      });
+      expect(reserved.error).toBeNull();
+      const secondId = reserved.data.receipt.result.attemptId as string;
+      ready(f);
+      expect(
+        (
+          await f.booth('dispatch', {
+            attemptId: secondId,
+            printerId: 'fixture-printer',
+            connectionGeneration: 0,
+            expectedRevision: reserved.data.revision,
+          })
+        ).error
+      ).toBeNull();
+      expect((await observation(f, secondId, 'full_ejection_confirmed')).error).toBeNull();
+      expect(
+        localOwnerSql(
+          `select old_job_safety_confirmed from public.booth_runs where id='${f.runId}'`
+        )[0].old_job_safety_confirmed
+      ).toBe(false);
+      expect((await observation(f, firstId, 'ready_for_new_job')).error).toBeNull();
+      expect(
+        localOwnerSql(
+          `select old_job_safety_confirmed from public.booth_runs where id='${f.runId}'`
+        )[0].old_job_safety_confirmed
+      ).toBe(false);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
 
 it('current connection idle evidence clears inspected Printed after a reconnect', async () => {
   const f = await createPackageFixture();

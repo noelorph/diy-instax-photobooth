@@ -1,18 +1,8 @@
 // @vitest-environment node
-import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { localSupabase, ownerInsert } from '../fixtures/local-supabase';
+import { localOwnerSql as sql, localSupabase, ownerInsert } from '../fixtures/local-supabase';
 
-function sql(query: string) {
-  const output = execFileSync(
-    resolve('node_modules/.bin/supabase'),
-    ['db', 'query', '--local', query, '-o', 'json'],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-  );
-  return output.trim().startsWith('{') ? JSON.parse(output).rows : [];
-}
 const hash = () => randomBytes(32).toString('hex');
 describe('Guest sessions and reservations', { timeout: 20000 }, () => {
   const local = localSupabase();

@@ -1,4 +1,6 @@
 import { execFileSync, spawn } from 'node:child_process';
+const port = process.argv[2];
+if (!['1438', '1439'].includes(port)) throw new Error('Expected allowed simulator app port');
 const local = JSON.parse(
   execFileSync('node_modules/.bin/supabase', ['status', '-o', 'json'], {
     encoding: 'utf8',
@@ -8,7 +10,7 @@ const local = JSON.parse(
 if (local.API_URL !== 'http://127.0.0.1:56321') throw new Error('Isolated local stack required');
 const child = spawn(
   process.execPath,
-  ['node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1', '--port', '1439'],
+  ['node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1', '--port', port],
   {
     stdio: 'inherit',
     env: {
@@ -16,7 +18,7 @@ const child = spawn(
       NEXT_PUBLIC_SUPABASE_URL: local.API_URL,
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.ANON_KEY,
       SUPABASE_SECRET_KEY: local.SERVICE_ROLE_KEY,
-      ADMIN_AUTH_ORIGIN: 'http://127.0.0.1:1439',
+      ADMIN_AUTH_ORIGIN: `http://127.0.0.1:${port}`,
       BOOTH_SIMULATOR_ENABLED: 'true',
       NEXT_TELEMETRY_DISABLED: '1',
     },

@@ -1,0 +1,79 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    name: Project checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    env:
+      NEXT_TELEMETRY_DISABLED: '1'
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Check lint
+        run: npm run lint
+
+      - name: Check formatting
+        run: npm run format:check
+
+      - name: Start local Supabase
+        run: npx supabase start
+
+      - name: Configure local Supabase environment
+        run: |
+          npx supabase status -o json | jq -r '
+            "NEXT_PUBLIC_SUPABASE_URL=\(.API_URL)",
+            "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=\(.ANON_KEY)",
+            "SUPABASE_SECRET_KEY=\(.SERVICE_ROLE_KEY)"
+          ' >> "$GITHUB_ENV"
+
+      - name: Build application
+        env:
+          ADMIN_AUTH_ORIGIN: http://127.0.0.1:3000
+        run: npm run build
+
+      - name: Check TypeScript
+        run: npx tsc --noEmit
+
+      - name: Run unit, component, and integration tests
+        run: npm test
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify Booth setup and lifecycle
+        run: npx playwright test --config playwright.admin-booth.config.ts
+
+      - name: Verify production Booth restrictions
+        env:
+          BOOTH_SIMULATOR_ENABLED: 'true'
+        run: npx playwright test --config playwright.config.ts tests/e2e/admin-booth-handoff.spec.ts
+
+      - name: Stop local Supabase
+        if: always()
+        run: npx supabase stop --no-backup

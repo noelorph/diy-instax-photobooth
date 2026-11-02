@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { boothReturnCookie } from '@/features/admin/auth/booth-return';
 import { requireAdminRequest } from '@/lib/operations/admin-authority';
 import {
   cookieOptions,
@@ -36,6 +37,9 @@ export async function GET(request: Request, context: { params: Promise<{ eventId
       throw new PackageError('qualification_required');
     }
     const admin = await requireAdminRequest(request);
+    const expectedAdmin = request.headers.get('x-package-admin-id');
+    if (expectedAdmin !== null && expectedAdmin !== admin.userId)
+      throw new PackageError('operation_forbidden');
     const eventId = operationId((await context.params).eventId);
     const url = new URL(request.url);
     const parsed = query.safeParse(Object.fromEntries(url.searchParams));
@@ -51,6 +55,7 @@ export async function GET(request: Request, context: { params: Promise<{ eventId
     });
     const response = operationResponse(result);
     response.cookies.set(deviceCookie, device, { ...cookieOptions, maxAge: 172800 });
+    response.cookies.set(boothReturnCookie, eventId, { ...cookieOptions, maxAge: 172800 });
     return response;
   } catch (error) {
     return packageErrorResponse(error);

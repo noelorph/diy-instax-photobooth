@@ -18,6 +18,8 @@ Configure ignored `.env.local` with the local API as `NEXT_PUBLIC_SUPABASE_URL`,
 
 Server-only `BOOTH_SIMULATOR_ENABLED=true` permits nonproduction simulation; production must refuse it even when supplied. Simulator outcomes cannot enable real printing or satisfy #17/#7. Use the [current flow guide](../booth-user-flow.md), not historical operator controls, for target behavior.
 
+For explicit local simulation, start with `BOOTH_SIMULATOR_ENABLED=true npm run dev` (or `npm run dev:https` with the same environment flag). Restart the server after changing the flag. A setup-readiness HTTP `403` with `qualification_required` means server setup is disabled, not that camera permission failed. Setup stops automatic checks and offers **Retry setup checks** after configuration is corrected. An `access_required` or `operation_forbidden` denial instead requires current Admin access; sign in again and return to the Event. Transient network/server faults and stale-readiness conflicts continue to retry. This flag does not bypass the database completion-policy gate or enable real printing.
+
 ## Auth and fixture boundaries
 
 Public signup stays disabled while the email provider remains enabled. A project owner provisions the sole Admin through the Auth Admin API/Dashboard, then adds that user's ID to `public.admin_profiles`. No browser provisioning endpoint or direct `auth.users` insert. Authenticated Profile updates are limited to phone/theme and current-session RLS.

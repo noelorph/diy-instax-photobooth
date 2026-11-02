@@ -1,248 +1,312 @@
-import { act, cleanup, fireEvent, render, screen } from '@testing-library/react';
-import { afterEach, beforeEach, expect, it, vi } from 'vitest';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, expect, it, vi } from 'vitest';
 import { BoothClient } from '@/features/booth/booth-client';
-import { BoothFlow, type BoothTransport } from '@/features/booth/flow';
-import { SimulatedPrinter } from '@/features/booth/printer/simulator';
-const available = { guestPrints: 4, filmSheets: 4, printerBusy: false };
-function setup(outcome: 'accepted' | 'ejected' = 'ejected') {
-  let network = true;
-  const transport: BoothTransport = async (path, body) => {
-    if (!network) throw new TypeError('Offline');
-    if (path.endsWith('bootstrap'))
-      return {
-        runId: 'run',
-        state: 'Active',
-        display: { title: 'Evening celebration' },
-        availability: available,
-      };
-    if (path.endsWith('/pauses')) return { runId: 'run', state: 'Paused' };
-    if (path.endsWith('guest-sessions'))
-      return { sessionId: 'session', state: 'Open', availability: available };
-    if (path.endsWith('captures')) return { captureId: crypto.randomUUID() };
-    if (path.endsWith('print-attempts'))
-      return { attemptId: crypto.randomUUID(), state: 'Reserved' };
-    if (path.endsWith('observations'))
-      return {
-        state:
-          body?.observationKind === 'commandAccepted'
-            ? 'Accepted'
-            : body?.observationKind === 'uncertain'
-              ? 'Uncertain'
-              : 'Confirmed',
-        availability: available,
-      };
-    return { state: 'Abandoned' };
+import { BoothFlow } from '@/features/booth/flow';
+import { SimulatedPrinterV2 } from '@/features/booth/printer/simulator-v2';
+import { BrowserBoothMetadataJournal } from '@/features/booth/print-journal';
+afterEach(cleanup);
+it('arrival uses passive camera intent and Enable Camera uses explicit request', async () => {
+  const printer = new SimulatedPrinterV2('simulator');
+  const counts = {
+    originalPackages: 1,
+    additionalPackages: 0,
+    totalBookedPrints: 10,
+    printed: 0,
+    unresolved: 0,
+    printsRemaining: 10,
+    printsAvailable: 10,
   };
-  const printer = new SimulatedPrinter(outcome);
-  const flow = new BoothFlow({ transport, printer, storage: sessionStorage });
+  const flow = new BoothFlow({
+    printer,
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async (path) =>
+      path.endsWith('/readiness')
+        ? {
+            revision: 1,
+            replayed: false,
+            receipt: {
+              operationId: crypto.randomUUID(),
+              kind: 'report_readiness',
+              committedRevision: 1,
+              result: {},
+            },
+          }
+        : {
+            state: 'Active',
+            printerId: 'simulator',
+            connectionGeneration: 0,
+            revision: 1,
+            runId: crypto.randomUUID(),
+            counts,
+            blockers: [],
+            readinessWindowId: crypto.randomUUID(),
+            allowedActions: { startGuest: true, reportReadiness: true },
+          },
+  });
+  const intents: string[] = [];
   const camera = {
-    start: async () => {},
-    stop: () => {},
-    capture: async () => ({ bytes: new Uint8Array([1]), url: 'blob:ephemeral', discard: () => {} }),
+    start: async (
+      _video: HTMLVideoElement,
+      _disconnected: () => void,
+      intent: 'request' | 'existing'
+    ) => {
+      intents.push(intent);
+      throw new Error('denied');
+    },
+    stop: vi.fn(),
+    capture: vi.fn(),
   };
   render(<BoothClient flow={flow} camera={camera} />);
-  return {
-    flow,
-    printer,
-    network: (value: boolean) => {
-      network = value;
-    },
-  };
-}
-const flush = async () => {
-  await act(async () => {});
-};
-async function start() {
-  await flush();
-  fireEvent.click(screen.getByRole('button', { name: 'Start' }));
-  await flush();
-}
-async function capture() {
-  fireEvent.click(screen.getByRole('button', { name: 'Take Photo' }));
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(3000);
-  });
-}
-beforeEach(() => {
-  sessionStorage.clear();
-  vi.useFakeTimers();
+  await waitFor(() => expect(intents).toContain('existing'));
+  fireEvent.click(await screen.findByRole('button', { name: 'Enable Camera' }));
+  await waitFor(() => expect(intents).toEqual(['existing', 'request']));
+  expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
 });
-afterEach(() => {
-  cleanup();
+
+it('polls every two seconds only while visible and refreshes immediately on focus', async () => {
+  vi.useFakeTimers();
+  const flow = new BoothFlow({
+    printer: new SimulatedPrinterV2('simulator'),
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async () => ({}),
+  });
+  vi.spyOn(flow, 'initialize').mockResolvedValue();
+  const reports = vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
+  const camera = { start: vi.fn(async () => {}), stop: vi.fn(), capture: vi.fn() };
+  const visible = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+  const view = render(<BoothClient flow={flow} camera={camera} />);
+  await act(async () => {});
+  reports.mockClear();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1999);
+  });
+  expect(reports).toHaveBeenCalledTimes(0);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(reports).toHaveBeenCalledTimes(1);
+  visible.mockReturnValue('hidden');
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(6000);
+  });
+  expect(reports).toHaveBeenCalledTimes(1);
+  visible.mockReturnValue('visible');
+  fireEvent(window, new Event('focus'));
+  expect(reports).toHaveBeenCalledTimes(2);
+  fireEvent(document, new Event('visibilitychange'));
+  expect(reports).toHaveBeenCalledTimes(3);
+  view.unmount();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000);
+  });
+  expect(reports).toHaveBeenCalledTimes(3);
+  visible.mockRestore();
   vi.useRealTimers();
 });
-it('runs countdown, Retake, explicit Print and completion through real controller', async () => {
-  const s = setup();
-  await start();
-  await capture();
-  expect(screen.getByRole('img', { name: 'Your final photo' }).getAttribute('src')).toBe(
-    'blob:ephemeral'
-  );
-  fireEvent.click(screen.getByRole('button', { name: 'Retake' }));
-  await flush();
-  await capture();
-  fireEvent.click(screen.getByRole('button', { name: 'Print' }));
-  await flush();
-  expect(screen.getByText('Your print is ready')).toBeTruthy();
-  expect(s.printer.commandCount).toBe(1);
-  expect(screen.queryByRole('img')).toBeNull();
+
+it('shows a truthful pending status during a deliberate pause without local takeover', async () => {
+  const flow = new BoothFlow({
+    printer: new SimulatedPrinterV2('simulator'),
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async () => ({}),
+  });
+  vi.spyOn(flow, 'initialize').mockResolvedValue();
+  vi.spyOn(flow, 'getSnapshot').mockReturnValue({
+    phase: 'paused',
+    counts: {
+      originalPackages: 1,
+      additionalPackages: 0,
+      totalBookedPrints: 10,
+      printed: 0,
+      unresolved: 1,
+      printsRemaining: 10,
+      printsAvailable: 9,
+    },
+    blockers: ['print_pending'],
+    allowedActions: { enableCamera: false, connectPrinter: false },
+  });
+  vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
+  const camera = { start: vi.fn(async () => {}), stop: vi.fn(), capture: vi.fn() };
+  render(<BoothClient flow={flow} camera={camera} />);
+  expect(screen.getByRole('heading', { name: 'Booth paused' })).toBeTruthy();
+  expect(screen.getByRole('alert').textContent).toMatch(/A print outcome is pending/);
+  expect(screen.getByText('Please wait for the Admin to resume from the phone.')).toBeTruthy();
+  expect(document.querySelector('video')?.closest('[hidden]')).toBeTruthy();
+  expect(screen.queryByRole('link', { name: 'Sign in' })).toBeNull();
 });
-it('warns near 90 seconds, Continue resets it, and timeout abandons review', async () => {
-  setup();
-  await start();
-  await capture();
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(75000);
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(74000);
-  });
-  expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(16000);
-  });
-  expect(screen.getByRole('button', { name: 'Start' })).toBeTruthy();
-  expect(screen.queryByRole('img')).toBeNull();
-});
-it('does not show inactivity warning during printing or connection hold', async () => {
-  const s = setup('accepted');
-  await start();
-  await capture();
-  s.network(false);
-  act(() => s.flow.offline());
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(95000);
-  });
-  expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
-  expect(screen.getByText(/Your photo is still here/)).toBeTruthy();
-  await act(async () => {
-    s.network(true);
-    await s.flow.online();
-  });
-  fireEvent.click(screen.getByRole('button', { name: 'Print' }));
-  await flush();
-  expect(screen.getByText('Waiting for film to eject')).toBeTruthy();
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(90000);
-  });
-  expect(screen.queryByRole('button', { name: 'Continue' })).toBeNull();
-  expect(screen.queryByRole('button', { name: 'Print' })).toBeNull();
-});
-it('shows only neutral protected sign-in after remote stop', async () => {
-  const s = setup();
-  await start();
-  await act(async () => {
-    await s.flow.connectionChanged();
-  });
-  expect(screen.queryByText('Evening celebration')).toBeNull();
-  expect(screen.getByRole('link', { name: 'Admin sign in' }).getAttribute('href')).toBe(
-    '/sign-in?from=booth'
-  );
-});
-it('offers protected pause by long press and keyboard activation', async () => {
-  const s = setup();
-  await start();
-  const button = screen.getByRole('button', { name: 'Admin pause' });
-  fireEvent.pointerDown(button);
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(500);
-  });
-  fireEvent.pointerUp(button);
-  expect(s.flow.getSnapshot().phase).toBe('preview');
-  fireEvent.keyDown(button, { key: 'Enter' });
-  await flush();
-  expect(s.flow.getSnapshot().phase).toBe('paused');
-});
-it('a completed long press requests protected pause', async () => {
-  const s = setup();
-  await start();
-  fireEvent.pointerDown(screen.getByRole('button', { name: 'Admin pause' }));
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(1500);
-  });
-  expect(s.flow.getSnapshot().phase).toBe('paused');
-});
-it('withholds sign-in during pause and transient failure, then retries the same operation', async () => {
+
+it.each(['access-required', 'unavailable'] as const)(
+  'announces required Admin intervention assertively in %s',
+  (phase) => {
+    const flow = new BoothFlow({
+      printer: new SimulatedPrinterV2('simulator'),
+      journal: new BrowserBoothMetadataJournal(sessionStorage),
+      transport: async () => ({}),
+    });
+    vi.spyOn(flow, 'initialize').mockResolvedValue();
+    vi.spyOn(flow, 'getSnapshot').mockReturnValue({
+      phase,
+      blockers: [],
+      allowedActions: { enableCamera: false, connectPrinter: false },
+    });
+    vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
+    const camera = { start: vi.fn(async () => {}), stop: vi.fn(), capture: vi.fn() };
+    render(<BoothClient flow={flow} camera={camera} />);
+    expect(screen.getByRole('alert').textContent).toMatch(/inform the Admin/);
+  }
+);
+
+it('polls lifecycle independently of a held readiness report and preserves Finished after release', async () => {
+  vi.useFakeTimers();
+  const printer = new SimulatedPrinterV2('simulator');
+  await printer.connect();
+  let state = 'Active',
+    reads = 0,
+    posts = 0;
   let release!: () => void;
-  let fail = true;
-  const paused = new Promise<void>((resolve) => {
+  const gate = new Promise<void>((resolve) => {
     release = resolve;
   });
-  const keys: unknown[] = [];
   const flow = new BoothFlow({
-    storage: sessionStorage,
-    printer: new SimulatedPrinter(),
+    printer,
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
     transport: async (path, body) => {
-      if (path.endsWith('/pauses')) {
-        keys.push(body?.operationKey);
-        await paused;
-        if (fail) throw new TypeError('offline');
-        return { state: 'Paused' };
+      if (body) {
+        posts++;
+        await gate;
+        return {
+          revision: 1,
+          replayed: false,
+          receipt: {
+            operationId: body.operationId,
+            kind: 'report_readiness',
+            committedRevision: 1,
+            result: {},
+          },
+        };
       }
+      reads++;
       return {
-        state: 'Active',
-        runId: 'run',
-        display: { title: 'Private Event' },
-        availability: available,
+        state,
+        revision: reads,
+        runId: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+        printerId: 'simulator',
+        connectionGeneration: 1,
+        counts: {
+          originalPackages: 1,
+          additionalPackages: 0,
+          totalBookedPrints: 10,
+          printed: 0,
+          unresolved: state === 'Finishing' ? 1 : 0,
+          printsRemaining: 10,
+          printsAvailable: 10,
+        },
+        blockers: [],
+        readinessWindowId: crypto.randomUUID(),
+        allowedActions: { startGuest: true, reportReadiness: true },
       };
     },
   });
-  render(
-    <BoothClient
-      flow={flow}
-      camera={{
-        start: async () => {},
-        stop: () => {},
-        capture: async () => ({
-          bytes: new Uint8Array([1]),
-          url: 'blob:temporary',
-          discard: () => {},
-        }),
-      }}
-    />
-  );
-  await flush();
-  fireEvent.keyDown(screen.getByRole('button', { name: 'Admin pause' }), { key: 'Enter' });
-  expect(screen.queryByRole('link', { name: 'Admin sign in' })).toBeNull();
-  expect(screen.getByRole('heading', { name: 'Pausing Booth Mode' })).toBeTruthy();
-  await act(async () => {
+  const camera = { start: vi.fn(async () => {}), stop: vi.fn(), capture: vi.fn() };
+  const view = render(<BoothClient flow={flow} camera={camera} />);
+  try {
+    await act(async () => {});
+    expect(posts).toBe(1);
+    const before = reads;
+    for (const phase of ['Paused', 'Finishing', 'Finished']) {
+      state = phase;
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(2000);
+      });
+      expect(flow.getSnapshot().phase).toBe(phase.toLowerCase());
+    }
+    expect(reads).toBeGreaterThanOrEqual(before + 3);
+    expect(posts).toBe(1);
+    await act(async () => {
+      release();
+    });
+    expect(flow.getSnapshot().phase).toBe('finished');
+    expect(posts).toBe(1);
+  } finally {
     release();
-  });
-  expect(screen.queryByRole('link', { name: 'Admin sign in' })).toBeNull();
-  expect(screen.getByRole('button', { name: 'Retry pause' })).toBeTruthy();
-  fail = false;
-  fireEvent.click(screen.getByRole('button', { name: 'Retry pause' }));
-  await flush();
-  expect(screen.getByRole('link', { name: 'Admin sign in' })).toBeTruthy();
-  expect(keys[1]).toBe(keys[0]);
+    view.unmount();
+    vi.useRealTimers();
+  }
 });
-it('does not interpret an unexplained forbidden pause response as a committed pause', async () => {
+
+it('healthy polling keeps Welcome and does not refocus the heading', async () => {
+  const printer = new SimulatedPrinterV2('simulator');
+  await printer.connect();
   const flow = new BoothFlow({
-    storage: sessionStorage,
-    printer: new SimulatedPrinter(),
-    transport: async (path) => {
-      if (path.endsWith('/pauses')) throw Object.assign(new Error('forbidden'), { status: 403 });
-      return { state: 'Active', runId: 'run', availability: available };
-    },
+    printer,
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async (path, body) =>
+      path.endsWith('/readiness')
+        ? {
+            revision: 1,
+            replayed: false,
+            receipt: {
+              operationId: body!.operationId,
+              kind: 'report_readiness',
+              committedRevision: 1,
+              result: {},
+            },
+          }
+        : {
+            state: 'Active',
+            printerId: 'simulator',
+            connectionGeneration: 1,
+            revision: 1,
+            runId: crypto.randomUUID(),
+            readinessWindowId: crypto.randomUUID(),
+            blockers: [],
+            counts: {
+              originalPackages: 1,
+              additionalPackages: 0,
+              totalBookedPrints: 10,
+              printed: 0,
+              unresolved: 0,
+              printsRemaining: 10,
+              printsAvailable: 10,
+            },
+            allowedActions: { startGuest: true, reportReadiness: true },
+          },
   });
+  const camera = {
+    start: async (video: HTMLVideoElement) => {
+      Object.defineProperties(video, {
+        srcObject: {
+          value: { active: true, getVideoTracks: () => [{ readyState: 'live' }] },
+          configurable: true,
+        },
+        videoWidth: { value: 640, configurable: true },
+        videoHeight: { value: 480, configurable: true },
+      });
+    },
+    stop: vi.fn(),
+    capture: vi.fn(),
+  };
   render(
-    <BoothClient
-      flow={flow}
-      camera={{
-        start: async () => {},
-        stop: () => {},
-        capture: async () => ({
-          bytes: new Uint8Array([1]),
-          url: 'blob:temporary',
-          discard: () => {},
-        }),
-      }}
-    />
+    <>
+      <button>Focus marker</button>
+      <BoothClient flow={flow} camera={camera} />
+    </>
   );
-  await flush();
-  fireEvent.keyDown(screen.getByRole('button', { name: 'Admin pause' }), { key: 'Enter' });
-  await flush();
-  expect(screen.queryByRole('link', { name: 'Admin sign in' })).toBeNull();
-  expect(screen.getByRole('button', { name: 'Retry pause' })).toBeTruthy();
+  const heading = await screen.findByRole('heading', { name: 'Make a memory' });
+  const focus = vi.spyOn(heading, 'focus');
+  screen.getByRole('button', { name: 'Focus marker' }).focus();
+  await act(async () => {
+    fireEvent(window, new Event('focus'));
+    await flow.reportEquipment({
+      cameraPermission: true,
+      cameraLive: true,
+      serverReachable: true,
+      printerConnected: true,
+      printerReady: true,
+      oldJobCleared: true,
+    });
+  });
+  expect(flow.getSnapshot().phase).toBe('welcome');
+  expect(focus).not.toHaveBeenCalled();
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Focus marker' }));
 });

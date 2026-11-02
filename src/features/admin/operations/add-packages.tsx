@@ -1,7 +1,6 @@
 'use client';
 import { useCallback, useEffect, useId, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { FormFeedback } from '@/components/shared/form-feedback';
@@ -23,14 +22,15 @@ export function AddPackages({
   eligible,
   counts,
   onCounts,
+  refreshAdmin,
 }: {
   eventId: string;
   adminUserId: string;
   eligible: boolean;
   counts: PackageCounts;
   onCounts: (counts: PackageCounts) => void;
+  refreshAdmin: () => void;
 }) {
-  const router = useRouter();
   const id = useId();
   const storageKey = `film-package-purchase:${eventId}:${adminUserId}`;
   const [open, setOpen] = useState(false);
@@ -290,7 +290,7 @@ export function AddPackages({
           {error && (
             <FormFeedback kind="error">
               {error}{' '}
-              <Button variant="quiet" onClick={() => router.refresh()}>
+              <Button variant="quiet" onClick={refreshAdmin}>
                 Reload current state
               </Button>
             </FormFeedback>

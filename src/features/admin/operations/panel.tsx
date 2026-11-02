@@ -1,24 +1,147 @@
 'use client';
 import Link from 'next/link';
-import { useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { Dialog } from 'radix-ui';
+import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { FormFeedback } from '@/components/shared/form-feedback';
 import type { OperationalEvent } from './types';
 import styles from './panel.module.css';
 import { AddPackages } from './add-packages';
+import { BoothSetup } from './booth-setup';
+import { BoothControls } from './booth-controls';
+import { boothFetch } from '@/features/booth/flow';
+import { STATE_POLL_MS } from '@/lib/operations/package-contract';
+
+const phoneReadinessSchema = z.object({
+  revision: z.number().int().nonnegative(),
+  allowedActions: z.object({ resume: z.boolean().nullable().optional() }),
+  blockers: z.array(z.string()),
+  equipment: z
+    .object({
+      expiresAt: z.iso.datetime().nullable(),
+      cameraLive: z.boolean(),
+      printerConnected: z.boolean(),
+      serverReachable: z.boolean(),
+      filmLoaded: z.boolean(),
+    })
+    .nullable(),
+});
 
 export function OperationsPanel({
-  event,
+  event: serverEvent,
   adminUserId,
 }: {
   event: OperationalEvent;
   adminUserId: string;
 }) {
   const router = useRouter();
+  const [refreshing, startRefresh] = useTransition();
+  const [handoffPending, setHandoffPending] = useState(false);
+  const handoffActive = useRef(false);
+  const pollRequest = useRef<Promise<void> | null>(null);
+  const [readiness, setReadiness] = useState<{
+    source: OperationalEvent;
+    value: Pick<OperationalEvent, 'equipment' | 'resumeAllowed' | 'blockers'>;
+    error?: string;
+  } | null>(null);
+  const sample = readiness?.source === serverEvent ? readiness : null;
+  const event = sample ? { ...serverEvent, ...sample.value } : serverEvent;
+  const idleWaiters = useRef<(() => void)[]>([]);
+  const refreshAdmin = useCallback(() => {
+    if (!handoffActive.current) startRefresh(() => router.refresh());
+  }, [router, startRefresh]);
+  // Local sign-out waits for this device's already-issued Admin reads.
+  const prepareHandoff = useCallback(() => {
+    handoffActive.current = true;
+    setHandoffPending(true);
+    const idle = new Promise<void>((resolve) => idleWaiters.current.push(resolve));
+    return Promise.all([idle, pollRequest.current]).then(() => {});
+  }, []);
+  const releaseHandoff = useCallback(() => {
+    handoffActive.current = false;
+    setHandoffPending(false);
+  }, []);
+  useEffect(() => {
+    if (!refreshing) idleWaiters.current.splice(0).forEach((resolve) => resolve());
+  }, [refreshing, handoffPending]);
+  useEffect(() => () => idleWaiters.current.splice(0).forEach((resolve) => resolve()), []);
+  useEffect(() => {
+    if (serverEvent.state !== 'Live' || refreshing) return;
+    const controller = new AbortController();
+    const poll = () => {
+      if (document.visibilityState !== 'visible' || handoffActive.current || pollRequest.current)
+        return;
+      const request = (async () => {
+        try {
+          const state = phoneReadinessSchema.parse(
+            await boothFetch(
+              `/api/admin/events/${serverEvent.id}/booth/state`,
+              undefined,
+              adminUserId,
+              controller.signal
+            )
+          );
+          if (
+            controller.signal.aborted ||
+            handoffActive.current ||
+            state.revision < serverEvent.revision
+          )
+            return;
+          if (state.revision > serverEvent.revision) {
+            // Counts, history and terminal Event state must come from the same page refresh.
+            refreshAdmin();
+            return;
+          }
+          setReadiness({
+            source: serverEvent,
+            value: {
+              equipment: state.equipment,
+              resumeAllowed: state.allowedActions.resume === true,
+              blockers: state.blockers,
+            },
+          });
+        } catch (error) {
+          if (controller.signal.aborted || handoffActive.current) return;
+          setReadiness({
+            source: serverEvent,
+            value: {
+              equipment: null,
+              resumeAllowed: false,
+              blockers: [...new Set([...serverEvent.blockers, 'server_unreachable'])],
+            },
+            error:
+              'Booth status could not be refreshed. Check the connection; status will be checked again.',
+          });
+          if (
+            error instanceof Error &&
+            'status' in error &&
+            [401, 403].includes(Number(error.status))
+          )
+            refreshAdmin();
+        }
+      })().finally(() => {
+        if (pollRequest.current === request) pollRequest.current = null;
+      });
+      pollRequest.current = request;
+    };
+    const timer = window.setInterval(poll, STATE_POLL_MS);
+    window.addEventListener('focus', poll);
+    window.addEventListener('online', poll);
+    document.addEventListener('visibilitychange', poll);
+    return () => {
+      controller.abort();
+      clearInterval(timer);
+      window.removeEventListener('focus', poll);
+      window.removeEventListener('online', poll);
+      document.removeEventListener('visibilitychange', poll);
+    };
+  }, [serverEvent, adminUserId, refreshing, refreshAdmin]);
+
   const [busy, setBusy] = useState(false);
   const [review, setReview] = useState(false);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const operationId = useRef<string | null>(null);
@@ -56,7 +179,7 @@ export function OperationsPanel({
       operationId.current = null;
       setReview(false);
       setNotice('Recorded. Refreshing current totals.');
-      router.refresh();
+      refreshAdmin();
     } catch (error) {
       setError(
         error instanceof Error
@@ -70,9 +193,41 @@ export function OperationsPanel({
   return (
     <section className={styles.panel} aria-label="Event operations">
       <h2>Event operations</h2>
-      <p>
-        {event.state} · {event.runState ?? 'Booth not started'}
-      </p>
+      <p>{event.state} Event</p>
+      {sample?.error && <FormFeedback kind="error">{sample.error}</FormFeedback>}
+      {event.runState && (
+        <section
+          aria-label="Booth status"
+          aria-live="polite"
+          className={styles.runStatus}
+          data-state={event.runState}
+        >
+          <h3>
+            {
+              {
+                Prepared: 'Preparing Booth Mode',
+                Active: 'Booth running',
+                Paused: 'Booth paused',
+                Finishing: 'Finishing Booth Mode',
+                Finished: 'Booth Mode finished',
+              }[event.runState]
+            }
+          </h3>
+          <p>
+            {event.runState === 'Paused'
+              ? 'Only you can resume the booth from the phone.'
+              : event.runState === 'Finishing'
+                ? 'New Guests are blocked. Waiting for the current print to be resolved.'
+                : event.runState === 'Finished'
+                  ? event.state === 'Live'
+                    ? 'The iPad shows the finished screen. Complete the Event to keep it in History, or prepare a new run on the Booth iPad.'
+                    : 'This run is finished. Event records remain in History.'
+                  : event.runState === 'Prepared'
+                    ? 'Waiting for secure access on the Booth iPad.'
+                    : 'New Guests can start only while equipment is ready and no print outcome is pending.'}
+          </p>
+        </section>
+      )}
       <div className={styles.totals}>
         <section aria-label="Booked print capacity">
           <h3>Booked print capacity</h3>
@@ -87,6 +242,13 @@ export function OperationsPanel({
           <p>{counts.printsAvailable} prints available</p>
         </section>
       </div>
+      <BoothControls
+        key={`booth:${event.id}:${adminUserId}`}
+        event={event}
+        adminUserId={adminUserId}
+        refreshAdmin={refreshAdmin}
+        handoffPending={handoffPending}
+      />
       <AddPackages
         key={`${event.id}:${adminUserId}`}
         eventId={event.id}
@@ -94,7 +256,21 @@ export function OperationsPanel({
         eligible={event.state === 'Live'}
         counts={counts}
         onCounts={setCounts}
+        refreshAdmin={refreshAdmin}
       />
+      {['Draft', 'Live'].includes(event.state) && (
+        <BoothSetup
+          key={`setup:${event.id}:${adminUserId}`}
+          eventId={event.id}
+          revision={event.revision}
+          runId={event.runId}
+          runState={event.runState}
+          adminUserId={adminUserId}
+          possibleDelivery={event.possibleDelivery}
+          prepareHandoff={prepareHandoff}
+          releaseHandoff={releaseHandoff}
+        />
+      )}
       <p>{event.captures} Captures</p>
       {counts.unresolved > 0 && (
         <p>A print is pending. Its booked print remains held until resolved.</p>
@@ -108,11 +284,17 @@ export function OperationsPanel({
           }}
         >
           <Dialog.Trigger asChild>
-            <Button variant="quiet" disabled={busy || counts.unresolved > 0}>
+            <Button
+              variant="quiet"
+              disabled={busy || handoffPending || counts.unresolved > 0}
+              onClick={(event) =>
+                setPortalContainer(event.currentTarget.closest<HTMLElement>('.admin-shell'))
+              }
+            >
               Cancel Event
             </Button>
           </Dialog.Trigger>
-          <Dialog.Portal>
+          <Dialog.Portal container={portalContainer}>
             <Dialog.Overlay className={styles.overlay} />
             <Dialog.Content className={styles.dialog}>
               <Dialog.Title>Cancel Event</Dialog.Title>
@@ -122,7 +304,7 @@ export function OperationsPanel({
               {error && (
                 <FormFeedback kind="error">
                   {error}{' '}
-                  <Button variant="quiet" onClick={() => router.refresh()}>
+                  <Button variant="quiet" onClick={refreshAdmin}>
                     Reload current state
                   </Button>
                 </FormFeedback>

@@ -202,8 +202,17 @@ export function Profile({
                   Appearance
                 </h2>
                 <p className={styles.description}>Choose the appearance of Admin pages.</p>
-                <fieldset className={styles.choices} disabled={pending}>
-                  <legend className="sr-only">Admin appearance</legend>
+                <fieldset
+                  className={styles.choices}
+                  disabled={pending}
+                  role="radiogroup"
+                  aria-labelledby={`${id}-theme-label`}
+                  aria-invalid={!!state.fieldErrors?.theme}
+                  aria-describedby={state.fieldErrors?.theme ? `${id}-theme-error` : undefined}
+                >
+                  <legend id={`${id}-theme-label`} className="sr-only">
+                    Admin appearance
+                  </legend>
                   {(['light', 'dark'] as const).map((choice) => {
                     const Icon = choice === 'light' ? Sun : Moon;
                     return (
@@ -215,7 +224,6 @@ export function Profile({
                           value={choice}
                           checked={theme === choice}
                           onChange={() => setTheme(choice)}
-                          aria-invalid={!!state.fieldErrors?.theme}
                           aria-describedby={
                             state.fieldErrors?.theme ? `${id}-theme-error` : undefined
                           }

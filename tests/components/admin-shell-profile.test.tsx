@@ -240,10 +240,16 @@ it('associates appearance and password errors with the affected controls', async
   );
   fireEvent.click(screen.getByRole('button', { name: 'Save preferences' }));
   await screen.findByText('Choose an appearance.');
+  const appearance = screen.getByRole('radiogroup', { name: 'Admin appearance' });
+  expect(appearance.getAttribute('aria-invalid')).toBe('true');
+  const dark = screen.getByRole('radio', { name: 'Dark' });
+  expect(dark.hasAttribute('aria-invalid')).toBe(false);
+  expect(document.getElementById(dark.getAttribute('aria-describedby')!)?.textContent).toBe(
+    'Choose an appearance.'
+  );
   fireEvent.click(screen.getByRole('button', { name: 'Change password' }));
   await screen.findByText('Passwords must match.');
   for (const [label, message] of [
-    ['Dark', 'Choose an appearance.'],
     ['New password', 'Use a longer password.'],
     ['Confirm new password', 'Passwords must match.'],
   ]) {

@@ -29,6 +29,7 @@ import {
 } from '@/app/api/admin/events/[eventId]/booth/setup-readiness/route';
 import { POST as startRoute } from '@/app/api/admin/events/[eventId]/booth/start/route';
 import { POST as addPackages } from '@/app/api/admin/events/[eventId]/film-packages/route';
+import { POST as recoverAccessRoute } from '@/app/api/admin/events/[eventId]/booth/recover-access/route';
 import { POST as pauseRoute } from '@/app/api/admin/events/[eventId]/booth/pause/route';
 import { POST as completeRoute } from '@/app/api/admin/events/[eventId]/complete/route';
 import { POST as cancelRoute } from '@/app/api/admin/events/[eventId]/cancel/route';
@@ -484,6 +485,27 @@ it('binds setup readiness to the current Admin session and device before Start',
       jar.set(name, value);
     }
     const context = { params: Promise.resolve({ eventId: fixture.eventId }) };
+    const setupUrl = 'https://booth.test/api/test?printerId=fixture-printer&connectionGeneration=0';
+    const wrongRead = await setupRead(
+      new Request(setupUrl, {
+        headers: { cookie: adminCookie, 'x-package-admin-id': randomUUID() },
+      }),
+      context
+    );
+    expect(wrongRead.status).toBe(403);
+    expect(wrongRead.headers.getSetCookie()).toEqual([]);
+    expect(
+      localOwnerSql(
+        `select count(*)::integer n from private.package_readiness_windows where event_id='${fixture.eventId}'`
+      )[0].n
+    ).toBe(0);
+    const matchedRead = await setupRead(
+      new Request(setupUrl, {
+        headers: { cookie: adminCookie, 'x-package-admin-id': fixture.adminUser.id },
+      }),
+      context
+    );
+    expect(matchedRead.status).toBe(200);
     const read = await setupRead(
       new Request('https://booth.test/api/test?printerId=fixture-printer&connectionGeneration=0', {
         headers: { cookie: adminCookie },
@@ -492,6 +514,9 @@ it('binds setup readiness to the current Admin session and device before Start',
     );
     expect(read.status).toBe(200);
     expect(read.headers.get('cache-control')).toContain('no-store');
+    expect(read.headers.getSetCookie()).toEqual(
+      expect.arrayContaining([expect.stringContaining(`__Host-booth-return=${fixture.eventId};`)])
+    );
     const deviceCookie = read.headers
       .getSetCookie()
       .find((value) => value.startsWith('__Host-booth-device='))!
@@ -531,16 +556,19 @@ it('binds setup readiness to the current Admin session and device before Start',
         )
       ).status
     ).toBe(400);
-    const report = await setupReport(
-      request(
-        {
-          ...reportBody,
-        },
-        `${adminCookie}; ${deviceCookie}`
-      ),
+    const wrongReport = request(reportBody, `${adminCookie}; ${deviceCookie}`);
+    wrongReport.headers.set('x-package-admin-id', randomUUID());
+    expect((await setupReport(wrongReport, context)).status).toBe(403);
+    const matchedReport = request(reportBody, `${adminCookie}; ${deviceCookie}`);
+    matchedReport.headers.set('x-package-admin-id', fixture.adminUser.id);
+    const report = await setupReport(matchedReport, context);
+    expect(report.status).toBe(200);
+    const compatibleReport = await setupReport(
+      request(reportBody, `${adminCookie}; ${deviceCookie}`),
       context
     );
-    expect(report.status).toBe(200);
+    expect(compatibleReport.status).toBe(200);
+    expect((await compatibleReport.json()).replayed).toBe(true);
     const startBody = {
       operationId: randomUUID(),
       expectedRevision: 1,
@@ -640,6 +668,9 @@ it('scopes Admin run commands and replays only their original payload', async ()
       localOwnerSql(`select state from public.booth_runs where id='${fixture.runId}'`)[0].state
     ).toBe('Active');
     const body = { operationId: randomUUID(), runId: fixture.runId, expectedRevision: 2 };
+    const wrongActor = request(body, adminCookie);
+    wrongActor.headers.set('x-package-admin-id', randomUUID());
+    expect((await pauseRoute(wrongActor, context)).status).toBe(403);
     const first = await pauseRoute(request(body, adminCookie), context);
     expect(first.status).toBe(200);
     const committed = await first.json();
@@ -854,6 +885,31 @@ it('rejects the retained legacy SQL redaction operation for package History', as
         `select client_name,media_removal_state,redacted_at from public.events where id='${f.eventId}'`
       )[0]
     ).toEqual({ client_name: 'Client', media_removal_state: 'none', redacted_at: null });
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('fences replacement and terminal commands to their expected Admin', async () => {
+  const f = await createPackageFixture();
+  try {
+    f.seedRun();
+    const session = (await f.adminClient.auth.getSession()).data.session!;
+    const cookie = sessionCookies(session);
+    for (const pair of cookie.split('; ')) {
+      const [name, value] = pair.split('=');
+      jar.set(name, value);
+    }
+    const context = { params: Promise.resolve({ eventId: f.eventId }) };
+    for (const [route, body] of [
+      [recoverAccessRoute, { operationId: randomUUID(), runId: f.runId, expectedRevision: 2 }],
+      [completeRoute, { operationId: randomUUID(), expectedRevision: 2 }],
+      [cancelRoute, { operationId: randomUUID(), expectedRevision: 2 }],
+    ] as const) {
+      const wrong = request(body, cookie);
+      wrong.headers.set('x-package-admin-id', randomUUID());
+      expect((await route(wrong, context)).status).toBe(403);
+    }
   } finally {
     await f.dispose();
   }

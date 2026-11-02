@@ -2,16 +2,6 @@ import { z } from 'zod';
 import { OperationError } from './types';
 import { recoveryCallbackUrl } from '@/features/admin/auth/config';
 export const operationSchema = z.strictObject({ operationKey: z.uuid() });
-export const prepareHandoffSchema = operationSchema.extend({
-  expectedRevision: z.number().int().positive().max(2147483647),
-  connectionId: z.uuid(),
-  setupEvidence: z.strictObject({
-    cameraReady: z.literal(true),
-    printerReady: z.literal(true),
-    guidedAccessReady: z.literal(true),
-  }),
-});
-export const confirmHandoffSchema = operationSchema.extend({ handoffId: z.uuid() });
 export function requireSameOrigin(request: Request) {
   let expectedOrigin: string;
   try {

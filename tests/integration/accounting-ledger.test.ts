@@ -1,24 +1,12 @@
 // @vitest-environment node
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
-import { localSupabase, ownerInsert, ownerUpdate } from '../fixtures/local-supabase';
+import { localOwnerSql, localSupabase, ownerInsert, ownerUpdate } from '../fixtures/local-supabase';
 
 function sql(query: string) {
-  const output = execFileSync(
-    resolve('node_modules/.bin/supabase'),
-    [
-      'db',
-      'query',
-      '--local',
-      query.includes(';') && !query.startsWith('do $$') ? `do $$ begin ${query} end $$` : query,
-      '-o',
-      'json',
-    ],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
+  return localOwnerSql(
+    query.includes(';') && !query.startsWith('do $$') ? `do $$ begin ${query} end $$` : query
   );
-  return output.trim().startsWith('{') ? JSON.parse(output).rows : [];
 }
 
 describe('accounting ledger operations', () => {
@@ -344,6 +332,7 @@ describe('accounting ledger operations', () => {
     ] as const)
       expect((await rpc(name, { ...a.args, ...params })).error?.message).toBe('forbidden');
   });
+  // Each privilege probe starts the local Supabase CLI.
   it('keeps stock and allowance ledgers append-only for application roles', () => {
     for (const table of ['film_stock_entries', 'additional_print_entries'])
       expect(
@@ -351,5 +340,5 @@ describe('accounting ledger operations', () => {
           `select has_table_privilege('service_role','public.${table}','UPDATE,DELETE') as mutable`
         )[0].mutable
       ).toBe(false);
-  });
+  }, 30000);
 });

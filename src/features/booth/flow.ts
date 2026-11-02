@@ -1,79 +1,97 @@
-import type { PrinterAdapter, PrinterObservation } from './printer/contract';
-export type Availability = { guestPrints: number; filmSheets: number; printerBusy: boolean };
-type Reply = {
-  runId?: string;
-  sessionId?: string;
-  captureId?: string;
-  sessionState?: 'Abandoned';
-  attemptId?: string;
-  state?: string;
-  display?: { title: string };
-  availability?: Availability;
-};
-export type BoothTransport = (path: string, body?: Record<string, unknown>) => Promise<Reply>;
+import { z } from 'zod';
+import {
+  READINESS_MAX_AGE_MS,
+  runStates,
+  type PackageCounts,
+} from '@/lib/operations/package-contract';
+import {
+  packageActionSchemas,
+  readinessObservationSchema,
+} from '@/lib/operations/package-action-schemas';
+import type { PrinterAdapterV2, PrinterReadinessSnapshot } from './printer/contract-v2';
+import type { BoothMetadataJournal } from './print-journal';
+export type BoothTransport = (
+  path: string,
+  body?: Record<string, unknown>,
+  signal?: AbortSignal
+) => Promise<unknown>;
 export type Photo = { bytes: Uint8Array; url: string; discard: () => void };
 export type Phase =
-  | 'loading'
-  | 'welcome'
-  | 'preview'
-  | 'countdown'
-  | 'capturing'
-  | 'review'
-  | 'preparing'
-  | 'printing'
-  | 'confirmed'
-  | 'connection-hold'
-  | 'uncertain'
-  | 'pausing'
-  | 'pause-retry'
-  | 'paused'
-  | 'unavailable';
-export type View = { phase: Phase; title?: string; photoUrl?: string; message?: string };
-type Journal = {
-  runId?: string;
-  sessionId?: string;
-  capture?: { operationKey: string; capturedAt: string };
-  captureId?: string;
-  reservation?: { operationKey: string; runId: string; captureId: string };
-  attemptId?: string;
+  'loading' | 'welcome' | 'paused' | 'finishing' | 'finished' | 'access-required' | 'unavailable';
+export type View = {
+  phase: Phase;
+  title?: string;
+  message?: string;
+  photoUrl?: string;
+  counts?: PackageCounts;
+  blockers: readonly string[];
+  allowedActions: { connectPrinter: boolean; enableCamera: boolean };
 };
-const journalKey = 'booth-operation';
-const evidence = {
-  commandAccepted: 'command_acknowledged',
-  physicalEjectionVerified: 'simulator_ejection',
-  preFilmRejected: 'pre_film_rejection',
-  knownUnsent: 'command_not_started',
-  uncertain: 'ambiguous_outcome',
-} as const;
-const ready = (a?: Availability) => !!a && a.guestPrints > 0 && a.filmSheets > 0 && !a.printerBusy;
-const denied = (e: unknown) =>
-  typeof e === 'object' && e !== null && 'status' in e && (e.status === 401 || e.status === 403);
-
-/** All durable fields are explicitly constructed metadata. Photo is a private, transient reference. */
+const count = z.number().int().nonnegative();
+export const packageCountsSchema = z.object({
+  originalPackages: count,
+  additionalPackages: count,
+  totalBookedPrints: count,
+  printed: count,
+  unresolved: count,
+  printsRemaining: count,
+  printsAvailable: count,
+});
+export const packageReplySchema = z.object({
+  receipt: z.object({
+    operationId: z.uuid(),
+    kind: z.string(),
+    committedRevision: z.number().int(),
+    result: z.record(z.string(), z.unknown()),
+  }),
+  revision: z.number().int(),
+  replayed: z.boolean(),
+});
+const stateSchema = z.object({
+  revision: z.number().int(),
+  runId: z.uuid(),
+  state: z.enum(runStates),
+  counts: packageCountsSchema,
+  blockers: z.array(z.string()),
+  allowedActions: z.object({ startGuest: z.boolean(), reportReadiness: z.boolean() }).passthrough(),
+  readinessWindowId: z.uuid(),
+  printerId: z.string().min(1),
+  connectionGeneration: z.number().int().nonnegative(),
+});
+type State = z.infer<typeof stateSchema>;
+type EquipmentObservation = {
+  observation: z.infer<typeof readinessObservationSchema>;
+  at: number;
+  epoch: number;
+  readinessWindowId?: string;
+};
+const emptyActions = { connectPrinter: false, enableCamera: false };
+/** One controller for scoped authority; setup observations never cross this ownership boundary. */
 export class BoothFlow {
-  private view: View = { phase: 'loading' };
+  private view: View = { phase: 'loading', blockers: [], allowedActions: emptyActions };
   private listeners = new Set<() => void>();
-  private journal: Journal = {};
-  private photo?: Photo;
-  private stopped = false;
-  private connected = true;
-  private resumeBeforePhoto?: 'welcome' | 'preview';
-  private sent = false;
-  private pauseRequested = false;
-  private pauseOperationKey?: string;
-  private pauseUnconfirmed = false;
-  private connectionEpoch = 0;
-  private reservationInFlight = false;
-  private recovering = false;
+  private disposed = false;
+  private readonly requests = new AbortController();
   private initialized?: Promise<void>;
-  private refreshInFlight?: Promise<void>;
-  private captureInFlight?: Promise<Reply>;
-  private reportKeys = new Map<string, { operationKey: string; observedAt: string }>();
+  private refreshing?: Promise<void>;
+  private reporting?: Promise<void>;
+  private nextObservation?: EquipmentObservation;
+  private expiry?: ReturnType<typeof setTimeout>;
+  private equipmentEpoch = 0;
+  private connecting?: Promise<void>;
+  private pendingConnection?: Record<string, unknown>;
+  private state?: State;
+  private equipment?: {
+    observation: z.infer<typeof readinessObservationSchema>;
+    at: number;
+    printer: PrinterReadinessSnapshot;
+  };
+  private acknowledgedAt = 0;
   constructor(
     private readonly dependencies: {
       transport: BoothTransport;
-      printer: PrinterAdapter;
-      storage: Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
+      printer: PrinterAdapterV2;
+      journal: BoothMetadataJournal;
     }
   ) {}
   getSnapshot = () => this.view;
@@ -83,554 +101,357 @@ export class BoothFlow {
       this.listeners.delete(listener);
     };
   };
-  private show(phase: Phase, message?: string) {
-    if (this.pauseUnconfirmed && ['paused', 'unavailable', 'uncertain'].includes(phase))
-      phase = 'pause-retry';
-    this.view = {
-      phase,
-      message,
-      title: ['paused', 'pausing', 'pause-retry', 'uncertain', 'unavailable'].includes(phase)
-        ? undefined
-        : this.view.title,
-      photoUrl: this.photo?.url,
-    };
-    this.listeners.forEach((l) => l());
+  private show(view: View) {
+    if (this.disposed) return;
+    this.view = view;
+    this.listeners.forEach((listener) => listener());
   }
-  private save() {
-    this.dependencies.storage.setItem(journalKey, JSON.stringify(this.journal));
+  private invalidateAdmission(blocker: string) {
+    this.acknowledgedAt = 0;
+    if (this.view.phase === 'welcome')
+      this.show({
+        ...this.view,
+        phase: 'unavailable',
+        blockers: [...new Set([...this.view.blockers, blocker])],
+      });
   }
-  private discard() {
-    this.photo?.discard();
-    this.photo = undefined;
-  }
-  private post(path: string, body: Record<string, unknown> = {}) {
-    return this.dependencies.transport(`/api/booth/${path}`, {
-      operationKey: crypto.randomUUID(),
-      ...body,
+  private failure(error: unknown) {
+    if (this.disposed || this.view.phase === 'finished') return;
+    this.acknowledgedAt = 0;
+    const status =
+      typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
+    const access = status === 401 || status === 403 || this.view.phase === 'access-required';
+    if (access) this.state = undefined;
+    this.show({
+      ...(!access ? this.view : {}),
+      phase: access
+        ? 'access-required'
+        : this.state?.state === 'Paused'
+          ? 'paused'
+          : this.state?.state === 'Finishing'
+            ? 'finishing'
+            : 'unavailable',
+      blockers: access
+        ? ['access_required']
+        : [
+            ...new Set([
+              ...this.view.blockers,
+              'readiness_stale',
+              ...(status === 409 ? [] : ['server_unreachable']),
+            ]),
+          ],
+      allowedActions: access ? emptyActions : this.view.allowedActions,
     });
-  }
-  private async bootstrap() {
-    return this.dependencies.transport('/api/booth/bootstrap');
   }
   initialize(handoffId?: string) {
     return (this.initialized ??= this.boot(handoffId));
   }
   private async boot(handoffId?: string) {
     try {
-      const saved = this.dependencies.storage.getItem(journalKey);
-      if (saved) this.journal = JSON.parse(saved) as Journal;
       if (handoffId) {
-        const confirmed = await this.post('handoffs/confirm', { handoffId });
-        // A new authorized handoff is created only after Admin recovery/readiness.
-        // Never submit the old run's metadata with the newly scoped grant.
-        if (confirmed.runId && confirmed.runId !== this.journal.runId) {
-          this.journal = { runId: confirmed.runId };
-          this.save();
+        const body = packageActionSchemas.confirmHandoff.parse({
+          handoffId,
+          operationId: crypto.randomUUID(),
+        });
+        try {
+          packageReplySchema.parse(
+            await this.dependencies.transport(
+              '/api/booth/handoff/confirm',
+              body,
+              this.requests.signal
+            )
+          );
+        } catch {
+          /* A committed confirmation is recovered only through scoped state. */
         }
       }
-      // Recover metadata before starting another session. Never infer unsent from a reload.
-      if (this.journal.capture && this.journal.sessionId) await this.acknowledgeCapture();
-      if (this.stopped) return;
-      if (this.journal.reservation && !this.journal.attemptId) {
-        const result = await this.post(
-          `guest-sessions/${this.journal.sessionId}/print-attempts`,
-          this.journal.reservation
-        );
-        this.journal.attemptId = result.attemptId;
-        this.save();
-      }
-      if (this.journal.attemptId) {
-        await this.uncertain();
-        return;
-      }
-      if (this.journal.sessionId) await this.abandon();
-      const result = await this.bootstrap();
-      if (result.availability?.printerBusy) {
-        await this.connectionChanged();
-        return;
-      }
-      this.journal = { runId: result.runId };
-      this.save();
-      this.view = { phase: 'welcome', title: result.display?.title };
-      this.show(ready(result.availability) ? 'welcome' : 'unavailable');
-    } catch {
-      this.discard();
-      this.show('paused');
-    }
-  }
-  async start() {
-    if (this.stopped || this.pauseRequested || !this.connected || this.view.phase !== 'welcome')
-      return;
-    this.show('loading');
-    try {
-      const result = await this.post('guest-sessions', { runId: this.journal.runId });
-      this.journal.sessionId = result.sessionId;
-      this.save();
-      if (this.stopped) return;
-      this.show('preview');
-    } catch {
-      this.show('paused');
-    }
-  }
-  countdown() {
-    if (!this.stopped && !this.pauseRequested && this.connected && this.view.phase === 'preview')
-      this.show('countdown');
-  }
-  async shutter(capture: () => Promise<Photo>) {
-    if (this.stopped || this.pauseRequested || !this.connected || this.view.phase !== 'countdown')
-      return;
-    try {
       await this.refresh();
-      if (this.stopped || this.pauseRequested || !this.connected || this.view.phase !== 'countdown')
-        return;
-      this.show('capturing');
-      // capture() draws the frame synchronously before its encoding promise yields.
-      const pendingPhoto = capture();
-      // Own both promise outcomes before any storage operation can throw.
-      let journalSaved = false;
-      const ownedPhoto = pendingPhoto.then((photo) => {
-        if (!journalSaved) photo.discard();
-        return photo;
-      });
-      void ownedPhoto.catch(() => {});
-      this.journal.capture = {
-        operationKey: crypto.randomUUID(),
-        capturedAt: new Date().toISOString(),
-      };
-      this.save();
-      journalSaved = true;
-      const [photo, acknowledgement] = await Promise.allSettled([
-        ownedPhoto,
-        this.acknowledgeCapture(),
-      ]);
-      if (photo.status === 'fulfilled') {
-        if (this.stopped || this.pauseRequested || acknowledgement.status === 'rejected')
-          photo.value.discard();
-        else {
-          this.discard();
-          this.photo = photo.value;
-        }
-      }
-      if (this.stopped || this.pauseRequested) return;
-      if (photo.status === 'rejected') {
-        await this.connectionChanged();
-        return;
-      }
-      if (acknowledgement.status === 'rejected') {
-        this.show('paused');
-        return;
-      }
-      this.show(this.connected ? 'review' : 'connection-hold');
-    } catch {
-      this.discard();
-      this.show('paused');
+    } catch (error) {
+      this.failure(error);
     }
-  }
-  private acknowledgeCapture(): Promise<Reply> {
-    if (this.captureInFlight) return this.captureInFlight;
-    if (!this.journal.capture) return Promise.resolve({});
-    this.captureInFlight = this.post(
-      `guest-sessions/${this.journal.sessionId}/captures`,
-      this.journal.capture
-    )
-      .then((result) => {
-        this.journal.captureId = result.captureId;
-        delete this.journal.capture;
-        if (result.sessionState === 'Abandoned') {
-          this.stopped = true;
-          this.discard();
-          this.show('paused');
-        }
-        this.save();
-        return result;
-      })
-      .finally(() => {
-        this.captureInFlight = undefined;
-      });
-    return this.captureInFlight;
-  }
-  retake() {
-    if (this.view.phase !== 'review' || this.stopped) return;
-    this.discard();
-    this.show('preview');
   }
   refresh(): Promise<void> {
-    // A revoked bootstrap clears the cookie. Settle queued shutter metadata first.
-    if (this.journal.capture) return this.captureInFlight ? Promise.resolve() : this.online();
-    if (this.view.phase === 'connection-hold' && this.journal.reservation) return this.online();
-    return (this.refreshInFlight ??= this.refreshAuthority().finally(() => {
-      this.refreshInFlight = undefined;
+    if (this.disposed) return Promise.resolve();
+    return (this.refreshing ??= this.readState().finally(() => {
+      this.refreshing = undefined;
     }));
   }
-  private async refreshAuthority() {
-    if (this.stopped || this.pauseRequested) return;
+  private async readState() {
     try {
-      const result = await this.bootstrap();
-      if (this.stopped) return;
-      if (this.resumeBeforePhoto && ready(result.availability)) {
-        const phase = this.resumeBeforePhoto;
-        this.resumeBeforePhoto = undefined;
-        this.connected = true;
-        this.view = { ...this.view, title: result.display?.title };
-        this.show(phase);
+      const raw = await this.dependencies.transport(
+        '/api/booth/state',
+        undefined,
+        this.requests.signal
+      );
+      if (this.disposed) return;
+      if (z.object({ state: z.literal('Finished') }).safeParse(raw).success) {
+        this.state = undefined;
+        this.show({ phase: 'finished', blockers: [], allowedActions: emptyActions });
+        return;
       }
-      if (this.view.phase === 'connection-hold' && this.photo && ready(result.availability)) {
-        this.connected = true;
-        this.show('review');
-      }
-      if (!this.journal.attemptId && !this.journal.reservation && !ready(result.availability)) {
-        this.discard();
-        this.show('unavailable');
-      }
-    } catch (e) {
-      if (denied(e)) {
-        if (this.sent && this.journal.attemptId) {
-          this.pauseRequested = true;
-          return;
-        }
-        this.stopped = true;
-        this.discard();
-        if (this.journal.attemptId) await this.uncertain();
-        else this.show('paused');
-      } else this.offline();
+      const state = stateSchema.parse(raw);
+      if (this.state && state.revision < this.state.revision) return;
+      this.state = state;
+      await this.project();
+    } catch (error) {
+      this.failure(error);
     }
   }
-  async print() {
-    if (
-      this.stopped ||
-      this.pauseRequested ||
-      !this.connected ||
-      this.view.phase !== 'review' ||
-      !this.photo ||
-      !this.journal.captureId
-    )
-      return;
-    const connectionEpoch = this.connectionEpoch;
-    this.show('preparing', 'Preparing');
-    await this.refresh();
-    if (
-      this.stopped ||
-      this.pauseRequested ||
-      !this.connected ||
-      !this.photo ||
-      this.getSnapshot().phase !== 'preparing'
-    )
-      return;
-    this.journal.reservation = {
-      operationKey: crypto.randomUUID(),
-      runId: this.journal.runId!,
-      captureId: this.journal.captureId,
-    };
-    this.reservationInFlight = true;
-    try {
-      this.save(); // Must succeed before the request can commit a reservation.
-      const reserved = await this.post(
-        `guest-sessions/${this.journal.sessionId}/print-attempts`,
-        this.journal.reservation
-      );
-      this.journal.attemptId = reserved.attemptId;
-      this.save();
-      if (this.stopped) {
-        await this.uncertain();
-        return;
-      }
-      if (this.pauseRequested) {
-        await this.report('knownUnsent');
-        this.clearAttempt();
-        this.discard();
-        this.stopped = true;
-        this.show('paused');
-        return;
-      }
-      if (!this.connected || this.connectionEpoch !== connectionEpoch) {
-        await this.report('knownUnsent');
-        this.clearAttempt();
-        this.show('connection-hold');
-        return;
-      }
-      // No await between this barrier and sendOnce. A detected stop cannot slip through.
-      if (!this.photo) {
-        await this.uncertain();
-        return;
-      }
-      this.sent = true;
-      this.show('printing', 'Sending');
-      const observations = await this.dependencies.printer.sendOnce(
-        this.journal.attemptId!,
-        this.photo.bytes
-      );
-      for (const observation of observations) {
-        if (this.stopped) return;
-        if (observation.attemptId !== this.journal.attemptId) {
-          await this.uncertain();
-          return;
-        }
-        await this.observe(observation.kind);
-      }
-    } catch (e) {
-      if (this.sent || this.stopped) await this.uncertain();
-      else if (denied(e)) {
-        this.stopped = true;
-        this.discard();
-        this.show('paused');
-      } else this.show('connection-hold');
-    } finally {
-      this.reservationInFlight = false;
-    }
-  }
-  private async report(kind: PrinterObservation['kind']) {
-    const id = this.journal.attemptId;
-    if (!id) throw new Error('No pending attempt');
-    const key = `${id}:${kind}`;
-    let metadata = this.reportKeys.get(key);
-    if (!metadata) {
-      metadata = { operationKey: crypto.randomUUID(), observedAt: new Date().toISOString() };
-      this.reportKeys.set(key, metadata);
-    }
-    return this.post(`print-attempts/${id}/observations`, {
-      ...metadata,
-      observationKind: kind,
-      evidenceCode: evidence[kind],
+  private async project() {
+    const state = this.state;
+    if (!state || this.disposed) return;
+    const printer = await this.dependencies.printer.readReadiness();
+    if (this.disposed || this.state !== state) return;
+    const equipment = this.equipment;
+    const fresh = !!equipment && Date.now() - equipment.at <= READINESS_MAX_AGE_MS;
+    const camera =
+      fresh && equipment.observation.cameraLive && equipment.observation.cameraPermission;
+    const connected = printer.connected && printer.observedAgeMs <= READINESS_MAX_AGE_MS;
+    const reconciled =
+      printer.printerId === state.printerId &&
+      printer.connectionGeneration === state.connectionGeneration &&
+      !this.pendingConnection;
+    const printerReady =
+      reconciled &&
+      connected &&
+      printer.ready &&
+      !!equipment &&
+      equipment.observation.printerConnected &&
+      equipment.observation.printerReady &&
+      equipment.observation.oldJobCleared &&
+      equipment.printer.printerId === printer.printerId &&
+      equipment.printer.connectionGeneration === printer.connectionGeneration;
+    const blockers = [...state.blockers];
+    if (equipment && !equipment.observation.serverReachable) blockers.push('offline');
+    if (!camera) blockers.push('camera');
+    if (!connected) blockers.push('printer_connection');
+    if (!printerReady) blockers.push('printer_not_safe');
+    if (!this.acknowledgedAt || Date.now() - this.acknowledgedAt > READINESS_MAX_AGE_MS)
+      blockers.push('readiness_stale');
+    const phase: Phase =
+      state.state === 'Paused'
+        ? 'paused'
+        : state.state === 'Finishing'
+          ? 'finishing'
+          : state.state === 'Finished'
+            ? 'finished'
+            : state.state === 'Active' && state.allowedActions.startGuest && blockers.length === 0
+              ? 'welcome'
+              : 'unavailable';
+    this.show({
+      phase,
+      counts: state.counts,
+      blockers: [...new Set(blockers)],
+      allowedActions: { connectPrinter: !connected || !reconciled, enableCamera: !camera },
     });
   }
-  private clearAttempt() {
-    delete this.journal.reservation;
-    delete this.journal.attemptId;
-    this.sent = false;
-    this.save();
-  }
-  private async observe(kind: PrinterObservation['kind']) {
-    if (kind === 'uncertain') {
-      await this.uncertain();
-      return;
+  reportEquipment(observation: z.infer<typeof readinessObservationSchema>): Promise<void> {
+    if (this.disposed || this.connecting) return Promise.resolve();
+    const parsed = readinessObservationSchema.parse(observation);
+    const negative =
+      !parsed.cameraLive ||
+      !parsed.cameraPermission ||
+      !parsed.printerConnected ||
+      !parsed.serverReachable ||
+      !parsed.printerReady ||
+      !parsed.oldJobCleared;
+    // Healthy samples do not invalidate a still-fresh in-flight acknowledgement.
+    if (negative) this.equipmentEpoch++;
+    this.nextObservation = {
+      observation: parsed,
+      at: Date.now(),
+      epoch: this.equipmentEpoch,
+      // A newer window cannot attest equipment observed before it was issued.
+      readinessWindowId: this.state?.readinessWindowId,
+    };
+    if (negative) {
+      this.invalidateAdmission(
+        !parsed.serverReachable
+          ? 'offline'
+          : !parsed.cameraLive || !parsed.cameraPermission
+            ? 'camera'
+            : !parsed.printerConnected
+              ? 'printer_connection'
+              : 'printer_not_safe'
+      );
+      if (this.equipment) this.equipment.observation = parsed;
+      void this.project();
     }
-    if (this.pauseRequested && kind === 'commandAccepted') return;
-    let result: Reply;
+    return (this.reporting ??= this.drainReports().finally(() => {
+      this.reporting = undefined;
+    }));
+  }
+  private async drainReports() {
+    while (this.nextObservation && !this.disposed) {
+      const observation = this.nextObservation;
+      this.nextObservation = undefined;
+      await this.report(observation);
+    }
+  }
+  private current(observation: EquipmentObservation) {
+    return (
+      !this.disposed &&
+      this.view.phase !== 'finished' &&
+      this.view.phase !== 'access-required' &&
+      observation.epoch === this.equipmentEpoch &&
+      Date.now() - observation.at <= READINESS_MAX_AGE_MS
+    );
+  }
+  private async report(pending: EquipmentObservation) {
+    const { observation, at } = pending;
     try {
-      result = await this.report(kind);
-    } catch (error) {
-      // A pause can win the Event lock after our Active check. It rejects
-      // acknowledgement but still accepts this pending attempt's final evidence.
-      if (
-        kind === 'commandAccepted' &&
-        typeof error === 'object' &&
-        error !== null &&
-        'status' in error &&
-        error.status === 409
-      ) {
-        this.pauseRequested = true;
-        this.show('printing', 'Waiting for film to eject');
-        return;
-      }
-      throw error;
-    }
-    if (this.pauseRequested && result.state !== 'Accepted') {
-      // An acknowledged Uncertain outcome itself commits the server stop.
-      if (result.state === 'Uncertain') this.pauseUnconfirmed = false;
-      if (this.pauseUnconfirmed) {
-        this.discard();
-        this.clearAttempt();
-        this.show('pause-retry');
-        return;
-      }
-      this.discard();
-      this.clearAttempt();
-      this.stopped = true;
-      this.show('paused');
-      return;
-    }
-    if (this.stopped) return;
-    if (kind === 'commandAccepted') {
-      this.show('printing', 'Waiting for film to eject');
-      return;
-    }
-    if (result.state === 'Confirmed') {
-      this.discard();
-      this.journal = { runId: this.journal.runId };
-      this.save();
-      this.sent = false;
-      this.show('confirmed');
-    } else if (result.state === 'RejectedUnused') {
-      this.clearAttempt();
-      const current = await this.bootstrap();
-      if (!this.stopped && this.photo && ready(current.availability))
-        this.show('review', 'Your photo did not print. You can try again.');
-      else {
-        await this.requestPause();
-        this.discard();
-        this.show('unavailable');
-      }
-    } else await this.uncertain();
-  }
-  private async uncertain() {
-    this.stopped = true;
-    this.discard();
-    this.show(this.pauseUnconfirmed ? 'pause-retry' : 'uncertain');
-    if (this.pauseUnconfirmed) this.stopped = false;
-    if (this.journal.attemptId) {
-      try {
-        await this.report('uncertain');
-      } catch {
-        /* Metadata stays for recovery; never resend. */
-      }
-    }
-  }
-  async requestPause() {
-    if ((this.stopped || this.pauseRequested) && this.view.phase !== 'pause-retry') return;
-    if (this.view.phase === 'pause-retry') this.stopped = false;
-    this.pauseRequested = true;
-    this.pauseUnconfirmed = true;
-    this.pauseOperationKey ??= crypto.randomUUID();
-    if (!this.sent) {
-      this.discard();
-      this.show('pausing');
-    }
-    try {
-      if (this.journal.capture) await this.acknowledgeCapture();
-      if (this.stopped) return;
-      const result = await this.post('pauses', { operationKey: this.pauseOperationKey });
-      this.pauseUnconfirmed = !['Paused', 'PauseRequested'].includes(result.state ?? '');
-      if (!this.sent && result.state === 'Paused') {
-        this.stopped = true;
-        this.show('paused');
-      } else if (!this.sent && !this.journal.attemptId && !this.journal.reservation) {
-        this.show('pause-retry');
-      }
-    } catch (error) {
-      if (
-        typeof error === 'object' &&
-        error !== null &&
-        'status' in error &&
-        error.status === 401 &&
-        !this.sent
-      ) {
-        this.pauseUnconfirmed = false;
-        this.stopped = true;
-        this.show('paused');
-      } else this.show('pause-retry');
-    }
-  }
-  async printTimedOut() {
-    if (this.view.phase === 'printing' || (this.view.phase === 'pause-retry' && this.sent))
-      await this.uncertain();
-  }
-  async connectionChanged() {
-    this.stopped = true;
-    this.discard();
-    this.show(this.journal.attemptId || this.journal.reservation ? 'uncertain' : 'paused');
-    try {
-      if (this.journal.capture && (await this.acknowledgeCapture()).sessionState === 'Abandoned')
-        return;
-      await this.post('connection-changes');
-    } catch {
-      if (this.journal.attemptId) await this.uncertain();
-    }
-  }
-  offline() {
-    if (this.pauseRequested && ['pausing', 'pause-retry'].includes(this.view.phase)) {
-      this.connected = false;
-      return;
-    }
-    if (['welcome', 'preview', 'countdown'].includes(this.view.phase))
-      this.resumeBeforePhoto = this.view.phase === 'welcome' ? 'welcome' : 'preview';
-    this.connectionEpoch++;
-    this.connected = false;
-    if (this.sent) {
-      void this.uncertain();
-      return;
-    }
-    if (this.photo) this.show('connection-hold');
-    else if (!this.stopped) this.show('unavailable');
-  }
-  async online() {
-    this.connected = true;
-    if (this.reservationInFlight || this.recovering) return;
-    this.recovering = true;
-    try {
-      if (this.journal.capture) {
-        try {
-          const result = await this.acknowledgeCapture();
-          if (result.sessionState !== 'Abandoned') await this.post('pauses');
-        } catch {
-          // Retain the stable Capture metadata for another bounded retry or reload.
-        } finally {
-          this.stopped = true;
-          this.discard();
-          this.show('paused');
-        }
-        return;
-      }
-      if (this.stopped) {
-        if (this.journal.attemptId) await this.uncertain();
-        return;
-      }
-      if (this.journal.reservation) {
-        try {
-          const result = await this.post(
-            `guest-sessions/${this.journal.sessionId}/print-attempts`,
-            this.journal.reservation
-          );
-          this.journal.attemptId = result.attemptId;
-          this.save();
-          if (this.stopped || this.sent) {
-            await this.uncertain();
-            return;
-          }
-          await this.report('knownUnsent');
-          this.clearAttempt();
-        } catch {
-          this.show('connection-hold');
-          return;
-        }
-      }
+      if (!this.current(pending)) return;
       await this.refresh();
-      if (!this.stopped && this.photo && this.view.phase !== 'unavailable') this.show('review');
-    } finally {
-      this.recovering = false;
+      if (!this.state || !pending.readinessWindowId || !this.current(pending)) return;
+      const printer = await this.dependencies.printer.readReadiness();
+      if (!this.current(pending)) return;
+      this.equipment = { observation, at, printer };
+      if (
+        !printer.connected ||
+        !printer.ready ||
+        printer.printerId !== this.state.printerId ||
+        printer.connectionGeneration !== this.state.connectionGeneration
+      )
+        this.acknowledgedAt = 0;
+      await this.project();
+      if (!this.current(pending)) return;
+      const body = packageActionSchemas.reportReadiness.parse({
+        operationId: crypto.randomUUID(),
+        readinessWindowId: pending.readinessWindowId,
+        observedAgeMs: printer.observedAgeMs + Date.now() - at,
+        printerId: printer.printerId,
+        // A disconnected owner invalidates the bound connection, never attests a live one.
+        connectionGeneration: printer.connected
+          ? printer.connectionGeneration
+          : this.state.connectionGeneration,
+        observation: {
+          ...observation,
+          printerConnected: observation.printerConnected && printer.connected,
+          printerReady: observation.printerReady && printer.ready,
+          oldJobCleared: observation.oldJobCleared && printer.ready,
+        },
+      });
+      packageReplySchema.parse(
+        await this.dependencies.transport('/api/booth/readiness', body, this.requests.signal)
+      );
+      if (!this.current(pending)) return;
+      this.acknowledgedAt =
+        observation.cameraLive &&
+        observation.cameraPermission &&
+        observation.serverReachable &&
+        observation.printerConnected &&
+        observation.printerReady &&
+        observation.oldJobCleared &&
+        printer.connected &&
+        printer.ready
+          ? at
+          : 0;
+      clearTimeout(this.expiry);
+      this.expiry = setTimeout(
+        () => this.invalidateAdmission('readiness_stale'),
+        Math.max(0, READINESS_MAX_AGE_MS - (Date.now() - at)) + 1
+      );
+      await this.refresh();
+    } catch (error) {
+      this.failure(error);
     }
   }
-  private async abandon() {
-    await this.post(`guest-sessions/${this.journal.sessionId}/abandon`);
-    this.journal = { runId: this.journal.runId };
-    this.save();
+  connectPrinter(): Promise<void> {
+    if (this.disposed) return Promise.resolve();
+    return (this.connecting ??= this.reconcileConnection().finally(() => {
+      this.connecting = undefined;
+    }));
   }
-  async timeout() {
-    if (!['preview', 'review'].includes(this.view.phase)) return;
-    this.discard();
-    this.show('loading');
+  private async reconcileConnection() {
+    this.equipmentEpoch++;
+    this.invalidateAdmission('readiness_stale');
     try {
-      await this.abandon();
-      await this.welcome();
-    } catch {
-      this.show('paused');
-    }
-  }
-  async welcome() {
-    if (this.stopped) return;
-    try {
-      const result = await this.bootstrap();
-      this.show(ready(result.availability) ? 'welcome' : 'unavailable');
-    } catch {
-      this.discard();
-      this.show('paused');
+      // A readiness write can advance the revision used by the connection operation.
+      await this.reporting;
+      // Retry an uncertain write unchanged before issuing another connection operation.
+      if (!this.pendingConnection) {
+        await this.refresh();
+        const state = this.state;
+        if (!state || this.disposed) return;
+        const connected = await this.dependencies.printer.connect(
+          state.printerId,
+          state.connectionGeneration
+        );
+        if (this.disposed) return;
+        if (connected.printerId !== state.printerId) throw new Error('Printer identity changed');
+        if (connected.connectionGeneration !== state.connectionGeneration) {
+          this.pendingConnection = packageActionSchemas.reportReadiness.parse({
+            operationId: crypto.randomUUID(),
+            kind: 'connection_changed',
+            readinessWindowId: state.readinessWindowId,
+            printerId: connected.printerId,
+            connectionGeneration: connected.connectionGeneration,
+            expectedRevision: state.revision,
+          });
+        }
+      }
+      if (this.pendingConnection) {
+        await this.project();
+        const body = this.pendingConnection;
+        const reply = packageReplySchema.parse(
+          await this.dependencies.transport('/api/booth/readiness', body, this.requests.signal)
+        );
+        if (
+          reply.receipt.operationId !== body.operationId ||
+          reply.receipt.kind !== 'report_readiness'
+        )
+          throw new Error('Unexpected connection receipt');
+        this.pendingConnection = undefined;
+        await this.refresh();
+      }
+      await this.project();
+    } catch (error) {
+      if (typeof error === 'object' && error !== null && 'status' in error && error.status === 409)
+        this.pendingConnection = undefined;
+      this.failure(error);
     }
   }
   dispose() {
-    this.stopped = true;
-    this.discard();
+    this.disposed = true;
+    this.requests.abort();
+    clearTimeout(this.expiry);
+    this.acknowledgedAt = 0;
     this.listeners.clear();
   }
 }
-
-export const boothFetch: BoothTransport = async (path, body) => {
-  const response = await fetch(path, {
-    method: body ? 'POST' : 'GET',
-    cache: 'no-store',
-    credentials: 'same-origin',
-    headers: body ? { 'Content-Type': 'application/json' } : undefined,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  if (!response.ok)
-    throw Object.assign(new Error('Booth request failed'), { status: response.status });
-  return response.json();
+export const boothFetch = async (
+  path: string,
+  body?: Record<string, unknown>,
+  adminUserId?: string,
+  signal?: AbortSignal
+): Promise<unknown> => {
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  signal?.addEventListener('abort', abort, { once: true });
+  if (signal?.aborted) abort();
+  const timeout = setTimeout(abort, READINESS_MAX_AGE_MS);
+  try {
+    const response = await fetch(path, {
+      signal: controller.signal,
+      method: body ? 'POST' : 'GET',
+      cache: 'no-store',
+      credentials: 'same-origin',
+      headers: {
+        ...(body ? { 'Content-Type': 'application/json' } : {}),
+        ...(adminUserId ? { 'x-package-admin-id': adminUserId } : {}),
+      },
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    if (!response.ok) {
+      const details = await response.json().catch(() => null);
+      throw Object.assign(new Error('Booth request failed'), {
+        status: response.status,
+        code: typeof details?.code === 'string' ? details.code : undefined,
+      });
+    }
+    return await response.json();
+  } finally {
+    clearTimeout(timeout);
+    signal?.removeEventListener('abort', abort);
+  }
 };

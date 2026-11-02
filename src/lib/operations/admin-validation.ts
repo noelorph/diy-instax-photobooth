@@ -3,14 +3,12 @@ import { operationSchema } from './validation';
 const integer = z.number().int().max(2147483647);
 const reason = z.string().trim().min(1).max(1000);
 export const revisionSchema = operationSchema.extend({ expectedRevision: integer.positive() });
-export const testReservationSchema = operationSchema.extend({ connectionId: z.uuid() });
 export const resolutionSchema = operationSchema.extend({
   outcome: z.enum(['ejected', 'unused']),
   inspectionReason: reason,
 });
 export const recoverySchema = operationSchema.extend({ reason });
 export const wastedFilmSchema = operationSchema.extend({ reason });
-export const testOutputSchema = operationSchema.extend({ usable: z.boolean() });
 export const testObservationSchema = operationSchema.extend({
   observationKind: z.enum([
     'commandAccepted',

@@ -1,9 +1,7 @@
 // @vitest-environment node
-import { execFileSync } from 'node:child_process';
 import { randomBytes, randomUUID, createHash } from 'node:crypto';
-import { resolve } from 'node:path';
 import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
-import { localSupabase, localSupabaseStatus } from '../fixtures/local-supabase';
+import { localOwnerSql, localSupabase, localSupabaseStatus } from '../fixtures/local-supabase';
 vi.mock('server-only', () => ({}));
 import { POST as open } from '@/app/api/booth/guest-sessions/route';
 import { POST as abandon } from '@/app/api/booth/guest-sessions/[sessionId]/abandon/route';
@@ -16,19 +14,7 @@ const local = localSupabase(),
   status = localSupabaseStatus(),
   ids: string[] = [];
 function sql(query: string) {
-  const output = execFileSync(
-    resolve('node_modules/.bin/supabase'),
-    [
-      'db',
-      'query',
-      '--local',
-      /^select/i.test(query) ? query : `do $$ begin ${query}; end $$`,
-      '-o',
-      'json',
-    ],
-    { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-  );
-  return output.trim().startsWith('{') ? JSON.parse(output).rows : [];
+  return localOwnerSql(/^select/i.test(query) ? query : `do $$ begin ${query}; end $$`);
 }
 const op = () => ({ operationKey: randomUUID() });
 const sessionContext = (sessionId: string) => ({ params: Promise.resolve({ sessionId }) });

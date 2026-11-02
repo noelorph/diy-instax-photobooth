@@ -129,8 +129,23 @@ export async function runPackageAdminOperation<T extends { operationId: string }
   try {
     requireSameOrigin(request);
     const admin = await requireAdminRequest(request);
-    // Keep the purchase journal bound to its actor when another tab changes cookies.
-    if (action === 'add_packages' && request.headers.get('x-package-admin-id') !== admin.userId)
+    // Keep saved commands bound to their actor when another tab changes cookies.
+    const expectedAdmin = request.headers.get('x-package-admin-id');
+    if (
+      (action === 'add_packages' && expectedAdmin !== admin.userId) ||
+      ([
+        'start',
+        'recover_access',
+        'pause',
+        'resume',
+        'finish',
+        'complete',
+        'cancel',
+        'report_setup_readiness',
+      ].includes(action) &&
+        expectedAdmin !== null &&
+        expectedAdmin !== admin.userId)
+    )
       throw new PackageError('operation_forbidden');
     const input = await parsePackageOperation(request, schema);
     const id = operationId(resourceId);

@@ -1,9 +1,8 @@
 // @vitest-environment node
-import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import {
+  localOwnerSql as sql,
   localSupabase,
   localSupabaseStatus,
   ownerInsert,
@@ -42,15 +41,6 @@ const booking = {
   film_package_count: 1,
   original_print_allowance: 10,
 };
-function sql(query: string) {
-  return JSON.parse(
-    execFileSync(
-      resolve('node_modules/.bin/supabase'),
-      ['db', 'query', '--local', query, '-o', 'json'],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-    )
-  ).rows;
-}
 
 describe('operational schema and browser boundary', () => {
   const local = localSupabase();
@@ -79,14 +69,14 @@ describe('operational schema and browser boundary', () => {
       "select c.relname, c.relrowsecurity, has_table_privilege('anon', c.oid, 'INSERT,UPDATE,DELETE') as anon_write, has_table_privilege('authenticated', c.oid, 'INSERT,UPDATE,DELETE') as authenticated_write from pg_class c join pg_namespace n on n.oid=c.relnamespace where n.nspname='public' and c.relkind='r'"
     );
     for (const table of tables)
-      expect(metadata.find((row: { relname: string }) => row.relname === table)).toMatchObject({
+      expect(metadata.find((row) => row.relname === table)).toMatchObject({
         relrowsecurity: true,
         anon_write: false,
         authenticated_write: false,
       });
     const found = sql(
       "select indexname from pg_indexes where schemaname='public' and indexdef like 'CREATE UNIQUE INDEX%WHERE%'"
-    ).map((row: { indexname: string }) => row.indexname);
+    ).map((row) => row.indexname);
     expect(found).toEqual(expect.arrayContaining(indexes));
     expect(
       sql(

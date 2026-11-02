@@ -13,7 +13,15 @@ const eslintConfig = defineConfig([
     'out/**',
     'build/**',
     'next-env.d.ts',
+    // Agent scratch copies and the generated vendor qualification bundle.
+    '.superpowers/**',
+    'docs/qualification/multipart-isolated/instrumentation/patched-handler.js',
   ]),
+  {
+    files: ['docs/qualification/multipart-isolated/instrumentation/qualification-hook.cjs'],
+    // This hook is loaded by require() inside the immutable CommonJS test image.
+    rules: { '@typescript-eslint/no-require-imports': 'off' },
+  },
   prettierConfig,
 ]);
 

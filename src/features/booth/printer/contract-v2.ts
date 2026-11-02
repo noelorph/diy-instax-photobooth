@@ -28,7 +28,10 @@ export type PrinterObservationV2 = ObservationBase &
   );
 
 export interface PrinterAdapterV2 {
-  connect(expectedPrinterId?: string): Promise<PrinterReadinessSnapshot>;
+  connect(
+    expectedPrinterId?: string,
+    previousGeneration?: number
+  ): Promise<PrinterReadinessSnapshot>;
   readReadiness(): Promise<PrinterReadinessSnapshot>;
   observe(listener: (observation: PrinterObservationV2) => void): () => void;
   sendOnce(authorization: DispatchAuthorization, image: Uint8Array): Promise<void>;

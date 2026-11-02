@@ -7,7 +7,6 @@ export default defineConfig({
   use: {
     baseURL: 'http://127.0.0.1:1439',
     headless: true,
-    permissions: ['camera'],
     screenshot: 'off',
     trace: 'off',
     video: 'off',
@@ -16,7 +15,7 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: 'node tests/fixtures/admin-booth-server.mjs',
+    command: 'node tests/fixtures/admin-booth-server.mjs 1439',
     url: 'http://127.0.0.1:1439/sign-in',
     timeout: 120000,
     reuseExistingServer: false,
