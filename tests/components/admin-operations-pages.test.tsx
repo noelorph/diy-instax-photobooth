@@ -33,6 +33,7 @@ vi.mock('@/features/admin/operations/read', () => ({
       resumeAllowed: false,
       possibleDelivery: true,
       blockers: ['print_pending'],
+      equipment: null,
       attempts: [],
       attemptsPage: 0,
       hasOlderAttempts: false,

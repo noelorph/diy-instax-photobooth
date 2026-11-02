@@ -23,6 +23,7 @@ async function devices(browser: Browser, f: Fixture) {
       phonePage,
       async close() {
         try {
+          await boothPage.unrouteAll({ behavior: 'ignoreErrors' });
           await boothContext.close();
         } finally {
           await phoneContext!.close();
@@ -53,9 +54,11 @@ async function prepare(page: Page, f: Fixture) {
 async function readyAfterArrival(page: Page) {
   await expect(page).toHaveURL(/\/booth$/, { timeout: 20_000 });
   const camera = page.getByRole('button', { name: 'Enable Camera', exact: true });
-  await expect(page.getByRole('heading', { name: 'Make a memory' }).or(camera)).toBeVisible();
-  if (await camera.isVisible()) await camera.click();
   const printer = page.getByRole('button', { name: 'Connect to Instax', exact: true });
+  await expect(
+    page.getByRole('heading', { name: 'Make a memory' }).or(camera).or(printer).first()
+  ).toBeVisible();
+  if (await camera.isVisible()) await camera.click();
   if (await printer.isVisible()) await printer.click();
   await expect(page.getByRole('heading', { name: 'Make a memory' })).toBeVisible();
 }
@@ -114,13 +117,48 @@ test('setup handoff reestablishes scoped readiness before Guest admission', asyn
         .single();
       expect(run.data?.state).toBe('Active');
       expect(run.data?.printer_id).toBe('simulator');
-      expect(run.data?.connection_generation).toBe(1);
+      expect(run.data?.connection_generation).toBe(2);
       expect(run.data?.readiness_observation.cameraLive).toBe(true);
       const grants = await f.local.service
         .from('booth_grants')
         .select('state')
         .eq('event_id', f.eventId);
       expect(grants.data?.map((g) => g.state)).toEqual(['Active']);
+      const countsBeforeReload = state.body.counts;
+      const reportsBeforeReload = scopedReports;
+      await d.boothPage.reload();
+      await expect(d.boothPage.getByRole('button', { name: 'Connect to Instax' })).toBeVisible();
+      await expect.poll(() => scopedReports).toBeGreaterThan(reportsBeforeReload);
+      expect(
+        (
+          await f.local.service
+            .from('booth_runs')
+            .select('readiness_observation')
+            .eq('event_id', f.eventId)
+            .single()
+        ).data?.readiness_observation.printerConnected
+      ).toBe(false);
+      await expect
+        .poll(
+          async () => (await read(d.boothPage, '/api/booth/state')).body.allowedActions.startGuest
+        )
+        .toBe(false);
+      expect((await admit(d.boothPage)).status).toBe(409);
+      expect(
+        (await f.local.service.from('guest_sessions').select('id').eq('event_id', f.eventId)).data
+      ).toEqual([]);
+      await readyAfterArrival(d.boothPage);
+      await expect.poll(() => scopedReports).toBeGreaterThan(reportsBeforeReload);
+      const reconnected = await f.local.service
+        .from('booth_runs')
+        .select('connection_generation,readiness_observation')
+        .eq('event_id', f.eventId)
+        .single();
+      expect(reconnected.data?.connection_generation).toBe(3);
+      expect(reconnected.data?.readiness_observation.cameraLive).toBe(true);
+      const refreshed = (await read(d.boothPage, '/api/booth/state')).body;
+      expect(refreshed.allowedActions.startGuest).toBe(true);
+      expect(refreshed.counts).toEqual(countsBeforeReload);
       expect((await admit(d.boothPage)).status).toBe(200);
       expect(
         (await f.local.service.from('guest_sessions').select('id').eq('event_id', f.eventId)).data
@@ -186,42 +224,82 @@ test('lost confirmation reply recovers scoped state and phone authority', async 
     await f.dispose();
   }
 });
-test('unusable issue reply fails closed without a second run or blind reissue', async ({
-  browser,
-}) => {
-  const f = await createPackageBrowserFixture();
-  try {
-    localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
-    const d = await devices(browser, f);
+for (const failure of ['issue', 'confirmation'] as const) {
+  test(`${failure} commit loss with unavailable recovery hides protected Admin content`, async ({
+    browser,
+  }) => {
+    const f = await createPackageBrowserFixture();
     try {
-      await prepare(d.boothPage, f);
-      let issues = 0;
-      await d.boothPage.route('**/api/admin/booth-handoffs/*/issue', async (route) => {
-        issues++;
-        await route.fetch();
-        await route.abort();
-      });
-      await d.boothPage.getByRole('button', { name: 'Start Booth Mode' }).click();
-      await expect(d.boothPage.getByText(/Booth access could not be issued/)).toBeVisible();
-      await expect(d.boothPage.getByRole('link', { name: 'Admin sign in' })).toHaveAttribute(
-        'href',
-        '/sign-in?from=booth'
-      );
-      await expect(d.boothPage.getByRole('button', { name: 'Start Booth Mode' })).toBeDisabled();
-      expect(issues).toBe(1);
-      expect(
-        (await f.local.service.from('booth_runs').select('state').eq('event_id', f.eventId)).data
-      ).toHaveLength(1);
-      expect((await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
-        200
-      );
+      localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+      const d = await devices(browser, f);
+      try {
+        await prepare(d.boothPage, f);
+        let issues = 0;
+        await d.boothPage.route('**/api/admin/booth-handoffs/*/issue', async (route) => {
+          issues++;
+          const response = await route.fetch();
+          if (failure === 'issue') await route.abort();
+          else await route.fulfill({ response });
+        });
+        if (failure === 'confirmation') {
+          await d.boothPage.route('**/api/booth/handoff/confirm', async (route) => {
+            await route.fetch();
+            await route.abort();
+          });
+          await d.boothPage.route('**/api/booth/state', (route) => route.abort());
+        }
+        await d.boothPage.getByRole('button', { name: 'Start Booth Mode' }).click();
+        const dialog = d.boothPage.getByRole('dialog', { name: 'Booth access needs recovery' });
+        await expect(dialog).toBeVisible();
+        await expect(dialog).toContainText('Do not start another run');
+        await expect(dialog.getByRole('link', { name: 'Sign in', exact: true })).toHaveAttribute(
+          'href',
+          '/sign-in?from=booth'
+        );
+        expect(
+          await dialog.evaluate((el) => {
+            const box = el.getBoundingClientRect();
+            return {
+              coversViewport:
+                box.x === 0 &&
+                box.y === 0 &&
+                box.width === innerWidth &&
+                box.height === innerHeight,
+              background: getComputedStyle(el).backgroundColor,
+            };
+          })
+        ).toEqual({ coversViewport: true, background: 'rgb(16, 27, 27)' });
+        await expect(
+          d.boothPage.getByRole('heading', { name: 'Package fixture', exact: true })
+        ).toHaveCount(0);
+        const accessible = await d.boothPage.locator('body').ariaSnapshot();
+        expect(accessible).not.toContain('Package fixture');
+        expect(accessible).not.toContain('package@example.test');
+        expect(
+          await dialog.evaluate((el) =>
+            [
+              [1, 1],
+              [innerWidth / 2, innerHeight / 2],
+              [innerWidth - 1, innerHeight - 1],
+            ].every(([x, y]) => el.contains(document.elementFromPoint(x, y)))
+          )
+        ).toBe(true);
+        await expect(d.boothPage.getByRole('button', { name: 'Start Booth Mode' })).toHaveCount(0);
+        expect(issues).toBe(1);
+        expect(
+          (await f.local.service.from('booth_runs').select('id').eq('event_id', f.eventId)).data
+        ).toHaveLength(1);
+        expect((await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).status).toBe(
+          200
+        );
+      } finally {
+        await d.close();
+      }
     } finally {
-      await d.close();
+      await f.dispose();
     }
-  } finally {
-    await f.dispose();
-  }
-});
+  });
+}
 test('released setup resources and rejected arrival camera keep admission blocked until each is restored', async ({
   browser,
 }) => {
@@ -249,7 +327,7 @@ test('released setup resources and rejected arrival camera keep admission blocke
       await expect(d.boothPage.getByRole('button', { name: 'Connect to Instax' })).toBeVisible();
       await d.boothPage.getByRole('button', { name: 'Enable Camera' }).click();
       await expect(
-        d.boothPage.getByRole('heading', { name: 'Booth equipment needs attention' })
+        d.boothPage.getByRole('heading', { name: 'Bluetooth disconnected.' })
       ).toBeVisible();
       await expect
         .poll(
@@ -367,6 +445,89 @@ test('a committed lost Start recovers its receipt and completes exactly one hand
   }
 });
 
+test('lost new-run Start and receipt failure retain original retry across Prepared polling and preserve counts', async ({
+  browser,
+}) => {
+  const f = await createPackageBrowserFixture();
+  try {
+    f.seedRun('Finished');
+    seedOutcome(f, f.runId, 'Printed');
+    localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+    const d = await devices(browser, f);
+    try {
+      const before = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
+      await prepare(d.boothPage, f);
+      const starts: string[] = [];
+      await d.boothPage.route('**/booth/start', async (route) => {
+        starts.push(route.request().postDataJSON().operationId);
+        await route.fetch();
+        await route.abort();
+      });
+      await d.boothPage.route('**/operations/*', (route) => route.abort());
+      await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
+      const retry = d.boothPage.getByRole('button', {
+        name: 'Retry Start Booth Mode',
+        exact: true,
+      });
+      await expect(retry).toBeEnabled();
+      await expect
+        .poll(
+          async () =>
+            (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body.runState
+        )
+        .toBe('Prepared');
+      const poll = d.boothPage.waitForResponse(
+        (r) =>
+          new URL(r.url()).pathname === `/events/${f.eventId}` && r.request().headers().rsc === '1'
+      );
+      await d.boothPage.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await poll;
+      await expect(retry).toBeEnabled();
+      await d.boothPage.unroute('**/operations/*');
+      await d.boothPage.unroute('**/booth/start');
+      await retry.click();
+      await readyAfterArrival(d.boothPage);
+      expect(starts).toHaveLength(1);
+      const after = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
+      expect(after.runId).not.toBe(f.runId);
+      expect(after.counts).toEqual(before.counts);
+      expect(after.counts.printed).toBe(1);
+      expect(
+        (await f.local.service.from('booth_runs').select('state').eq('event_id', f.eventId)).data
+      ).toEqual(expect.arrayContaining([{ state: 'Finished' }, { state: 'Active' }]));
+      expect(
+        (await f.local.service.from('booth_runs').select('id').eq('event_id', f.eventId)).data
+      ).toHaveLength(2);
+    } finally {
+      await d.close();
+    }
+  } finally {
+    await f.dispose();
+  }
+});
+
+async function holdReadiness(page: Page) {
+  let release!: () => void;
+  const gate = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  const timer = setTimeout(release, 30_000);
+  let held = false;
+  await page.route('**/api/booth/readiness', async (route) => {
+    if (route.request().method() === 'POST') {
+      held = true;
+      await gate;
+    }
+    await route.continue();
+  });
+  await expect.poll(() => held).toBe(true);
+  return async () => {
+    clearTimeout(timer);
+    release();
+    await page.unrouteAll({ behavior: 'wait' });
+  };
+}
+
 test('phone Pause, receipt recovery, Resume and pending Finish retain scoped safety', async ({
   browser,
 }) => {
@@ -380,6 +541,7 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
       await readyAfterArrival(d.boothPage);
       await d.phonePage.goto(`/events/${f.eventId}`);
       const original = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
+      const releasePauseReport = await holdReadiness(d.boothPage);
       let pauses = 0;
       await d.phonePage.route('**/booth/pause', async (route) => {
         pauses++;
@@ -394,6 +556,11 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
       ).toBeVisible();
       expect(pauses).toBe(1);
       await expect(d.boothPage.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
+      await expect(d.phonePage.getByRole('region', { name: 'Booth status' })).toContainText(
+        'Only you can resume the booth from the phone.'
+      );
+      await expect(d.phonePage.getByLabel('Equipment status')).toContainText('Camera');
+      await releasePauseReport();
       expect((await admit(d.boothPage)).status).toBe(409);
       expect((await read(d.boothPage, '/api/booth/state')).status).toBe(200);
       expect(
@@ -413,8 +580,13 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
       const attempt = localOwnerSql(
         `insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) values('${f.eventId}','${current.runId}','${sessionId}','${captureId}',2,'Guest','Pending',gen_random_uuid(),gen_random_uuid()) returning id,state`
       )[0];
+      // Match the revision advance made by the real reservation/outcome operations.
+      localOwnerSql(`update public.events set revision=revision+1 where id='${f.eventId}'`);
       await expect(d.phonePage.getByText('1 print pending', { exact: true })).toBeVisible();
-      await expect(d.phonePage.getByText('Live · Active', { exact: true })).toBeVisible();
+      await expect(
+        d.phonePage.getByRole('heading', { name: 'Booth running', exact: true })
+      ).toBeVisible();
+      const releaseFinishReport = await holdReadiness(d.boothPage);
       await d.phonePage.getByRole('button', { name: 'Finish Booth Mode', exact: true }).click();
       await d.phonePage
         .getByRole('button', { name: 'Confirm Finish Booth Mode', exact: true })
@@ -423,6 +595,7 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
         d.boothPage.getByRole('heading', { name: 'Finishing Booth Mode' })
       ).toBeVisible();
       await expect(d.boothPage.getByText(/A print outcome is pending/)).toBeVisible();
+      await releaseFinishReport();
       expect((await admit(d.boothPage)).status).toBe(409);
       const state = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
       expect(state.runId).toBe(original.runId);
@@ -447,7 +620,7 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
       );
       await expect(d.phonePage.getByRole('button', { name: 'Start Booth Mode' })).toHaveCount(0);
       await expect(d.phonePage.getByRole('button', { name: 'Resume Booth' })).toHaveCount(0);
-      await expect(d.boothPage.getByRole('link', { name: 'Admin sign in' })).toHaveCount(0);
+      await expect(d.boothPage.getByRole('link', { name: 'Sign in', exact: true })).toHaveCount(0);
     } finally {
       await d.close();
     }
@@ -493,7 +666,7 @@ async function reviewPhoneCommand(page: Page, action: 'finish' | 'complete', run
   throw new Error('State changed again after explicit re-review');
 }
 async function signInFromBooth(page: Page, f: Fixture) {
-  await page.getByRole('link', { name: 'Admin sign in' }).click();
+  await page.getByRole('link', { name: 'Sign in', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
   expect(
     await page.locator('.public-auth').evaluate((el) => getComputedStyle(el).backgroundColor)
@@ -569,7 +742,9 @@ test('protected replacement preserves the same Paused run and counts; phone Resu
       ).toBeEnabled({ timeout: 15000 });
       await d.phonePage.getByRole('button', { name: 'Resume Booth', exact: true }).click();
       await expect(d.boothPage.getByRole('heading', { name: 'Make a memory' })).toBeVisible();
-      await expect(d.phonePage.getByText('Live · Active', { exact: true })).toBeVisible();
+      await expect(
+        d.phonePage.getByRole('heading', { name: 'Booth running', exact: true })
+      ).toBeVisible();
       await reviewPhoneCommand(d.phonePage, 'finish', original.runId);
       await expect(d.boothPage.getByRole('heading', { name: 'Booth Mode finished' })).toBeVisible();
       await signInFromBooth(d.boothPage, f);
@@ -582,7 +757,9 @@ test('protected replacement preserves the same Paused run and counts; phone Resu
       await expect(
         d.phonePage.getByRole('button', { name: 'Finish Booth Mode', exact: true })
       ).toBeVisible();
-      await expect(d.phonePage.getByText('Live · Active', { exact: true })).toBeVisible();
+      await expect(
+        d.phonePage.getByRole('heading', { name: 'Booth running', exact: true })
+      ).toBeVisible();
       await reviewPhoneCommand(d.phonePage, 'finish', second.runId);
       const finishedSecond = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`))
         .body;
@@ -593,7 +770,7 @@ test('protected replacement preserves the same Paused run and counts; phone Resu
         d.phonePage.getByRole('button', { name: 'Complete Event', exact: true })
       ).toBeEnabled();
       await reviewPhoneCommand(d.phonePage, 'complete');
-      await expect(d.phonePage.getByText('Completed · Finished')).toBeVisible();
+      await expect(d.phonePage.getByText('Completed Event', { exact: true })).toBeVisible();
       expect(
         localOwnerSql(`select state from public.print_attempts where id='${printedId}'`)[0].state
       ).toBe('Printed');
@@ -648,10 +825,14 @@ test('eligible Live cancellation keeps History and usable confirmation across th
           await page.keyboard.press('Enter');
           const dialog = page.getByRole('dialog');
           await expect(dialog).toContainText('History');
+          expect(await dialog.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
+            theme === 'dark' ? 'rgb(26, 41, 41)' : 'rgb(255, 255, 255)'
+          );
           expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
           await page.keyboard.press('Tab');
           expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
           const button = page.getByRole('button', { name: 'Confirm Cancel Event' });
+          await expect(button).toHaveAttribute('data-variant', 'destructive');
           expect(
             await button.evaluate((el) => el.getBoundingClientRect().height)
           ).toBeGreaterThanOrEqual(44);
@@ -675,7 +856,7 @@ test('eligible Live cancellation keeps History and usable confirmation across th
       );
       await expect(page.getByRole('button', { name: 'Confirm Cancel Event' })).toBeVisible();
       await page.getByRole('button', { name: 'Confirm Cancel Event' }).click();
-      await expect(page.getByText('Cancelled · Finished')).toBeVisible();
+      await expect(page.getByText('Cancelled Event', { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
       const retained = (
         await f.local.service
@@ -685,6 +866,60 @@ test('eligible Live cancellation keeps History and usable confirmation across th
           .single()
       ).data;
       expect(retained).toEqual({ state: 'Cancelled', client_name: 'Client', deleted_at: null });
+    } finally {
+      await d.close();
+    }
+  } finally {
+    await f.dispose();
+  }
+});
+
+test('idle phone polls only scoped state and observes remote Event completion', async ({
+  browser,
+}) => {
+  const f = await createPackageBrowserFixture();
+  try {
+    f.seedRun('Finished');
+    const d = await devices(browser, f);
+    try {
+      await d.phonePage.goto(`/events/${f.eventId}`);
+      await expect(d.phonePage.getByText('Live Event', { exact: true })).toBeVisible();
+      let polls = 0,
+        routeRefreshes = 0;
+      d.phonePage.on('response', (response) => {
+        if (response.url().endsWith(`/api/admin/events/${f.eventId}/booth/state`) && response.ok())
+          polls++;
+      });
+      d.phonePage.on('request', (request) => {
+        if (
+          new URL(request.url()).pathname === `/events/${f.eventId}` &&
+          request.headers().rsc === '1'
+        )
+          routeRefreshes++;
+      });
+      await expect.poll(() => polls, { timeout: 15000 }).toBeGreaterThanOrEqual(2);
+      expect(routeRefreshes).toBe(0);
+      const state = await read(d.boothPage, `/api/admin/events/${f.eventId}/booth/state`);
+      const status = await d.boothPage.evaluate(
+        async ({ eventId, revision }) => {
+          const response = await fetch(`/api/admin/events/${eventId}/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ operationId: crypto.randomUUID(), expectedRevision: revision }),
+          });
+          return response.status;
+        },
+        { eventId: f.eventId, revision: state.body.revision }
+      );
+      expect(status).toBe(200);
+      await expect(d.phonePage.getByText('Completed Event', { exact: true })).toBeVisible();
+      expect(routeRefreshes).toBe(1);
+      await expect(
+        d.phonePage.getByRole('button', { name: 'Complete Event', exact: true })
+      ).toHaveCount(0);
+      await expect(
+        d.phonePage.getByRole('button', { name: 'Start Booth Mode', exact: true })
+      ).toHaveCount(0);
     } finally {
       await d.close();
     }
@@ -707,7 +942,7 @@ for (const refreshOrigin of ['Admin', 'package reload']) {
       localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
       const d = await devices(browser, f);
       try {
-        let holdEnabled = refreshOrigin === 'Admin';
+        let holdEnabled = false;
         const inFlightRefreshes = new Set<unknown>();
         let held = false,
           starts = 0,
@@ -723,8 +958,16 @@ for (const refreshOrigin of ['Admin', 'package reload']) {
           if (request.url().endsWith('/booth/start')) starts++;
           if (/\/booth-handoffs\/[^/]+\/issue$/.test(request.url())) issues++;
         });
-        await d.boothPage.route(`**/events/${f.eventId}?*`, async (route) => {
-          if (holdEnabled && route.request().headers().rsc === '1' && !held) {
+        const refreshPath =
+          refreshOrigin === 'Admin'
+            ? `**/api/admin/events/${f.eventId}/booth/state`
+            : `**/events/${f.eventId}?*`;
+        await d.boothPage.route(refreshPath, async (route) => {
+          if (
+            holdEnabled &&
+            (refreshOrigin === 'Admin' || route.request().headers().rsc === '1') &&
+            !held
+          ) {
             held = true;
             await gate;
           }
@@ -732,6 +975,10 @@ for (const refreshOrigin of ['Admin', 'package reload']) {
         });
         await d.phonePage.goto(`/events/${f.eventId}`);
         await prepare(d.boothPage, f);
+        if (refreshOrigin === 'Admin') {
+          holdEnabled = true;
+          await d.boothPage.evaluate(() => window.dispatchEvent(new Event('focus')));
+        }
         if (refreshOrigin === 'package reload') {
           await d.boothPage.route(
             `**/api/admin/events/${f.eventId}/film-packages`,
@@ -745,10 +992,14 @@ for (const refreshOrigin of ['Admin', 'package reload']) {
           );
           await d.boothPage.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
           await d.boothPage.getByLabel('Client request note').fill('Client asked for one package');
+          const rejectedPurchase = d.boothPage.waitForResponse((response) =>
+            response.url().endsWith(`/api/admin/events/${f.eventId}/film-packages`)
+          );
           await d.boothPage
             .getByRole('dialog')
             .getByRole('button', { name: 'Add Film Packages', exact: true })
             .click();
+          expect((await rejectedPurchase).status()).toBe(400);
           await expect(d.boothPage.getByRole('alert')).toContainText(
             'The purchase was not recorded'
           );
@@ -786,8 +1037,11 @@ for (const refreshOrigin of ['Admin', 'package reload']) {
         await expect.poll(() => held).toBe(true);
         await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
         await expect(
+          d.boothPage.getByRole('dialog', { name: 'Preparing Booth Mode' })
+        ).toBeVisible();
+        await expect(
           d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true })
-        ).toBeDisabled();
+        ).toHaveCount(0);
         await d.boothPage.waitForTimeout(300);
         expect(starts).toBe(0);
         expect(issues).toBe(0);
@@ -796,8 +1050,7 @@ for (const refreshOrigin of ['Admin', 'package reload']) {
         );
         const phoneRefresh = d.phonePage.waitForRequest(
           (request) =>
-            new URL(request.url()).pathname === `/events/${f.eventId}` &&
-            request.headers().rsc === '1'
+            new URL(request.url()).pathname === `/api/admin/events/${f.eventId}/booth/state`
         );
         await d.phonePage.evaluate(() => window.dispatchEvent(new Event('focus')));
         await phoneRefresh;

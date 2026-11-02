@@ -169,6 +169,7 @@ it('distinguishes a known unsent reservation from possible delivery in the recov
       userId: f.adminUser.id,
       sessionId: f.adminSessionId,
     });
+
     f.seedRun('Paused');
     const sessionId = localOwnerSql(
       `insert into public.guest_sessions(event_id,run_id,accounting_version) values('${f.eventId}','${f.runId}',2) returning id`
@@ -185,6 +186,50 @@ it('distinguishes a known unsent reservation from possible delivery in the recov
       expect(current.event.counts.unresolved).toBe(1);
       expect(current.event.possibleDelivery).toBe(false);
     }
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
+
+it('projects equipment observations with their original expiry and rejects a mismatched generation', async () => {
+  const f = await createPackageFixture();
+  try {
+    vi.mocked(createClient).mockResolvedValue(f.adminClient);
+    vi.mocked(createPrivilegedClient).mockReturnValue(f.local.service);
+    vi.mocked(requireAdmin).mockResolvedValue({
+      userId: f.adminUser.id,
+      sessionId: f.adminSessionId,
+    });
+    f.seedRun('Paused');
+    const at = new Date().toISOString();
+    const observation = {
+      cameraLive: true,
+      cameraPermission: true,
+      printerConnected: false,
+      serverReachable: true,
+      printerReady: false,
+      oldJobCleared: true,
+      connectionGeneration: 0,
+    };
+    ownerUpdate('booth_runs', f.runId, {
+      readiness_observation: observation,
+      observed_at: at,
+      received_at: at,
+    });
+    const read = await getOperationalEvent(f.eventId);
+    expect(read.status).toBe('success');
+    if (read.status !== 'success') throw new Error('Equipment projection failed');
+    expect(read.event.equipment).toEqual({
+      cameraLive: true,
+      printerConnected: false,
+      serverReachable: true,
+      filmLoaded: true,
+      expiresAt: new Date(Date.parse(at) + 5000).toISOString(),
+    });
+    ownerUpdate('booth_runs', f.runId, { connection_generation: 1 });
+    const mismatched = await getOperationalEvent(f.eventId);
+    expect(mismatched.status).toBe('success');
+    if (mismatched.status === 'success') expect(mismatched.event.equipment?.expiresAt).toBeNull();
   } finally {
     await f.dispose();
   }

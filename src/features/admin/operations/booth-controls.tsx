@@ -4,7 +4,7 @@ import { Dialog } from 'radix-ui';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { FormFeedback } from '@/components/shared/form-feedback';
-import { STATE_POLL_MS } from '@/lib/operations/package-contract';
+import { boothFetch } from '@/features/booth/flow';
 import type { OperationalEvent } from './types';
 import styles from './panel.module.css';
 
@@ -55,8 +55,18 @@ export function BoothControls({
   const [uncertain, setUncertain] = useState(false);
   const [blocked, setBlocked] = useState(false);
   const [review, setReview] = useState<'finish' | 'complete' | 'cancel' | null>(null);
+  const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+  const [equipmentTime, setEquipmentTime] = useState(Date.now);
+  const expiresAt = event.equipment?.expiresAt;
+  const equipmentFresh = !!expiresAt && Date.parse(expiresAt) >= equipmentTime;
+  useEffect(() => {
+    if (!expiresAt) return;
+    const remaining = Date.parse(expiresAt) - Date.now();
+    const timer = setTimeout(() => setEquipmentTime(Date.now()), Math.max(0, remaining + 1));
+    return () => clearTimeout(timer);
+  }, [expiresAt]);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
       try {
@@ -76,22 +86,6 @@ export function BoothControls({
     });
     return () => cancelAnimationFrame(frame);
   }, [savedKey]);
-  useEffect(() => {
-    if (event.state !== 'Live') return;
-    const refresh = () => {
-      if (document.visibilityState === 'visible') refreshAdmin();
-    };
-    const timer = window.setInterval(refresh, STATE_POLL_MS);
-    window.addEventListener('focus', refresh);
-    window.addEventListener('online', refresh);
-    document.addEventListener('visibilitychange', refresh);
-    return () => {
-      clearInterval(timer);
-      window.removeEventListener('focus', refresh);
-      window.removeEventListener('online', refresh);
-      document.removeEventListener('visibilitychange', refresh);
-    };
-  }, [event.state, refreshAdmin]);
   async function submit(action?: Command['action']) {
     if (submitting.current || blocked || !ready) return;
     submitting.current = true;
@@ -118,41 +112,28 @@ export function BoothControls({
         pending.current = command;
       }
       setUncertain(true);
-      const headers = { 'Content-Type': 'application/json', 'x-package-admin-id': adminUserId };
       let receipt: unknown;
       if (recovering) {
-        const lookup = await fetch(
-          `/api/admin/events/${event.id}/operations/${command.body.operationId}`,
-          { cache: 'no-store', headers }
-        );
-        if (!lookup.ok) throw new Error();
-        receipt = (await lookup.json()).receipt;
+        const lookup = z
+          .object({ receipt: z.unknown() })
+          .parse(
+            await boothFetch(
+              `/api/admin/events/${event.id}/operations/${command.body.operationId}`,
+              undefined,
+              adminUserId
+            )
+          );
+        receipt = lookup.receipt;
       }
       if (!receipt) {
         const path = ['complete', 'cancel'].includes(command.action)
           ? command.action
           : `booth/${command.action}`;
-        const response = await fetch(`/api/admin/events/${event.id}/${path}`, {
-          method: 'POST',
-          cache: 'no-store',
-          headers,
-          body: JSON.stringify(command.body),
-        });
-        const result = await response.json();
-        if (!response.ok) {
-          if ([400, 409].includes(response.status) && result.code !== 'operation_conflict') {
-            sessionStorage.removeItem(savedKey);
-            pending.current = null;
-            setUncertain(false);
-            refreshAdmin();
-            throw new Error(
-              result.code === 'stale_revision'
-                ? 'The Event changed. Review current state before trying again.'
-                : (result.message ?? 'Booth command was not recorded. Review current state.')
-            );
-          }
-          throw new Error();
-        }
+        const result = z
+          .object({ receipt: z.unknown() })
+          .parse(
+            await boothFetch(`/api/admin/events/${event.id}/${path}`, command.body, adminUserId)
+          );
         receipt = result.receipt;
       }
       z.object({
@@ -166,14 +147,30 @@ export function BoothControls({
       setNotice('Booth command recorded. Refreshing current state.');
       refreshAdmin();
     } catch (cause) {
-      setError(
-        cause instanceof Error &&
-          cause.message &&
-          !(cause instanceof TypeError) &&
-          !(cause instanceof z.ZodError)
-          ? cause.message
-          : 'Booth command outcome is unconfirmed. Retry the original command.'
-      );
+      const rejection = z
+        .object({ status: z.number(), code: z.string().optional() })
+        .safeParse(cause);
+      if (
+        rejection.success &&
+        [400, 409].includes(rejection.data.status) &&
+        rejection.data.code !== 'operation_conflict'
+      ) {
+        try {
+          sessionStorage.removeItem(savedKey);
+        } catch {
+          setBlocked(true);
+          setError('Saved Booth command cannot be cleared. Restore browser storage and reload.');
+          return;
+        }
+        pending.current = null;
+        setUncertain(false);
+        refreshAdmin();
+        setError(
+          rejection.data.code === 'stale_revision'
+            ? 'The Event changed. Review current state before trying again.'
+            : 'Booth command was not recorded. Review current state.'
+        );
+      } else setError('Booth command outcome is unconfirmed. Retry the original command.');
     } finally {
       submitting.current = false;
       setBusy(false);
@@ -200,10 +197,41 @@ export function BoothControls({
       }}
     >
       <section aria-label="Booth controls">
-        {event.runState === 'Finishing' && (
-          <p>
-            Finishing Booth Mode. Waiting for the pending print outcome; new Guests are blocked.
-          </p>
+        {event.state === 'Live' && (
+          <section className={styles.equipment} aria-label="Booth equipment">
+            <h3>Equipment status</h3>
+            <dl className={styles.readiness} aria-label="Equipment status">
+              {(
+                [
+                  ['Camera', event.equipment?.cameraLive, 'Ready', 'Unavailable'],
+                  ['Instax', event.equipment?.printerConnected, 'Connected', 'Disconnected'],
+                  ['Internet', event.equipment?.serverReachable, 'Online', 'Unavailable'],
+                ] as const
+              ).map(([label, value, positive, negative]) => (
+                <div key={label}>
+                  <dt>{label}</dt>
+                  <dd data-ready={equipmentFresh ? value : undefined}>
+                    {equipmentFresh ? (value ? positive : negative) : 'Needs check'}
+                  </dd>
+                </div>
+              ))}
+              <div>
+                <dt>Film</dt>
+                <dd>
+                  {event.equipment
+                    ? event.equipment.filmLoaded
+                      ? 'Loaded'
+                      : 'Film reload needed'
+                    : 'Needs confirmation'}
+                </dd>
+              </div>
+            </dl>
+            {!equipmentFresh && (
+              <p className={styles.muted}>
+                Current equipment readiness has not been verified. New Guests must wait.
+              </p>
+            )}
+          </section>
         )}
         {event.state === 'Live' && event.runId && (
           <div className={styles.actions}>
@@ -226,6 +254,7 @@ export function BoothControls({
                   variant="secondary"
                   disabled={disabled}
                   onClick={(e) => {
+                    setPortalContainer(e.currentTarget.closest<HTMLElement>('.admin-shell'));
                     trigger.current = e.currentTarget;
                     setReview('finish');
                     if (event.runId)
@@ -256,6 +285,7 @@ export function BoothControls({
                       disabled || event.runState !== 'Finished' || event.counts.unresolved > 0
                     }
                     onClick={(e) => {
+                      setPortalContainer(e.currentTarget.closest<HTMLElement>('.admin-shell'));
                       trigger.current = e.currentTarget;
                       reviewedFinish.current = {
                         action,
@@ -291,7 +321,7 @@ export function BoothControls({
         )}
         {!review && feedback}
 
-        <Dialog.Portal>
+        <Dialog.Portal container={portalContainer}>
           <Dialog.Overlay className={styles.overlay} />
           <Dialog.Content
             className={styles.dialog}
@@ -314,7 +344,16 @@ export function BoothControls({
             </Dialog.Description>
             {feedback}
             <div className={styles.actions}>
-              <Button disabled={disabled} onClick={() => void submit(review ?? undefined)}>
+              <Button
+                variant={review === 'cancel' ? 'destructive' : 'default'}
+                className={
+                  review === 'cancel'
+                    ? 'border-ds-danger bg-ds-danger text-ds-on-danger enabled:hover:border-ds-danger-hover enabled:hover:bg-ds-danger-hover'
+                    : undefined
+                }
+                disabled={disabled}
+                onClick={() => void submit(review ?? undefined)}
+              >
                 Confirm{' '}
                 {review === 'complete'
                   ? 'Complete Event'

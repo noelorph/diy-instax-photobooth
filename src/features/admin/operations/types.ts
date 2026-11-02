@@ -14,5 +14,12 @@ export type OperationalEvent = {
   resumeAllowed: boolean;
   possibleDelivery: boolean;
   blockers: string[];
+  equipment: {
+    expiresAt: string | null;
+    cameraLive: boolean;
+    printerConnected: boolean;
+    serverReachable: boolean;
+    filmLoaded: boolean;
+  } | null;
   attempts: Attempt[];
 };

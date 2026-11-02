@@ -1,6 +1,35 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { BrowserBoothCamera } from '@/features/booth/camera';
 afterEach(() => vi.unstubAllGlobals());
+it('lets an explicit request supersede a pending passive permission query', async () => {
+  let resolveQuery!: (value: { state: string }) => void;
+  const video = document.createElement('video');
+  Object.defineProperties(video, { videoWidth: { value: 600 }, videoHeight: { value: 800 } });
+  video.play = async () => {};
+  const track = { stop: vi.fn(), onended: null };
+  const stream = { active: true, getTracks: () => [track], getVideoTracks: () => [track] };
+  const getUserMedia = vi.fn(async () => stream);
+  vi.stubGlobal('navigator', {
+    permissions: {
+      query: () =>
+        new Promise((resolve) => {
+          resolveQuery = resolve;
+        }),
+    },
+    mediaDevices: { getUserMedia },
+  });
+  const camera = new BrowserBoothCamera();
+  const passive = camera.start(video, () => {}, 'existing').catch(() => {});
+  const explicit = camera.start(video, () => {}, 'request');
+  expect(getUserMedia).toHaveBeenCalledOnce();
+  await explicit;
+  resolveQuery({ state: 'granted' });
+  await passive;
+  expect(video.srcObject).toBe(stream);
+  expect(getUserMedia).toHaveBeenCalledOnce();
+  expect(track.stop).not.toHaveBeenCalled();
+  camera.stop();
+});
 it.each(['prompt', 'missing', 'rejected'] as const)(
   'explicit request acquires a live camera with %s permission query',
   async (state) => {

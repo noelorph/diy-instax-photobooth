@@ -1,5 +1,5 @@
 import { afterEach, expect, it, vi } from 'vitest';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { OperationsPanel } from '@/features/admin/operations/panel';
 import { packageCounts } from '@/lib/operations/package-contract';
 import type { OperationalEvent } from '@/features/admin/operations/types';
@@ -18,6 +18,7 @@ const event: OperationalEvent = {
   resumeAllowed: false,
   possibleDelivery: true,
   blockers: ['print_pending'],
+  equipment: null,
   attempts: [{ id: 'pending', kind: 'Guest', state: 'Pending' }],
   attemptsPage: 0,
   hasOlderAttempts: false,
@@ -27,6 +28,82 @@ afterEach(() => {
   sessionStorage.clear();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  vi.useRealTimers();
+});
+it('recovers a stalled Pause by its original receipt after the request deadline', async () => {
+  vi.useFakeTimers();
+  let command!: { operationId: string };
+  let posts = 0;
+  vi.stubGlobal('fetch', (path: string, options?: RequestInit) => {
+    if (path.endsWith('/booth/state'))
+      return Promise.resolve(
+        Response.json({
+          revision: event.revision,
+          allowedActions: { resume: false },
+          blockers: event.blockers,
+          equipment: null,
+        })
+      );
+    if (path.includes('/operations/'))
+      return Promise.resolve(
+        Response.json({ receipt: { operationId: command.operationId, kind: 'pause' } })
+      );
+    posts++;
+    command = JSON.parse(String(options?.body));
+    return new Promise((_resolve, reject) => {
+      options?.signal?.addEventListener('abort', () =>
+        reject(new DOMException('Aborted', 'AbortError'))
+      );
+    });
+  });
+  render(<OperationsPanel adminUserId="admin-a" event={{ ...event, runState: 'Active' }} />);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(32);
+  });
+  fireEvent.click(screen.getByRole('button', { name: 'Pause Booth' }));
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5000);
+  });
+  const retry = screen.getByRole('button', { name: 'Retry Booth command' });
+  expect(retry.hasAttribute('disabled')).toBe(false);
+  expect(screen.getByRole('alert').textContent).toContain('outcome is unconfirmed');
+  await act(async () => {
+    fireEvent.click(retry);
+  });
+  expect(screen.getByText('Booth command recorded. Refreshing current state.')).toBeTruthy();
+  expect(posts).toBe(1);
+  expect(sessionStorage.getItem(`booth-command:${event.id}:admin-a`)).toBeNull();
+});
+it('shows durable Paused status and expires independently reported equipment readiness', async () => {
+  vi.useFakeTimers();
+  render(
+    <OperationsPanel
+      adminUserId="admin-a"
+      event={{
+        ...event,
+        equipment: {
+          expiresAt: new Date(Date.now() + 1000).toISOString(),
+          cameraLive: true,
+          printerConnected: false,
+          serverReachable: true,
+          filmLoaded: true,
+        },
+      }}
+    />
+  );
+  const status = screen.getByRole('region', { name: 'Booth status' });
+  expect(within(status).getByText('Booth paused')).toBeTruthy();
+  expect(within(status).getByText('Only you can resume the booth from the phone.')).toBeTruthy();
+  const equipment = screen.getByLabelText('Equipment status');
+  expect(equipment.textContent).toContain('CameraReady');
+  expect(equipment.textContent).toContain('InstaxDisconnected');
+  expect(equipment.textContent).toContain('InternetOnline');
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1001);
+  });
+  expect(equipment.textContent).toContain('CameraNeeds check');
+  expect(equipment.textContent).toContain('InternetNeeds check');
+  expect(within(status).getByText('Booth paused')).toBeTruthy();
 });
 it('shows server package capacity and preserves the pending print at zero availability', () => {
   render(<OperationsPanel adminUserId="admin-a" event={event} />);
@@ -40,6 +117,43 @@ it('shows server package capacity and preserves the pending print at zero availa
   expect(screen.queryByRole('button', { name: 'Add guest prints' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Test Print' })).toBeNull();
 });
+
+it.each(['finish', 'cancel', 'replacement', 'Draft cancellation'] as const)(
+  '%s dialogs inherit the current Admin theme',
+  async (action) => {
+    const current = {
+      ...event,
+      counts: packageCounts(1, 0, 0, 0),
+      possibleDelivery: false,
+      runId: crypto.randomUUID(),
+      runState: action === 'cancel' ? ('Finished' as const) : ('Paused' as const),
+    };
+    render(
+      <div className="admin-shell" data-theme="dark">
+        <OperationsPanel
+          adminUserId="admin-a"
+          event={
+            action === 'Draft cancellation'
+              ? { ...current, state: 'Draft', runId: null, runState: null }
+              : current
+          }
+        />
+      </div>
+    );
+    const name =
+      action === 'finish'
+        ? 'Finish Booth Mode'
+        : action === 'replacement'
+          ? 'Replace Booth access'
+          : 'Cancel Event';
+    const trigger = screen.getByRole('button', { name });
+    await waitFor(() => expect(trigger.hasAttribute('disabled')).toBe(false));
+    fireEvent.click(trigger);
+    expect(screen.getByRole('dialog').closest('.admin-shell')?.getAttribute('data-theme')).toBe(
+      'dark'
+    );
+  }
+);
 it('cancels a Draft using the package operation contract', async () => {
   let body: object | undefined;
   vi.stubGlobal('fetch', async (_path: string, options: RequestInit) => {
@@ -140,7 +254,7 @@ it('recovers a committed purchase after a lost response without issuing another 
   await screen.findByText('Film Packages added.');
   expect(screen.getByText('60 total booked prints')).toBeTruthy();
   expect(screen.getByText('1 print pending')).toBeTruthy();
-  expect(screen.getByText('Live · Paused')).toBeTruthy();
+  expect(screen.getByText('Booth paused')).toBeTruthy();
   expect(purchases).toBe(1);
   fireEvent.click(screen.getByRole('button', { name: 'Done' }));
   expect(sessionStorage.getItem(`film-package-purchase:${event.id}:admin-a`)).toBeNull();
@@ -564,9 +678,28 @@ it('keeps a stale command visibly rejected and does not report success', async (
   expect(sessionStorage.getItem(`booth-command:${event.id}:admin-a`)).toBeNull();
 });
 
-it('refreshes phone state every two visible seconds and immediately on focus/reconnect', async () => {
+it('polls scoped phone readiness without rerendering the route while its revision is unchanged', async () => {
   vi.useFakeTimers();
   const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
+  let release!: () => void;
+  const fetcher = vi.fn<(path: string, options?: RequestInit) => Promise<Response>>(async () => {
+    await new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    return Response.json({
+      revision: event.revision,
+      allowedActions: { resume: false },
+      blockers: ['camera'],
+      equipment: {
+        expiresAt: new Date(Date.now() + 5000).toISOString(),
+        cameraLive: false,
+        printerConnected: true,
+        serverReachable: true,
+        filmLoaded: true,
+      },
+    });
+  });
+  vi.stubGlobal('fetch', fetcher);
   const view = render(<OperationsPanel adminUserId="admin-a" event={event} />);
   await act(async () => {
     await vi.advanceTimersByTimeAsync(32);
@@ -575,29 +708,134 @@ it('refreshes phone state every two visible seconds and immediately on focus/rec
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1967);
   });
-  expect(refresh).toHaveBeenCalledTimes(0);
+  expect(fetcher).not.toHaveBeenCalled();
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1);
   });
-  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(fetcher.mock.calls[0][0]).toBe(`/api/admin/events/${event.id}/booth/state`);
+  expect(new Headers(fetcher.mock.calls[0][1]?.headers).get('x-package-admin-id')).toBe('admin-a');
+  fireEvent(window, new Event('focus'));
+  fireEvent(window, new Event('online'));
+  fireEvent(document, new Event('visibilitychange'));
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    release();
+  });
+  expect(screen.getByLabelText('Equipment status').textContent).toContain('CameraUnavailable');
+  expect(screen.getByText('Camera is not ready.')).toBeTruthy();
+  expect(refresh).not.toHaveBeenCalled();
   visibility.mockReturnValue('hidden');
   await act(async () => {
     await vi.advanceTimersByTimeAsync(6000);
   });
-  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(fetcher).toHaveBeenCalledTimes(1);
   visibility.mockReturnValue('visible');
   fireEvent(window, new Event('focus'));
   fireEvent(window, new Event('online'));
   fireEvent(document, new Event('visibilitychange'));
-  expect(refresh).toHaveBeenCalledTimes(4);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  const signal = (fetcher.mock.calls[1][1] as RequestInit).signal;
   view.unmount();
+  expect(signal?.aborted).toBe(true);
+  await act(async () => {
+    release();
+  });
   await act(async () => {
     await vi.advanceTimersByTimeAsync(2000);
   });
-  expect(refresh).toHaveBeenCalledTimes(4);
+  expect(fetcher).toHaveBeenCalledTimes(2);
+  expect(refresh).not.toHaveBeenCalled();
   visibility.mockRestore();
   vi.useRealTimers();
 });
+
+it('refreshes the full Event only when scoped state reports a newer revision', async () => {
+  vi.useFakeTimers();
+  let revision = event.revision - 1;
+  vi.stubGlobal('fetch', async () =>
+    Response.json({
+      revision,
+      allowedActions: { resume: true },
+      blockers: [],
+      equipment: null,
+    })
+  );
+  const view = render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  refresh.mockClear();
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000);
+  });
+  expect(refresh).not.toHaveBeenCalled();
+  expect(screen.getByRole('button', { name: 'Resume Booth' }).hasAttribute('disabled')).toBe(true);
+  revision = event.revision + 1;
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(2000);
+  });
+  expect(refresh).toHaveBeenCalledTimes(1);
+  view.rerender(
+    <OperationsPanel
+      adminUserId="admin-a"
+      event={{ ...event, revision, state: 'Completed', runState: 'Finished' }}
+    />
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(4000);
+  });
+  expect(refresh).toHaveBeenCalledTimes(1);
+  expect(screen.queryByRole('button', { name: 'Resume Booth' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Start Booth Mode' })).toBeNull();
+});
+
+it.each(['malformed', 'server error', 'timeout'])(
+  'keeps %s phone readiness visibly unavailable and recovers on the next scoped poll',
+  async (failure) => {
+    vi.useFakeTimers();
+    let failed = true;
+    vi.stubGlobal('fetch', async (_path: string, options?: RequestInit) => {
+      if (!failed)
+        return Response.json({
+          revision: event.revision,
+          allowedActions: { resume: true },
+          blockers: [],
+          equipment: null,
+        });
+      if (failure === 'timeout')
+        return new Promise((_resolve, reject) => {
+          options?.signal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError'))
+          );
+        });
+      return failure === 'malformed'
+        ? Response.json({ allowedActions: { resume: true } })
+        : Response.json({ code: 'operation_unavailable' }, { status: 503 });
+    });
+    render(
+      <OperationsPanel
+        adminUserId="admin-a"
+        event={{ ...event, resumeAllowed: true, counts: packageCounts(1, 0, 0, 0) }}
+      />
+    );
+    refresh.mockClear();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(failure === 'timeout' ? 7001 : 2000);
+    });
+    expect(screen.getByRole('alert').textContent).toContain('Booth status could not be refreshed');
+    expect(screen.getByRole('button', { name: 'Resume Booth' }).hasAttribute('disabled')).toBe(
+      true
+    );
+    expect(refresh).not.toHaveBeenCalled();
+    failed = false;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Resume Booth' }).hasAttribute('disabled')).toBe(
+      false
+    );
+    expect(refresh).not.toHaveBeenCalled();
+  }
+);
 
 it('guards Resume on authoritative readiness and explains independent blockers', async () => {
   const current = {
@@ -745,6 +983,10 @@ it.each(['complete', 'cancel'])(
     fireEvent.click(trigger);
     expect(posts).toBe(0);
     expect(screen.getByRole('dialog').textContent).toMatch(/History/);
+    if (action === 'cancel')
+      expect(
+        screen.getByRole('button', { name: 'Confirm Cancel Event' }).getAttribute('data-variant')
+      ).toBe('destructive');
     view.rerender(<OperationsPanel adminUserId="admin-a" event={{ ...finished, revision: 8 }} />);
     fireEvent.click(screen.getByRole('button', { name: `Confirm ${name}` }));
     await screen.findByRole('alert');

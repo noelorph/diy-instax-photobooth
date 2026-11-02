@@ -16,12 +16,16 @@ export class BrowserBoothCamera implements BoothCamera {
   private generation = 0;
   private video?: HTMLVideoElement;
   private pending?: Promise<void>;
+  private checkingPermission = false;
   start(
     video: HTMLVideoElement,
     disconnected: () => void,
     permission: 'existing' | 'request'
   ): Promise<void> {
-    if (this.pending) return this.pending;
+    if (this.pending) {
+      if (permission !== 'request' || !this.checkingPermission) return this.pending;
+      this.stop();
+    }
     const generation = this.generation;
     const pending = this.acquire(video, disconnected, permission, generation);
     this.pending = pending;
@@ -40,12 +44,15 @@ export class BrowserBoothCamera implements BoothCamera {
   ) {
     if (!this.stream?.active && permission === 'existing') {
       let granted = false;
+      this.checkingPermission = true;
       try {
         granted =
           (await navigator.permissions.query({ name: 'camera' as PermissionName })).state ===
           'granted';
       } catch {
         /* Unknown permission stays blocked. */
+      } finally {
+        if (generation === this.generation) this.checkingPermission = false;
       }
       if (generation !== this.generation) return;
       if (!granted) throw new Error('Enable Camera to allow camera access');
@@ -86,6 +93,7 @@ export class BrowserBoothCamera implements BoothCamera {
   }
   stop() {
     this.generation++;
+    this.checkingPermission = false;
     this.pending = undefined;
     this.stream?.getTracks().forEach((track) => {
       track.onended = null;

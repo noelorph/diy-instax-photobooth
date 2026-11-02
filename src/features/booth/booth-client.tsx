@@ -6,13 +6,14 @@ import { BrowserBoothMetadataJournal } from './print-journal';
 import { getBoothPrinter, hasLiveCamera } from './equipment';
 import { STATE_POLL_MS } from '@/lib/operations/package-contract';
 import styles from './booth.module.css';
+import { CirclePause, CircleCheck, KeyRound, LoaderCircle, TriangleAlert } from 'lucide-react';
 export function BoothPaused() {
   return (
     <main className={styles.booth}>
       <section className={styles.content}>
         <h1>Booth paused</h1>
         <p>Please ask the Admin for help.</p>
-        <a href="/sign-in?from=booth">Admin sign in</a>
+        <a href="/sign-in?from=booth">Sign in</a>
       </section>
     </main>
   );
@@ -28,7 +29,7 @@ export function BoothClient({
     () =>
       suppliedFlow ??
       new BoothFlow({
-        transport: boothFetch,
+        transport: (path, body, signal) => boothFetch(path, body, undefined, signal),
         printer: getBoothPrinter(),
         journal: new BrowserBoothMetadataJournal({
           getItem: (key) => sessionStorage.getItem(key),
@@ -87,7 +88,10 @@ export function BoothClient({
     };
     void start();
     const tick = () => {
-      if (current() && document.visibilityState === 'visible') void report();
+      if (current() && document.visibilityState === 'visible') {
+        void flow.refresh();
+        void report();
+      }
     };
     const timer = window.setInterval(tick, STATE_POLL_MS);
     document.addEventListener('visibilitychange', tick);
@@ -135,6 +139,21 @@ export function BoothClient({
       setBusy(false);
     }
   }
+  const unavailable = view.counts?.unresolved
+    ? 'Booth is temporarily unavailable.'
+    : view.blockers.includes('offline')
+      ? 'Wi-Fi disconnected.'
+      : view.blockers.includes('server_unreachable')
+        ? 'Connection unavailable.'
+        : view.blockers.includes('printer_connection') || view.allowedActions.connectPrinter
+          ? 'Bluetooth disconnected.'
+          : view.blockers.includes('camera')
+            ? 'Camera disconnected.'
+            : view.blockers.includes('film_reload_needed')
+              ? 'Printer is out of film.'
+              : view.blockers.includes('booked_prints_exhausted')
+                ? 'All booked prints have been used.'
+                : 'Booth is temporarily unavailable.';
   const titles = {
     loading: 'Preparing Booth Mode',
     welcome: 'Make a memory',
@@ -142,18 +161,41 @@ export function BoothClient({
     finishing: 'Finishing Booth Mode',
     finished: 'Booth Mode finished',
     'access-required': 'Booth access ended',
-    unavailable: 'Booth equipment needs attention',
+    unavailable,
   };
+  const messages = {
+    loading: 'Please wait while Booth access is checked.',
+    welcome: 'Equipment ready.',
+    paused: 'Please wait for the Admin to resume from the phone.',
+    finishing: view.counts?.unresolved
+      ? 'Waiting for the current print to be resolved.'
+      : 'Waiting for Booth Mode to finish.',
+    finished: '',
+    'access-required': 'Please inform the Admin.',
+    unavailable:
+      unavailable === 'All booked prints have been used.'
+        ? 'Please ask the Admin to add another Film Package.'
+        : 'Please inform the Admin.',
+  };
+  const showPreview = view.phase === 'welcome';
+  const StatusIcon =
+    view.phase === 'paused'
+      ? CirclePause
+      : view.phase === 'finished'
+        ? CircleCheck
+        : view.phase === 'access-required'
+          ? KeyRound
+          : view.phase === 'loading' || view.phase === 'finishing'
+            ? LoaderCircle
+            : TriangleAlert;
   return (
     <main className={styles.booth}>
-      <section className={styles.content}>
+      <section className={`${styles.content} ${showPreview ? styles.previewContent : ''}`}>
+        {!showPreview && <StatusIcon className={styles.statusIcon} aria-hidden="true" />}
         <h1 ref={heading} tabIndex={-1} aria-live="polite">
           {titles[view.phase]}
         </h1>
-        <div
-          className={styles.frame}
-          hidden={view.phase === 'finished' || view.phase === 'access-required'}
-        >
+        <div className={styles.frame} hidden={!showPreview}>
           <video
             ref={video}
             className={styles.preview}
@@ -162,18 +204,8 @@ export function BoothClient({
             aria-label="Mirrored camera preview"
           />
         </div>
-        <div role="status">
-          {view.phase === 'welcome' ? (
-            <p>Equipment ready.</p>
-          ) : (
-            <p>
-              {view.phase === 'access-required'
-                ? 'Please inform the Admin.'
-                : view.phase === 'finished'
-                  ? 'Thank you.'
-                  : 'Please wait or ask the Admin for help.'}
-            </p>
-          )}
+        <div role="status" className={styles.status}>
+          {messages[view.phase] && <p>{messages[view.phase]}</p>}
         </div>
         {!!view.counts?.unresolved && (
           <p role="status">
@@ -192,7 +224,7 @@ export function BoothClient({
             </button>
           )}
           {(view.phase === 'access-required' || view.phase === 'finished') && (
-            <a href="/sign-in?from=booth">Admin sign in</a>
+            <a href="/sign-in?from=booth">Sign in</a>
           )}
         </div>
       </section>

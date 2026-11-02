@@ -1,7 +1,8 @@
 import 'server-only';
+import { z } from 'zod';
 import { createPrivilegedClient } from './privileged-client';
 import { packageRpc } from './package-rpc';
-import { PackageError, type PackageCounts } from './package-contract';
+import { PackageError, READINESS_MAX_AGE_MS, type PackageCounts } from './package-contract';
 
 export async function readPackageAdminState(
   admin: { userId: string; sessionId: string },
@@ -24,12 +25,31 @@ export async function readPackageAdminState(
   if (error) throw new PackageError('operation_unavailable');
   const run = await client
     .from('booth_runs')
-    .select('id,state')
+    .select(
+      'id,state,readiness_observation,observed_at,received_at,connection_generation,film_loaded_confirmed'
+    )
     .eq('event_id', eventId)
     .eq('accounting_version', 2)
     .order('created_at', { ascending: false })
     .limit(1);
   if (run.error) throw new PackageError('operation_unavailable');
+  const latest = run.data[0];
+  const observation = z
+    .object({
+      cameraLive: z.boolean(),
+      cameraPermission: z.boolean(),
+      printerConnected: z.boolean(),
+      serverReachable: z.boolean(),
+      connectionGeneration: z.number(),
+    })
+    .safeParse(latest?.readiness_observation);
+  const observedAt = Date.parse(latest?.observed_at ?? '');
+  const receivedAt = Date.parse(latest?.received_at ?? '');
+  const timed =
+    Number.isFinite(observedAt) &&
+    Number.isFinite(receivedAt) &&
+    observedAt <= Date.now() &&
+    receivedAt <= Date.now();
   return {
     ...state,
     revision: state.revision as number,
@@ -40,6 +60,19 @@ export async function readPackageAdminState(
     mediaRemovalState: state.mediaRemovalState as string | undefined,
     runId: run.data[0]?.id ?? null,
     runState: run.data[0]?.state ?? null,
+    equipment:
+      observation.success && latest
+        ? {
+            expiresAt:
+              timed && observation.data.connectionGeneration === latest.connection_generation
+                ? new Date(Math.min(observedAt, receivedAt) + READINESS_MAX_AGE_MS).toISOString()
+                : null,
+            cameraLive: observation.data.cameraLive && observation.data.cameraPermission,
+            printerConnected: observation.data.printerConnected,
+            serverReachable: observation.data.serverReachable,
+            filmLoaded: latest.film_loaded_confirmed,
+          }
+        : null,
     possibleDelivery: data.some(
       (attempt) => attempt.state !== 'Reserved' || attempt.dispatch_id !== null
     ),
@@ -66,6 +99,13 @@ export async function readPackageBoothState(hash: string, operationId?: string) 
     !state.blockers.every((value) => typeof value === 'string')
   )
     throw new PackageError('operation_unavailable');
+  const { data: run, error: runError } = await createPrivilegedClient()
+    .from('booth_runs')
+    .select('printer_id,connection_generation')
+    .eq('id', state.runId as string)
+    .eq('accounting_version', 2)
+    .single();
+  if (runError || !run) throw new PackageError('operation_unavailable');
   const blockers = state.blockers as string[];
   const pendingAttemptId = data[0]?.id ?? null;
   const principalStatus =
@@ -103,6 +143,8 @@ export async function readPackageBoothState(hash: string, operationId?: string) 
       connectPrinter: blockers.includes('printer_connection'),
       enableCamera: blockers.includes('camera'),
     },
+    printerId: run.printer_id,
+    connectionGeneration: run.connection_generation,
     readinessWindowId: state.readinessWindowId,
     receipt: state.receipt,
     pendingAttemptId,

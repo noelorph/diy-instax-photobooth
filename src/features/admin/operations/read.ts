@@ -61,6 +61,7 @@ export async function getOperationalEvent(
         resumeAllowed: packageState.allowedActions?.resume === true,
         possibleDelivery: packageState.possibleDelivery,
         blockers: packageState.blockers,
+        equipment: packageState.equipment,
         attempts: attempts.data!,
       },
     };

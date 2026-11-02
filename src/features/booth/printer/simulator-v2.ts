@@ -24,11 +24,11 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
     return this.commands;
   }
 
-  async connect(expectedPrinterId?: string) {
+  async connect(expectedPrinterId?: string, previousGeneration = 0) {
     if (expectedPrinterId && expectedPrinterId !== this.printerId)
       throw new Error('Printer identity changed');
-    if (!this.connected) {
-      this.generation++;
+    if (!this.connected || this.generation < previousGeneration) {
+      this.generation = Math.max(this.generation, previousGeneration) + 1;
       this.ready = !this.oldJobPending;
     }
     this.connected = true;
