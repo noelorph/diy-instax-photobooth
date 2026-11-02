@@ -239,7 +239,7 @@ it.each(['definitely_not_sent', 'server_cancelled'])(
         (await observation(f, attemptId, 'command_accepted', {}, randomUUID(), 1)).error?.message
       ).toBe('invalid_transition');
       localOwnerSql(
-        `update public.booth_grants set expires_at=clock_timestamp()-interval '1 second' where id='${f.grantId}'`
+        `update public.booth_grants set created_at=clock_timestamp()-interval '2 minutes',expires_at=clock_timestamp()-interval '1 minute' where id='${f.grantId}'`
       );
       expect((await observation(f, attemptId, 'command_accepted', {}, id)).error?.message).toBe(
         'access_required'
