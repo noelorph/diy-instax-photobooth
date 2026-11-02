@@ -242,7 +242,9 @@ export function BoothControls({
             )}
             {event.runState === 'Paused' && (
               <Button
-                disabled={disabled || !event.resumeAllowed || event.counts.unresolved > 0}
+                disabled={
+                  disabled || !equipmentFresh || !event.resumeAllowed || event.counts.unresolved > 0
+                }
                 onClick={() => void submit('resume')}
               >
                 Resume Booth

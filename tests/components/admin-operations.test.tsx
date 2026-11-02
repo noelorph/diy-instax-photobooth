@@ -105,6 +105,59 @@ it('shows durable Paused status and expires independently reported equipment rea
   expect(equipment.textContent).toContain('InternetNeeds check');
   expect(within(status).getByText('Booth paused')).toBeTruthy();
 });
+it('disables Resume when readiness expires and restores it only after a fresh scoped poll', async () => {
+  vi.useFakeTimers();
+  const visibility = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('hidden');
+  const equipment = {
+    expiresAt: new Date(Date.now() + 5000).toISOString(),
+    cameraLive: true,
+    printerConnected: true,
+    serverReachable: true,
+    filmLoaded: true,
+  };
+  const fetcher = vi.fn<(path: string, options?: RequestInit) => Promise<Response>>(async () =>
+    Response.json({
+      revision: event.revision,
+      allowedActions: { resume: true },
+      blockers: [],
+      equipment: { ...equipment, expiresAt: new Date(Date.now() + 5000).toISOString() },
+    })
+  );
+  vi.stubGlobal('fetch', fetcher);
+  render(
+    <OperationsPanel
+      adminUserId="admin-a"
+      event={{
+        ...event,
+        counts: packageCounts(1, 0, 0, 0),
+        resumeAllowed: true,
+        blockers: [],
+        equipment,
+      }}
+    />
+  );
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(5000);
+  });
+  const resume = screen.getByRole('button', { name: 'Resume Booth' });
+  expect(resume.hasAttribute('disabled')).toBe(false);
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
+  });
+  expect(screen.getByLabelText('Equipment status').textContent).toContain('CameraNeeds check');
+  expect(resume.hasAttribute('disabled')).toBe(true);
+  fireEvent.click(resume);
+  expect(fetcher).not.toHaveBeenCalled();
+  visibility.mockReturnValue('visible');
+  await act(async () => {
+    fireEvent(window, new Event('focus'));
+  });
+  expect(resume.hasAttribute('disabled')).toBe(false);
+  expect(screen.getByLabelText('Equipment status').textContent).toContain('CameraReady');
+  expect(screen.getByText('Booth paused')).toBeTruthy();
+  expect(fetcher).toHaveBeenCalledTimes(1);
+  expect(fetcher.mock.calls[0][0]).toBe(`/api/admin/events/${event.id}/booth/state`);
+});
 it('shows server package capacity and preserves the pending print at zero availability', () => {
   render(<OperationsPanel adminUserId="admin-a" event={event} />);
   expect(screen.getByText('50 total booked prints')).toBeTruthy();
@@ -798,7 +851,13 @@ it.each(['malformed', 'server error', 'timeout'])(
           revision: event.revision,
           allowedActions: { resume: true },
           blockers: [],
-          equipment: null,
+          equipment: {
+            expiresAt: new Date(Date.now() + 5000).toISOString(),
+            cameraLive: true,
+            printerConnected: true,
+            serverReachable: true,
+            filmLoaded: true,
+          },
         });
       if (failure === 'timeout')
         return new Promise((_resolve, reject) => {
@@ -857,6 +916,24 @@ it('guards Resume on authoritative readiness and explains independent blockers',
     <OperationsPanel
       adminUserId="admin-a"
       event={{ ...current, resumeAllowed: true, blockers: [] }}
+    />
+  );
+  expect(screen.getByRole('button', { name: 'Resume Booth' }).hasAttribute('disabled')).toBe(true);
+  view.rerender(
+    <OperationsPanel
+      adminUserId="admin-a"
+      event={{
+        ...current,
+        resumeAllowed: true,
+        blockers: [],
+        equipment: {
+          expiresAt: new Date(Date.now() + 5000).toISOString(),
+          cameraLive: true,
+          printerConnected: true,
+          serverReachable: true,
+          filmLoaded: true,
+        },
+      }}
     />
   );
   expect(screen.getByRole('button', { name: 'Resume Booth' }).hasAttribute('disabled')).toBe(false);

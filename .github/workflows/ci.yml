@@ -20,8 +20,7 @@ jobs:
     timeout-minutes: 30
 
     env:
-      NEXT_TELEMETRY_DISABLED: "1"
-      ADMIN_AUTH_ORIGIN: http://127.0.0.1:3000
+      NEXT_TELEMETRY_DISABLED: '1'
 
     steps:
       - name: Check out repository
@@ -30,7 +29,7 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v7
         with:
-          node-version: "24"
+          node-version: '24'
           cache: npm
 
       - name: Install dependencies
@@ -54,6 +53,8 @@ jobs:
           ' >> "$GITHUB_ENV"
 
       - name: Build application
+        env:
+          ADMIN_AUTH_ORIGIN: http://127.0.0.1:3000
         run: npm run build
 
       - name: Check TypeScript
@@ -61,6 +62,17 @@ jobs:
 
       - name: Run unit, component, and integration tests
         run: npm test
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Verify Booth setup and lifecycle
+        run: npx playwright test --config playwright.admin-booth.config.ts
+
+      - name: Verify production Booth restrictions
+        env:
+          BOOTH_SIMULATOR_ENABLED: 'true'
+        run: npx playwright test --config playwright.config.ts tests/e2e/admin-booth-handoff.spec.ts
 
       - name: Stop local Supabase
         if: always()
