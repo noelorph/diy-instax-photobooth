@@ -88,6 +88,9 @@ export function BoothSetup({
   } | null>(null);
   const [readiness, setReadiness] = useState<z.infer<typeof readinessSchema> | null>(null);
   const [readinessError, setReadinessError] = useState('');
+  const [setupDenial, setSetupDenial] = useState<
+    'qualification_required' | 'access_required' | null
+  >(null);
   const confirmations = useRef({
     filmLoadedConfirmed: false,
     powerConfirmed: false,
@@ -181,6 +184,7 @@ export function BoothSetup({
         }
         setReadiness(serverReady);
         setReadinessError('');
+        setSetupDenial(null);
         const eligible =
           serverReady.ready &&
           serverReady.counts.printsAvailable > 0 &&
@@ -209,14 +213,31 @@ export function BoothSetup({
           },
           Math.max(0, READINESS_MAX_AGE_MS - (Date.now() - Math.min(at, observedAt))) + 1
         );
-      } catch {
+      } catch (error) {
         if (mounted.current) {
           latest.current = null;
           setMeasured(null);
-          setReadinessError(
-            'Readiness could not be verified. Check the internet and reconnect equipment; setup will check again.'
-          );
           setReady(false);
+          const failure = z
+            .object({ status: z.number(), code: z.string().optional() })
+            .safeParse(error);
+          if (failure.success && [401, 403].includes(failure.data.status)) {
+            localSetup.current = false;
+            clearTimeout(expiry.current);
+            setReadiness(null);
+            const qualification = failure.data.code === 'qualification_required';
+            setSetupDenial(qualification ? 'qualification_required' : 'access_required');
+            setReadinessError(
+              qualification
+                ? 'Booth setup is unavailable on this server. For local testing, enable the development simulator and restart the server. Production printing still requires printer qualification.'
+                : 'Booth setup access was denied. Sign in again as Admin, then return to this Event and retry setup.'
+            );
+          } else {
+            setSetupDenial(null);
+            setReadinessError(
+              'Readiness could not be verified. Check the internet and reconnect equipment; setup will check again.'
+            );
+          }
         }
       }
     }
@@ -641,7 +662,30 @@ export function BoothSetup({
             ? 'Equipment ready. Start within five seconds of the latest check.'
             : 'Complete equipment setup and physical confirmations.'}
         </p>
-        {readinessError && <FormFeedback kind="error">{readinessError}</FormFeedback>}
+        {readinessError && (
+          <FormFeedback kind="error">
+            {readinessError}
+            {setupDenial && (
+              <>
+                <Button
+                  variant="secondary"
+                  disabled={busy || cameraBusy}
+                  onClick={() => {
+                    localSetup.current = true;
+                    void refresh();
+                  }}
+                >
+                  Retry setup checks
+                </Button>
+                {setupDenial === 'access_required' && (
+                  <Button asChild variant="quiet">
+                    <a href="/sign-in">Sign in</a>
+                  </Button>
+                )}
+              </>
+            )}
+          </FormFeedback>
+        )}
         {!!readiness?.blockers.length && (
           <ul aria-label="Readiness actions">
             {readiness.blockers.map((blocker) => (

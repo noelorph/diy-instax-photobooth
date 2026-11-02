@@ -79,6 +79,52 @@ async function admit(page: Page) {
     return { status: response.status, body: await response.json() };
   });
 }
+
+test('denied setup checks stop polling and recover only after an explicit recheck', async ({
+  browser,
+}) => {
+  const f = await createPackageBrowserFixture();
+  try {
+    const d = await devices(browser, f);
+    try {
+      let denied = true;
+      let rejectedRequests = 0;
+      await d.boothPage.route('**/booth/setup-readiness?*', (route) =>
+        route.continue({
+          headers: {
+            ...route.request().headers(),
+            ...(denied ? { 'x-package-admin-id': crypto.randomUUID() } : {}),
+          },
+        })
+      );
+      d.boothPage.on('response', (response) => {
+        if (response.url().includes('/booth/setup-readiness?') && response.status() === 403)
+          rejectedRequests++;
+      });
+      await d.boothPage.goto(`/events/${f.eventId}`);
+      const setup = d.boothPage.getByRole('region', { name: 'Booth setup' });
+      await setup.getByRole('button', { name: 'Enable Camera', exact: true }).click();
+      await expect(setup.getByRole('alert')).toContainText('Sign in again as Admin');
+      await expect(
+        setup.getByRole('button', { name: 'Start Booth Mode', exact: true })
+      ).toBeDisabled();
+      await d.boothPage.waitForTimeout(4500);
+      expect(rejectedRequests).toBe(1);
+      denied = false;
+      await setup.getByRole('button', { name: 'Retry setup checks', exact: true }).click();
+      await expect(setup.getByRole('alert')).toHaveCount(0);
+      await expect(setup.getByText('10 prints available', { exact: true })).toBeVisible();
+      await expect(
+        setup.getByRole('button', { name: 'Start Booth Mode', exact: true })
+      ).toBeDisabled();
+    } finally {
+      await d.close();
+    }
+  } finally {
+    await f.dispose();
+  }
+});
+
 test('setup handoff reestablishes scoped readiness before Guest admission', async ({ browser }) => {
   const f = await createPackageBrowserFixture();
   try {

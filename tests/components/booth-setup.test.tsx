@@ -31,6 +31,94 @@ it('setup explicit camera gesture requests permission; background refresh never 
   );
   expect(await screen.findByText(/Camera unavailable/)).toBeTruthy();
 });
+
+it.each([
+  ['GET', 403, 'qualification_required'],
+  ['POST', 403, 'qualification_required'],
+  ['GET', 401, 'access_required'],
+  ['GET', 403, 'operation_forbidden'],
+  ['POST', 403, 'operation_forbidden'],
+] as const)(
+  'stops automatic setup retries after %s %s %s and permits an explicit recheck',
+  async (method, status, code) => {
+    vi.useFakeTimers();
+    const track = { readyState: 'live', stop: vi.fn(), onended: null };
+    const getUserMedia = vi.fn(async () => ({
+      active: true,
+      getTracks: () => [track],
+      getVideoTracks: () => [track],
+    }));
+    vi.stubGlobal('navigator', { onLine: true, mediaDevices: { getUserMedia } });
+    vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue();
+    vi.spyOn(HTMLVideoElement.prototype, 'videoWidth', 'get').mockReturnValue(600);
+    vi.spyOn(HTMLVideoElement.prototype, 'videoHeight', 'get').mockReturnValue(800);
+    let denied = true;
+    const calls: string[] = [];
+    const fetcher = vi.fn(async (_path: string, init?: RequestInit) => {
+      const verb = init?.method ?? 'GET';
+      calls.push(verb);
+      if (denied && verb === method) return Response.json({ code }, { status });
+      const readiness = {
+        ready: false,
+        blockers: ['printer_connection'],
+        counts: { printsAvailable: 10 },
+      };
+      return Response.json(
+        verb === 'GET'
+          ? { revision: 1, readinessWindowId: crypto.randomUUID(), readiness }
+          : {
+              revision: 1,
+              replayed: false,
+              receipt: {
+                operationId: crypto.randomUUID(),
+                kind: 'report_setup_readiness',
+                committedRevision: 1,
+                result: readiness,
+              },
+            }
+      );
+    });
+    vi.stubGlobal('fetch', fetcher);
+    render(<BoothSetup eventId={crypto.randomUUID()} revision={1} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Enable Camera' }));
+    });
+    expect(getUserMedia).toHaveBeenCalledOnce();
+    const alert = screen.getByRole('alert');
+    expect(alert.textContent).toMatch(
+      code === 'qualification_required' ? /development simulator/ : /Sign in.*Admin/
+    );
+    expect(alert.textContent).not.toMatch(/Check the internet/);
+    if (code !== 'qualification_required')
+      expect(screen.getByRole('link', { name: 'Sign in' }).getAttribute('href')).toBe('/sign-in');
+    const deniedCalls = [...calls];
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(6000);
+      fireEvent(document, new Event('visibilitychange'));
+      fireEvent.click(screen.getByRole('checkbox', { name: 'Film is physically loaded' }));
+    });
+    expect(calls).toEqual(deniedCalls);
+    expect(screen.getByRole('button', { name: 'Start Booth Mode' }).hasAttribute('disabled')).toBe(
+      true
+    );
+    denied = false;
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Retry setup checks' }));
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText('10 prints available')).toBeTruthy();
+    const afterRetry = calls.length;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(calls.length).toBeGreaterThan(afterRetry);
+    expect(getUserMedia).toHaveBeenCalledOnce();
+    expect(screen.getByRole('button', { name: 'Start Booth Mode' }).hasAttribute('disabled')).toBe(
+      true
+    );
+  }
+);
+
 it.each([
   'fresh',
   'printer lost during window request',
@@ -618,56 +706,65 @@ it.each(['cancel while waiting', 'cancel after Start', 'readiness expires'] as c
   }
 );
 
-it('keeps failed checks actionable and shows authoritative capacity blockers after recovery', async () => {
-  vi.useFakeTimers();
-  vi.stubGlobal('navigator', { onLine: true });
-  let unavailable = true;
-  vi.stubGlobal('fetch', async (_path: string, init?: RequestInit) => {
-    if (unavailable) throw new TypeError('offline');
-    const readiness = {
-      ready: false,
-      blockers: ['camera', 'booked_prints_exhausted'],
-      counts: { printsAvailable: 0 },
-    };
-    return Response.json(
-      init?.body
-        ? {
-            revision: 1,
-            replayed: false,
-            receipt: {
-              operationId: crypto.randomUUID(),
-              kind: 'report_setup_readiness',
-              committedRevision: 1,
-              result: readiness,
-            },
-          }
-        : { revision: 1, readinessWindowId: crypto.randomUUID(), readiness }
+it.each(['network', 503, 409] as const)(
+  'keeps %s checks actionable and shows authoritative capacity blockers after recovery',
+  async (failure) => {
+    vi.useFakeTimers();
+    vi.stubGlobal('navigator', { onLine: true });
+    let unavailable = true;
+    vi.stubGlobal('fetch', async (_path: string, init?: RequestInit) => {
+      if (unavailable) {
+        if (failure === 'network') throw new TypeError('offline');
+        return Response.json(
+          { code: failure === 409 ? 'not_ready' : 'operation_unavailable' },
+          { status: failure }
+        );
+      }
+      const readiness = {
+        ready: false,
+        blockers: ['camera', 'booked_prints_exhausted'],
+        counts: { printsAvailable: 0 },
+      };
+      return Response.json(
+        init?.body
+          ? {
+              revision: 1,
+              replayed: false,
+              receipt: {
+                operationId: crypto.randomUUID(),
+                kind: 'report_setup_readiness',
+                committedRevision: 1,
+                result: readiness,
+              },
+            }
+          : { revision: 1, readinessWindowId: crypto.randomUUID(), readiness }
+      );
+    });
+    render(<BoothSetup eventId={crypto.randomUUID()} revision={1} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole('button', { name: 'Connect to Instax' }));
+    });
+    expect(screen.getByRole('alert').textContent).toMatch(
+      /Check the internet and reconnect equipment/
     );
-  });
-  render(<BoothSetup eventId={crypto.randomUUID()} revision={1} />);
-  await act(async () => {
-    fireEvent.click(screen.getByRole('button', { name: 'Connect to Instax' }));
-  });
-  expect(screen.getByRole('alert').textContent).toMatch(
-    /Check the internet and reconnect equipment/
-  );
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(2000);
-  });
-  expect(screen.getByRole('alert').textContent).toMatch(/Readiness could not be verified/);
-  unavailable = false;
-  await act(async () => {
-    await vi.advanceTimersByTimeAsync(2000);
-  });
-  expect(screen.queryByRole('alert')).toBeNull();
-  expect(screen.getByText('0 prints available')).toBeTruthy();
-  expect(screen.getByLabelText('Readiness actions').textContent).toMatch(
-    /Enable Camera.*Review the Event Film Packages/
-  );
-  expect(screen.getByLabelText('Measured equipment readiness').textContent).toBe(
-    'InternetReadyLive cameraUnavailableInstax connectionReadyPrinter readyReady'
-  );
-  expect(screen.getByRole('button', { name: 'Start Booth Mode' }).hasAttribute('disabled')).toBe(
-    true
-  );
-});
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(screen.getByRole('alert').textContent).toMatch(/Readiness could not be verified/);
+    unavailable = false;
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2000);
+    });
+    expect(screen.queryByRole('alert')).toBeNull();
+    expect(screen.getByText('0 prints available')).toBeTruthy();
+    expect(screen.getByLabelText('Readiness actions').textContent).toMatch(
+      /Enable Camera.*Review the Event Film Packages/
+    );
+    expect(screen.getByLabelText('Measured equipment readiness').textContent).toBe(
+      'InternetReadyLive cameraUnavailableInstax connectionReadyPrinter readyReady'
+    );
+    expect(screen.getByRole('button', { name: 'Start Booth Mode' }).hasAttribute('disabled')).toBe(
+      true
+    );
+  }
+);
