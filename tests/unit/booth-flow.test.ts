@@ -681,12 +681,16 @@ function guestSetup(baseCounts = counts) {
           ...(attemptState && attemptState !== 'Printed' && attemptState !== 'NotPrinted'
             ? ['print_pending']
             : []),
+          ...(attemptState === 'Printed' && baseCounts.printsAvailable === 1
+            ? ['booked_prints_exhausted']
+            : []),
           ...(!oldJobSafe ? ['printer_not_safe'] : []),
         ],
         allowedActions: {
           startGuest:
             !openSessionState &&
             oldJobSafe &&
+            !(attemptState === 'Printed' && baseCounts.printsAvailable === 1) &&
             (!attemptState || attemptState === 'Printed' || attemptState === 'NotPrinted'),
           reportReadiness: true,
         },
@@ -1082,6 +1086,92 @@ it('discards a late encoded photo after an immediate offline stop', async () => 
   expect(s.requests.filter(({ path }) => path === '/api/booth/print-attempts')).toHaveLength(0);
 });
 
+it('discards an encoded photo immediately when Pause arrives before Capture acknowledgement', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  const gate = deferred();
+  s.holdCapture(gate.promise);
+  const discard = vi.fn();
+  const shutter = s.flow.shutter(async () => ({
+    bytes: new Uint8Array([7]),
+    url: 'blob:pending-ack',
+    discard,
+  }));
+  await Promise.resolve();
+  s.setState('Paused');
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().phase).toBe('paused');
+  expect(discard).toHaveBeenCalledOnce();
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  expect(JSON.stringify(s.requests)).not.toContain('blob:pending-ack');
+  gate.resolve();
+  await shutter;
+  expect(discard).toHaveBeenCalledOnce();
+  expect(s.journal.readOperations()).toEqual([]);
+});
+
+it.each(['offline fault', 'dispose'])(
+  'discards an encoded photo immediately on %s before Capture acknowledgement',
+  async (stop) => {
+    const s = guestSetup();
+    await s.printer.connect();
+    await s.flow.initialize();
+    await s.flow.reportEquipment(observation);
+    await s.flow.start();
+    s.flow.countdown();
+    const gate = deferred();
+    s.holdCapture(gate.promise);
+    const discard = vi.fn();
+    const shutter = s.flow.shutter(async () => ({
+      bytes: new Uint8Array([7]),
+      url: 'blob:pending-ack',
+      discard,
+    }));
+    await Promise.resolve();
+    if (stop === 'dispose') s.flow.dispose();
+    else void s.flow.reportEquipment({ ...observation, serverReachable: false });
+    expect(discard).toHaveBeenCalledOnce();
+    expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+    expect(JSON.stringify(s.requests)).not.toContain('blob:pending-ack');
+    gate.resolve();
+    await shutter;
+    expect(discard).toHaveBeenCalledOnce();
+    expect(s.requests.filter(({ path }) => path === '/api/booth/captures')).toHaveLength(1);
+  }
+);
+
+it('discards encoding completed after stop without waiting for a held Capture acknowledgement', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  const encoding = deferred();
+  const acknowledgement = deferred();
+  s.holdCapture(acknowledgement.promise);
+  const discard = vi.fn();
+  const shutter = s.flow.shutter(() =>
+    encoding.promise.then(() => ({
+      bytes: new Uint8Array([7]),
+      url: 'blob:late-encoding',
+      discard,
+    }))
+  );
+  s.flow.dispose();
+  encoding.resolve();
+  await vi.waitFor(() => expect(discard).toHaveBeenCalledOnce());
+  expect(JSON.stringify(s.requests)).not.toContain('blob:late-encoding');
+  acknowledgement.resolve();
+  await shutter;
+  expect(discard).toHaveBeenCalledOnce();
+  expect(s.requests.filter(({ path }) => path === '/api/booth/captures')).toHaveLength(1);
+});
+
 it('keeps an authorized transport buffer until send settles after a fault', async () => {
   const s = guestSetup();
   await s.printer.connect();
@@ -1182,6 +1272,92 @@ it('sends one selected photo and confirms only an acknowledged full ejection', a
   expect(s.flow.getSnapshot().phase).toBe('confirmed');
   await vi.advanceTimersByTimeAsync(500);
   expect(s.flow.getSnapshot().phase).toBe('welcome');
+});
+
+it('keeps the final booked print confirmation visible through a state refresh', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup({
+    originalPackages: 1,
+    additionalPackages: 0,
+    totalBookedPrints: 10,
+    printed: 9,
+    unresolved: 0,
+    printsRemaining: 1,
+    printsAvailable: 1,
+  });
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:last',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
+  s.printer.emit('ready_for_new_job');
+  await vi.waitFor(() =>
+    expect(
+      s.requests.some(
+        ({ path, body }) => path.endsWith('/observations') && body?.kind === 'ready_for_new_job'
+      )
+    ).toBe(true)
+  );
+  await vi.advanceTimersByTimeAsync(2_000);
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().phase).toBe('confirmed');
+  expect(s.flow.getSnapshot().blockers).toContain('booked_prints_exhausted');
+  expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(0);
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+});
+
+it('keeps confirmation visible while the printer is clearing the completed job', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:waiting',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
+  await vi.advanceTimersByTimeAsync(2_000);
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().phase).toBe('confirmed');
+  expect(s.flow.getSnapshot().blockers).toContain('printer_not_safe');
+  expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(0);
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+});
+
+it('ends confirmation immediately on a genuine offline fault', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:printed',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
+  void s.flow.reportEquipment({ ...observation, serverReachable: false });
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(1);
 });
 
 it('acknowledges ready-for-new-job safety before dispatching the next Guest print', async () => {

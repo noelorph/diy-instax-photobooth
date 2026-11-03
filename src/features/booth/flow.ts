@@ -112,6 +112,7 @@ export class BoothFlow {
   private sessionClosing?: Promise<void>;
   private starting?: Promise<void>;
   private photo?: Photo;
+  private pendingPhoto?: Photo;
   private transportOwnsPhoto = false;
   private captureId?: string;
   private shutterCount = 0;
@@ -207,7 +208,11 @@ export class BoothFlow {
   }
   private stopForBlocker(blocker: string) {
     this.acknowledgedAt = 0;
-    if (!['preview', 'countdown', 'capturing', 'review', 'printing'].includes(this.view.phase)) {
+    if (
+      !['preview', 'countdown', 'capturing', 'review', 'printing', 'confirmed'].includes(
+        this.view.phase
+      )
+    ) {
       this.invalidateAdmission(blocker);
       return;
     }
@@ -225,9 +230,14 @@ export class BoothFlow {
     this.photo = undefined;
     this.captureId = undefined;
   }
+  private discardPendingPhoto() {
+    this.pendingPhoto?.discard();
+    this.pendingPhoto = undefined;
+  }
   private guestStopped() {
     this.clearInactivity();
     this.shutterGeneration++;
+    this.discardPendingPhoto();
     if (!this.transportOwnsPhoto) this.discardPhoto();
     if (this.sessionId) {
       const closing = this.endSession(this.sessionId);
@@ -398,6 +408,16 @@ export class BoothFlow {
             blocker === 'guest_session_open' ||
             (this.view.phase === 'printing' && blocker === 'print_pending')
         ));
+    const confirming =
+      this.view.phase === 'confirmed' &&
+      !!this.sessionId &&
+      camera &&
+      connected &&
+      reconciled &&
+      !!equipment?.observation.serverReachable &&
+      blockers.every((blocker) =>
+        ['guest_session_open', 'booked_prints_exhausted', 'printer_not_safe'].includes(blocker)
+      );
     const phase: Phase =
       state.state === 'Paused'
         ? 'paused'
@@ -406,7 +426,9 @@ export class BoothFlow {
           : state.state === 'Finished'
             ? 'finished'
             : state.state === 'Active' &&
-                (owningGuestReady || (state.allowedActions.startGuest && blockers.length === 0))
+                (confirming ||
+                  owningGuestReady ||
+                  (state.allowedActions.startGuest && blockers.length === 0))
               ? 'welcome'
               : 'unavailable';
     if (phase !== 'welcome' && this.sessionId) this.guestStopped();
@@ -475,6 +497,7 @@ export class BoothFlow {
     const capturedAt = new Date().toISOString();
     this.shutterCount++;
     this.show({ ...this.view, phase: 'capturing', shutterCount: this.shutterCount });
+    let encoded: Promise<Photo | undefined> | undefined;
     try {
       this.dependencies.journal.putOperation({
         kind: 'capture',
@@ -485,8 +508,20 @@ export class BoothFlow {
         capturedAt,
         recordedAt: Date.now(),
       });
+      encoded = pending.then((photo) => {
+        if (
+          generation !== this.shutterGeneration ||
+          this.disposed ||
+          this.sessionId !== sessionId
+        ) {
+          photo.discard();
+          return undefined;
+        }
+        this.pendingPhoto = photo;
+        return photo;
+      });
       const [photo, reply] = await Promise.all([
-        pending,
+        encoded,
         this.dependencies.transport(
           '/api/booth/captures',
           packageActionSchemas.recordCapture.parse({
@@ -504,11 +539,17 @@ export class BoothFlow {
       )
         throw new Error('Unexpected capture receipt');
       this.dependencies.journal.acknowledgeOperation(operationId);
-      if (generation !== this.shutterGeneration || this.disposed || this.sessionId !== sessionId) {
-        photo.discard();
+      if (
+        !photo ||
+        generation !== this.shutterGeneration ||
+        this.disposed ||
+        this.sessionId !== sessionId
+      ) {
+        if (this.pendingPhoto === photo) this.discardPendingPhoto();
         return;
       }
       this.discardPhoto();
+      this.pendingPhoto = undefined;
       this.photo = photo;
       this.captureId = captureId;
       this.show({
@@ -520,7 +561,7 @@ export class BoothFlow {
       });
     } catch (error) {
       if (generation === this.shutterGeneration) this.failure(error);
-      void pending.then((photo) => photo.discard()).catch(() => {});
+      if (!encoded) void pending.then((photo) => photo.discard()).catch(() => {});
     }
   }
   retake(): void {
