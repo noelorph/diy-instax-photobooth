@@ -267,6 +267,10 @@ export class BoothFlow {
     if (!printerReady) blockers.push('printer_not_safe');
     if (!this.acknowledgedAt || Date.now() - this.acknowledgedAt > READINESS_MAX_AGE_MS)
       blockers.push('readiness_stale');
+    const owningGuestReady =
+      (!!this.sessionId || !!this.starting) &&
+      state.state === 'Active' &&
+      blockers.every((blocker) => blocker === 'guest_session_open');
     const phase: Phase =
       state.state === 'Paused'
         ? 'paused'
@@ -274,7 +278,8 @@ export class BoothFlow {
           ? 'finishing'
           : state.state === 'Finished'
             ? 'finished'
-            : state.state === 'Active' && state.allowedActions.startGuest && blockers.length === 0
+            : state.state === 'Active' &&
+                (owningGuestReady || (state.allowedActions.startGuest && blockers.length === 0))
               ? 'welcome'
               : 'unavailable';
     if (phase !== 'welcome' && this.sessionId) this.guestStopped();

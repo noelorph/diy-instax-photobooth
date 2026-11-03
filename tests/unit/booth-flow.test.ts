@@ -627,6 +627,7 @@ function guestSetup() {
   let captureGate: Promise<void> | undefined;
   let startGate: Promise<void> | undefined;
   let state = 'Active';
+  let openSessionState = false;
   const flow = new BoothFlow({
     printer,
     journal,
@@ -638,8 +639,8 @@ function guestSetup() {
           runId,
           state,
           counts,
-          blockers: [],
-          allowedActions: { startGuest: true, reportReadiness: true },
+          blockers: openSessionState ? ['guest_session_open'] : [],
+          allowedActions: { startGuest: !openSessionState, reportReadiness: true },
           readinessWindowId: '00000000-0000-4000-8000-000000000001',
           printerId: 'simulator',
           connectionGeneration: 1,
@@ -684,6 +685,9 @@ function guestSetup() {
     },
     setState: (next: string) => {
       state = next;
+    },
+    setOpenSessionState: (value: boolean) => {
+      openSessionState = value;
     },
   };
 }
@@ -798,6 +802,7 @@ it('closes an active Guest Session and discards its photo when the run pauses', 
   const discard = vi.fn();
   s.flow.countdown();
   await s.flow.shutter(async () => ({ bytes: new Uint8Array([1]), url: 'blob:private', discard }));
+  s.setOpenSessionState(true);
   s.setState('Paused');
   await s.flow.refresh();
   expect(s.flow.getSnapshot().phase).toBe('paused');
@@ -821,4 +826,44 @@ it('coalesces repeated Start taps into one persisted session', async () => {
   gate.resolve();
   await Promise.all([first, second]);
   expect(s.flow.getSnapshot().phase).toBe('preview');
+});
+
+it('keeps the owning Guest active when the server reports its open session as an admission blocker', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.setOpenSessionState(true);
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().phase).toBe('preview');
+  expect(s.requests.filter((request) => request.path.endsWith('/end'))).toHaveLength(0);
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:selected',
+    discard: vi.fn(),
+  }));
+  expect(s.flow.getSnapshot().phase).toBe('review');
+  const selectedCaptureId = s.flow.getSnapshot().captureId;
+  await s.flow.print();
+  expect(
+    s.requests.find((request) => request.path === '/api/booth/print-attempts')?.body?.captureId
+  ).toBe(selectedCaptureId);
+});
+
+it('keeps a pending Start alive when its committed open session is polled before the receipt arrives', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  const gate = deferred();
+  s.holdStart(gate.promise);
+  const starting = s.flow.start();
+  s.setOpenSessionState(true);
+  await s.flow.refresh();
+  gate.resolve();
+  await starting;
+  expect(s.flow.getSnapshot().phase).toBe('preview');
+  expect(s.requests.filter((request) => request.path.endsWith('/end'))).toHaveLength(0);
 });

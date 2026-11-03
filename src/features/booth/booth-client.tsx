@@ -1,5 +1,5 @@
 'use client';
-import { useEffect, useRef, useState, useSyncExternalStore } from 'react';
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
 import { BoothFlow, boothFetch } from './flow';
 import { BrowserBoothCamera, type BoothCamera } from './camera';
 import { BrowserBoothMetadataJournal } from './print-journal';
@@ -46,7 +46,7 @@ export function BoothClient({
   const [busy, setBusy] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const wasGuest = useRef(false);
-  const report = () => {
+  const report = useCallback(() => {
     const live = hasLiveCamera(video.current);
     return flow.reportEquipment({
       cameraPermission: live,
@@ -56,7 +56,7 @@ export function BoothClient({
       printerReady: true,
       oldJobCleared: true,
     });
-  };
+  }, [flow]);
   useEffect(() => {
     const token = Symbol();
     owner.current = token;
@@ -114,9 +114,7 @@ export function BoothClient({
         }
       });
     };
-    // Resource callbacks belong to this mounted controller, never a setup surface.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [flow, camera]);
+  }, [flow, camera, report]);
   useEffect(() => {
     heading.current?.focus();
     if (['preview', 'countdown', 'capturing', 'review', 'printing'].includes(view.phase))
@@ -124,9 +122,11 @@ export function BoothClient({
     if (
       ['paused', 'finishing', 'finished', 'access-required'].includes(view.phase) ||
       (view.phase === 'unavailable' && wasGuest.current)
-    )
+    ) {
       camera.stop();
-  }, [view.phase, camera]);
+      void report();
+    }
+  }, [view.phase, camera, report]);
   useEffect(() => {
     if (view.phase !== 'countdown') return;
     let remaining = 3;

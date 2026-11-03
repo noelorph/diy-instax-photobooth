@@ -94,6 +94,74 @@ it('shows default welcome, mirrored preview, countdown and unmirrored selected r
   expect(discard).toHaveBeenCalledOnce();
   expect(screen.getByRole('button', { name: 'Take Photo' })).not.toBeNull();
 });
+
+it('requires a live camera again after pause stops the stream and the run quickly resumes', async () => {
+  const printer = new SimulatedPrinterV2('simulator');
+  await printer.connect();
+  let state = 'Active';
+  const flow = new BoothFlow({
+    printer,
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async (path, body) =>
+      path === '/api/booth/state'
+        ? {
+            revision: 1,
+            runId: '00000000-0000-4000-8000-000000000011',
+            state,
+            counts: {
+              originalPackages: 1,
+              additionalPackages: 0,
+              totalBookedPrints: 10,
+              printed: 0,
+              unresolved: 0,
+              printsRemaining: 10,
+              printsAvailable: 10,
+            },
+            blockers: [],
+            allowedActions: { startGuest: true, reportReadiness: true },
+            readinessWindowId: '00000000-0000-4000-8000-000000000012',
+            printerId: 'simulator',
+            connectionGeneration: 1,
+          }
+        : {
+            revision: 1,
+            replayed: false,
+            receipt: {
+              operationId: body!.operationId,
+              kind: 'report_readiness',
+              committedRevision: 1,
+              result: {},
+            },
+          },
+  });
+  let video: HTMLVideoElement;
+  const camera = {
+    start: async (element: HTMLVideoElement) => {
+      video = element;
+      Object.defineProperties(element, {
+        srcObject: {
+          value: { active: true, getVideoTracks: () => [{ readyState: 'live' }] },
+          configurable: true,
+        },
+        videoWidth: { value: 600, configurable: true },
+        videoHeight: { value: 800, configurable: true },
+      });
+    },
+    stop: vi.fn(() =>
+      Object.defineProperty(video, 'srcObject', { value: null, configurable: true })
+    ),
+    capture: vi.fn(),
+  };
+  render(<BoothClient flow={flow} camera={camera} />);
+  expect(await screen.findByRole('button', { name: 'Start' })).not.toBeNull();
+  state = 'Paused';
+  await act(() => flow.refresh());
+  expect(camera.stop).toHaveBeenCalled();
+  state = 'Active';
+  await act(() => flow.refresh());
+  expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Enable Camera' })).not.toBeNull();
+});
 it('arrival uses passive camera intent and Enable Camera uses explicit request', async () => {
   const printer = new SimulatedPrinterV2('simulator');
   const counts = {
