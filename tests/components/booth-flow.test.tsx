@@ -5,6 +5,95 @@ import { BoothFlow } from '@/features/booth/flow';
 import { SimulatedPrinterV2 } from '@/features/booth/printer/simulator-v2';
 import { BrowserBoothMetadataJournal } from '@/features/booth/print-journal';
 afterEach(cleanup);
+it('shows default welcome, mirrored preview, countdown and unmirrored selected review', async () => {
+  const printer = new SimulatedPrinterV2('simulator');
+  await printer.connect();
+  let revision = 1;
+  const captureBodies: Record<string, unknown>[] = [];
+  const flow = new BoothFlow({
+    printer,
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async (path, body) => {
+      if (path === '/api/booth/state')
+        return {
+          revision,
+          runId: '00000000-0000-4000-8000-000000000001',
+          state: 'Active',
+          counts: {
+            originalPackages: 1,
+            additionalPackages: 0,
+            totalBookedPrints: 10,
+            printed: 0,
+            unresolved: 0,
+            printsRemaining: 10,
+            printsAvailable: 10,
+          },
+          blockers: [],
+          allowedActions: { startGuest: true, reportReadiness: true },
+          readinessWindowId: '00000000-0000-4000-8000-000000000002',
+          printerId: 'simulator',
+          connectionGeneration: 1,
+        };
+      const kind =
+        path === '/api/booth/readiness'
+          ? 'report_readiness'
+          : path === '/api/booth/sessions'
+            ? 'start_session'
+            : path === '/api/booth/captures'
+              ? 'record_capture'
+              : 'reserve';
+      if (kind === 'record_capture') captureBodies.push(body!);
+      revision++;
+      return {
+        revision,
+        replayed: false,
+        receipt: {
+          operationId: body!.operationId,
+          kind,
+          committedRevision: revision,
+          result:
+            kind === 'start_session' ? { sessionId: '00000000-0000-4000-8000-000000000003' } : {},
+        },
+      };
+    },
+  });
+  const discard = vi.fn();
+  const camera = {
+    start: async (video: HTMLVideoElement) => {
+      Object.defineProperties(video, {
+        srcObject: {
+          value: { active: true, getVideoTracks: () => [{ readyState: 'live' }] },
+          configurable: true,
+        },
+        videoWidth: { value: 600, configurable: true },
+        videoHeight: { value: 800, configurable: true },
+      });
+    },
+    stop: vi.fn(),
+    capture: vi.fn(async () => ({
+      bytes: new Uint8Array([1, 2, 3]),
+      url: 'blob:selected',
+      discard,
+    })),
+  };
+  render(<BoothClient flow={flow} camera={camera} />);
+  expect(await screen.findByRole('button', { name: 'Start' })).not.toBeNull();
+  expect(screen.getByText(/one print/i)).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+  expect(await screen.findByRole('button', { name: 'Take Photo' })).not.toBeNull();
+  expect(screen.getByLabelText('Mirrored camera preview')).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Take Photo' }));
+  expect(await screen.findByText('3')).not.toBeNull();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 3100));
+  });
+  expect(await screen.findByRole('img', { name: 'Your final photo' })).not.toBeNull();
+  expect((screen.getByRole('button', { name: 'Print' }) as HTMLButtonElement).disabled).toBe(false);
+  expect(captureBodies).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Retake' }));
+  expect(discard).toHaveBeenCalledOnce();
+  expect(screen.getByRole('button', { name: 'Take Photo' })).not.toBeNull();
+});
 it('arrival uses passive camera intent and Enable Camera uses explicit request', async () => {
   const printer = new SimulatedPrinterV2('simulator');
   const counts = {

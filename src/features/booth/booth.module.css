@@ -68,6 +68,17 @@
 .preview {
   transform: scaleX(-1);
 }
+.previewHidden {
+  visibility: hidden;
+}
+.emptyFrame {
+  position: absolute;
+  inset: 12% 25%;
+}
+.photo {
+  position: absolute;
+  inset: 0;
+}
 .countdown {
   position: absolute;
   inset: 0;
@@ -91,6 +102,13 @@
   gap: 24px;
   justify-content: center;
   flex-wrap: wrap;
+}
+.actions p {
+  width: 100%;
+}
+.booth .shutter {
+  min-width: 88px;
+  min-height: 88px;
 }
 .booth button,
 .booth a {

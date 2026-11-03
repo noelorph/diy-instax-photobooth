@@ -10,7 +10,13 @@ const dispatchBase = {
   connectionGeneration: z.number().int().nonnegative(),
 };
 const journalEntrySchema = z.union([
-  z.strictObject({ ...base, kind: z.literal('capture'), sessionId: id }),
+  z.strictObject({
+    ...base,
+    kind: z.literal('capture'),
+    sessionId: id,
+    captureId: id,
+    capturedAt: z.iso.datetime(),
+  }),
   z.strictObject({ ...base, kind: z.literal('reservation'), sessionId: id, captureId: id }),
   z.strictObject({ ...dispatchBase, phase: z.literal('requested') }),
   z.strictObject({ ...dispatchBase, phase: z.literal('authorized'), dispatchId: id }),

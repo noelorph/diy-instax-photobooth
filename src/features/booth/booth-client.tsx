@@ -44,6 +44,8 @@ export function BoothClient({
   const owner = useRef<symbol | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
   const [busy, setBusy] = useState(false);
+  const [countdown, setCountdown] = useState(3);
+  const wasGuest = useRef(false);
   const report = () => {
     const live = hasLiveCamera(video.current);
     return flow.reportEquipment({
@@ -117,8 +119,27 @@ export function BoothClient({
   }, [flow, camera]);
   useEffect(() => {
     heading.current?.focus();
-    if (view.phase === 'finished' || view.phase === 'access-required') camera.stop();
+    if (['preview', 'countdown', 'capturing', 'review', 'printing'].includes(view.phase))
+      wasGuest.current = true;
+    if (
+      ['paused', 'finishing', 'finished', 'access-required'].includes(view.phase) ||
+      (view.phase === 'unavailable' && wasGuest.current)
+    )
+      camera.stop();
   }, [view.phase, camera]);
+  useEffect(() => {
+    if (view.phase !== 'countdown') return;
+    let remaining = 3;
+    const timer = window.setInterval(() => {
+      remaining--;
+      if (remaining > 0) setCountdown(remaining);
+      else {
+        clearInterval(timer);
+        void flow.shutter(() => camera.capture());
+      }
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [view.phase, flow, camera]);
   async function enableCamera() {
     if (busy || !video.current) return;
     const token = owner.current;
@@ -157,6 +178,11 @@ export function BoothClient({
   const titles = {
     loading: 'Preparing Booth Mode',
     welcome: 'Make a memory',
+    preview: 'Take your photo',
+    countdown: 'Get ready',
+    capturing: 'Preparing your photo',
+    review: 'Your photo',
+    printing: 'Preparing your print',
     paused: 'Booth paused',
     finishing: 'Finishing Booth Mode',
     finished: 'Booth Mode finished',
@@ -166,6 +192,11 @@ export function BoothClient({
   const messages = {
     loading: 'Please wait while Booth access is checked.',
     welcome: 'Equipment ready.',
+    preview: 'Look at the camera, then take your photo.',
+    countdown: 'Hold still.',
+    capturing: 'Please wait.',
+    review: 'Choose Retake or Print.',
+    printing: 'Please wait for the print outcome.',
     paused: 'Please wait for the Admin to resume from the phone.',
     finishing: view.counts?.unresolved
       ? 'Waiting for the current print to be resolved.'
@@ -178,7 +209,14 @@ export function BoothClient({
         : 'Please inform the Admin.',
   };
   const needsAdmin = view.phase === 'access-required' || view.phase === 'unavailable';
-  const showPreview = view.phase === 'welcome';
+  const showPreview = [
+    'welcome',
+    'preview',
+    'countdown',
+    'capturing',
+    'review',
+    'printing',
+  ].includes(view.phase);
   const StatusIcon =
     view.phase === 'paused'
       ? CirclePause
@@ -199,11 +237,22 @@ export function BoothClient({
         <div className={styles.frame} hidden={!showPreview}>
           <video
             ref={video}
-            className={styles.preview}
+            className={`${styles.preview} ${view.phase === 'welcome' || view.phase === 'review' || view.phase === 'printing' ? styles.previewHidden : ''}`}
             muted
             playsInline
             aria-label="Mirrored camera preview"
           />
+          {view.phase === 'welcome' && <div className={styles.emptyFrame} aria-hidden="true" />}
+          {(view.phase === 'review' || view.phase === 'printing') && view.photoUrl && (
+            // Browser-owned blob URLs are never sent to the Next image optimizer.
+            // eslint-disable-next-line @next/next/no-img-element
+            <img className={styles.photo} src={view.photoUrl} alt="Your final photo" />
+          )}
+          {view.phase === 'countdown' && (
+            <div className={styles.countdown} aria-live="assertive">
+              {countdown}
+            </div>
+          )}
         </div>
         <div role="status" className={styles.status}>
           {!needsAdmin && messages[view.phase] && <p>{messages[view.phase]}</p>}
@@ -216,6 +265,39 @@ export function BoothClient({
               : null}
         </p>
         <div className={styles.actions}>
+          {view.phase === 'welcome' && (
+            <>
+              <p>One print per turn. Your photo stays on this device until printing is done.</p>
+              <button
+                disabled={busy}
+                onClick={() => {
+                  setBusy(true);
+                  void flow.start().finally(() => setBusy(false));
+                }}
+              >
+                Start
+              </button>
+            </>
+          )}
+          {view.phase === 'preview' && (
+            <button
+              className={styles.shutter}
+              onClick={() => {
+                setCountdown(3);
+                flow.countdown();
+              }}
+            >
+              Take Photo
+            </button>
+          )}
+          {view.phase === 'review' && (
+            <>
+              <button className={styles.secondary} onClick={() => flow.retake()}>
+                Retake
+              </button>
+              <button onClick={() => void flow.print()}>Print</button>
+            </>
+          )}
           {view.allowedActions.enableCamera && (
             <button disabled={busy} onClick={() => void enableCamera()}>
               Enable Camera

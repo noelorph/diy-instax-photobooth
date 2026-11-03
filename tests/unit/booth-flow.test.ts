@@ -616,3 +616,209 @@ it('settles an in-flight readiness write before changing its connection generati
   await s.flow.reportEquipment(observation);
   expect(s.flow.getSnapshot().phase).toBe('welcome');
 });
+
+function guestSetup() {
+  const requests: { path: string; body?: Record<string, unknown> }[] = [];
+  const runId = crypto.randomUUID();
+  const sessionId = crypto.randomUUID();
+  const printer = new SimulatedPrinterV2('simulator');
+  const journal = new BrowserBoothMetadataJournal(sessionStorage);
+  let revision = 1;
+  let captureGate: Promise<void> | undefined;
+  let startGate: Promise<void> | undefined;
+  let state = 'Active';
+  const flow = new BoothFlow({
+    printer,
+    journal,
+    transport: async (path, body) => {
+      requests.push({ path, body });
+      if (path === '/api/booth/state')
+        return {
+          revision,
+          runId,
+          state,
+          counts,
+          blockers: [],
+          allowedActions: { startGuest: true, reportReadiness: true },
+          readinessWindowId: '00000000-0000-4000-8000-000000000001',
+          printerId: 'simulator',
+          connectionGeneration: 1,
+        };
+      const kind =
+        path === '/api/booth/readiness'
+          ? 'report_readiness'
+          : path === '/api/booth/sessions'
+            ? 'start_session'
+            : path === '/api/booth/captures'
+              ? 'record_capture'
+              : path === '/api/booth/print-attempts'
+                ? 'reserve'
+                : 'end_session';
+      if (kind === 'start_session') await startGate;
+      if (kind === 'record_capture') await captureGate;
+      revision++;
+      return {
+        revision,
+        replayed: false,
+        receipt: {
+          operationId: body!.operationId,
+          kind,
+          committedRevision: revision,
+          result: kind === 'start_session' ? { sessionId } : {},
+        },
+      };
+    },
+  });
+  owned.push(flow);
+  return {
+    flow,
+    printer,
+    journal,
+    requests,
+    sessionId,
+    holdCapture: (gate?: Promise<void>) => {
+      captureGate = gate;
+    },
+    holdStart: (gate?: Promise<void>) => {
+      startGate = gate;
+    },
+    setState: (next: string) => {
+      state = next;
+    },
+  };
+}
+
+it('starts a persisted Guest Session and records each completed shutter before review', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  expect(s.flow.getSnapshot().phase).toBe('welcome');
+  await s.flow.start();
+  expect(s.flow.getSnapshot().phase).toBe('preview');
+  const firstDiscard = vi.fn();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:first',
+    discard: firstDiscard,
+  }));
+  expect(s.flow.getSnapshot().phase).toBe('review');
+  const firstCaptureId = s.flow.getSnapshot().captureId;
+  s.flow.retake();
+  expect(firstDiscard).toHaveBeenCalledOnce();
+  expect(s.flow.getSnapshot().phase).toBe('preview');
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([2]),
+    url: 'blob:second',
+    discard: vi.fn(),
+  }));
+  const selectedCaptureId = s.flow.getSnapshot().captureId;
+  expect(selectedCaptureId).not.toBe(firstCaptureId);
+  const recordCaptureBodies = s.requests
+    .filter((request) => request.path === '/api/booth/captures')
+    .map((request) => request.body!);
+  expect(recordCaptureBodies).toHaveLength(2);
+  expect(recordCaptureBodies.every((body) => !('image' in body) && !('url' in body))).toBe(true);
+  expect(s.flow.getSnapshot().shutterCount).toBe(2);
+  expect(s.journal.readOperations()).toEqual([]);
+  expect(JSON.stringify(s.requests)).not.toContain('blob:');
+});
+
+it('keeps Print unavailable until the selected shutter is acknowledged and reserves that ID', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  const gate = deferred();
+  s.holdCapture(gate.promise);
+  s.flow.countdown();
+  const shutter = s.flow.shutter(async () => ({
+    bytes: new Uint8Array([7]),
+    url: 'blob:selected',
+    discard: vi.fn(),
+  }));
+  expect(s.flow.getSnapshot().phase).toBe('capturing');
+  await s.flow.print();
+  expect(s.requests.filter((request) => request.path === '/api/booth/print-attempts')).toHaveLength(
+    0
+  );
+  expect(s.journal.readOperations()).toMatchObject([
+    { kind: 'capture', capturedAt: expect.any(String), captureId: expect.any(String) },
+  ]);
+  gate.resolve();
+  await shutter;
+  const selectedCaptureId = s.flow.getSnapshot().captureId;
+  await s.flow.print();
+  const reservationBody = s.requests.find(
+    (request) => request.path === '/api/booth/print-attempts'
+  )?.body;
+  expect(reservationBody?.captureId).toBe(selectedCaptureId);
+  expect(s.flow.getSnapshot().phase).toBe('printing');
+  expect(s.journal.readOperations()).toMatchObject([
+    { kind: 'reservation', captureId: selectedCaptureId },
+  ]);
+});
+
+it('does not count a pre-shutter cancellation or retain a photo completed after stop', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(() => {
+    throw new Error('camera stopped before draw');
+  });
+  expect(s.flow.getSnapshot().shutterCount).toBe(0);
+  expect(s.requests.filter((request) => request.path === '/api/booth/captures')).toHaveLength(0);
+  s.flow.countdown();
+  const photo = deferred();
+  const discard = vi.fn();
+  const shutter = s.flow.shutter(() =>
+    photo.promise.then(() => ({ bytes: new Uint8Array([9]), url: 'blob:late', discard }))
+  );
+  expect(s.journal.readOperations()).toMatchObject([{ kind: 'capture' }]);
+  s.flow.dispose();
+  photo.resolve();
+  await shutter;
+  expect(discard).toHaveBeenCalledOnce();
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  expect(s.requests.filter((request) => request.path === '/api/booth/captures')).toHaveLength(1);
+});
+
+it('closes an active Guest Session and discards its photo when the run pauses', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  const discard = vi.fn();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({ bytes: new Uint8Array([1]), url: 'blob:private', discard }));
+  s.setState('Paused');
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().phase).toBe('paused');
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  expect(discard).toHaveBeenCalledOnce();
+  expect(
+    s.requests.find((request) => request.path === `/api/booth/sessions/${s.sessionId}/end`)?.body
+  ).toMatchObject({ reason: 'booth_stopped' });
+});
+
+it('coalesces repeated Start taps into one persisted session', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  const gate = deferred();
+  s.holdStart(gate.promise);
+  const first = s.flow.start();
+  const second = s.flow.start();
+  expect(s.requests.filter((request) => request.path === '/api/booth/sessions')).toHaveLength(1);
+  gate.resolve();
+  await Promise.all([first, second]);
+  expect(s.flow.getSnapshot().phase).toBe('preview');
+});

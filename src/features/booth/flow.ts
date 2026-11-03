@@ -17,12 +17,25 @@ export type BoothTransport = (
 ) => Promise<unknown>;
 export type Photo = { bytes: Uint8Array; url: string; discard: () => void };
 export type Phase =
-  'loading' | 'welcome' | 'paused' | 'finishing' | 'finished' | 'access-required' | 'unavailable';
+  | 'loading'
+  | 'welcome'
+  | 'preview'
+  | 'countdown'
+  | 'capturing'
+  | 'review'
+  | 'printing'
+  | 'paused'
+  | 'finishing'
+  | 'finished'
+  | 'access-required'
+  | 'unavailable';
 export type View = {
   phase: Phase;
   title?: string;
   message?: string;
   photoUrl?: string;
+  captureId?: string;
+  shutterCount?: number;
   counts?: PackageCounts;
   blockers: readonly string[];
   allowedActions: { connectPrinter: boolean; enableCamera: boolean };
@@ -87,6 +100,12 @@ export class BoothFlow {
     printer: PrinterReadinessSnapshot;
   };
   private acknowledgedAt = 0;
+  private sessionId?: string;
+  private starting?: Promise<void>;
+  private photo?: Photo;
+  private captureId?: string;
+  private shutterCount = 0;
+  private shutterGeneration = 0;
   constructor(
     private readonly dependencies: {
       transport: BoothTransport;
@@ -115,6 +134,24 @@ export class BoothFlow {
         blockers: [...new Set([...this.view.blockers, blocker])],
       });
   }
+  private discardPhoto() {
+    this.photo?.discard();
+    this.photo = undefined;
+    this.captureId = undefined;
+  }
+  private guestStopped() {
+    this.shutterGeneration++;
+    this.discardPhoto();
+    if (this.sessionId) this.endSession(this.sessionId);
+    this.sessionId = undefined;
+  }
+  private endSession(sessionId: string) {
+    const body = packageActionSchemas.endSession.parse({
+      operationId: crypto.randomUUID(),
+      reason: 'booth_stopped',
+    });
+    void this.dependencies.transport(`/api/booth/sessions/${sessionId}/end`, body).catch(() => {});
+  }
   private failure(error: unknown) {
     if (this.disposed || this.view.phase === 'finished') return;
     this.acknowledgedAt = 0;
@@ -122,6 +159,7 @@ export class BoothFlow {
       typeof error === 'object' && error !== null && 'status' in error ? error.status : undefined;
     const access = status === 401 || status === 403 || this.view.phase === 'access-required';
     if (access) this.state = undefined;
+    this.guestStopped();
     this.show({
       ...(!access ? this.view : {}),
       phase: access
@@ -186,6 +224,7 @@ export class BoothFlow {
       if (this.disposed) return;
       if (z.object({ state: z.literal('Finished') }).safeParse(raw).success) {
         this.state = undefined;
+        this.guestStopped();
         this.show({ phase: 'finished', blockers: [], allowedActions: emptyActions });
         return;
       }
@@ -238,12 +277,152 @@ export class BoothFlow {
             : state.state === 'Active' && state.allowedActions.startGuest && blockers.length === 0
               ? 'welcome'
               : 'unavailable';
+    if (phase !== 'welcome' && this.sessionId) this.guestStopped();
     this.show({
-      phase,
+      phase: phase === 'welcome' && this.sessionId ? this.view.phase : phase,
+      photoUrl: this.photo?.url,
+      captureId: this.captureId,
+      shutterCount: this.shutterCount,
       counts: state.counts,
       blockers: [...new Set(blockers)],
       allowedActions: { connectPrinter: !connected || !reconciled, enableCamera: !camera },
     });
+  }
+  start(): Promise<void> {
+    if (this.starting) return this.starting;
+    return (this.starting = this.beginSession().finally(() => {
+      this.starting = undefined;
+    }));
+  }
+  private async beginSession(): Promise<void> {
+    if (this.view.phase !== 'welcome' || !this.state || this.sessionId) return;
+    const state = this.state;
+    const body = packageActionSchemas.startSession.parse({
+      operationId: crypto.randomUUID(),
+      expectedRevision: state.revision,
+    });
+    try {
+      const reply = packageReplySchema.parse(
+        await this.dependencies.transport('/api/booth/sessions', body, this.requests.signal)
+      );
+      if (reply.receipt.operationId !== body.operationId || reply.receipt.kind !== 'start_session')
+        throw new Error('Unexpected session receipt');
+      const sessionId = z.uuid().parse(reply.receipt.result.sessionId);
+      if (this.disposed || this.state?.state !== 'Active' || this.view.phase !== 'welcome') {
+        this.endSession(sessionId);
+        return;
+      }
+      this.sessionId = sessionId;
+      this.shutterCount = 0;
+      this.show({ ...this.view, phase: 'preview', shutterCount: 0 });
+    } catch (error) {
+      this.failure(error);
+    }
+  }
+  countdown(): void {
+    if (this.view.phase === 'preview' && this.sessionId)
+      this.show({ ...this.view, phase: 'countdown' });
+  }
+  async shutter(capture: () => Promise<Photo>): Promise<void> {
+    if (this.view.phase !== 'countdown' || !this.sessionId || !this.state) return;
+    let pending: Promise<Photo>;
+    try {
+      pending = capture();
+    } catch {
+      this.show({ ...this.view, phase: 'preview' });
+      return;
+    }
+    const generation = ++this.shutterGeneration;
+    const sessionId = this.sessionId;
+    const operationId = crypto.randomUUID();
+    const captureId = crypto.randomUUID();
+    const capturedAt = new Date().toISOString();
+    this.shutterCount++;
+    this.show({ ...this.view, phase: 'capturing', shutterCount: this.shutterCount });
+    try {
+      this.dependencies.journal.putOperation({
+        kind: 'capture',
+        operationId,
+        runId: this.state.runId,
+        sessionId,
+        captureId,
+        capturedAt,
+        recordedAt: Date.now(),
+      });
+      const [photo, reply] = await Promise.all([
+        pending,
+        this.dependencies.transport(
+          '/api/booth/captures',
+          packageActionSchemas.recordCapture.parse({
+            operationId,
+            sessionId,
+            captureId,
+            capturedAt,
+          })
+        ),
+      ]);
+      const acknowledged = packageReplySchema.parse(reply);
+      if (
+        acknowledged.receipt.operationId !== operationId ||
+        acknowledged.receipt.kind !== 'record_capture'
+      )
+        throw new Error('Unexpected capture receipt');
+      this.dependencies.journal.acknowledgeOperation(operationId);
+      if (generation !== this.shutterGeneration || this.disposed || this.sessionId !== sessionId) {
+        photo.discard();
+        return;
+      }
+      this.discardPhoto();
+      this.photo = photo;
+      this.captureId = captureId;
+      this.show({
+        ...this.view,
+        phase: 'review',
+        photoUrl: photo.url,
+        captureId,
+        shutterCount: this.shutterCount,
+      });
+    } catch (error) {
+      if (generation === this.shutterGeneration) this.failure(error);
+      void pending.then((photo) => photo.discard()).catch(() => {});
+    }
+  }
+  retake(): void {
+    if (this.view.phase !== 'review' || !this.sessionId) return;
+    this.discardPhoto();
+    this.show({ ...this.view, phase: 'preview', photoUrl: undefined, captureId: undefined });
+  }
+  async print(): Promise<void> {
+    if (this.view.phase !== 'review' || !this.sessionId || !this.captureId || !this.photo) return;
+    const sessionId = this.sessionId;
+    const captureId = this.captureId;
+    this.show({ ...this.view, phase: 'printing' });
+    try {
+      await this.refresh();
+      if (this.getSnapshot().phase !== 'printing' || !this.state || this.sessionId !== sessionId)
+        return;
+      const body = packageActionSchemas.reserve.parse({
+        operationId: crypto.randomUUID(),
+        expectedRevision: this.state.revision,
+        sessionId,
+        captureId,
+      });
+      this.dependencies.journal.putOperation({
+        kind: 'reservation',
+        operationId: body.operationId,
+        runId: this.state.runId,
+        sessionId,
+        captureId,
+        recordedAt: Date.now(),
+      });
+      const reply = packageReplySchema.parse(
+        await this.dependencies.transport('/api/booth/print-attempts', body, this.requests.signal)
+      );
+      if (reply.receipt.operationId !== body.operationId || reply.receipt.kind !== 'reserve')
+        throw new Error('Unexpected reservation receipt');
+    } catch (error) {
+      this.failure(error);
+    }
   }
   reportEquipment(observation: z.infer<typeof readinessObservationSchema>): Promise<void> {
     if (this.disposed || this.connecting) return Promise.resolve();
@@ -413,6 +592,7 @@ export class BoothFlow {
   }
   dispose() {
     this.disposed = true;
+    this.guestStopped();
     this.requests.abort();
     clearTimeout(this.expiry);
     this.acknowledgedAt = 0;
