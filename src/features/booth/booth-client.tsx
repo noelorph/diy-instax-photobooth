@@ -44,6 +44,7 @@ export function BoothClient({
   const video = useRef<HTMLVideoElement>(null);
   const owner = useRef<symbol | null>(null);
   const heading = useRef<HTMLHeadingElement>(null);
+  const continueButton = useRef<HTMLButtonElement>(null);
   const [busy, setBusy] = useState(false);
   const [countdown, setCountdown] = useState(3);
   const wasGuest = useRef(false);
@@ -143,6 +144,9 @@ export function BoothClient({
     }
   }, [view.phase, camera, report]);
   useEffect(() => {
+    if (view.inactivityWarning) continueButton.current?.focus();
+  }, [view.inactivityWarning]);
+  useEffect(() => {
     if (view.phase !== 'countdown') return;
     let remaining = 3;
     const timer = window.setInterval(() => {
@@ -175,23 +179,22 @@ export function BoothClient({
       setBusy(false);
     }
   }
-  const unavailable = view.counts?.unresolved
-    ? 'Booth is temporarily unavailable.'
-    : view.counts?.printsRemaining === 0
-      ? 'All booked prints have been used.'
+  const unavailable =
+    view.counts?.printsRemaining === 0
+      ? 'All booked prints have been used. Please ask the Admin to add another Film Package.'
       : view.blockers.includes('offline')
-        ? 'Wi-Fi disconnected.'
+        ? 'Wi-Fi disconnected. Please inform the Admin.'
         : view.blockers.includes('server_unreachable')
-          ? 'Connection unavailable.'
+          ? 'Connection unavailable. Please inform the Admin.'
           : view.blockers.includes('printer_connection') || view.allowedActions.connectPrinter
-            ? 'Bluetooth disconnected.'
+            ? 'Bluetooth disconnected. Please inform the Admin.'
             : view.blockers.includes('camera')
-              ? 'Camera disconnected.'
+              ? 'Camera disconnected. Please inform the Admin.'
               : view.blockers.includes('film_reload_needed')
-                ? 'Printer is out of film.'
+                ? 'Printer is out of film. Please inform the Admin.'
                 : view.blockers.includes('booked_prints_exhausted')
-                  ? 'All booked prints have been used.'
-                  : 'Booth is temporarily unavailable.';
+                  ? 'All booked prints have been used. Please ask the Admin to add another Film Package.'
+                  : 'Booth is temporarily unavailable. Please inform the Admin.';
   const titles = {
     loading: 'Preparing Booth Mode',
     welcome: 'Make a memory',
@@ -222,10 +225,7 @@ export function BoothClient({
       : 'Waiting for Booth Mode to finish.',
     finished: '',
     'access-required': 'Please inform the Admin.',
-    unavailable:
-      unavailable === 'All booked prints have been used.'
-        ? 'Please ask the Admin to add another Film Package.'
-        : 'Please inform the Admin.',
+    unavailable: '',
   };
   const needsAdmin = view.phase === 'access-required' || view.phase === 'unavailable';
   const showPreview = [
@@ -275,12 +275,19 @@ export function BoothClient({
         </div>
         <div role="status" className={styles.status}>
           {!needsAdmin && messages[view.phase] && <p>{messages[view.phase]}</p>}
+          {view.inactivityWarning && (
+            <p className={styles.warning}>
+              Your turn will end soon. Select Continue to keep going.
+            </p>
+          )}
         </div>
         <p role="alert" className={styles.alert}>
           {view.counts?.unresolved
             ? 'A print outcome is pending. Please inform the Admin. New Guests must wait.'
             : needsAdmin
-              ? messages[view.phase]
+              ? view.phase === 'unavailable'
+                ? unavailable
+                : messages[view.phase]
               : null}
         </p>
         <div className={styles.actions}>
@@ -307,6 +314,11 @@ export function BoothClient({
               }}
             >
               Take Photo
+            </button>
+          )}
+          {view.inactivityWarning && (
+            <button ref={continueButton} onClick={() => flow.continueGuest()}>
+              Continue
             </button>
           )}
           {view.phase === 'review' && (

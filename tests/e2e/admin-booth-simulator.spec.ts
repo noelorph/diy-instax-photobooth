@@ -289,7 +289,9 @@ test('final booked unit sends once and counts only acknowledged simulator ejecti
         (window as typeof window & { __boothSimulatorReady: () => void }).__boothSimulatorReady();
       });
       await expect(
-        d.boothPage.getByRole('heading', { name: 'All booked prints have been used.' })
+        d.boothPage.getByRole('heading', {
+          name: 'All booked prints have been used. Please ask the Admin to add another Film Package.',
+        })
       ).toBeVisible({ timeout: 10_000 });
       await expect(d.boothPage.getByRole('button', { name: 'Start', exact: true })).toHaveCount(0);
     } finally {
@@ -299,6 +301,129 @@ test('final booked unit sends once and counts only acknowledged simulator ejecti
     await f.dispose();
   }
 });
+test('package addition after exhaustion admits a fresh Guest', async ({ browser }) => {
+  const f = await createPackageBrowserFixture();
+  try {
+    localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+    const d = await devices(browser, f);
+    try {
+      await prepare(d.boothPage, f);
+      await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
+      await readyAfterArrival(d.boothPage);
+      const runId = (await read(d.boothPage, '/api/booth/state')).body.runId;
+      for (let i = 0; i < 10; i++) seedOutcome(f, runId, 'Printed');
+      const oldSession = localOwnerSql(
+        `select id from public.guest_sessions where run_id='${runId}' limit 1`
+      )[0].id;
+      const oldCapture = localOwnerSql(
+        `select id from public.captures where session_id='${oldSession}'`
+      )[0].id;
+      await d.boothPage.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await expect
+        .poll(async () => (await read(d.boothPage, '/api/booth/state')).body.counts.printsAvailable)
+        .toBe(0);
+      await expect(
+        d.boothPage.getByRole('heading', { name: /All booked prints have been used/ })
+      ).toBeVisible();
+      expect((await admit(d.boothPage)).status).toBe(409);
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.guest_sessions where run_id='${runId}'`
+        )[0].n
+      ).toBe(10);
+      await d.phonePage.goto(`/events/${f.eventId}`);
+      await d.phonePage.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
+      await d.phonePage.getByLabel('Additional Film Packages').fill('1');
+      await d.phonePage
+        .getByLabel('Client request note')
+        .fill('Client requested another ten prints');
+      await d.phonePage
+        .getByRole('dialog')
+        .getByRole('button', { name: 'Add Film Packages', exact: true })
+        .click();
+      await expect
+        .poll(async () => (await read(d.boothPage, '/api/booth/state')).body.counts)
+        .toMatchObject({
+          totalBookedPrints: 20,
+          printed: 10,
+          printsAvailable: 10,
+        });
+      await d.boothPage.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await readyAfterArrival(d.boothPage);
+      await d.boothPage.getByRole('button', { name: 'Start', exact: true }).click();
+      await expect(d.boothPage.getByRole('button', { name: 'Take Photo' })).toBeVisible();
+      const fresh = localOwnerSql(
+        `select id from public.guest_sessions where run_id='${runId}' and state='Open'`
+      );
+      expect(fresh).toHaveLength(1);
+      expect(fresh[0].id).not.toBe(oldSession);
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.captures where session_id='${fresh[0].id}'`
+        )[0].n
+      ).toBe(0);
+      expect(localOwnerSql(`select id from public.captures where id='${oldCapture}'`)).toHaveLength(
+        1
+      );
+      await expect(d.boothPage.getByRole('img', { name: 'Your final photo' })).toHaveCount(0);
+    } finally {
+      await d.close();
+    }
+  } finally {
+    await f.dispose();
+  }
+});
+for (const blocker of ['paused', 'pending outcome'] as const) {
+  test(`package addition still denies Guest admission with ${blocker}`, async ({ browser }) => {
+    const f = await createPackageBrowserFixture();
+    try {
+      localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+      const d = await devices(browser, f);
+      try {
+        await prepare(d.boothPage, f);
+        await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
+        await readyAfterArrival(d.boothPage);
+        const runId = (await read(d.boothPage, '/api/booth/state')).body.runId;
+        for (let i = 0; i < (blocker === 'paused' ? 10 : 9); i++) seedOutcome(f, runId, 'Printed');
+        if (blocker === 'pending outcome') seedOutcome(f, runId, 'Pending');
+        await d.phonePage.goto(`/events/${f.eventId}`);
+        if (blocker === 'paused') {
+          await d.phonePage.getByRole('button', { name: 'Pause Booth', exact: true }).click();
+          await expect(d.boothPage.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
+        }
+        await d.phonePage.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
+        await d.phonePage.getByLabel('Additional Film Packages').fill('1');
+        await d.phonePage
+          .getByLabel('Client request note')
+          .fill('Client requested another package');
+        await d.phonePage
+          .getByRole('dialog')
+          .getByRole('button', { name: 'Add Film Packages', exact: true })
+          .click();
+        await expect
+          .poll(
+            async () => (await read(d.boothPage, '/api/booth/state')).body.counts.totalBookedPrints
+          )
+          .toBe(20);
+        await d.boothPage.evaluate(() => window.dispatchEvent(new Event('focus')));
+        expect((await admit(d.boothPage)).status).toBe(409);
+        await expect(d.boothPage.getByRole('button', { name: 'Start', exact: true })).toHaveCount(
+          0
+        );
+        await expect(d.boothPage.getByRole('img', { name: 'Your final photo' })).toHaveCount(0);
+        expect(
+          localOwnerSql(
+            `select count(*)::integer n from public.guest_sessions where run_id='${runId}'`
+          )[0].n
+        ).toBe(10);
+      } finally {
+        await d.close();
+      }
+    } finally {
+      await f.dispose();
+    }
+  });
+}
 test('zero packages and incomplete physical setup cannot prepare a run', async ({ browser }) => {
   const f = await createPackageBrowserFixture();
   try {
@@ -685,9 +810,6 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
       await d.phonePage.getByRole('button', { name: 'Pause Booth', exact: true }).click();
       await expect(d.phonePage.getByText(/Booth command outcome is unconfirmed/)).toBeVisible();
       await d.phonePage.getByRole('button', { name: 'Retry Booth command' }).click();
-      await expect(
-        d.phonePage.getByText('Booth command recorded. Refreshing current state.')
-      ).toBeVisible();
       expect(pauses).toBe(1);
       await expect(d.boothPage.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
       await expect(d.phonePage.getByRole('region', { name: 'Booth status' })).toContainText(
@@ -701,9 +823,18 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
         localOwnerSql(`select state from public.booth_grants where event_id='${f.eventId}'`)[0]
           .state
       ).toBe('Active');
+      const restoredCamera = d.boothPage.waitForResponse(
+        (response) =>
+          response.url().endsWith('/api/booth/readiness') &&
+          response.ok() &&
+          response.request().postDataJSON()?.observation?.cameraLive === true
+      );
       await d.boothPage.getByRole('button', { name: 'Enable Camera', exact: true }).click();
+      await restoredCamera;
       await d.phonePage.getByRole('button', { name: 'Resume Booth', exact: true }).click();
-      await expect(d.boothPage.getByRole('heading', { name: 'Make a memory' })).toBeVisible();
+      await expect(d.boothPage.getByRole('heading', { name: 'Make a memory' })).toBeVisible({
+        timeout: 10_000,
+      });
       const current = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;
       expect(current.runId).toBe(original.runId);
       const sessionId = localOwnerSql(

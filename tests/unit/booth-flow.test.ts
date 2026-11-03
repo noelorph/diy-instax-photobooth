@@ -878,6 +878,171 @@ it('starts a persisted Guest Session and records each completed shutter before r
   expect(JSON.stringify(s.requests)).not.toContain('blob:');
 });
 
+it('warns at 75 seconds, ends the idle Guest at 90 seconds, and discards review photo', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  await vi.advanceTimersByTimeAsync(74_999);
+  expect(s.flow.getSnapshot().inactivityWarning).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(s.flow.getSnapshot().inactivityWarning).toBe(true);
+  s.flow.continueGuest();
+  expect(s.flow.getSnapshot().inactivityWarning).toBe(false);
+  await vi.advanceTimersByTimeAsync(74_999);
+  expect(s.flow.getSnapshot().inactivityWarning).toBe(false);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(s.flow.getSnapshot().inactivityWarning).toBe(true);
+  s.flow.continueGuest();
+  s.flow.countdown();
+  const discard = vi.fn();
+  await s.flow.shutter(async () => ({ bytes: new Uint8Array([7]), url: 'blob:idle', discard }));
+  await vi.advanceTimersByTimeAsync(89_999);
+  expect(s.flow.getSnapshot().phase).toBe('review');
+  expect(discard).not.toHaveBeenCalled();
+  await vi.advanceTimersByTimeAsync(1);
+  expect(discard).toHaveBeenCalledOnce();
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  expect(s.requests.some(({ path }) => path === `/api/booth/sessions/${s.sessionId}/end`)).toBe(
+    true
+  );
+  await s.flow.reportEquipment(observation);
+  expect(s.flow.getSnapshot().phase).toBe('welcome');
+  await s.flow.start();
+  expect(s.requests.filter(({ path }) => path === '/api/booth/sessions')).toHaveLength(2);
+  expect(s.flow.getSnapshot().phase).toBe('preview');
+  expect(s.flow.getSnapshot().captureId).toBeUndefined();
+});
+
+it('does not time out the Guest during countdown or printing', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await vi.advanceTimersByTimeAsync(90_000);
+  expect(s.flow.getSnapshot().phase).toBe('countdown');
+  expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(0);
+  const p = guestSetup();
+  await p.printer.connect();
+  await p.flow.initialize();
+  await p.flow.reportEquipment(observation);
+  await p.flow.start();
+  p.flow.countdown();
+  await p.flow.shutter(async () => ({
+    bytes: new Uint8Array([3]),
+    url: 'blob:print',
+    discard: vi.fn(),
+  }));
+  await p.flow.print();
+  await vi.advanceTimersByTimeAsync(90_000);
+  expect(p.flow.getSnapshot().phase).toBe('printing');
+  expect(p.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(0);
+});
+
+it('stops a reviewed Guest immediately on camera loss before an asynchronous readiness read', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  const discard = vi.fn();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({ bytes: new Uint8Array([9]), url: 'blob:private', discard }));
+  const gate = deferred();
+  const read = s.printer.readReadiness.bind(s.printer);
+  vi.spyOn(s.printer, 'readReadiness').mockImplementation(async () => {
+    await gate.promise;
+    return read();
+  });
+  const reporting = s.flow.reportEquipment({ ...observation, cameraLive: false });
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  expect(discard).toHaveBeenCalledOnce();
+  expect(s.requests.some(({ path }) => path.endsWith('/end'))).toBe(true);
+  gate.resolve();
+  await reporting;
+  expect(s.requests.filter(({ path }) => path === '/api/booth/print-attempts')).toHaveLength(0);
+  await s.flow.reportEquipment(observation);
+  expect(s.flow.getSnapshot().phase).toBe('welcome');
+  await s.flow.start();
+  expect(s.requests.filter(({ path }) => path === '/api/booth/sessions')).toHaveLength(2);
+  expect(s.flow.getSnapshot().captureId).toBeUndefined();
+});
+
+it('stops a reviewed Guest on an adapter connection-change callback', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  const discard = vi.fn();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({ bytes: new Uint8Array([9]), url: 'blob:printer', discard }));
+  s.printer.emit('connection_changed');
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('unavailable'));
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  expect(discard).toHaveBeenCalledOnce();
+  expect(s.requests.some(({ path }) => path.endsWith('/end'))).toBe(true);
+});
+
+it('discards a late encoded photo after an immediate offline stop', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  const gate = deferred();
+  const discard = vi.fn();
+  const shutter = s.flow.shutter(() =>
+    gate.promise.then(() => ({ bytes: new Uint8Array([7]), url: 'blob:late', discard }))
+  );
+  void s.flow.reportEquipment({ ...observation, serverReachable: false });
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  gate.resolve();
+  await shutter;
+  expect(discard).toHaveBeenCalledOnce();
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  expect(s.requests.filter(({ path }) => path === '/api/booth/print-attempts')).toHaveLength(0);
+});
+
+it('keeps an authorized transport buffer until send settles after a fault', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  const discard = vi.fn();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([8]),
+    url: 'blob:transport',
+    discard,
+  }));
+  const gate = deferred();
+  const send = s.printer.sendOnce.bind(s.printer);
+  vi.spyOn(s.printer, 'sendOnce').mockImplementation(async (authorization, bytes) => {
+    await send(authorization, bytes);
+    await gate.promise;
+  });
+  const printing = s.flow.print();
+  await vi.waitFor(() => expect(s.printer.commandCount).toBe(1));
+  void s.flow.reportEquipment({ ...observation, serverReachable: false });
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  expect(discard).not.toHaveBeenCalled();
+  gate.resolve();
+  await printing;
+  expect(discard).toHaveBeenCalledOnce();
+  expect(s.printer.commandCount).toBe(1);
+  expect(JSON.stringify(s.requests)).not.toContain('blob:transport');
+});
+
 it('keeps Print unavailable until the selected shutter is acknowledged and reserves that ID', async () => {
   const s = guestSetup();
   await s.printer.connect();
@@ -1092,10 +1257,11 @@ it('closes the old session before clearing a reservation with no receipt', async
   await s.flow.reportEquipment(observation);
   await s.flow.start();
   s.flow.countdown();
+  const discard = vi.fn();
   await s.flow.shutter(async () => ({
     bytes: new Uint8Array([6]),
     url: 'blob:reserve-lost',
-    discard: vi.fn(),
+    discard,
   }));
   s.loseReserveResponse();
   await s.flow.print();
@@ -1105,6 +1271,8 @@ it('closes the old session before clearing a reservation with no receipt', async
   );
   expect(s.journal.readOperations()).toEqual([]);
   expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  expect(discard).toHaveBeenCalledOnce();
 });
 
 it('reconciles the server pending attempt on reload with an empty journal', async () => {

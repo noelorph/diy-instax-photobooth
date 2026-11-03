@@ -27,6 +27,8 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
   const reservationBodies: Record<string, unknown>[] = [];
   const dispatchBodies: Record<string, unknown>[] = [];
   const requests: { path: string; body: Record<string, unknown> }[] = [];
+  const logs: string[] = [];
+  page.on('console', (message) => logs.push(message.text()));
   await page.route('**/api/booth/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
     const body = (route.request().postDataJSON() ?? {}) as Record<string, unknown>;
@@ -138,6 +140,7 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
       Object.values(sessionStorage).some((value) => /blob:|data:|jpeg|bytes/i.test(value))
     )
   ).toBe(false);
+  expect(logs.join(' ')).not.toMatch(/blob:|data:image|base64|jpeg/i);
 });
 
 test('invalid grant does not expose a Guest action or Event details', async ({ page }) => {

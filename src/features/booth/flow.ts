@@ -42,6 +42,7 @@ export type View = {
   photoUrl?: string;
   captureId?: string;
   shutterCount?: number;
+  inactivityWarning?: boolean;
   counts?: PackageCounts;
   blockers: readonly string[];
   allowedActions: { connectPrinter: boolean; enableCamera: boolean };
@@ -108,6 +109,7 @@ export class BoothFlow {
   };
   private acknowledgedAt = 0;
   private sessionId?: string;
+  private sessionClosing?: Promise<void>;
   private starting?: Promise<void>;
   private photo?: Photo;
   private transportOwnsPhoto = false;
@@ -121,6 +123,8 @@ export class BoothFlow {
   private observing = Promise.resolve();
   private readonly stopObserving: () => void;
   private completion?: ReturnType<typeof setTimeout>;
+  private warningTimer?: ReturnType<typeof setTimeout>;
+  private timeoutTimer?: ReturnType<typeof setTimeout>;
   constructor(
     private readonly dependencies: {
       transport: BoothTransport;
@@ -145,8 +149,46 @@ export class BoothFlow {
   };
   private show(view: View) {
     if (this.disposed) return;
-    this.view = view;
+    const changed = this.view.phase !== view.phase;
+    this.view = {
+      ...view,
+      inactivityWarning: view.inactivityWarning ?? (changed ? false : this.view.inactivityWarning),
+    };
+    if (changed) {
+      this.clearInactivity();
+      if (view.phase === 'preview' || view.phase === 'review') this.startInactivity();
+    }
     this.listeners.forEach((listener) => listener());
+  }
+  private clearInactivity() {
+    clearTimeout(this.warningTimer);
+    clearTimeout(this.timeoutTimer);
+  }
+  private startInactivity() {
+    this.warningTimer = setTimeout(() => {
+      this.show({ ...this.view, inactivityWarning: true });
+    }, 75_000);
+    this.timeoutTimer = setTimeout(() => void this.timeout(), 90_000);
+  }
+  continueGuest(): void {
+    if (!this.view.inactivityWarning || !['preview', 'review'].includes(this.view.phase)) return;
+    this.clearInactivity();
+    this.show({ ...this.view, inactivityWarning: false });
+    this.startInactivity();
+  }
+  async timeout(): Promise<void> {
+    if (!['preview', 'review'].includes(this.view.phase) || !this.sessionId) return;
+    const sessionId = this.sessionId;
+    this.shutterGeneration++;
+    this.discardPhoto();
+    this.sessionId = undefined;
+    this.show({ ...this.view, phase: 'unavailable', photoUrl: undefined, captureId: undefined });
+    try {
+      await this.closeSession(sessionId);
+      await this.refresh();
+    } catch (error) {
+      this.failure(error);
+    }
   }
   private invalidateAdmission(blocker: string) {
     this.acknowledgedAt = 0;
@@ -157,23 +199,53 @@ export class BoothFlow {
         blockers: [...new Set([...this.view.blockers, blocker])],
       });
   }
+  private stopForBlocker(blocker: string) {
+    this.acknowledgedAt = 0;
+    if (!['preview', 'countdown', 'capturing', 'review', 'printing'].includes(this.view.phase)) {
+      this.invalidateAdmission(blocker);
+      return;
+    }
+    this.guestStopped();
+    this.show({
+      ...this.view,
+      phase: 'unavailable',
+      photoUrl: undefined,
+      captureId: undefined,
+      blockers: [...new Set([...this.view.blockers, blocker])],
+    });
+  }
   private discardPhoto() {
     this.photo?.discard();
     this.photo = undefined;
     this.captureId = undefined;
   }
   private guestStopped() {
+    this.clearInactivity();
     this.shutterGeneration++;
     if (!this.transportOwnsPhoto) this.discardPhoto();
-    if (this.sessionId) this.endSession(this.sessionId);
+    if (this.sessionId) {
+      const closing = this.endSession(this.sessionId);
+      this.sessionClosing = closing;
+      void closing
+        .catch(() => {
+          this.pendingRecovery = true;
+        })
+        .finally(() => {
+          if (this.sessionClosing === closing) this.sessionClosing = undefined;
+        });
+    }
     this.sessionId = undefined;
   }
-  private endSession(sessionId: string) {
+  private async endSession(sessionId: string) {
     const body = packageActionSchemas.endSession.parse({
       operationId: crypto.randomUUID(),
       reason: 'booth_stopped',
     });
-    void this.dependencies.transport(`/api/booth/sessions/${sessionId}/end`, body).catch(() => {});
+    const reply = packageReplySchema.parse(
+      await this.dependencies.transport(`/api/booth/sessions/${sessionId}/end`, body)
+    );
+    if (reply.receipt.operationId !== body.operationId || reply.receipt.kind !== 'end_session')
+      throw new Error('Unexpected session end receipt');
   }
   private failure(error: unknown) {
     if (this.disposed || this.view.phase === 'finished') return;
@@ -202,6 +274,8 @@ export class BoothFlow {
             ]),
           ],
       allowedActions: access ? emptyActions : this.view.allowedActions,
+      photoUrl: undefined,
+      captureId: undefined,
     });
   }
   initialize(handoffId?: string) {
@@ -302,6 +376,7 @@ export class BoothFlow {
       equipment.printer.connectionGeneration === printer.connectionGeneration;
     const blockers = [...state.blockers];
     if (this.pendingRecovery) blockers.push('print_pending');
+    if (this.sessionClosing) blockers.push('guest_session_closing');
     if (equipment && !equipment.observation.serverReachable) blockers.push('offline');
     if (!camera) blockers.push('camera');
     if (!connected) blockers.push('printer_connection');
@@ -360,7 +435,9 @@ export class BoothFlow {
         throw new Error('Unexpected session receipt');
       const sessionId = z.uuid().parse(reply.receipt.result.sessionId);
       if (this.disposed || this.state?.state !== 'Active' || this.view.phase !== 'welcome') {
-        this.endSession(sessionId);
+        void this.endSession(sessionId).catch(() => {
+          this.pendingRecovery = true;
+        });
         return;
       }
       this.sessionId = sessionId;
@@ -683,7 +760,7 @@ export class BoothFlow {
     if (!runId || this.disposed) return;
     if (observation.kind === 'connection_changed') {
       this.equipmentEpoch++;
-      this.invalidateAdmission('printer_connection');
+      this.stopForBlocker('printer_connection');
     }
     const attemptId =
       'attemptId' in observation
@@ -784,15 +861,14 @@ export class BoothFlow {
       readinessWindowId: this.state?.readinessWindowId,
     };
     if (negative) {
-      this.invalidateAdmission(
-        !parsed.serverReachable
-          ? 'offline'
-          : !parsed.cameraLive || !parsed.cameraPermission
-            ? 'camera'
-            : !parsed.printerConnected
-              ? 'printer_connection'
-              : 'printer_not_safe'
-      );
+      const blocker = !parsed.serverReachable
+        ? 'offline'
+        : !parsed.cameraLive || !parsed.cameraPermission
+          ? 'camera'
+          : !parsed.printerConnected
+            ? 'printer_connection'
+            : 'printer_not_safe';
+      this.stopForBlocker(blocker);
       if (this.equipment) this.equipment.observation = parsed;
       void this.project();
     }
@@ -937,6 +1013,7 @@ export class BoothFlow {
     this.requests.abort();
     clearTimeout(this.expiry);
     clearTimeout(this.completion);
+    this.clearInactivity();
     this.acknowledgedAt = 0;
     this.listeners.clear();
   }

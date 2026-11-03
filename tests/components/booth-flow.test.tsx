@@ -5,6 +5,54 @@ import { BoothFlow } from '@/features/booth/flow';
 import { SimulatedPrinterV2 } from '@/features/booth/printer/simulator-v2';
 import { BrowserBoothMetadataJournal } from '@/features/booth/print-journal';
 afterEach(cleanup);
+it('offers an accessible Continue action during preview inactivity', async () => {
+  const flow = new BoothFlow({
+    printer: new SimulatedPrinterV2('simulator'),
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async () => ({}),
+  });
+  vi.spyOn(flow, 'initialize').mockResolvedValue();
+  vi.spyOn(flow, 'getSnapshot').mockReturnValue({
+    phase: 'preview',
+    inactivityWarning: true,
+    blockers: [],
+    allowedActions: { enableCamera: false, connectPrinter: false },
+  });
+  const continuing = vi.spyOn(flow, 'continueGuest');
+  render(<BoothClient flow={flow} camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }} />);
+  expect(screen.getByRole('status').textContent).toContain('Continue');
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Continue' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  expect(continuing).toHaveBeenCalledOnce();
+});
+it('announces camera loss even when a print outcome remains pending', () => {
+  const flow = new BoothFlow({
+    printer: new SimulatedPrinterV2('simulator'),
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async () => ({}),
+  });
+  vi.spyOn(flow, 'initialize').mockResolvedValue();
+  vi.spyOn(flow, 'getSnapshot').mockReturnValue({
+    phase: 'unavailable',
+    counts: {
+      originalPackages: 1,
+      additionalPackages: 0,
+      totalBookedPrints: 10,
+      printed: 0,
+      unresolved: 1,
+      printsRemaining: 10,
+      printsAvailable: 9,
+    },
+    blockers: ['camera', 'print_pending'],
+    allowedActions: { enableCamera: true, connectPrinter: false },
+  });
+  vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
+  render(<BoothClient flow={flow} camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }} />);
+  expect(screen.getByRole('heading').textContent).toBe(
+    'Camera disconnected. Please inform the Admin.'
+  );
+  expect(screen.getByRole('alert').textContent).toContain('A print outcome is pending');
+});
 it('shows default welcome, mirrored preview, countdown and unmirrored selected review', async () => {
   const printer = new SimulatedPrinterV2('simulator');
   await printer.connect();
