@@ -1340,7 +1340,8 @@ it('keeps confirmation visible while the printer is clearing the completed job',
   expect(s.flow.getSnapshot().phase).toBe('unavailable');
 });
 
-it('ends confirmation immediately on a genuine offline fault', async () => {
+it('keeps a three-second confirmation after a long print makes admission readiness stale', async () => {
+  vi.useFakeTimers();
   const s = guestSetup();
   await s.printer.connect();
   await s.flow.initialize();
@@ -1349,16 +1350,79 @@ it('ends confirmation immediately on a genuine offline fault', async () => {
   s.flow.countdown();
   await s.flow.shutter(async () => ({
     bytes: new Uint8Array([1]),
-    url: 'blob:printed',
+    url: 'blob:long-print',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  await vi.advanceTimersByTimeAsync(5_001);
+  await s.flow.reportEquipment(observation);
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
+  await vi.advanceTimersByTimeAsync(2_000);
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().phase).toBe('confirmed');
+  expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(0);
+  await vi.advanceTimersByTimeAsync(1_000);
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+});
+
+it('ends confirmation when the live printer becomes unready after clearing the old job', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:printer-fault',
     discard: vi.fn(),
   }));
   await s.flow.print();
   s.printer.emit('full_ejection_confirmed', s.authorization);
   await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
-  void s.flow.reportEquipment({ ...observation, serverReachable: false });
+  s.printer.emit('ready_for_new_job');
+  await vi.waitFor(() =>
+    expect(
+      s.requests.some(
+        ({ path, body }) => path.endsWith('/observations') && body?.kind === 'ready_for_new_job'
+      )
+    ).toBe(true)
+  );
+  const read = s.printer.readReadiness.bind(s.printer);
+  vi.spyOn(s.printer, 'readReadiness').mockImplementation(async () => ({
+    ...(await read()),
+    ready: false,
+  }));
+  await s.flow.refresh();
   expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  expect(s.flow.getSnapshot().blockers).toContain('printer_not_safe');
   expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(1);
 });
+
+it.each(['serverReachable', 'cameraLive'] as const)(
+  'ends confirmation immediately on a negative %s report',
+  async (field) => {
+    const s = guestSetup();
+    await s.printer.connect();
+    await s.flow.initialize();
+    await s.flow.reportEquipment(observation);
+    await s.flow.start();
+    s.flow.countdown();
+    await s.flow.shutter(async () => ({
+      bytes: new Uint8Array([1]),
+      url: 'blob:printed',
+      discard: vi.fn(),
+    }));
+    await s.flow.print();
+    s.printer.emit('full_ejection_confirmed', s.authorization);
+    await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
+    void s.flow.reportEquipment({ ...observation, [field]: false });
+    expect(s.flow.getSnapshot().phase).toBe('unavailable');
+    expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(1);
+  }
+);
 
 it('acknowledges ready-for-new-job safety before dispatching the next Guest print', async () => {
   vi.useFakeTimers();

@@ -411,12 +411,20 @@ export class BoothFlow {
     const confirming =
       this.view.phase === 'confirmed' &&
       !!this.sessionId &&
-      camera &&
+      !!equipment?.observation.cameraLive &&
+      !!equipment.observation.cameraPermission &&
       connected &&
       reconciled &&
+      (printer.ready || !!this.awaitingJobSafetyAttemptId) &&
       !!equipment?.observation.serverReachable &&
       blockers.every((blocker) =>
-        ['guest_session_open', 'booked_prints_exhausted', 'printer_not_safe'].includes(blocker)
+        [
+          'guest_session_open',
+          'booked_prints_exhausted',
+          'printer_not_safe',
+          'camera',
+          'readiness_stale',
+        ].includes(blocker)
       );
     const phase: Phase =
       state.state === 'Paused'
