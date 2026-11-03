@@ -3,6 +3,8 @@ import { expect, test } from '@playwright/test';
 // Guest photos remain ephemeral: screenshots, video, tracing and attachments are disabled.
 const runId = '00000000-0000-4000-8000-000000000001';
 const sessionId = '00000000-0000-4000-8000-000000000002';
+const attemptId = '00000000-0000-4000-8000-000000000004';
+const dispatchId = '00000000-0000-4000-8000-000000000005';
 const counts = {
   originalPackages: 1,
   additionalPackages: 0,
@@ -20,8 +22,10 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
   let revision = 1;
   let generation = 0;
   let sessionOpen = false;
+  let pending = false;
   const captureBodies: Record<string, unknown>[] = [];
   const reservationBodies: Record<string, unknown>[] = [];
+  const dispatchBodies: Record<string, unknown>[] = [];
   const requests: { path: string; body: Record<string, unknown> }[] = [];
   await page.route('**/api/booth/**', async (route) => {
     const path = new URL(route.request().url()).pathname;
@@ -33,12 +37,16 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
           revision,
           runId,
           state: 'Active',
-          counts,
-          blockers: sessionOpen ? ['guest_session_open'] : [],
+          counts: pending ? { ...counts, unresolved: 1, printsAvailable: 9 } : counts,
+          blockers: [
+            ...(sessionOpen ? ['guest_session_open'] : []),
+            ...(pending ? ['print_pending'] : []),
+          ],
           allowedActions: { startGuest: !sessionOpen, reportReadiness: true },
           readinessWindowId: '00000000-0000-4000-8000-000000000003',
           printerId: 'simulator',
           connectionGeneration: generation,
+          pendingAttemptId: pending ? attemptId : null,
         },
       });
       return;
@@ -47,7 +55,11 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
       generation = body.connectionGeneration as number;
     if (path === '/api/booth/sessions') sessionOpen = true;
     if (path === '/api/booth/captures') captureBodies.push(body);
-    if (path === '/api/booth/print-attempts') reservationBodies.push(body);
+    if (path === '/api/booth/print-attempts') {
+      reservationBodies.push(body);
+      pending = true;
+    }
+    if (path.endsWith('/dispatch')) dispatchBodies.push(body);
     const kind =
       path === '/api/booth/readiness'
         ? 'report_readiness'
@@ -57,7 +69,9 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
             ? 'record_capture'
             : path === '/api/booth/print-attempts'
               ? 'reserve'
-              : 'end_session';
+              : path.endsWith('/dispatch')
+                ? 'dispatch'
+                : 'end_session';
     revision++;
     await route.fulfill({
       json: {
@@ -67,8 +81,26 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
           operationId: body.operationId,
           kind,
           committedRevision: revision,
-          result: kind === 'start_session' ? { sessionId } : {},
+          result:
+            kind === 'start_session'
+              ? { sessionId }
+              : kind === 'reserve'
+                ? { attemptId, state: 'Reserved' }
+                : kind === 'dispatch'
+                  ? { attemptId, state: 'Dispatching' }
+                  : {},
         },
+        ...(kind === 'dispatch'
+          ? {
+              sendAllowed: true,
+              authorization: {
+                attemptId,
+                dispatchId,
+                printerId: 'simulator',
+                connectionGeneration: generation,
+              },
+            }
+          : {}),
       },
     });
   });
@@ -96,6 +128,7 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
   await expect(page.getByRole('heading', { name: 'Preparing your print' })).toBeVisible();
   expect(captureBodies).toHaveLength(2);
   await expect.poll(() => reservationBodies.length).toBe(1);
+  await expect.poll(() => dispatchBodies.length).toBe(1);
   expect(reservationBodies[0].captureId).toBe(captureBodies[1].captureId);
   expect(
     requests.every(({ body }) => !('image' in body) && !('url' in body) && !('bytes' in body))

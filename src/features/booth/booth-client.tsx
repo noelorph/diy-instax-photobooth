@@ -7,6 +7,7 @@ import { getBoothPrinter, hasLiveCamera } from './equipment';
 import { STATE_POLL_MS } from '@/lib/operations/package-contract';
 import styles from './booth.module.css';
 import { CirclePause, CircleCheck, KeyRound, LoaderCircle, TriangleAlert } from 'lucide-react';
+import type { DispatchAuthorization } from '@/lib/operations/package-contract';
 export function BoothPaused() {
   return (
     <main className={styles.booth}>
@@ -60,6 +61,18 @@ export function BoothClient({
   useEffect(() => {
     const token = Symbol();
     owner.current = token;
+    const controls = window as Window & {
+      __boothSimulatorEject?: (authorization: DispatchAuthorization) => void;
+      __boothSimulatorReady?: () => void;
+    };
+    if (
+      process.env.NODE_ENV !== 'production' &&
+      process.env.NEXT_PUBLIC_BOOTH_SIMULATOR_CONTROLS === 'true'
+    ) {
+      controls.__boothSimulatorEject = (authorization) =>
+        getBoothPrinter().emit('full_ejection_confirmed', authorization);
+      controls.__boothSimulatorReady = () => getBoothPrinter().emit('ready_for_new_job');
+    }
     const current = () => owner.current === token;
     const url = new URL(window.location.href);
     const handoff = url.searchParams.get('handoff') ?? undefined;
@@ -101,6 +114,8 @@ export function BoothClient({
     window.addEventListener('online', tick);
     window.addEventListener('offline', tick);
     return () => {
+      delete controls.__boothSimulatorEject;
+      delete controls.__boothSimulatorReady;
       owner.current = null;
       clearInterval(timer);
       document.removeEventListener('visibilitychange', tick);
@@ -162,19 +177,21 @@ export function BoothClient({
   }
   const unavailable = view.counts?.unresolved
     ? 'Booth is temporarily unavailable.'
-    : view.blockers.includes('offline')
-      ? 'Wi-Fi disconnected.'
-      : view.blockers.includes('server_unreachable')
-        ? 'Connection unavailable.'
-        : view.blockers.includes('printer_connection') || view.allowedActions.connectPrinter
-          ? 'Bluetooth disconnected.'
-          : view.blockers.includes('camera')
-            ? 'Camera disconnected.'
-            : view.blockers.includes('film_reload_needed')
-              ? 'Printer is out of film.'
-              : view.blockers.includes('booked_prints_exhausted')
-                ? 'All booked prints have been used.'
-                : 'Booth is temporarily unavailable.';
+    : view.counts?.printsRemaining === 0
+      ? 'All booked prints have been used.'
+      : view.blockers.includes('offline')
+        ? 'Wi-Fi disconnected.'
+        : view.blockers.includes('server_unreachable')
+          ? 'Connection unavailable.'
+          : view.blockers.includes('printer_connection') || view.allowedActions.connectPrinter
+            ? 'Bluetooth disconnected.'
+            : view.blockers.includes('camera')
+              ? 'Camera disconnected.'
+              : view.blockers.includes('film_reload_needed')
+                ? 'Printer is out of film.'
+                : view.blockers.includes('booked_prints_exhausted')
+                  ? 'All booked prints have been used.'
+                  : 'Booth is temporarily unavailable.';
   const titles = {
     loading: 'Preparing Booth Mode',
     welcome: 'Make a memory',
@@ -183,6 +200,7 @@ export function BoothClient({
     capturing: 'Preparing your photo',
     review: 'Your photo',
     printing: 'Preparing your print',
+    confirmed: 'Print complete',
     paused: 'Booth paused',
     finishing: 'Finishing Booth Mode',
     finished: 'Booth Mode finished',
@@ -197,6 +215,7 @@ export function BoothClient({
     capturing: 'Please wait.',
     review: 'Choose Retake or Print.',
     printing: 'Please wait for the print outcome.',
+    confirmed: 'Your print is ready.',
     paused: 'Please wait for the Admin to resume from the phone.',
     finishing: view.counts?.unresolved
       ? 'Waiting for the current print to be resolved.'
@@ -220,7 +239,7 @@ export function BoothClient({
   const StatusIcon =
     view.phase === 'paused'
       ? CirclePause
-      : view.phase === 'finished'
+      : view.phase === 'finished' || view.phase === 'confirmed'
         ? CircleCheck
         : view.phase === 'access-required'
           ? KeyRound

@@ -617,10 +617,12 @@ it('settles an in-flight readiness write before changing its connection generati
   expect(s.flow.getSnapshot().phase).toBe('welcome');
 });
 
-function guestSetup() {
+function guestSetup(baseCounts = counts) {
   const requests: { path: string; body?: Record<string, unknown> }[] = [];
   const runId = crypto.randomUUID();
   const sessionId = crypto.randomUUID();
+  const attemptId = crypto.randomUUID();
+  const dispatchId = crypto.randomUUID();
   const printer = new SimulatedPrinterV2('simulator');
   const journal = new BrowserBoothMetadataJournal(sessionStorage);
   let revision = 1;
@@ -628,55 +630,137 @@ function guestSetup() {
   let startGate: Promise<void> | undefined;
   let state = 'Active';
   let openSessionState = false;
-  const flow = new BoothFlow({
-    printer,
-    journal,
-    transport: async (path, body) => {
-      requests.push({ path, body });
-      if (path === '/api/booth/state')
-        return {
-          revision,
-          runId,
-          state,
-          counts,
-          blockers: openSessionState ? ['guest_session_open'] : [],
-          allowedActions: { startGuest: !openSessionState, reportReadiness: true },
-          readinessWindowId: '00000000-0000-4000-8000-000000000001',
-          printerId: 'simulator',
-          connectionGeneration: 1,
-        };
-      const kind =
-        path === '/api/booth/readiness'
-          ? 'report_readiness'
-          : path === '/api/booth/sessions'
-            ? 'start_session'
-            : path === '/api/booth/captures'
-              ? 'record_capture'
-              : path === '/api/booth/print-attempts'
-                ? 'reserve'
-                : 'end_session';
-      if (kind === 'start_session') await startGate;
-      if (kind === 'record_capture') await captureGate;
-      revision++;
+  let attemptState: string | undefined;
+  let observationResponseLost = false;
+  let dispatchResponseLost = false;
+  let reserveResponseLost = false;
+  let rejectBusyReadiness = false;
+  const receipts = new Map<string, Record<string, unknown>>();
+  const authorization = { attemptId, dispatchId, printerId: 'simulator', connectionGeneration: 1 };
+  const transport = async (path: string, body?: Record<string, unknown>) => {
+    requests.push({ path, body });
+    if (
+      path === '/api/booth/readiness' &&
+      rejectBusyReadiness &&
+      attemptState === 'Dispatching' &&
+      (body?.observation as { printerReady?: boolean } | undefined)?.printerReady === false
+    )
+      throw Object.assign(new Error('busy printer'), { status: 409 });
+    if (path === '/api/booth/state')
       return {
         revision,
-        replayed: false,
-        receipt: {
-          operationId: body!.operationId,
-          kind,
-          committedRevision: revision,
-          result: kind === 'start_session' ? { sessionId } : {},
+        runId,
+        state,
+        counts: attemptState
+          ? {
+              ...baseCounts,
+              printed: baseCounts.printed + (attemptState === 'Printed' ? 1 : 0),
+              unresolved: attemptState === 'Printed' || attemptState === 'NotPrinted' ? 0 : 1,
+              printsRemaining: baseCounts.printsRemaining - (attemptState === 'Printed' ? 1 : 0),
+              printsAvailable: baseCounts.printsAvailable - (attemptState === 'NotPrinted' ? 0 : 1),
+            }
+          : baseCounts,
+        blockers: [
+          ...(openSessionState ? ['guest_session_open'] : []),
+          ...(attemptState && attemptState !== 'Printed' && attemptState !== 'NotPrinted'
+            ? ['print_pending']
+            : []),
+        ],
+        allowedActions: {
+          startGuest:
+            !openSessionState &&
+            (!attemptState || attemptState === 'Printed' || attemptState === 'NotPrinted'),
+          reportReadiness: true,
         },
+        readinessWindowId: '00000000-0000-4000-8000-000000000001',
+        printerId: 'simulator',
+        connectionGeneration: 1,
+        pendingAttemptId:
+          attemptState && attemptState !== 'Printed' && attemptState !== 'NotPrinted'
+            ? attemptId
+            : null,
       };
-    },
-  });
+    if (path.startsWith('/api/booth/operations/')) {
+      const receipt = receipts.get(path.split('/').at(-1)!);
+      if (!receipt) throw Object.assign(new Error('missing receipt'), { status: 404 });
+      return { revision, receipt };
+    }
+    const kind =
+      path === '/api/booth/readiness'
+        ? 'report_readiness'
+        : path === '/api/booth/sessions'
+          ? 'start_session'
+          : path === '/api/booth/captures'
+            ? 'record_capture'
+            : path === '/api/booth/print-attempts'
+              ? 'reserve'
+              : path.endsWith('/dispatch')
+                ? 'dispatch'
+                : path.endsWith('/observations')
+                  ? 'observe'
+                  : path.endsWith('/reconcile')
+                    ? 'reconcile'
+                    : 'end_session';
+    if (kind === 'start_session') await startGate;
+    if (kind === 'record_capture') await captureGate;
+    if (kind === 'reserve' && reserveResponseLost) throw new Error('reserve response lost');
+    revision++;
+    if (kind === 'reserve') attemptState = 'Reserved';
+    if (kind === 'dispatch') attemptState = 'Dispatching';
+    if (kind === 'observe')
+      attemptState =
+        body!.kind === 'full_ejection_confirmed'
+          ? 'Printed'
+          : body!.kind === 'command_accepted'
+            ? 'Accepted'
+            : 'Pending';
+    if (kind === 'reconcile') attemptState = attemptState === 'Reserved' ? 'NotPrinted' : 'Pending';
+    const receipt = {
+      operationId: body!.operationId,
+      kind,
+      committedRevision: revision,
+      result:
+        kind === 'start_session'
+          ? { sessionId }
+          : kind === 'reserve'
+            ? { attemptId, state: attemptState }
+            : kind === 'dispatch' || kind === 'observe' || kind === 'reconcile'
+              ? { attemptId, state: attemptState }
+              : {},
+    };
+    receipts.set(body!.operationId as string, receipt);
+    if (kind === 'observe' && observationResponseLost) throw new Error('observation response lost');
+    if (kind === 'dispatch' && dispatchResponseLost) throw new Error('dispatch response lost');
+    return {
+      revision,
+      replayed: false,
+      receipt,
+      ...(kind === 'dispatch' ? { sendAllowed: true, authorization } : {}),
+    };
+  };
+  const flow = new BoothFlow({ printer, journal, transport });
   owned.push(flow);
   return {
     flow,
+    transport,
     printer,
     journal,
     requests,
     sessionId,
+    attemptId,
+    authorization,
+    loseObservationResponse: () => {
+      observationResponseLost = true;
+    },
+    loseDispatchResponse: () => {
+      dispatchResponseLost = true;
+    },
+    loseReserveResponse: () => {
+      reserveResponseLost = true;
+    },
+    rejectBusyReadiness: () => {
+      rejectBusyReadiness = true;
+    },
     holdCapture: (gate?: Promise<void>) => {
       captureGate = gate;
     },
@@ -763,7 +847,181 @@ it('keeps Print unavailable until the selected shutter is acknowledged and reser
   expect(s.flow.getSnapshot().phase).toBe('printing');
   expect(s.journal.readOperations()).toMatchObject([
     { kind: 'reservation', captureId: selectedCaptureId },
+    { kind: 'dispatch_intent', phase: 'authorized' },
   ]);
+});
+
+it('sends one selected photo and confirms only an acknowledged full ejection', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  const discard = vi.fn();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({ bytes: new Uint8Array([7]), url: 'blob:print', discard }));
+  await s.flow.print();
+  expect(s.printer.commandCount).toBe(1);
+  expect(discard).toHaveBeenCalledOnce();
+  await s.flow.print();
+  expect(s.printer.commandCount).toBe(1);
+  expect(s.flow.getSnapshot().phase).toBe('printing');
+  s.printer.emit('command_accepted', s.authorization);
+  await vi.waitFor(() =>
+    expect(s.requests.some(({ path }) => path.endsWith('/observations'))).toBe(true)
+  );
+  expect(s.flow.getSnapshot().phase).toBe('printing');
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
+  s.printer.emit('ready_for_new_job');
+  await s.flow.reportEquipment(observation);
+  await vi.advanceTimersByTimeAsync(2_500);
+  expect(s.flow.getSnapshot().phase).toBe('confirmed');
+  await vi.advanceTimersByTimeAsync(500);
+  expect(s.flow.getSnapshot().phase).toBe('welcome');
+});
+
+it('dispatches the final reserved unit when available capacity becomes zero', async () => {
+  const s = guestSetup({
+    originalPackages: 5,
+    additionalPackages: 0,
+    totalBookedPrints: 50,
+    printed: 49,
+    unresolved: 0,
+    printsRemaining: 1,
+    printsAvailable: 1,
+  });
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([5]),
+    url: 'blob:last',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  expect(s.printer.commandCount).toBe(1);
+  expect(s.flow.getSnapshot().counts?.printsAvailable).toBe(0);
+  expect(s.flow.getSnapshot().phase).toBe('printing');
+});
+
+it('does not resend after a lost dispatch response', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([4]),
+    url: 'blob:lost',
+    discard: vi.fn(),
+  }));
+  s.loseDispatchResponse();
+  await s.flow.print();
+  expect(s.printer.commandCount).toBe(0);
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  await s.flow.print();
+  expect(s.printer.commandCount).toBe(0);
+  expect(s.requests.some(({ path }) => path.endsWith('/reconcile'))).toBe(true);
+});
+
+it('closes the old session before clearing a reservation with no receipt', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([6]),
+    url: 'blob:reserve-lost',
+    discard: vi.fn(),
+  }));
+  s.loseReserveResponse();
+  await s.flow.print();
+  expect(s.printer.commandCount).toBe(0);
+  expect(s.requests.some(({ path }) => path === `/api/booth/sessions/${s.sessionId}/end`)).toBe(
+    true
+  );
+  expect(s.journal.readOperations()).toEqual([]);
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+});
+
+it('reconciles the server pending attempt on reload with an empty journal', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([4]),
+    url: 'blob:lost',
+    discard: vi.fn(),
+  }));
+  s.loseDispatchResponse();
+  await s.flow.print();
+  s.flow.dispose();
+  sessionStorage.clear();
+  const before = s.requests.filter(({ path }) => path.endsWith('/reconcile')).length;
+  const reloaded = new BoothFlow({
+    transport: s.transport,
+    printer: s.printer,
+    journal: s.journal,
+  });
+  owned.push(reloaded);
+  await reloaded.initialize();
+  expect(s.requests.filter(({ path }) => path.endsWith('/reconcile')).length).toBeGreaterThan(
+    before
+  );
+  expect(reloaded.getSnapshot().phase).toBe('unavailable');
+  expect(s.printer.commandCount).toBe(0);
+});
+
+it('does not claim completion when the ejection response is lost', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([3]),
+    url: 'blob:ejected',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  s.loseObservationResponse();
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('unavailable'));
+  expect(s.journal.readOperations().some((entry) => entry.kind === 'observation')).toBe(true);
+  expect(s.printer.commandCount).toBe(1);
+  expect(await s.flow.reconcilePending(s.journal.readOperations())).toBe('clear');
+  expect(s.journal.readOperations()).toEqual([]);
+  expect(s.flow.getSnapshot().phase).not.toBe('confirmed');
+});
+
+it('keeps printing while the printer is busy with its authorized job', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([8]),
+    url: 'blob:busy',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  s.rejectBusyReadiness();
+  await s.flow.reportEquipment(observation);
+  expect(s.flow.getSnapshot().phase).toBe('printing');
+  expect(s.requests.filter(({ path }) => path === '/api/booth/readiness')).toHaveLength(1);
 });
 
 it('does not count a pre-shutter cancellation or retain a photo completed after stop', async () => {

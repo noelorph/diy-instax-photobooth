@@ -8,8 +8,13 @@ import {
   packageActionSchemas,
   readinessObservationSchema,
 } from '@/lib/operations/package-action-schemas';
-import type { PrinterAdapterV2, PrinterReadinessSnapshot } from './printer/contract-v2';
-import type { BoothMetadataJournal } from './print-journal';
+import type {
+  PrinterAdapterV2,
+  PrinterObservationV2,
+  PrinterReadinessSnapshot,
+} from './printer/contract-v2';
+import type { BoothMetadataJournal, JournalEntry } from './print-journal';
+import { dispatchReservedAttempt, recordAndReportObservation } from './print-dispatch';
 export type BoothTransport = (
   path: string,
   body?: Record<string, unknown>,
@@ -24,6 +29,7 @@ export type Phase =
   | 'capturing'
   | 'review'
   | 'printing'
+  | 'confirmed'
   | 'paused'
   | 'finishing'
   | 'finished'
@@ -70,6 +76,7 @@ const stateSchema = z.object({
   readinessWindowId: z.uuid(),
   printerId: z.string().min(1),
   connectionGeneration: z.number().int().nonnegative(),
+  pendingAttemptId: z.uuid().nullable().optional(),
 });
 type State = z.infer<typeof stateSchema>;
 type EquipmentObservation = {
@@ -103,16 +110,30 @@ export class BoothFlow {
   private sessionId?: string;
   private starting?: Promise<void>;
   private photo?: Photo;
+  private transportOwnsPhoto = false;
   private captureId?: string;
   private shutterCount = 0;
   private shutterGeneration = 0;
+  private attemptId?: string;
+  private pendingRecovery = false;
+  private observing = Promise.resolve();
+  private readonly stopObserving: () => void;
+  private completion?: ReturnType<typeof setTimeout>;
   constructor(
     private readonly dependencies: {
       transport: BoothTransport;
       printer: PrinterAdapterV2;
       journal: BoothMetadataJournal;
     }
-  ) {}
+  ) {
+    this.stopObserving = dependencies.printer.observe((observation) => {
+      this.observing = this.observing
+        .then(() => this.observe(observation))
+        .catch((error) => {
+          this.failure(error);
+        });
+    });
+  }
   getSnapshot = () => this.view;
   subscribe = (listener: () => void) => {
     this.listeners.add(listener);
@@ -141,7 +162,7 @@ export class BoothFlow {
   }
   private guestStopped() {
     this.shutterGeneration++;
-    this.discardPhoto();
+    if (!this.transportOwnsPhoto) this.discardPhoto();
     if (this.sessionId) this.endSession(this.sessionId);
     this.sessionId = undefined;
   }
@@ -204,6 +225,13 @@ export class BoothFlow {
         }
       }
       await this.refresh();
+      if (this.state && !this.sessionId) {
+        const entries = this.dependencies.journal.readOperations();
+        if (entries.length || this.state.pendingAttemptId) {
+          this.pendingRecovery = (await this.reconcilePending(entries)) === 'pending';
+          await this.refresh();
+        }
+      }
     } catch (error) {
       this.failure(error);
     }
@@ -261,6 +289,7 @@ export class BoothFlow {
       equipment.printer.printerId === printer.printerId &&
       equipment.printer.connectionGeneration === printer.connectionGeneration;
     const blockers = [...state.blockers];
+    if (this.pendingRecovery) blockers.push('print_pending');
     if (equipment && !equipment.observation.serverReachable) blockers.push('offline');
     if (!camera) blockers.push('camera');
     if (!connected) blockers.push('printer_connection');
@@ -270,7 +299,12 @@ export class BoothFlow {
     const owningGuestReady =
       (!!this.sessionId || !!this.starting) &&
       state.state === 'Active' &&
-      blockers.every((blocker) => blocker === 'guest_session_open');
+      ((this.view.phase === 'printing' && !!this.attemptId) ||
+        blockers.every(
+          (blocker) =>
+            blocker === 'guest_session_open' ||
+            (this.view.phase === 'printing' && blocker === 'print_pending')
+        ));
     const phase: Phase =
       state.state === 'Paused'
         ? 'paused'
@@ -401,30 +435,262 @@ export class BoothFlow {
     if (this.view.phase !== 'review' || !this.sessionId || !this.captureId || !this.photo) return;
     const sessionId = this.sessionId;
     const captureId = this.captureId;
+    const photo = this.photo;
     this.show({ ...this.view, phase: 'printing' });
     try {
       await this.refresh();
       if (this.getSnapshot().phase !== 'printing' || !this.state || this.sessionId !== sessionId)
         return;
-      const body = packageActionSchemas.reserve.parse({
+      const runId = this.state.runId;
+      const printerId = this.state.printerId;
+      const connectionGeneration = this.state.connectionGeneration;
+      this.transportOwnsPhoto = true;
+      await dispatchReservedAttempt(
+        {
+          runId,
+          sessionId,
+          captureId,
+          reservationOperationId: crypto.randomUUID(),
+          dispatchOperationId: crypto.randomUUID(),
+          printerId,
+          connectionGeneration,
+          image: photo.bytes,
+        },
+        {
+          journal: this.dependencies.journal,
+          printer: this.dependencies.printer,
+          reconcile: (entries) => this.reconcilePending(entries),
+          canSendNow: () =>
+            !this.disposed &&
+            this.view.phase === 'printing' &&
+            this.sessionId === sessionId &&
+            this.state?.state === 'Active' &&
+            !!this.equipment &&
+            Date.now() - this.equipment.at <= READINESS_MAX_AGE_MS &&
+            this.equipment.observation.cameraLive &&
+            this.equipment.observation.cameraPermission &&
+            this.equipment.observation.serverReachable &&
+            this.equipment.observation.printerConnected &&
+            this.equipment.observation.printerReady &&
+            this.equipment.observation.oldJobCleared,
+          releaseImage: () => {
+            this.transportOwnsPhoto = false;
+            if (this.photo === photo) this.discardPhoto();
+          },
+          reserve: async (operationId) => {
+            await this.refresh();
+            if (!this.state || this.sessionId !== sessionId) throw new Error('Guest stopped');
+            const body = packageActionSchemas.reserve.parse({
+              operationId,
+              expectedRevision: this.state.revision,
+              sessionId,
+              captureId,
+            });
+            const reply = packageReplySchema.parse(
+              await this.dependencies.transport(
+                '/api/booth/print-attempts',
+                body,
+                this.requests.signal
+              )
+            );
+            if (reply.receipt.operationId !== operationId || reply.receipt.kind !== 'reserve')
+              throw new Error('Unexpected reservation receipt');
+            this.attemptId = z.uuid().parse(reply.receipt.result.attemptId);
+            return { attemptId: this.attemptId };
+          },
+          authorizeDispatch: async (attemptId, operationId) => {
+            await this.refresh();
+            if (!this.state || this.sessionId !== sessionId) throw new Error('Guest stopped');
+            const body = packageActionSchemas.dispatch.parse({
+              operationId,
+              expectedRevision: this.state.revision,
+              printerId,
+              connectionGeneration,
+            });
+            const reply = z
+              .object({
+                ...packageReplySchema.shape,
+                sendAllowed: z.boolean(),
+                authorization: z
+                  .object({
+                    attemptId: z.uuid(),
+                    dispatchId: z.uuid(),
+                    printerId: z.string(),
+                    connectionGeneration: count,
+                  })
+                  .optional(),
+              })
+              .parse(
+                await this.dependencies.transport(
+                  `/api/booth/print-attempts/${attemptId}/dispatch`,
+                  body,
+                  this.requests.signal
+                )
+              );
+            if (reply.receipt.operationId !== operationId || reply.receipt.kind !== 'dispatch')
+              throw new Error('Unexpected dispatch receipt');
+            await this.refresh();
+            return reply;
+          },
+        }
+      );
+      this.show({ ...this.view, photoUrl: undefined, captureId: undefined });
+    } catch (error) {
+      this.failure(error);
+    }
+  }
+  async reconcilePending(entries: readonly JournalEntry[]): Promise<'clear' | 'pending'> {
+    const raw = await this.dependencies.transport(
+      '/api/booth/state',
+      undefined,
+      this.requests.signal
+    );
+    const state = stateSchema.parse(raw);
+    if (this.state && state.runId !== this.state.runId) return 'pending';
+    this.state = state;
+    let attemptId = state.pendingAttemptId ?? this.attemptId;
+    let terminal = false;
+    const confirmed: string[] = [];
+    let missingReservation = false;
+    for (const entry of entries) {
+      if (entry.runId !== state.runId) return 'pending';
+      let receipt: z.infer<typeof packageReplySchema>['receipt'];
+      try {
+        receipt = packageReplySchema.shape.receipt.parse(
+          (
+            (await this.dependencies.transport(
+              `/api/booth/operations/${entry.operationId}`,
+              undefined,
+              this.requests.signal
+            )) as { receipt: unknown }
+          ).receipt
+        );
+      } catch (error) {
+        if (
+          typeof error !== 'object' ||
+          error === null ||
+          !('status' in error) ||
+          error.status !== 404
+        )
+          throw error;
+        if (entry.kind === 'reservation') missingReservation = true;
+        continue;
+      }
+      const expectedKind = {
+        capture: 'record_capture',
+        reservation: 'reserve',
+        dispatch_intent: 'dispatch',
+        observation: 'observe',
+      }[entry.kind];
+      if (receipt.operationId !== entry.operationId || receipt.kind !== expectedKind)
+        return 'pending';
+      confirmed.push(entry.operationId);
+      if (entry.kind === 'reservation') attemptId = z.uuid().parse(receipt.result.attemptId);
+      if (
+        entry.kind === 'observation' &&
+        (receipt.result.state === 'Printed' || receipt.result.state === 'NotPrinted')
+      )
+        terminal = true;
+    }
+    if (missingReservation) {
+      const oldSession = entries.find((entry) => entry.kind === 'reservation');
+      if (oldSession?.kind !== 'reservation') return 'pending';
+      await this.closeSession(oldSession.sessionId);
+      const after = stateSchema.parse(
+        await this.dependencies.transport('/api/booth/state', undefined, this.requests.signal)
+      );
+      if (after.pendingAttemptId) return 'pending';
+      // Confirmed session closure fences any delayed reservation request.
+      confirmed.push(oldSession.operationId);
+    }
+    if (attemptId && !terminal && (entries.length || !this.sessionId)) {
+      const body = packageActionSchemas.reconcile.parse({
         operationId: crypto.randomUUID(),
-        expectedRevision: this.state.revision,
-        sessionId,
-        captureId,
-      });
-      this.dependencies.journal.putOperation({
-        kind: 'reservation',
-        operationId: body.operationId,
-        runId: this.state.runId,
-        sessionId,
-        captureId,
-        recordedAt: Date.now(),
+        reason: 'booth_recovery',
       });
       const reply = packageReplySchema.parse(
-        await this.dependencies.transport('/api/booth/print-attempts', body, this.requests.signal)
+        await this.dependencies.transport(
+          `/api/booth/print-attempts/${attemptId}/reconcile`,
+          body,
+          this.requests.signal
+        )
       );
-      if (reply.receipt.operationId !== body.operationId || reply.receipt.kind !== 'reserve')
-        throw new Error('Unexpected reservation receipt');
+      if (reply.receipt.operationId !== body.operationId || reply.receipt.kind !== 'reconcile')
+        return 'pending';
+      terminal =
+        reply.receipt.result.state === 'NotPrinted' || reply.receipt.result.state === 'Printed';
+    }
+    for (const id of confirmed) this.dependencies.journal.acknowledgeOperation(id);
+    return (attemptId && !terminal) || this.dependencies.journal.readOperations().length
+      ? 'pending'
+      : 'clear';
+  }
+  private async closeSession(sessionId: string) {
+    const body = packageActionSchemas.endSession.parse({
+      operationId: crypto.randomUUID(),
+      reason: 'booth_recovery',
+    });
+    const reply = packageReplySchema.parse(
+      await this.dependencies.transport(
+        `/api/booth/sessions/${sessionId}/end`,
+        body,
+        this.requests.signal
+      )
+    );
+    if (reply.receipt.operationId !== body.operationId || reply.receipt.kind !== 'end_session')
+      throw new Error('Unexpected session end receipt');
+    if (this.sessionId === sessionId) this.sessionId = undefined;
+  }
+  private async observe(observation: PrinterObservationV2) {
+    const runId = this.state?.runId;
+    if (!runId || this.disposed || !('attemptId' in observation)) return;
+    await recordAndReportObservation(
+      runId,
+      observation,
+      this.dependencies.journal,
+      async (entry) => {
+        if (!('attemptId' in entry)) return;
+        const body = packageActionSchemas.observe.parse({
+          operationId: entry.operationId,
+          attemptId: entry.attemptId,
+          observationId: entry.observationId,
+          kind: entry.observationKind,
+          evidenceVersion: entry.evidenceVersion,
+          connectionGeneration: entry.connectionGeneration,
+          metadata: {},
+        });
+        const { attemptId: _attemptId, ...httpBody } = body;
+        void _attemptId;
+        const reply = packageReplySchema.parse(
+          await this.dependencies.transport(
+            `/api/booth/print-attempts/${entry.attemptId}/observations`,
+            httpBody,
+            this.requests.signal
+          )
+        );
+        if (reply.receipt.operationId !== entry.operationId || reply.receipt.kind !== 'observe')
+          throw new Error('Unexpected observation receipt');
+        if (entry.attemptId === this.attemptId && reply.receipt.result.state === 'Printed') {
+          await this.refresh();
+          if (this.view.phase !== 'printing') return;
+          this.show({
+            ...this.view,
+            phase: 'confirmed',
+            photoUrl: undefined,
+            captureId: undefined,
+          });
+          clearTimeout(this.completion);
+          this.completion = setTimeout(() => void this.finishConfirmed(), 3_000);
+        }
+      }
+    );
+  }
+  private async finishConfirmed() {
+    if (this.view.phase !== 'confirmed' || !this.sessionId) return;
+    try {
+      await this.closeSession(this.sessionId);
+      this.attemptId = undefined;
+      await this.refresh();
     } catch (error) {
       this.failure(error);
     }
@@ -439,6 +705,12 @@ export class BoothFlow {
       !parsed.serverReachable ||
       !parsed.printerReady ||
       !parsed.oldJobCleared;
+    if (
+      !negative &&
+      this.attemptId &&
+      (this.view.phase === 'printing' || this.view.phase === 'confirmed')
+    )
+      return Promise.resolve();
     // Healthy samples do not invalidate a still-fresh in-flight acknowledgement.
     if (negative) this.equipmentEpoch++;
     this.nextObservation = {
@@ -597,9 +869,11 @@ export class BoothFlow {
   }
   dispose() {
     this.disposed = true;
+    this.stopObserving();
     this.guestStopped();
     this.requests.abort();
     clearTimeout(this.expiry);
+    clearTimeout(this.completion);
     this.acknowledgedAt = 0;
     this.listeners.clear();
   }

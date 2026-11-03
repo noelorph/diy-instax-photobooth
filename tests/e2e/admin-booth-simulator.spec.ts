@@ -216,6 +216,89 @@ test('setup handoff reestablishes scoped readiness before Guest admission', asyn
     await f.dispose();
   }
 });
+test('final booked unit sends once and counts only acknowledged simulator ejection', async ({
+  browser,
+}) => {
+  const f = await createPackageBrowserFixture();
+  try {
+    localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
+    localOwnerSql(
+      `update public.events set film_package_count=5,revision=revision+1 where id='${f.eventId}'`
+    );
+    const d = await devices(browser, f);
+    try {
+      await prepare(d.boothPage, f);
+      await d.boothPage.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
+      await readyAfterArrival(d.boothPage);
+      const { runId } = (await read(d.boothPage, '/api/booth/state')).body;
+      localOwnerSql(`do $$ declare sid uuid; cid uuid; begin
+        for i in 1..49 loop
+          sid:=gen_random_uuid(); cid:=gen_random_uuid();
+          insert into public.guest_sessions(id,event_id,run_id,accounting_version,state,closed_at)
+            values(sid,'${f.eventId}','${runId}',2,'Printed',clock_timestamp());
+          insert into public.captures(id,event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id)
+            values(cid,'${f.eventId}','${runId}',sid,2,clock_timestamp(),gen_random_uuid());
+          insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id)
+            values('${f.eventId}','${runId}',sid,cid,2,'Guest','Printed',gen_random_uuid(),gen_random_uuid());
+        end loop;
+      end $$`);
+      await d.boothPage.evaluate(() => window.dispatchEvent(new Event('focus')));
+      await expect
+        .poll(async () => (await read(d.boothPage, '/api/booth/state')).body.counts.printsAvailable)
+        .toBe(1);
+      await d.boothPage.getByRole('button', { name: 'Start', exact: true }).click();
+      await d.boothPage.getByRole('button', { name: 'Take Photo' }).click();
+      await expect(d.boothPage.getByRole('button', { name: 'Print', exact: true })).toBeVisible();
+      const dispatched = d.boothPage.waitForResponse((response) =>
+        response.url().endsWith('/dispatch')
+      );
+      await d.boothPage.getByRole('button', { name: 'Print', exact: true }).click();
+      const dispatch = await (await dispatched).json();
+      expect(dispatch.sendAllowed).toBe(true);
+      await expect(
+        d.boothPage.getByRole('heading', { name: 'Preparing your print' })
+      ).toBeVisible();
+      expect((await read(d.boothPage, '/api/booth/state')).body.counts).toMatchObject({
+        printed: 49,
+        unresolved: 1,
+        printsAvailable: 0,
+      });
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.print_attempts where run_id='${runId}'`
+        )[0].n
+      ).toBe(50);
+      await d.boothPage.waitForTimeout(500);
+      await expect(d.boothPage.getByRole('heading', { name: 'Print complete' })).toHaveCount(0);
+      const observed = d.boothPage.waitForResponse((response) =>
+        response.url().endsWith('/observations')
+      );
+      await d.boothPage.evaluate((authorization) => {
+        (
+          window as typeof window & { __boothSimulatorEject: (value: typeof authorization) => void }
+        ).__boothSimulatorEject(authorization);
+      }, dispatch.authorization);
+      expect((await observed).status()).toBe(200);
+      await expect(d.boothPage.getByRole('heading', { name: 'Print complete' })).toBeVisible();
+      expect((await read(d.boothPage, '/api/booth/state')).body.counts).toMatchObject({
+        printed: 50,
+        unresolved: 0,
+        printsAvailable: 0,
+      });
+      await d.boothPage.evaluate(() => {
+        (window as typeof window & { __boothSimulatorReady: () => void }).__boothSimulatorReady();
+      });
+      await expect(
+        d.boothPage.getByRole('heading', { name: 'All booked prints have been used.' })
+      ).toBeVisible({ timeout: 10_000 });
+      await expect(d.boothPage.getByRole('button', { name: 'Start', exact: true })).toHaveCount(0);
+    } finally {
+      await d.close();
+    }
+  } finally {
+    await f.dispose();
+  }
+});
 test('zero packages and incomplete physical setup cannot prepare a run', async ({ browser }) => {
   const f = await createPackageBrowserFixture();
   try {
