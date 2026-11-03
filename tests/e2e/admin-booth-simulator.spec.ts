@@ -368,8 +368,8 @@ test('released setup resources and rejected arrival camera keep admission blocke
       );
       await d.boothPage.getByRole('button', { name: 'Start Booth Mode' }).click();
       await confirmation;
-      // A document boundary releases the setup camera and in-memory simulator connection.
-      await d.boothPage.goto('/booth');
+      // Let the app's document navigation release setup resources without racing another goto.
+      await d.boothPage.waitForURL('**/booth');
       await expect(d.boothPage.getByRole('button', { name: 'Connect to Instax' })).toBeVisible();
       await d.boothPage.getByRole('button', { name: 'Enable Camera' }).click();
       await expect(

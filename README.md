@@ -31,4 +31,19 @@ The [existing implementation guide](docs/implementation/issue9-local-development
 
 Current development uses Next.js/React/TypeScript and Supabase; shared UI lives in `src/components/{ui,shared,layout}`. Read installed framework guides before code changes. Local version-2 migrations have not been activated on a hosted database; the physical release gate remains closed.
 
+### Interactive browser tooling
+
+`npm ci` also installs the pinned Playwright CLI development dependency. Coding agents can use the project-local [Playwright CLI skill](.agents/skills/playwright-cli/SKILL.md) for interactive local UI inspection and simulator exploration:
+
+```bash
+npx --no-install playwright-cli --help
+npx --no-install playwright-cli -s=photobooth open http://localhost:3000
+npx --no-install playwright-cli -s=photobooth snapshot
+npx --no-install playwright-cli -s=photobooth close
+```
+
+Start the local application first using the setup above. The CLI uses a separate Playwright runtime from the existing test runner and may need its own browser installation; follow `npx --no-install playwright-cli install-browser --help` if a browser is missing. Generated workspace/session artifacts in `.playwright/` and `.playwright-cli/` are ignored by Git; keep saved authentication state and other sensitive artifacts there.
+
+CLI use is optional during development. CI continues to run the existing Playwright Test suites; interactive CLI sessions add no separate CI step or acceptance gate. Add repeatable regressions discovered during exploration to those suites. Browser and simulator results do not replace physical printer or actual-iPad qualification.
+
 The approved removal decision applies to disposable development/test data. Obsolete specs/plans and source mockups now live only in Git history at checkpoint `1de2272`. Current #9 contracts, package-era History, safe Draft cleanup and physical qualification evidence remain. F8 will replace the migration chain and reverify security/accounting and the full application; this docs change performs no reset or code changes.

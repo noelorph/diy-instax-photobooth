@@ -44,6 +44,10 @@ Read [docs/README.md](docs/README.md) before using historical specs, plans or mo
 
 Read the root `DESIGN_SYSTEM.md` before designing or changing an interface. It governs visual language, interaction presentation, responsive layouts, components, and accessibility; `PRD.md` governs product behavior.
 
+### Browser verification
+
+For changes affecting user-facing behavior or layout, verify the affected flow in a running browser using Playwright CLI or existing Playwright tests without waiting for the user to request it. Use the project-local [Playwright CLI skill](.agents/skills/playwright-cli/SKILL.md) as the default for interactive checks. Check relevant viewport sizes and report what was verified or why verification was blocked. Add repeatable regression coverage when appropriate. Documentation-only and backend-only changes do not require browser checks unless they affect a user-facing flow. Existing CI test requirements remain; browser and simulator checks do not replace physical printer or actual-iPad qualification.
+
 ### Keep decisions and documentation in sync
 
 Before modifying important documentation such as `PRD.md`, `GLOSSARY.md`, `docs/adr/`, or product specs, ask the user focused questions about the intended decision, its scope, and affected behavior. Wait for the answers before editing those files.
