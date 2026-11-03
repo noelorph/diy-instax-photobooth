@@ -8,7 +8,7 @@ Use the root [DESIGN_SYSTEM.md](../../DESIGN_SYSTEM.md) for current presentation
 
 Open the [October 21 visual gallery](2026-10-21-package-recovery/index.html) or [mockup guide](2026-10-21-package-recovery/README.md). The new set covers the full Admin system, phone management and recovery, portrait iPad Booth screens and paired recovery examples. It follows the approved package-accounting/recovery contract and current Geist/teal design system.
 
-The user approved this set on 21 October 2026. These are approved visual references; implementation is pending. [Screen notes](2026-10-21-package-recovery/screen-map.md) map them to the [current route and flow guide](../booth-user-flow.md). Hardware qualification remains governed by the current proof checklist.
+The user approved this set on 21 October 2026. These are approved visual references; F1, F3 and F4 have implementation evidence and F5 is implemented locally with [dated evidence and open verification limits](../implementation/issue-10-retirement-and-acceptance.md#f5-guest-capture-to-print-evidence--2026-11-04). Full F2 and F6–F8 acceptance remain open. [Screen notes](2026-10-21-package-recovery/screen-map.md) map them to the [current route and flow guide](../booth-user-flow.md). Hardware qualification remains governed by the current proof checklist.
 
 ## Superseded material
 
