@@ -307,7 +307,11 @@ test('zero packages and incomplete physical setup cannot prepare a run', async (
     try {
       ownerUpdate('events', f.eventId, { film_package_count: 0, revision: 2 });
       await d.boothPage.goto(`/events/${f.eventId}`);
+      const cameraReady = d.boothPage.waitForResponse((response) =>
+        response.url().endsWith('/api/booth/readiness')
+      );
       await d.boothPage.getByRole('button', { name: 'Enable Camera', exact: true }).click();
+      expect((await cameraReady).status()).toBe(200);
       await d.boothPage.getByRole('button', { name: 'Connect to Instax', exact: true }).click();
       await expect(d.boothPage.getByRole('button', { name: 'Start Booth Mode' })).toBeDisabled();
       for (const label of [
@@ -696,6 +700,7 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
         localOwnerSql(`select state from public.booth_grants where event_id='${f.eventId}'`)[0]
           .state
       ).toBe('Active');
+      await d.boothPage.getByRole('button', { name: 'Enable Camera', exact: true }).click();
       await d.phonePage.getByRole('button', { name: 'Resume Booth', exact: true }).click();
       await expect(d.boothPage.getByRole('heading', { name: 'Make a memory' })).toBeVisible();
       const current = (await read(d.phonePage, `/api/admin/events/${f.eventId}/booth/state`)).body;

@@ -623,6 +623,18 @@ function guestSetup(baseCounts = counts) {
   const sessionId = crypto.randomUUID();
   const attemptId = crypto.randomUUID();
   const dispatchId = crypto.randomUUID();
+  const secondSessionId = crypto.randomUUID();
+  const secondAttemptId = crypto.randomUUID();
+  const secondDispatchId = crypto.randomUUID();
+  let currentSessionId = sessionId;
+  let currentAttemptId = attemptId;
+  let currentAuthorization = {
+    attemptId,
+    dispatchId,
+    printerId: 'simulator',
+    connectionGeneration: 1,
+  };
+  let sessionsStarted = 0;
   const printer = new SimulatedPrinterV2('simulator');
   const journal = new BrowserBoothMetadataJournal(sessionStorage);
   let revision = 1;
@@ -635,6 +647,9 @@ function guestSetup(baseCounts = counts) {
   let dispatchResponseLost = false;
   let reserveResponseLost = false;
   let rejectBusyReadiness = false;
+  let observationLostBeforeCommit = false;
+  let acceptedLooksPrinted = false;
+  let oldJobSafe = true;
   const receipts = new Map<string, Record<string, unknown>>();
   const authorization = { attemptId, dispatchId, printerId: 'simulator', connectionGeneration: 1 };
   const transport = async (path: string, body?: Record<string, unknown>) => {
@@ -665,10 +680,12 @@ function guestSetup(baseCounts = counts) {
           ...(attemptState && attemptState !== 'Printed' && attemptState !== 'NotPrinted'
             ? ['print_pending']
             : []),
+          ...(!oldJobSafe ? ['printer_not_safe'] : []),
         ],
         allowedActions: {
           startGuest:
             !openSessionState &&
+            oldJobSafe &&
             (!attemptState || attemptState === 'Printed' || attemptState === 'NotPrinted'),
           reportReadiness: true,
         },
@@ -677,7 +694,7 @@ function guestSetup(baseCounts = counts) {
         connectionGeneration: 1,
         pendingAttemptId:
           attemptState && attemptState !== 'Printed' && attemptState !== 'NotPrinted'
-            ? attemptId
+            ? currentAttemptId
             : null,
       };
     if (path.startsWith('/api/booth/operations/')) {
@@ -704,28 +721,62 @@ function guestSetup(baseCounts = counts) {
     if (kind === 'start_session') await startGate;
     if (kind === 'record_capture') await captureGate;
     if (kind === 'reserve' && reserveResponseLost) throw new Error('reserve response lost');
+    if (kind === 'observe' && observationLostBeforeCommit) {
+      observationLostBeforeCommit = false;
+      throw new Error('observation response lost before commit');
+    }
     revision++;
-    if (kind === 'reserve') attemptState = 'Reserved';
-    if (kind === 'dispatch') attemptState = 'Dispatching';
+    if (kind === 'start_session') {
+      currentSessionId = sessionsStarted++ === 0 ? sessionId : secondSessionId;
+      if (sessionsStarted > 1) attemptState = undefined;
+    }
+    if (kind === 'reserve') {
+      attemptState = 'Reserved';
+      if (sessionsStarted > 1) {
+        currentAttemptId = secondAttemptId;
+        currentAuthorization = {
+          attemptId: secondAttemptId,
+          dispatchId: secondDispatchId,
+          printerId: 'simulator',
+          connectionGeneration: 1,
+        };
+      }
+    }
+    if (kind === 'dispatch') {
+      attemptState = 'Dispatching';
+      oldJobSafe = false;
+    }
     if (kind === 'observe')
       attemptState =
         body!.kind === 'full_ejection_confirmed'
           ? 'Printed'
           : body!.kind === 'command_accepted'
-            ? 'Accepted'
-            : 'Pending';
-    if (kind === 'reconcile') attemptState = attemptState === 'Reserved' ? 'NotPrinted' : 'Pending';
+            ? acceptedLooksPrinted
+              ? 'Printed'
+              : 'Accepted'
+            : body!.kind === 'ready_for_new_job'
+              ? attemptState
+              : 'Pending';
+    if (kind === 'observe' && body!.kind === 'ready_for_new_job') oldJobSafe = true;
+    if (kind === 'reconcile' && !(sessionsStarted > 1 && oldJobSafe))
+      attemptState = attemptState === 'Reserved' ? 'NotPrinted' : 'Pending';
     const receipt = {
       operationId: body!.operationId,
       kind,
       committedRevision: revision,
       result:
         kind === 'start_session'
-          ? { sessionId }
+          ? { sessionId: currentSessionId }
           : kind === 'reserve'
-            ? { attemptId, state: attemptState }
+            ? { attemptId: currentAttemptId, state: attemptState }
             : kind === 'dispatch' || kind === 'observe' || kind === 'reconcile'
-              ? { attemptId, state: attemptState }
+              ? {
+                  attemptId: currentAttemptId,
+                  state:
+                    kind === 'reconcile' && sessionsStarted > 1 && oldJobSafe
+                      ? 'Printed'
+                      : attemptState,
+                }
               : {},
     };
     receipts.set(body!.operationId as string, receipt);
@@ -735,7 +786,7 @@ function guestSetup(baseCounts = counts) {
       revision,
       replayed: false,
       receipt,
-      ...(kind === 'dispatch' ? { sendAllowed: true, authorization } : {}),
+      ...(kind === 'dispatch' ? { sendAllowed: true, authorization: currentAuthorization } : {}),
     };
   };
   const flow = new BoothFlow({ printer, journal, transport });
@@ -749,6 +800,19 @@ function guestSetup(baseCounts = counts) {
     sessionId,
     attemptId,
     authorization,
+    secondSessionId,
+    secondAuthorization: {
+      attemptId: secondAttemptId,
+      dispatchId: secondDispatchId,
+      printerId: 'simulator',
+      connectionGeneration: 1,
+    },
+    loseObservationBeforeCommit: () => {
+      observationLostBeforeCommit = true;
+    },
+    acceptedReturnsPrinted: () => {
+      acceptedLooksPrinted = true;
+    },
     loseObservationResponse: () => {
       observationResponseLost = true;
     },
@@ -882,6 +946,67 @@ it('sends one selected photo and confirms only an acknowledged full ejection', a
   expect(s.flow.getSnapshot().phase).toBe('welcome');
 });
 
+it('acknowledges ready-for-new-job safety before dispatching the next Guest print', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:first',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
+  s.printer.emit('ready_for_new_job');
+  await vi.waitFor(() =>
+    expect(
+      s.requests.some(
+        ({ path, body }) => path.endsWith('/observations') && body?.kind === 'ready_for_new_job'
+      )
+    ).toBe(true)
+  );
+  await s.flow.reportEquipment(observation);
+  await vi.advanceTimersByTimeAsync(3_000);
+  expect(s.flow.getSnapshot().phase).toBe('welcome');
+  await s.flow.start();
+  expect(s.flow.getSnapshot().phase).toBe('preview');
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([2]),
+    url: 'blob:second',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  expect(s.printer.commandCount).toBe(2);
+  expect(s.requests.filter(({ path }) => path.endsWith('/dispatch'))).toHaveLength(2);
+});
+
+it('does not confirm a command-accepted observation even if its reply says Printed', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:selected',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  s.acceptedReturnsPrinted();
+  s.printer.emit('command_accepted', s.authorization);
+  await vi.waitFor(() =>
+    expect(s.requests.some(({ path }) => path.endsWith('/observations'))).toBe(true)
+  );
+  expect(s.flow.getSnapshot().phase).toBe('printing');
+});
+
 it('dispatches the final reserved unit when available capacity becomes zero', async () => {
   const s = guestSetup({
     originalPackages: 5,
@@ -1003,6 +1128,61 @@ it('does not claim completion when the ejection response is lost', async () => {
   expect(await s.flow.reconcilePending(s.journal.readOperations())).toBe('clear');
   expect(s.journal.readOperations()).toEqual([]);
   expect(s.flow.getSnapshot().phase).not.toBe('confirmed');
+});
+
+it('replays an uncommitted ejection observation with its original operation ID', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:pending',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  s.loseObservationBeforeCommit();
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('unavailable'));
+  const first = s.requests.find(({ path }) => path.endsWith('/observations'))?.body;
+  expect(first?.kind).toBe('full_ejection_confirmed');
+  expect(await s.flow.reconcilePending(s.journal.readOperations())).toBe('clear');
+  const observations = s.requests.filter(({ path }) => path.endsWith('/observations'));
+  expect(observations).toHaveLength(2);
+  expect(observations[1].body).toEqual(first);
+  expect(s.journal.readOperations()).toEqual([]);
+});
+
+it('reads server pending state despite a malformed local journal', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:pending',
+    discard: vi.fn(),
+  }));
+  s.loseDispatchResponse();
+  await s.flow.print();
+  s.flow.dispose();
+  sessionStorage.setItem('booth-operations-v2', '{');
+  const before = s.requests.filter(({ path }) => path.endsWith('/reconcile')).length;
+  const reloaded = new BoothFlow({
+    transport: s.transport,
+    printer: s.printer,
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+  });
+  owned.push(reloaded);
+  await reloaded.initialize();
+  expect(s.requests.filter(({ path }) => path.endsWith('/reconcile')).length).toBeGreaterThan(
+    before
+  );
+  expect(reloaded.getSnapshot().phase).toBe('unavailable');
 });
 
 it('keeps printing while the printer is busy with its authorized job', async () => {

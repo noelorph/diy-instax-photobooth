@@ -29,3 +29,13 @@ Implementation commit: this report's commit, `feat: integrate one send printing 
 
 - F6 still owns complete recovery presentation and retries for pending receipts; this task blocks admission and resend while outcomes are unknown.
 - The broad project suite was not rerun at the parent agent's direction; Task 1 already recorded obsolete legacy Test/Wasted Film failures. Physical printer and actual iPad qualification remain open. Simulator observation and browser tests are nonproduction evidence only.
+
+## Review fixes — 2026-11-03
+
+Follow-up commit: `fix: reconcile printer observations and recovery safely`.
+
+- Four new tests were red before code changes: `ready_for_new_job` was dropped and a second Guest print could not proceed; `command_accepted` could display completion when a reply said Printed; an ejection observation with a missing receipt was not replayed; and a malformed journal prevented a server pending-attempt check. All four passed after the changes. The second-print test also found that the #9 helper intentionally refuses to proceed on old journal entries even after reconciliation; the controller now clears confirmed old entries before invoking it for a new session.
+- Attempt-scoped `ready_for_new_job` and `connection_changed` observations now use the existing #9 observation route and metadata journal. The former allows the server to confirm old-job safety after Printed. Ejection completion requires a matching attempt and dispatch ID, the `full_ejection_confirmed` observation kind, and an acknowledged Printed receipt. A missing observation receipt replays the original journaled operation ID and body before any generic pending reconciliation.
+- Boot reads the scoped server pending attempt even if local journal parsing fails, while malformed local state continues to block admission. The Admin Pause/Resume browser test now explicitly re-enables the stopped camera and awaits scoped readiness before phone Resume.
+- Verification after review fixes: unit/dispatch/journal/component gate **91 passed in 4 files**; `tests/integration/package-outcomes.test.ts` **40 passed**; `tests/integration/package-dispatch.test.ts` **26 passed**; named Admin Pause/Resume browser test **1 passed**; named real final-unit browser test **1 passed**; Booth browser config **2 passed**. TypeScript, changed-file ESLint, Prettier and `git diff --check` passed.
+- Full Admin browser config was not rerun after the named Pause/Resume fix. Local `supabase status` exited successfully with core API/DB available but still listed realtime, imgproxy, edge runtime, analytics, vector and pooler as stopped. No shared stack restart was attempted. The prior full-config result above remains the only full run; no full Admin pass is claimed.

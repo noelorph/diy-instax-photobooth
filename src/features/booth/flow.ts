@@ -115,6 +115,7 @@ export class BoothFlow {
   private shutterCount = 0;
   private shutterGeneration = 0;
   private attemptId?: string;
+  private dispatchId?: string;
   private pendingRecovery = false;
   private observing = Promise.resolve();
   private readonly stopObserving: () => void;
@@ -226,10 +227,20 @@ export class BoothFlow {
       }
       await this.refresh();
       if (this.state && !this.sessionId) {
-        const entries = this.dependencies.journal.readOperations();
+        let entries: readonly JournalEntry[] = [];
+        let malformed = false;
+        try {
+          entries = this.dependencies.journal.readOperations();
+        } catch {
+          malformed = true;
+        }
         if (entries.length || this.state.pendingAttemptId) {
-          this.pendingRecovery = (await this.reconcilePending(entries)) === 'pending';
+          const status = await this.reconcilePending(entries);
+          this.pendingRecovery = malformed || status === 'pending';
           await this.refresh();
+        } else if (malformed) {
+          this.pendingRecovery = true;
+          await this.project();
         }
       }
     } catch (error) {
@@ -444,6 +455,9 @@ export class BoothFlow {
       const runId = this.state.runId;
       const printerId = this.state.printerId;
       const connectionGeneration = this.state.connectionGeneration;
+      const old = this.dependencies.journal.readOperations();
+      if (old.length && (await this.reconcilePending(old)) !== 'clear')
+        throw new Error('Previous operation pending');
       this.transportOwnsPhoto = true;
       await dispatchReservedAttempt(
         {
@@ -529,6 +543,7 @@ export class BoothFlow {
               );
             if (reply.receipt.operationId !== operationId || reply.receipt.kind !== 'dispatch')
               throw new Error('Unexpected dispatch receipt');
+            this.dispatchId = reply.authorization?.dispatchId;
             await this.refresh();
             return reply;
           },
@@ -574,6 +589,16 @@ export class BoothFlow {
         )
           throw error;
         if (entry.kind === 'reservation') missingReservation = true;
+        if (entry.kind === 'observation') {
+          if (!attemptId) return 'pending';
+          const replay = await this.reportObservationEntry(entry, attemptId);
+          confirmed.push(entry.operationId);
+          if (
+            replay.receipt.result.state === 'Printed' ||
+            replay.receipt.result.state === 'NotPrinted'
+          )
+            terminal = true;
+        }
         continue;
       }
       const expectedKind = {
@@ -621,9 +646,13 @@ export class BoothFlow {
         reply.receipt.result.state === 'NotPrinted' || reply.receipt.result.state === 'Printed';
     }
     for (const id of confirmed) this.dependencies.journal.acknowledgeOperation(id);
-    return (attemptId && !terminal) || this.dependencies.journal.readOperations().length
-      ? 'pending'
-      : 'clear';
+    try {
+      return (attemptId && !terminal) || this.dependencies.journal.readOperations().length
+        ? 'pending'
+        : 'clear';
+    } catch {
+      return 'pending';
+    }
   }
   private async closeSession(sessionId: string) {
     const body = packageActionSchemas.endSession.parse({
@@ -643,34 +672,29 @@ export class BoothFlow {
   }
   private async observe(observation: PrinterObservationV2) {
     const runId = this.state?.runId;
-    if (!runId || this.disposed || !('attemptId' in observation)) return;
+    if (!runId || this.disposed) return;
+    if (observation.kind === 'connection_changed') {
+      this.equipmentEpoch++;
+      this.invalidateAdmission('printer_connection');
+    }
+    const attemptId =
+      'attemptId' in observation
+        ? observation.attemptId
+        : (this.attemptId ?? this.state?.pendingAttemptId);
+    if (!attemptId) return;
     await recordAndReportObservation(
       runId,
       observation,
       this.dependencies.journal,
       async (entry) => {
-        if (!('attemptId' in entry)) return;
-        const body = packageActionSchemas.observe.parse({
-          operationId: entry.operationId,
-          attemptId: entry.attemptId,
-          observationId: entry.observationId,
-          kind: entry.observationKind,
-          evidenceVersion: entry.evidenceVersion,
-          connectionGeneration: entry.connectionGeneration,
-          metadata: {},
-        });
-        const { attemptId: _attemptId, ...httpBody } = body;
-        void _attemptId;
-        const reply = packageReplySchema.parse(
-          await this.dependencies.transport(
-            `/api/booth/print-attempts/${entry.attemptId}/observations`,
-            httpBody,
-            this.requests.signal
-          )
-        );
-        if (reply.receipt.operationId !== entry.operationId || reply.receipt.kind !== 'observe')
-          throw new Error('Unexpected observation receipt');
-        if (entry.attemptId === this.attemptId && reply.receipt.result.state === 'Printed') {
+        const reply = await this.reportObservationEntry(entry, attemptId);
+        if (
+          entry.observationKind === 'full_ejection_confirmed' &&
+          'attemptId' in entry &&
+          entry.attemptId === this.attemptId &&
+          entry.dispatchId === this.dispatchId &&
+          reply.receipt.result.state === 'Printed'
+        ) {
           await this.refresh();
           if (this.view.phase !== 'printing') return;
           this.show({
@@ -684,6 +708,32 @@ export class BoothFlow {
         }
       }
     );
+  }
+  private async reportObservationEntry(
+    entry: Extract<JournalEntry, { kind: 'observation' }>,
+    attemptId: string
+  ) {
+    const body = packageActionSchemas.observe.parse({
+      operationId: entry.operationId,
+      attemptId,
+      observationId: entry.observationId,
+      kind: entry.observationKind,
+      evidenceVersion: entry.evidenceVersion,
+      connectionGeneration: entry.connectionGeneration,
+      metadata: {},
+    });
+    const { attemptId: _attemptId, ...httpBody } = body;
+    void _attemptId;
+    const reply = packageReplySchema.parse(
+      await this.dependencies.transport(
+        `/api/booth/print-attempts/${attemptId}/observations`,
+        httpBody,
+        this.requests.signal
+      )
+    );
+    if (reply.receipt.operationId !== entry.operationId || reply.receipt.kind !== 'observe')
+      throw new Error('Unexpected observation receipt');
+    return reply;
   }
   private async finishConfirmed() {
     if (this.view.phase !== 'confirmed' || !this.sessionId) return;
