@@ -115,6 +115,7 @@ export class BoothFlow {
   private shutterCount = 0;
   private shutterGeneration = 0;
   private attemptId?: string;
+  private awaitingJobSafetyAttemptId?: string;
   private dispatchId?: string;
   private pendingRecovery = false;
   private observing = Promise.resolve();
@@ -569,6 +570,13 @@ export class BoothFlow {
     let missingReservation = false;
     for (const entry of entries) {
       if (entry.runId !== state.runId) return 'pending';
+      if (
+        entry.kind === 'observation' &&
+        'attemptId' in entry &&
+        ((state.pendingAttemptId && entry.attemptId !== state.pendingAttemptId) ||
+          (attemptId && entry.attemptId !== attemptId))
+      )
+        return 'pending';
       let receipt: z.infer<typeof packageReplySchema>['receipt'];
       try {
         receipt = packageReplySchema.shape.receipt.parse(
@@ -680,7 +688,7 @@ export class BoothFlow {
     const attemptId =
       'attemptId' in observation
         ? observation.attemptId
-        : (this.attemptId ?? this.state?.pendingAttemptId);
+        : (this.attemptId ?? this.awaitingJobSafetyAttemptId ?? this.state?.pendingAttemptId);
     if (!attemptId) return;
     await recordAndReportObservation(
       runId,
@@ -695,6 +703,7 @@ export class BoothFlow {
           entry.dispatchId === this.dispatchId &&
           reply.receipt.result.state === 'Printed'
         ) {
+          this.awaitingJobSafetyAttemptId = entry.attemptId;
           await this.refresh();
           if (this.view.phase !== 'printing') return;
           this.show({
@@ -708,6 +717,10 @@ export class BoothFlow {
         }
       }
     );
+    if (observation.kind === 'ready_for_new_job' && attemptId === this.awaitingJobSafetyAttemptId) {
+      this.awaitingJobSafetyAttemptId = undefined;
+      this.dispatchId = undefined;
+    }
   }
   private async reportObservationEntry(
     entry: Extract<JournalEntry, { kind: 'observation' }>,

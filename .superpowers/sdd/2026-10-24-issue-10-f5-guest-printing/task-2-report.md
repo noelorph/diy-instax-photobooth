@@ -39,3 +39,13 @@ Follow-up commit: `fix: reconcile printer observations and recovery safely`.
 - Boot reads the scoped server pending attempt even if local journal parsing fails, while malformed local state continues to block admission. The Admin Pause/Resume browser test now explicitly re-enables the stopped camera and awaits scoped readiness before phone Resume.
 - Verification after review fixes: unit/dispatch/journal/component gate **91 passed in 4 files**; `tests/integration/package-outcomes.test.ts` **40 passed**; `tests/integration/package-dispatch.test.ts` **26 passed**; named Admin Pause/Resume browser test **1 passed**; named real final-unit browser test **1 passed**; Booth browser config **2 passed**. TypeScript, changed-file ESLint, Prettier and `git diff --check` passed.
 - Full Admin browser config was not rerun after the named Pause/Resume fix. Local `supabase status` exited successfully with core API/DB available but still listed realtime, imgproxy, edge runtime, analytics, vector and pooler as stopped. No shared stack restart was attempted. The prior full-config result above remains the only full run; no full Admin pass is claimed.
+
+## Re-review fixes — 2026-11-03
+
+Follow-up commit: `fix: retain late printer safety and fence observation replay`.
+
+- A late `ready_for_new_job` test failed after the three-second completion timer because the controller had cleared its attempt ID. It now retains only the attempt ID needed to correlate job-safety feedback after the photo and Guest Session are released, then clears that ID and dispatch ID after acknowledged safety reporting. The test passed. The existing immediate-ready/two-consecutive-print test also passed.
+- A stale ejection journal test failed because its observation was posted to a different current pending attempt. Reconciliation now rejects mismatched attempt correlation before reading or replaying that entry; the test passed and the stale journal remains pending for safe recovery.
+- The Admin setup test's camera response wait targeted `/api/booth/readiness` while still in Admin setup. It now waits for the actual `/setup-readiness` POST. The affected named browser case passed.
+- Final scoped verification: controller/dispatch/journal/component **93 passed in 4 files**; Booth browser config **2 passed**; named Admin setup case **1 passed**; named real final-unit case **1 passed**. TypeScript, changed-file ESLint, Prettier and `git diff --check` passed. The #9 integration gates from the preceding review round remained **40/40** package outcomes and **26/26** package dispatch; no #9 backend files changed in this round.
+- The full Admin browser config remains unverified because the local stack still reports stopped auxiliary services; no shared stack restart was attempted.

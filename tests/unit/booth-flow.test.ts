@@ -986,6 +986,37 @@ it('acknowledges ready-for-new-job safety before dispatching the next Guest prin
   expect(s.requests.filter(({ path }) => path.endsWith('/dispatch'))).toHaveLength(2);
 });
 
+it('reports ready-for-new-job after the confirmation screen has ended', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:first',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
+  await vi.advanceTimersByTimeAsync(3_000);
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  s.printer.emit('ready_for_new_job');
+  await vi.waitFor(() =>
+    expect(
+      s.requests.some(
+        ({ path, body }) => path.endsWith('/observations') && body?.kind === 'ready_for_new_job'
+      )
+    ).toBe(true)
+  );
+  await s.flow.reportEquipment(observation);
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().phase).toBe('welcome');
+});
+
 it('does not confirm a command-accepted observation even if its reply says Printed', async () => {
   const s = guestSetup();
   await s.printer.connect();
@@ -1153,6 +1184,40 @@ it('replays an uncommitted ejection observation with its original operation ID',
   expect(observations).toHaveLength(2);
   expect(observations[1].body).toEqual(first);
   expect(s.journal.readOperations()).toEqual([]);
+});
+
+it('does not replay a stale ejection observation against the current pending attempt', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:pending',
+    discard: vi.fn(),
+  }));
+  s.loseDispatchResponse();
+  await s.flow.print();
+  const state = (await s.transport('/api/booth/state')) as { runId: string };
+  const observationId = crypto.randomUUID();
+  s.journal.putOperation({
+    kind: 'observation',
+    operationId: observationId,
+    runId: state.runId,
+    recordedAt: Date.now(),
+    observationId,
+    observationKind: 'full_ejection_confirmed',
+    attemptId: crypto.randomUUID(),
+    dispatchId: crypto.randomUUID(),
+    adapterVersion: 'simulator-v2',
+    evidenceVersion: 'simulator-v1',
+    connectionGeneration: 1,
+  });
+  expect(await s.flow.reconcilePending(s.journal.readOperations())).toBe('pending');
+  expect(s.requests.filter(({ path }) => path.endsWith('/observations'))).toHaveLength(0);
+  expect(s.journal.readOperations()).toHaveLength(1);
 });
 
 it('reads server pending state despite a malformed local journal', async () => {

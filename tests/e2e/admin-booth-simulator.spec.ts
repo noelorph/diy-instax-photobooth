@@ -307,8 +307,9 @@ test('zero packages and incomplete physical setup cannot prepare a run', async (
     try {
       ownerUpdate('events', f.eventId, { film_package_count: 0, revision: 2 });
       await d.boothPage.goto(`/events/${f.eventId}`);
-      const cameraReady = d.boothPage.waitForResponse((response) =>
-        response.url().endsWith('/api/booth/readiness')
+      const cameraReady = d.boothPage.waitForResponse(
+        (response) =>
+          response.url().includes('/setup-readiness') && response.request().method() === 'POST'
       );
       await d.boothPage.getByRole('button', { name: 'Enable Camera', exact: true }).click();
       expect((await cameraReady).status()).toBe(200);
