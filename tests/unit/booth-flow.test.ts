@@ -639,6 +639,7 @@ function guestSetup(baseCounts = counts) {
   const journal = new BrowserBoothMetadataJournal(sessionStorage);
   let revision = 1;
   let captureGate: Promise<void> | undefined;
+  let observationGate: Promise<void> | undefined;
   let startGate: Promise<void> | undefined;
   let state = 'Active';
   let openSessionState = false;
@@ -720,6 +721,7 @@ function guestSetup(baseCounts = counts) {
                     : 'end_session';
     if (kind === 'start_session') await startGate;
     if (kind === 'record_capture') await captureGate;
+    if (kind === 'observe') await observationGate;
     if (kind === 'reserve' && reserveResponseLost) throw new Error('reserve response lost');
     if (kind === 'observe' && observationLostBeforeCommit) {
       observationLostBeforeCommit = false;
@@ -828,6 +830,9 @@ function guestSetup(baseCounts = counts) {
     holdCapture: (gate?: Promise<void>) => {
       captureGate = gate;
     },
+    holdObservation: (gate?: Promise<void>) => {
+      observationGate = gate;
+    },
     holdStart: (gate?: Promise<void>) => {
       startGate = gate;
     },
@@ -916,6 +921,39 @@ it('warns at 75 seconds, ends the idle Guest at 90 seconds, and discards review 
   expect(s.flow.getSnapshot().captureId).toBeUndefined();
 });
 
+it('clears a warning when Guest leaves preview or review', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  const waitWithReadiness = async () => {
+    for (let i = 0; i < 18; i++) {
+      await vi.advanceTimersByTimeAsync(4_000);
+      await s.flow.reportEquipment(observation);
+    }
+    await vi.advanceTimersByTimeAsync(3_000);
+  };
+  await waitWithReadiness();
+  expect(s.flow.getSnapshot().inactivityWarning).toBe(true);
+  await s.flow.reportEquipment(observation);
+  s.flow.countdown();
+  expect(s.flow.getSnapshot().inactivityWarning).toBe(false);
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([3]),
+    url: 'blob:transition',
+    discard: vi.fn(),
+  }));
+  expect(s.flow.getSnapshot().phase).toBe('review');
+  await waitWithReadiness();
+  expect(s.flow.getSnapshot().phase).toBe('review');
+  expect(s.flow.getSnapshot().inactivityWarning).toBe(true);
+  await s.flow.print();
+  expect(s.flow.getSnapshot().phase).toBe('printing');
+  expect(s.flow.getSnapshot().inactivityWarning).toBe(false);
+});
+
 it('does not time out the Guest during countdown or printing', async () => {
   vi.useFakeTimers();
   const s = guestSetup();
@@ -990,6 +1028,39 @@ it('stops a reviewed Guest on an adapter connection-change callback', async () =
   expect(s.requests.some(({ path }) => path.endsWith('/end'))).toBe(true);
 });
 
+it('stops Guest synchronously on connection loss while an earlier observation is held', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  const discard = vi.fn();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([9]),
+    url: 'blob:queued',
+    discard,
+  }));
+  await s.flow.print();
+  const gate = deferred();
+  s.holdObservation(gate.promise);
+  s.printer.emit('command_accepted', s.authorization);
+  await vi.waitFor(() =>
+    expect(s.requests.filter(({ path }) => path.endsWith('/observations'))).toHaveLength(1)
+  );
+  s.printer.emit('connection_changed');
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
+  expect(discard).toHaveBeenCalledOnce();
+  gate.resolve();
+  await vi.waitFor(() =>
+    expect(s.requests.filter(({ path }) => path.endsWith('/observations'))).toHaveLength(2)
+  );
+  expect(
+    s.requests.filter(({ path }) => path.endsWith('/observations')).map(({ body }) => body?.kind)
+  ).toEqual(['command_accepted', 'connection_changed']);
+});
+
 it('discards a late encoded photo after an immediate offline stop', async () => {
   const s = guestSetup();
   await s.printer.connect();
@@ -1036,6 +1107,8 @@ it('keeps an authorized transport buffer until send settles after a fault', asyn
   expect(s.flow.getSnapshot().phase).toBe('unavailable');
   expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
   expect(discard).not.toHaveBeenCalled();
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().photoUrl).toBeUndefined();
   gate.resolve();
   await printing;
   expect(discard).toHaveBeenCalledOnce();

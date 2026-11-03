@@ -133,6 +133,10 @@ export class BoothFlow {
     }
   ) {
     this.stopObserving = dependencies.printer.observe((observation) => {
+      if (observation.kind === 'connection_changed' && !this.disposed) {
+        this.equipmentEpoch++;
+        this.stopForBlocker('printer_connection');
+      }
       this.observing = this.observing
         .then(() => this.observe(observation))
         .catch((error) => {
@@ -150,9 +154,11 @@ export class BoothFlow {
   private show(view: View) {
     if (this.disposed) return;
     const changed = this.view.phase !== view.phase;
+    const timed = view.phase === 'preview' || view.phase === 'review';
     this.view = {
       ...view,
-      inactivityWarning: view.inactivityWarning ?? (changed ? false : this.view.inactivityWarning),
+      inactivityWarning:
+        timed && !changed ? (view.inactivityWarning ?? this.view.inactivityWarning) : false,
     };
     if (changed) {
       this.clearInactivity();
@@ -404,10 +410,12 @@ export class BoothFlow {
               ? 'welcome'
               : 'unavailable';
     if (phase !== 'welcome' && this.sessionId) this.guestStopped();
+    const visiblePhase = phase === 'welcome' && this.sessionId ? this.view.phase : phase;
+    const showingPhoto = visiblePhase === 'review' || visiblePhase === 'printing';
     this.show({
-      phase: phase === 'welcome' && this.sessionId ? this.view.phase : phase,
-      photoUrl: this.photo?.url,
-      captureId: this.captureId,
+      phase: visiblePhase,
+      photoUrl: showingPhoto ? this.photo?.url : undefined,
+      captureId: showingPhoto ? this.captureId : undefined,
       shutterCount: this.shutterCount,
       counts: state.counts,
       blockers: [...new Set(blockers)],
@@ -758,10 +766,6 @@ export class BoothFlow {
   private async observe(observation: PrinterObservationV2) {
     const runId = this.state?.runId;
     if (!runId || this.disposed) return;
-    if (observation.kind === 'connection_changed') {
-      this.equipmentEpoch++;
-      this.stopForBlocker('printer_connection');
-    }
     const attemptId =
       'attemptId' in observation
         ? observation.attemptId
