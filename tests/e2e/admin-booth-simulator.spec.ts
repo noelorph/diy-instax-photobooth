@@ -388,7 +388,17 @@ for (const blocker of ['paused', 'pending outcome'] as const) {
         if (blocker === 'pending outcome') seedOutcome(f, runId, 'Pending');
         await d.phonePage.goto(`/events/${f.eventId}`);
         if (blocker === 'paused') {
+          const pause = d.phonePage.waitForResponse(
+            (response) =>
+              response.url().endsWith('/booth/pause') && response.request().method() === 'POST'
+          );
+          const pausedState = d.boothPage.waitForResponse(async (response) => {
+            if (!response.url().endsWith('/api/booth/state') || !response.ok()) return false;
+            return (await response.json()).state === 'Paused';
+          });
           await d.phonePage.getByRole('button', { name: 'Pause Booth', exact: true }).click();
+          expect((await pause).ok()).toBe(true);
+          await pausedState;
           await expect(d.boothPage.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
         }
         await d.phonePage.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
@@ -831,7 +841,18 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
       );
       await d.boothPage.getByRole('button', { name: 'Enable Camera', exact: true }).click();
       await restoredCamera;
+      const resume = d.phonePage.waitForResponse(
+        (response) =>
+          response.url().endsWith('/booth/resume') && response.request().method() === 'POST'
+      );
+      const resumedState = d.boothPage.waitForResponse(async (response) => {
+        if (!response.url().endsWith('/api/booth/state') || !response.ok()) return false;
+        const state = await response.json();
+        return state.state === 'Active' && state.allowedActions?.startGuest === true;
+      });
       await d.phonePage.getByRole('button', { name: 'Resume Booth', exact: true }).click();
+      expect((await resume).ok()).toBe(true);
+      await resumedState;
       await expect(d.boothPage.getByRole('heading', { name: 'Make a memory' })).toBeVisible({
         timeout: 10_000,
       });
@@ -1121,7 +1142,13 @@ test('eligible Live cancellation keeps History and usable confirmation across th
         true
       );
       await expect(page.getByRole('button', { name: 'Confirm Cancel Event' })).toBeVisible();
+      const cancellation = page.waitForResponse(
+        (response) =>
+          response.url().endsWith(`/api/admin/events/${f.eventId}/cancel`) &&
+          response.request().method() === 'POST'
+      );
       await page.getByRole('button', { name: 'Confirm Cancel Event' }).click();
+      expect((await cancellation).ok()).toBe(true);
       await expect(page.getByText('Cancelled Event', { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
       const retained = (
