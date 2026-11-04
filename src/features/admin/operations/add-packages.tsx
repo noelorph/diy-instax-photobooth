@@ -11,6 +11,7 @@ import {
   type PackageOperationResult,
 } from '@/lib/operations/package-contract';
 import { z } from 'zod';
+import { boothFetch } from '@/features/booth/flow';
 import { FormField } from '@/components/shared/form-field';
 import styles from './panel.module.css';
 
@@ -97,12 +98,13 @@ export function AddPackages({
     return () => cancelAnimationFrame(frame);
   }, [readSavedRequest]);
   async function refreshCounts() {
-    const response = await fetch(`/api/admin/events/${eventId}/booth/state`, { cache: 'no-store' });
-    if (!response.ok)
+    const state = (await boothFetch(`/api/admin/events/${eventId}/booth/state`).catch(() => {
       throw new Error(
         'The purchase is recorded. Current totals are unavailable; retry to refresh.'
       );
-    const state = await response.json();
+    })) as {
+      counts?: PackageCounts;
+    };
     if (!state.counts) throw new Error('Current totals are unavailable; retry to refresh.');
     onCounts(state.counts);
     setCurrent(true);
@@ -145,15 +147,15 @@ export function AddPackages({
         }
         setPending(purchase);
       } else {
-        const lookup = await fetch(
+        const recovered = (await boothFetch(
           `/api/admin/events/${eventId}/operations/${purchase.operationId}`,
-          { cache: 'no-store', headers: { 'x-package-admin-id': adminUserId } }
-        );
-        if (!lookup.ok)
+          undefined,
+          adminUserId
+        ).catch(() => {
           throw new Error(
             'Unable to check the original request. Retry when your Admin access and connection are available.'
           );
-        const recovered = await lookup.json();
+        })) as { receipt: Result['receipt'] | null };
         if (recovered.receipt) {
           if (
             recovered.receipt.operationId !== purchase.operationId ||
@@ -169,26 +171,27 @@ export function AddPackages({
         throw new Error(
           'No receipt is available yet. Restore the original saved purchase details and reload, or retry the receipt check. No new purchase has been sent.'
         );
-      const response = await fetch(`/api/admin/events/${eventId}/film-packages`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-package-admin-id': adminUserId },
-        cache: 'no-store',
-        body: JSON.stringify(purchase),
-      });
-      const result = await response.json();
-      if (!response.ok) {
-        if ([400, 409].includes(response.status) && result.code !== 'operation_conflict') {
+      const committed = (await boothFetch(
+        `/api/admin/events/${eventId}/film-packages`,
+        purchase,
+        adminUserId
+      ).catch((cause) => {
+        const rejection = z
+          .object({ status: z.number(), code: z.string().optional() })
+          .safeParse(cause);
+        if (
+          rejection.success &&
+          [400, 409].includes(rejection.data.status) &&
+          rejection.data.code !== 'operation_conflict'
+        ) {
           sessionStorage.removeItem(storageKey);
           setPending(null);
           throw new Error(
             'The purchase was not recorded. Reload current state and review the package count and Client request note.'
           );
         }
-        throw new Error(
-          'We could not confirm whether the Film Packages were added. Your request details have been kept. Retry to check its result.'
-        );
-      }
-      const committed = result as Result;
+        throw cause;
+      })) as Result;
       if (
         committed.receipt?.operationId !== purchase.operationId ||
         committed.receipt.kind !== 'add_packages'
@@ -198,7 +201,10 @@ export function AddPackages({
       await refreshCounts();
     } catch (cause) {
       setError(
-        cause instanceof Error && !(cause instanceof TypeError)
+        cause instanceof Error &&
+          !(cause instanceof TypeError) &&
+          cause.name !== 'AbortError' &&
+          !('status' in cause)
           ? cause.message
           : 'We could not confirm whether the Film Packages were added. Your request details have been kept. Retry to check its result.'
       );

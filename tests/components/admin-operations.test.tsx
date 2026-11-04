@@ -1,5 +1,6 @@
 import { afterEach, expect, it, vi } from 'vitest';
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
+import { AddPackages } from '@/features/admin/operations/add-packages';
 import { OperationsPanel } from '@/features/admin/operations/panel';
 import { packageCounts } from '@/lib/operations/package-contract';
 import type { OperationalEvent } from '@/features/admin/operations/types';
@@ -266,6 +267,102 @@ it('preserves attempt pagination links', () => {
     'attemptPage=0'
   );
 });
+
+it.each(['purchase', 'receipt', 'counts'] as const)(
+  'unlocks a stalled %s request while preserving the original purchase',
+  async (stage) => {
+    vi.useFakeTimers();
+    let stalled = false;
+    let signal: AbortSignal | null | undefined;
+    const bodies: Record<string, unknown>[] = [];
+    const storageKey = `film-package-purchase:${event.id}:admin-a`;
+    const fetcher = vi.fn((path: string, options?: RequestInit): Promise<Response> => {
+      const purchase = path.endsWith('/film-packages');
+      const lookup = path.includes('/operations/');
+      if (purchase) bodies.push(JSON.parse(String(options?.body)));
+      if (
+        !stalled &&
+        ((stage === 'purchase' && purchase) ||
+          (stage === 'receipt' && lookup) ||
+          (stage === 'counts' && !purchase && !lookup))
+      ) {
+        stalled = true;
+        signal = options?.signal;
+        return new Promise((_resolve, reject) => {
+          signal?.addEventListener('abort', () =>
+            reject(new DOMException('Aborted', 'AbortError'))
+          );
+        });
+      }
+      if (purchase && stage === 'receipt') return Promise.reject(new TypeError('Response lost'));
+      const receipt = {
+        operationId: bodies[0].operationId,
+        kind: 'add_packages',
+        result: { ...packageCounts(5, 1, 49, 1), entryId: 'entry' },
+      };
+      return Promise.resolve(
+        Response.json(
+          lookup
+            ? { receipt }
+            : purchase
+              ? { receipt }
+              : {
+                  counts: packageCounts(5, 1, 49, 1),
+                }
+        )
+      );
+    });
+    vi.stubGlobal('fetch', fetcher);
+    const onCounts = vi.fn();
+    render(
+      <AddPackages
+        eventId={event.id}
+        adminUserId="admin-a"
+        eligible
+        counts={event.counts}
+        onCounts={onCounts}
+        refreshAdmin={vi.fn()}
+      />
+    );
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(32);
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Add Film Packages' }));
+    fireEvent.change(screen.getByLabelText('Client request note'), {
+      target: { value: 'Original request' },
+    });
+    await act(async () => {
+      fireEvent.click(
+        within(screen.getByRole('dialog')).getByRole('button', { name: 'Add Film Packages' })
+      );
+    });
+    if (stage === 'receipt') {
+      await act(async () => {
+        fireEvent.click(screen.getByRole('button', { name: 'Retry request' }));
+      });
+    }
+    const saved = sessionStorage.getItem(storageKey);
+    expect(JSON.parse(saved!)).toEqual(bodies[0]);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    const retry = screen.getByRole('button', { name: 'Retry request' });
+    expect(retry.hasAttribute('disabled')).toBe(false);
+    expect(signal?.aborted).toBe(true);
+    expect(sessionStorage.getItem(storageKey)).toBe(saved);
+    if (stage !== 'counts') {
+      expect(screen.getByLabelText('Additional Film Packages').hasAttribute('disabled')).toBe(true);
+      expect(screen.getByLabelText('Client request note').hasAttribute('disabled')).toBe(true);
+    }
+    await act(async () => {
+      fireEvent.click(retry);
+    });
+    expect(onCounts).toHaveBeenCalledWith(packageCounts(5, 1, 49, 1));
+    expect(bodies).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Done' }));
+    expect(sessionStorage.getItem(storageKey)).toBeNull();
+  }
+);
 
 it('recovers a committed purchase after a lost response without issuing another purchase', async () => {
   let purchases = 0;

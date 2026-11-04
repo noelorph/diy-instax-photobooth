@@ -17,6 +17,46 @@ async function signOut(page: Page) {
   await expect(page).toHaveURL(/\/sign-in/);
 }
 
+for (const width of [390, 768]) {
+  test(`stalled purchase recovers its receipt at ${width}px without another purchase`, async ({
+    page,
+  }) => {
+    const f = await createPackageBrowserFixture();
+    try {
+      f.seedRun('Paused');
+      await page.setViewportSize({ width, height: 1024 });
+      await signIn(page, f.adminUser);
+      await page.goto(`/events/${f.eventId}`);
+      let posts = 0;
+      await page.route(`**/api/admin/events/${f.eventId}/film-packages`, async (route) => {
+        posts++;
+        expect((await route.fetch()).status()).toBe(200);
+        // Leave the committed response pending until the application deadline aborts it.
+      });
+      await page.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
+      const dialog = page.getByRole('dialog');
+      await page.getByLabel('Client request note').fill('Original purchase');
+      await dialog.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
+      const key = `film-package-purchase:${f.eventId}:${f.adminUser.id}`;
+      const saved = await page.evaluate((key) => sessionStorage.getItem(key), key);
+      await expect(dialog.getByRole('button', { name: 'Retry request' })).toBeEnabled({
+        timeout: 10000,
+      });
+      await expect(dialog.getByRole('alert')).toContainText('request details have been kept');
+      expect(await page.evaluate((key) => sessionStorage.getItem(key), key)).toBe(saved);
+      await expect(page.getByLabel('Client request note')).toBeDisabled();
+      await dialog.getByRole('button', { name: 'Retry request' }).click();
+      await expect(dialog).toContainText('Film Packages added.');
+      expect(posts).toBe(1);
+      await dialog.getByRole('button', { name: 'Done' }).click();
+      expect(await page.evaluate((key) => sessionStorage.getItem(key), key)).toBeNull();
+      expect((await f.readAdmin()).data.counts.additionalPackages).toBe(1);
+    } finally {
+      await f.dispose();
+    }
+  });
+}
+
 test('phone purchase survives a lost response, reload and storage access failure with one immutable addition', async ({
   page,
 }) => {
