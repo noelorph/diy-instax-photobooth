@@ -861,8 +861,32 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
       });
       void resumedState.catch(() => {});
       await d.phonePage.getByRole('button', { name: 'Resume Booth', exact: true }).click();
-      const resumeResponse = await resume;
-      expect(resumeResponse.ok(), `Resume response status: ${resumeResponse.status()}`).toBe(true);
+      let resumeResponse = await resume;
+      let resumeCode = resumeResponse.ok() ? undefined : (await resumeResponse.json()).code;
+      const reviewedResume = resumeResponse.request().postDataJSON();
+      expect(reviewedResume.runId).toBe(original.runId);
+      if (resumeResponse.status() === 409 && resumeCode === 'stale_revision') {
+        await expect(d.phonePage.getByRole('alert')).toContainText(
+          'The Event changed. Review current state'
+        );
+        await d.phonePage.reload();
+        const rereviewedResume = d.phonePage.waitForResponse(
+          (response) =>
+            response.url().endsWith('/booth/resume') && response.request().method() === 'POST'
+        );
+        void rereviewedResume.catch(() => {});
+        await d.phonePage.getByRole('button', { name: 'Resume Booth', exact: true }).click();
+        resumeResponse = await rereviewedResume;
+        resumeCode = resumeResponse.ok() ? undefined : (await resumeResponse.json()).code;
+        const submitted = resumeResponse.request().postDataJSON();
+        expect(submitted.runId).toBe(original.runId);
+        expect(submitted.operationId).not.toBe(reviewedResume.operationId);
+        expect(submitted.expectedRevision).toBeGreaterThan(reviewedResume.expectedRevision);
+      }
+      expect(
+        resumeResponse.status(),
+        `Resume response status: ${resumeResponse.status()}; code: ${resumeCode ?? 'none'}`
+      ).toBe(200);
       await resumedState;
       await expect(d.boothPage.getByRole('heading', { name: 'Make a memory' })).toBeVisible({
         timeout: 10_000,
