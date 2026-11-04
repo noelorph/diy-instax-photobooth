@@ -1,6 +1,6 @@
 # Apricot Studio — approved visual direction
 
-**Approved by the user: 2026-11-04. Status: visual target; application migration pending.**
+**Approved by the user: 2026-11-04. Status: implemented in Admin and Booth on 2026-11-04; actual-iPad verification pending.**
 
 ![Approved Apricot Studio welcome and Admin Live Event study](approved-direction.png)
 

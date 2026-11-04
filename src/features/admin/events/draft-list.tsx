@@ -40,7 +40,7 @@ export function DraftList({
         title="Events"
         description="Plan upcoming Events and manage the live booth."
         action={
-          <Link className={buttonVariants({ variant: 'secondary' })} href="/events/new">
+          <Link className={buttonVariants({ variant: 'primary' })} href="/events/new">
             <Plus aria-hidden="true" />
             Create Event
           </Link>

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
 import { z } from 'zod';
+import { Camera, Package, Printer, Wifi } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { FormFeedback } from '@/components/shared/form-feedback';
 import { boothFetch } from '@/features/booth/flow';
@@ -196,28 +197,40 @@ export function BoothControls({
         if (!open && !busy && !uncertain) setReview(null);
       }}
     >
-      <section aria-label="Booth controls">
+      <section aria-label="Booth controls" className={styles.controls}>
         {event.state === 'Live' && (
           <section className={styles.equipment} aria-label="Booth equipment">
             <h3>Equipment status</h3>
             <dl className={styles.readiness} aria-label="Equipment status">
               {(
                 [
-                  ['Camera', event.equipment?.cameraLive, 'Ready', 'Unavailable'],
-                  ['Instax', event.equipment?.printerConnected, 'Connected', 'Disconnected'],
-                  ['Internet', event.equipment?.serverReachable, 'Online', 'Unavailable'],
+                  ['Camera', event.equipment?.cameraLive, 'Ready', 'Unavailable', Camera],
+                  [
+                    'Instax',
+                    event.equipment?.printerConnected,
+                    'Connected',
+                    'Disconnected',
+                    Printer,
+                  ],
+                  ['Internet', event.equipment?.serverReachable, 'Online', 'Unavailable', Wifi],
                 ] as const
-              ).map(([label, value, positive, negative]) => (
+              ).map(([label, value, positive, negative, Icon]) => (
                 <div key={label}>
-                  <dt>{label}</dt>
+                  <dt>
+                    <Icon size={20} aria-hidden="true" />
+                    {label}
+                  </dt>
                   <dd data-ready={equipmentFresh ? value : undefined}>
                     {equipmentFresh ? (value ? positive : negative) : 'Needs check'}
                   </dd>
                 </div>
               ))}
               <div>
-                <dt>Film</dt>
-                <dd>
+                <dt>
+                  <Package size={20} aria-hidden="true" />
+                  Film
+                </dt>
+                <dd data-ready={event.equipment ? event.equipment.filmLoaded : undefined}>
                   {event.equipment
                     ? event.equipment.filmLoaded
                       ? 'Loaded'
@@ -305,7 +318,7 @@ export function BoothControls({
               ))}
             </div>
             {(event.runState !== 'Finished' || event.counts.unresolved > 0) && (
-              <p>
+              <p className={styles.muted}>
                 Finish every Booth run and resolve all print outcomes before completing or
                 cancelling this Event.
               </p>
@@ -313,7 +326,7 @@ export function BoothControls({
           </>
         )}
         {event.state === 'Live' && event.runState !== 'Finished' && event.blockers.length > 0 && (
-          <ul aria-label="Booth readiness blockers">
+          <ul aria-label="Booth readiness blockers" className={styles.blockers}>
             {event.blockers.map((blocker) => (
               <li key={blocker}>
                 {blockerMessages[blocker] ?? 'Booth readiness needs attention.'}

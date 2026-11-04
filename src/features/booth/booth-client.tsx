@@ -6,12 +6,22 @@ import { BrowserBoothMetadataJournal } from './print-journal';
 import { getBoothPrinter, hasLiveCamera } from './equipment';
 import { STATE_POLL_MS } from '@/lib/operations/package-contract';
 import styles from './booth.module.css';
-import { CirclePause, CircleCheck, KeyRound, LoaderCircle, TriangleAlert } from 'lucide-react';
+import {
+  ArrowRight,
+  Camera,
+  CirclePause,
+  CircleCheck,
+  KeyRound,
+  LoaderCircle,
+  TriangleAlert,
+} from 'lucide-react';
+import { WelcomeIllustration } from './welcome-illustration';
 import type { DispatchAuthorization } from '@/lib/operations/package-contract';
 export function BoothPaused() {
   return (
-    <main className={styles.booth}>
+    <main className={styles.booth} data-tone="dark">
       <section className={styles.content}>
+        <CirclePause className={styles.statusIcon} aria-hidden="true" />
         <h1>Booth paused</h1>
         <p>Please ask the Admin for help.</p>
         <a href="/sign-in?from=booth">Sign in</a>
@@ -247,9 +257,24 @@ export function BoothClient({
             ? LoaderCircle
             : TriangleAlert;
   return (
-    <main className={styles.booth}>
+    <main
+      className={styles.booth}
+      data-tone={view.phase === 'welcome' ? 'light' : 'dark'}
+      data-phase={view.phase}
+    >
       <section className={`${styles.content} ${showPreview ? styles.previewContent : ''}`}>
-        {!showPreview && <StatusIcon className={styles.statusIcon} aria-hidden="true" />}
+        {view.phase === 'welcome' && (
+          <p className={styles.brand}>
+            <Camera size={28} aria-hidden="true" />
+            Photo Booth
+          </p>
+        )}
+        {!showPreview && (
+          <StatusIcon
+            className={`${styles.statusIcon} ${view.phase === 'loading' || view.phase === 'finishing' ? styles.spin : ''}`}
+            aria-hidden="true"
+          />
+        )}
         <h1 ref={heading} tabIndex={-1} aria-live="polite">
           {titles[view.phase]}
         </h1>
@@ -261,7 +286,7 @@ export function BoothClient({
             playsInline
             aria-label="Mirrored camera preview"
           />
-          {view.phase === 'welcome' && <div className={styles.emptyFrame} aria-hidden="true" />}
+          {view.phase === 'welcome' && <WelcomeIllustration className={styles.illustration} />}
           {(view.phase === 'review' || view.phase === 'printing') && view.photoUrl && (
             // Browser-owned blob URLs are never sent to the Next image optimizer.
             // eslint-disable-next-line @next/next/no-img-element
@@ -293,8 +318,11 @@ export function BoothClient({
         <div className={styles.actions}>
           {view.phase === 'welcome' && (
             <>
-              <p>One print per turn. Your photo stays on this device until printing is done.</p>
+              <p className={styles.caption}>
+                One print per turn. Your photo stays on this device until printing is done.
+              </p>
               <button
+                className={styles.start}
                 disabled={busy}
                 onClick={() => {
                   setBusy(true);
@@ -302,6 +330,7 @@ export function BoothClient({
                 }}
               >
                 Start
+                <ArrowRight aria-hidden="true" />
               </button>
             </>
           )}

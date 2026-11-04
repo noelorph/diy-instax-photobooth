@@ -11,7 +11,7 @@ const quiet =
   'border-transparent bg-transparent text-ds-text enabled:hover:bg-ds-surface-muted enabled:active:bg-ds-surface-muted [a&]:hover:bg-ds-surface-muted';
 
 const buttonVariants = cva(
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border text-base leading-[1.375rem] font-medium text-center whitespace-normal transition-colors duration-120 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ds-focus disabled:cursor-not-allowed disabled:border-ds-border disabled:bg-ds-surface-muted disabled:text-ds-text-muted [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
+  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border text-base leading-6 font-medium text-center whitespace-normal transition-colors duration-180 motion-reduce:transition-none focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ds-focus disabled:cursor-not-allowed disabled:border-ds-border disabled:bg-ds-surface-muted disabled:text-ds-text-muted [&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-5",
   {
     variants: {
       variant: {
@@ -23,12 +23,12 @@ const buttonVariants = cva(
         ghost: quiet,
         destructive:
           'border-transparent bg-transparent text-ds-danger enabled:hover:bg-ds-danger-soft enabled:active:bg-ds-danger-soft',
-        link: 'border-transparent text-ds-primary underline underline-offset-4',
+        link: 'border-transparent text-ds-primary underline underline-offset-4 enabled:hover:text-ds-primary-hover [a&]:hover:text-ds-primary-hover',
       },
       size: {
         default: 'px-4 py-2',
-        sm: 'px-3 py-2 text-sm leading-[1.125rem]',
-        lg: 'min-h-12 px-6 py-3',
+        sm: 'px-3 py-2 text-sm leading-5',
+        lg: 'min-h-12 px-6 py-3 text-lg leading-[1.625rem]',
         icon: 'min-w-11 p-2',
       },
     },

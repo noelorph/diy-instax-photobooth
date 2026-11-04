@@ -6,7 +6,7 @@
 
 [ADR-0030](0030-fence-event-media-commits-and-require-cleanup-proof.md) preserves the scoped guard and cleanup proof; [ADR-0031](0031-temporarily-disable-event-media-uploads.md) retains runtime unavailability and the disabled-release allowance; [ADR-0032](0032-build-full-f2-with-uploads-unavailable.md) restores full dormant F2 implementation and the original #30 acceptance goal, allowing F3–F8 to use the verified upload-disabled F2 milestone while #30 remains open in #10 and is completed last.
 
-[ADR-0033](0033-adopt-apricot-studio-design-system.md) adopts Apricot Studio and the smaller DM Sans scale across Admin and Booth. It supersedes ADR-0019 and the earlier teal/always-dark-welcome presentation; application migration is pending.
+[ADR-0033](0033-adopt-apricot-studio-design-system.md) adopts Apricot Studio and the smaller DM Sans scale across Admin and Booth. It supersedes ADR-0019 and the earlier teal/always-dark-welcome presentation; Admin and Booth were migrated on 2026-11-04 (actual-iPad verification pending).
 
 [ADR-0028](0028-define-monthly-event-count.md) clarifies the monthly Dashboard count: Draft, Live and Completed are included; Cancelled is excluded. The plan is approved; F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure.
 

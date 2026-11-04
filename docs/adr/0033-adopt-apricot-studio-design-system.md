@@ -1,6 +1,6 @@
 # ADR-0033: Adopt Apricot Studio and a smaller DM Sans type scale
 
-**Status:** Accepted visual target, 2026-11-04. Application migration and rendered verification remain pending.
+**Status:** Accepted, 2026-11-04. Implemented as a presentation-only change on branch `feat/apricot-studio-redesign` the same day; local browser verification is recorded in the [design system implementation record](../../DESIGN_SYSTEM.md#10-implementation-record--2026-11-04). Actual-iPad rendering and media-backed welcome verification remain pending.
 **Authority:** [Design system](../../DESIGN_SYSTEM.md), [approved direction](../design/2026-11-04-apricot-studio/README.md).
 
 ## Context
@@ -22,3 +22,7 @@ This records a presentation decision, not a new feature or an implementation acc
 The approved raster is a visual reference for the welcome and Live Event page. Exact font size, colors, states and accessibility come from the written system; the raster is not a pixel specification. Dark mode, remaining screens and responsive layouts follow the shared tokens and existing behavior, and still require browser/actual-device verification during implementation.
 
 The October 21 mockups, generation records and tokens remain historical presentation evidence and useful state-coverage references. Their Geist/teal styling and always-dark welcome are superseded. No dated software or physical acceptance result is rewritten by this decision.
+
+## Implementation notes — 2026-11-04
+
+The application now uses these tokens and DM Sans. Two details refine the written system without changing the decision: selected navigation and the Profile theme choice use `surface-muted` with `primary-hover` text in light theme (matching the approved raster's peach active item and the contrast constraint), and accounting values keep their sentence labels at 20/28 px rather than separate 28/36 px numerals so existing labels stay attached on phones. The welcome illustration is an original bundled SVG. No behavior, route, API call, validation or control changed. The Profile appearance note was reworded because the welcome is no longer always dark.

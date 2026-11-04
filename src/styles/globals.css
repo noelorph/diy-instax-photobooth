@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 @theme inline {
-  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
+  --font-sans: var(--font-dm-sans), system-ui, sans-serif;
   --color-ds-canvas: var(--color-canvas);
   --color-ds-surface: var(--color-surface);
   --color-ds-surface-muted: var(--color-surface-muted);
@@ -24,6 +24,7 @@
   --color-ds-success-soft: var(--color-success-soft);
   --color-ds-warning: var(--color-warning);
   --color-ds-warning-soft: var(--color-warning-soft);
+  --color-ds-accent: var(--color-accent);
 }
 
 html,
@@ -33,62 +34,74 @@ body {
 
 body {
   margin: 0;
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
 }
 
+/* Apricot Studio light roles (docs/design/2026-11-04-apricot-studio/tokens.json). */
 :root,
 .public-auth,
 .admin-shell,
 .profile-theme-preview[data-theme='light'] {
-  --color-canvas: #f6f5f0;
+  --color-canvas: #fff8ef;
   --color-surface: #ffffff;
-  --color-surface-muted: #ecefea;
-  --color-text: #1d2b2a;
-  --color-text-muted: #4d605d;
-  --color-border: #728780;
-  --color-border-subtle: #c8d2ce;
-  --color-primary: #1f6663;
-  --color-primary-hover: #17514f;
+  --color-surface-muted: #ffe1c9;
+  --color-text: #30251f;
+  --color-text-muted: #746054;
+  --color-border: #8c7363;
+  --color-border-subtle: #e5d5c8;
+  --color-primary: #b84a22;
+  --color-primary-hover: #9f3f1d;
+  --color-primary-soft: #fff1e5;
   --color-on-primary: #ffffff;
-  --color-focus: #1f6663;
-  --color-danger: #a33137;
-  --color-danger-hover: #87282d;
-  --color-on-danger: #ffffff;
-  --color-warning: #805300;
-  --color-warning-soft: #fff1d6;
-  --color-danger-soft: #fce9ea;
-  --color-info: #245a78;
-  --color-info-soft: #e5f1f7;
-  --color-primary-soft: #daece8;
+  --color-focus: #594033;
   --color-success: #226a4d;
+  --color-warning: #805300;
+  --color-danger: #a9213c;
+  --color-danger-hover: #8d1830;
+  --color-on-danger: #ffffff;
+  --color-info: #245a78;
   --color-success-soft: #e5f2e9;
+  --color-warning-soft: #fff1d6;
+  --color-danger-soft: #fce9ed;
+  --color-info-soft: #e5f1f7;
+  --color-accent: #f7ad65;
+  /* Brand-colored small text on peach surface-muted must use primary-hover. */
+  --color-primary-on-muted: var(--color-primary-hover);
+  --shadow-raised: 0 1px 2px rgb(48 37 31 / 0.06), 0 8px 24px rgb(48 37 31 / 0.08);
+  --overlay: rgb(48 37 31 / 0.55);
 }
 
+/* Apricot Studio dark roles. */
 .admin-shell[data-theme='dark'],
 .profile-theme-preview[data-theme='dark'],
 .public-auth:has([data-booth-return='true']) {
-  --color-canvas: #101b1b;
-  --color-surface: #1a2929;
-  --color-surface-muted: #223333;
-  --color-text: #eff5f1;
-  --color-text-muted: #b5c7c2;
-  --color-border: #708a84;
-  --color-border-subtle: #3c514d;
-  --color-primary: #6fb7ae;
-  --color-primary-hover: #8acac1;
-  --color-primary-soft: #24413e;
-  --color-on-primary: #101b1b;
-  --color-focus: #8acac1;
-  --color-danger: #ff999c;
-  --color-danger-hover: #ffb3b5;
-  --color-on-danger: #101b1b;
-  --color-warning: #ffd27d;
-  --color-warning-soft: #4a3619;
-  --color-danger-soft: #4a292b;
-  --color-info: #8cc8e8;
-  --color-info-soft: #1e3a48;
-  --color-success: #88cba5;
-  --color-success-soft: #1e3d30;
+  --color-canvas: #211c19;
+  --color-surface: #2b2420;
+  --color-surface-muted: #382e27;
+  --color-text: #fff8ef;
+  --color-text-muted: #cdbcaf;
+  --color-border: #a38b78;
+  --color-border-subtle: #5b4739;
+  --color-primary: #f7ad65;
+  --color-primary-hover: #ffc38e;
+  --color-primary-soft: #3c2b20;
+  --color-on-primary: #211c19;
+  --color-focus: #ffe1c9;
+  --color-success: #9bc6a5;
+  --color-warning: #ffd08a;
+  --color-danger: #ffabb5;
+  --color-danger-hover: #ffc0c7;
+  --color-on-danger: #211c19;
+  --color-info: #a5cce5;
+  --color-success-soft: #203629;
+  --color-warning-soft: #44331d;
+  --color-danger-soft: #44252c;
+  --color-info-soft: #24343f;
+  --color-accent: #f7ad65;
+  --color-primary-on-muted: var(--color-primary);
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.3), 0 8px 24px rgb(0 0 0 / 0.35);
+  --overlay: rgb(0 0 0 / 0.65);
   color-scheme: dark;
 }
 
@@ -96,14 +109,27 @@ body {
   min-height: 100dvh;
   background: var(--color-canvas);
   color: var(--color-text);
-  font-family: var(--font-geist-sans), system-ui, sans-serif;
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
   font-size: 1rem;
   line-height: 1.5;
 }
 .admin-shell * {
   box-sizing: border-box;
 }
-.admin-shell :is(a, button, input, select, [tabindex]):focus-visible {
+/* 2px ring with a 2px gap painted by the surrounding surface. */
+.admin-shell :is(a, button, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid var(--color-focus);
   outline-offset: 2px;
+}
+.admin-shell ::selection {
+  background: var(--color-surface-muted);
+  color: var(--color-text);
+}
+@media (prefers-reduced-motion: reduce) {
+  .admin-shell *,
+  .admin-shell *::before,
+  .admin-shell *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
 }

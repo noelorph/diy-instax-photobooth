@@ -544,7 +544,7 @@ for (const failure of ['issue', 'confirmation'] as const) {
               background: getComputedStyle(el).backgroundColor,
             };
           })
-        ).toEqual({ coversViewport: true, background: 'rgb(16, 27, 27)' });
+        ).toEqual({ coversViewport: true, background: 'rgb(33, 28, 25)' });
         await expect(
           d.boothPage.getByRole('heading', { name: 'Package fixture', exact: true })
         ).toHaveCount(0);
@@ -992,7 +992,7 @@ async function signInFromBooth(page: Page, f: Fixture) {
   await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
   expect(
     await page.locator('.public-auth').evaluate((el) => getComputedStyle(el).backgroundColor)
-  ).toBe('rgb(16, 27, 27)');
+  ).toBe('rgb(33, 28, 25)');
   await page.getByLabel('Email', { exact: true }).fill(f.adminUser.email);
   await page.getByLabel('Password', { exact: true }).fill(f.adminUser.password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
@@ -1032,7 +1032,7 @@ test('protected replacement preserves the same Paused run and counts; phone Resu
       await expect(d.boothPage.getByRole('heading', { name: 'Booth access ended' })).toBeFocused();
       expect(
         await d.boothPage.getByRole('main').evaluate((el) => getComputedStyle(el).backgroundColor)
-      ).toBe('rgb(16, 27, 27)');
+      ).toBe('rgb(33, 28, 25)');
       await signInFromBooth(d.boothPage, f);
       let recoveries = 0;
       await d.boothPage.route('**/booth/recover-access', async (route) => {
@@ -1148,7 +1148,7 @@ test('eligible Live cancellation keeps History and usable confirmation across th
           const dialog = page.getByRole('dialog');
           await expect(dialog).toContainText('History');
           expect(await dialog.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
-            theme === 'dark' ? 'rgb(26, 41, 41)' : 'rgb(255, 255, 255)'
+            theme === 'dark' ? 'rgb(43, 36, 32)' : 'rgb(255, 255, 255)'
           );
           expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
           await page.keyboard.press('Tab');

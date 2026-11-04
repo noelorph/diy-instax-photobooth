@@ -246,7 +246,7 @@ export function Profile({
                     {state.fieldErrors.theme}
                   </p>
                 ) : null}
-                <p className={styles.description}>Booth Mode keeps its own dark appearance.</p>
+                <p className={styles.description}>Booth Mode sets its own appearance for each screen.</p>
                 <p className={styles.description}>
                   Save preferences to apply your phone number and appearance.
                 </p>
@@ -280,10 +280,10 @@ export function Profile({
       </ProfileForm>
       <section aria-labelledby="password-heading" className={styles.section}>
         <div className={styles.sectionDescription}>
-          <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="password-heading">
+          <h2 className="m-0 mb-2 text-lg leading-[1.625rem] font-semibold" id="password-heading">
             Change password
           </h2>
-          <p className="m-0 text-base leading-[1.375rem] text-ds-text-muted">
+          <p className="m-0 text-base leading-6 text-ds-text-muted">
             Use 12–128 characters for your new password.
           </p>
         </div>
@@ -325,10 +325,10 @@ export function Profile({
       </section>
       <section aria-labelledby="session-heading" className={styles.section}>
         <div className={styles.sectionDescription}>
-          <h2 className="m-0 mb-2 text-xl leading-7 font-semibold" id="session-heading">
+          <h2 className="m-0 mb-2 text-lg leading-[1.625rem] font-semibold" id="session-heading">
             Sign out
           </h2>
-          <p className="m-0 text-base leading-[1.375rem] text-ds-text-muted">
+          <p className="m-0 text-base leading-6 text-ds-text-muted">
             Sign out of Admin on this device. Your other devices and Booth Mode stay signed in.
           </p>
         </div>

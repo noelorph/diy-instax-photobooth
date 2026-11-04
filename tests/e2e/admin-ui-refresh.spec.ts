@@ -56,7 +56,7 @@ for (const width of [320, 768, 1440]) {
         expect(fonts.length).toBeGreaterThan(0);
         expect(fonts.every((url) => new URL(url).origin === new URL(page.url()).origin)).toBe(true);
         expect(await page.locator('body').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(
-          /geist/i
+          /dm sans/i
         );
         await page.goto('/sign-in?from=booth');
         await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
@@ -71,7 +71,7 @@ for (const width of [320, 768, 1440]) {
             () =>
               page.evaluate(() =>
                 [...document.fonts].some(
-                  (font) => /geist/i.test(font.family) && font.status === 'loaded'
+                  (font) => /dm sans/i.test(font.family) && font.status === 'loaded'
                 )
               ),
             { timeout: 10_000 }
