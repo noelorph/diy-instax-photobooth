@@ -131,6 +131,15 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
   expect(captureBodies).toHaveLength(2);
   await expect.poll(() => reservationBodies.length).toBe(1);
   await expect.poll(() => dispatchBodies.length).toBe(1);
+  for (const viewport of [
+    { width: 820, height: 1180 },
+    { width: 1180, height: 820 },
+  ]) {
+    await page.setViewportSize(viewport);
+    await expect(page.getByRole('status')).toContainText('Please wait for the print outcome.');
+    await expect(page.getByRole('alert')).toContainText('Please wait.');
+    await expect(page.getByRole('alert')).not.toContainText('inform the Admin');
+  }
   expect(reservationBodies[0].captureId).toBe(captureBodies[1].captureId);
   expect(
     requests.every(({ body }) => !('image' in body) && !('url' in body) && !('bytes' in body))

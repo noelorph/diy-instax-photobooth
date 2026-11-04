@@ -308,7 +308,9 @@ export function BoothClient({
         </div>
         <p role="alert" className={styles.alert}>
           {view.counts?.unresolved
-            ? 'A print outcome is pending. Please inform the Admin. New Guests must wait.'
+            ? needsAdmin
+              ? 'A print outcome is pending. Please inform the Admin. New Guests must wait.'
+              : 'A print outcome is pending. Please wait. New Guests must wait.'
             : needsAdmin
               ? view.phase === 'unavailable'
                 ? unavailable

@@ -5,6 +5,37 @@ import { BoothFlow } from '@/features/booth/flow';
 import { SimulatedPrinterV2 } from '@/features/booth/printer/simulator-v2';
 import { BrowserBoothMetadataJournal } from '@/features/booth/print-journal';
 afterEach(cleanup);
+it.each(['printing', 'paused', 'finishing'] as const)(
+  'asks Guests to wait without requesting Admin intervention for a healthy pending print in %s',
+  (phase) => {
+    const flow = new BoothFlow({
+      printer: new SimulatedPrinterV2('simulator'),
+      journal: new BrowserBoothMetadataJournal(sessionStorage),
+      transport: async () => ({}),
+    });
+    vi.spyOn(flow, 'initialize').mockResolvedValue();
+    vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
+    vi.spyOn(flow, 'getSnapshot').mockReturnValue({
+      phase,
+      counts: {
+        originalPackages: 1,
+        additionalPackages: 0,
+        totalBookedPrints: 10,
+        printed: 0,
+        unresolved: 1,
+        printsRemaining: 10,
+        printsAvailable: 9,
+      },
+      blockers: ['print_pending'],
+      allowedActions: { enableCamera: false, connectPrinter: false },
+    });
+    render(
+      <BoothClient flow={flow} camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }} />
+    );
+    expect(screen.getByRole('alert').textContent).toContain('Please wait');
+    expect(screen.getByRole('alert').textContent).not.toMatch(/inform the Admin/);
+  }
+);
 it('offers an accessible Continue action during preview inactivity', async () => {
   const flow = new BoothFlow({
     printer: new SimulatedPrinterV2('simulator'),
@@ -52,6 +83,7 @@ it('announces camera loss even when a print outcome remains pending', () => {
     'Camera disconnected. Please inform the Admin.'
   );
   expect(screen.getByRole('alert').textContent).toContain('A print outcome is pending');
+  expect(screen.getByRole('alert').textContent).toContain('Please inform the Admin.');
 });
 it('shows default welcome, mirrored preview, countdown and unmirrored selected review', async () => {
   const printer = new SimulatedPrinterV2('simulator');
