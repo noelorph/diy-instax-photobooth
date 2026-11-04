@@ -852,13 +852,17 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
         (response) =>
           response.url().endsWith('/booth/resume') && response.request().method() === 'POST'
       );
+      // Observe cleanup rejections if the triggering action fails before these waits are awaited.
+      void resume.catch(() => {});
       const resumedState = d.boothPage.waitForResponse(async (response) => {
         if (!response.url().endsWith('/api/booth/state') || !response.ok()) return false;
         const state = await response.json();
         return state.state === 'Active' && state.allowedActions?.startGuest === true;
       });
+      void resumedState.catch(() => {});
       await d.phonePage.getByRole('button', { name: 'Resume Booth', exact: true }).click();
-      expect((await resume).ok()).toBe(true);
+      const resumeResponse = await resume;
+      expect(resumeResponse.ok(), `Resume response status: ${resumeResponse.status()}`).toBe(true);
       await resumedState;
       await expect(d.boothPage.getByRole('heading', { name: 'Make a memory' })).toBeVisible({
         timeout: 10_000,
