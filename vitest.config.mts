@@ -12,6 +12,6 @@ export default defineConfig({
     // assert complete Draft lists, so another file must not mutate those rows.
     fileParallelism: false,
     environment: 'jsdom',
-    include: ['tests/**/*.test.{ts,tsx}'],
+    include: ['tests/**/*.test.{ts,tsx}', 'src/**/*.test.{ts,tsx}'],
   },
 });
