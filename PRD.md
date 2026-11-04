@@ -88,7 +88,7 @@ List Completed/Cancelled Events with name, schedule, venue, Client contact, pack
 
 ### Profile — `/profile`
 
-Verified Admin email, optional phone, light/dark preference, authenticated password change and **Sign out**. Sign out ends the current device's Admin session only. Booth Mode retains its dark theme and independent access. No profile picture required.
+Verified Admin email, optional phone, light/dark preference, authenticated password change and **Sign out**. Sign out ends the current device's Admin session only. Booth appearance remains independent of the Admin preference: the approved Apricot Studio design uses a light default welcome and dark camera, review and operational surfaces; see [ADR-0033](docs/adr/0033-adopt-apricot-studio-design-system.md) and [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md). Booth access is unchanged. No profile picture required.
 
 ## 6. Booth Mode experience
 

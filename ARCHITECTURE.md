@@ -24,7 +24,7 @@ Guest photos stay in browser memory and go directly to the printer. Server/datab
 | Layer       | Choice                                                  | Responsibility                                                                    |
 | ----------- | ------------------------------------------------------- | --------------------------------------------------------------------------------- |
 | Application | Next.js 16 App Router, React, TypeScript                | Server-rendered Admin pages, scoped handlers and browser Booth UI                 |
-| Interface   | Tailwind CSS 4, shadcn/ui, Lucide, locally served Geist | Shared semantic tokens from DESIGN_SYSTEM.md                                      |
+| Interface   | Tailwind CSS 4, shadcn/ui, Lucide, locally served DM Sans | Approved Apricot Studio target tokens from DESIGN_SYSTEM.md; UI adoption pending |
 | Validation  | Zod and React Hook Form plus database constraints       | Boundary validation, meaningful form errors, invariant enforcement                |
 | Identity    | Supabase Auth and SSR cookies                           | Sole Admin; live-session revocation checks                                        |
 | Data        | Supabase Postgres                                       | Transactional packages, sessions, attempts, grants, lifecycle, receipts and audit |
@@ -32,7 +32,7 @@ Guest photos stay in browser memory and go directly to the printer. Server/datab
 | Printer     | Replaceable browser adapter                             | Connection/readiness, one send, correlated physical observations                  |
 | Hosting     | Vercel Pro                                              | Paid-event production application; separate staging/production Supabase           |
 
-Shared UI lives in `src/components/{ui,shared,layout}`; feature state stays in `src/features/`. See ADR-0020 and ADR-0019. Domain transitions and accounting are separate from React and printer protocol. The simulator implements the same observation contract but cannot qualify hardware or enable production.
+Shared UI lives in `src/components/{ui,shared,layout}`; feature state stays in `src/features/`. See ADR-0020 and [ADR-0033](docs/adr/0033-adopt-apricot-studio-design-system.md), which supersedes ADR-0019's Geist choice with DM Sans. Domain transitions and accounting are separate from React and printer protocol. The simulator implements the same observation contract but cannot qualify hardware or enable production.
 
 Admin starts on the iPad at `/events/[eventId]`, completes local sign-out/device handoff and enters `/booth`. Its opaque grant selects the run; no Event ID belongs in the guest URL. The phone remains at the authenticated Event page for recovery and lifecycle actions. Next.js Proxy may refresh sessions or redirect early; handlers/database enforce final authority. Read the installed Next.js guides before implementation.
 

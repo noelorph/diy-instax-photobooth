@@ -2,7 +2,7 @@
 
 **Current F2 scope — 2026-10-27:** [ADR-0032](../../adr/0032-build-full-f2-with-uploads-unavailable.md) restores full F2/#30 implementation, including the dormant media editor and private delivery, while runtime uploads remain unavailable. Preserve media sections/designs, disabled controls, trusted mutation denials, private access/retention and prior-authorized cleanup-pending safeguards. The Admin Event Media page must visibly state that interrupted/late uploads and leftover files need cleanup verification before re-enabling. Supported cleanup and enabled transfer/failure/concurrency/private-delivery/playback qualification remain required for full #30 acceptance; existing disabled-scope evidence is unchanged. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure.
 
-**Approved visual reference, 21 October 2026; partially implemented through local F5.** See [dated implementation evidence and remaining gates](../../implementation/issue-10-retirement-and-acceptance.md#f5-guest-capture-to-print-evidence--2026-11-04). Read with the [gallery](index.html), [design system](../../../DESIGN_SYSTEM.md), [routes](../../booth-user-flow.md) and [contract](../../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). This guide maps the approved mockups to the agreed behavior; it does not replace the contract.
+**Package/recovery state reference, approved 21 October 2026; visual styling superseded by [Apricot Studio](../2026-11-04-apricot-studio/README.md) on 4 November 2026.** See [dated implementation evidence and remaining gates](../../implementation/issue-10-retirement-and-acceptance.md#f5-guest-capture-to-print-evidence--2026-11-04). Read with the [gallery](index.html), current [design system](../../../DESIGN_SYSTEM.md), [routes](../../booth-user-flow.md) and [contract](../../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md). This guide preserves agreed behavior coverage; [ADR-0033](../../adr/0033-adopt-apricot-studio-design-system.md) replaces the older palette, typography and all-dark Booth rule, without changing that behavior.
 
 ## Route coverage
 
@@ -36,7 +36,7 @@ The monthly card counts Draft, Live and Completed by venue-local scheduled start
 
 The wide table layout is a comparison view; on compact screens rows become labeled summaries. Form fields stack in one column. The phone management and recovery sheets demonstrate the compact treatment rather than requiring a new route.
 
-The mockups primarily show light Admin mode. The saved Profile preference also supports dark Admin mode using the exact dark tokens; Booth always uses dark mode. Theme preference is an account setting, not a new per-device product rule.
+The retained mockups primarily show light Admin mode. The approved Apricot Studio target keeps the saved Profile light/dark preference for Admin. Booth appearance stays independent: a light default welcome, with dark camera, countdown, review and operational surfaces. Use current design-system tokens rather than this set's colors; there is no new Booth theme preference.
 
 ## Sample accounting
 
@@ -118,7 +118,7 @@ Authentication sheets contain separate form/feedback specimens. An expired reset
 
 ## Implementation review targets
 
-Use [tokens.json](tokens.json) as a convenient copy of current visual values, and recheck against the root design system when implementing. Raster glyphs, anti-aliasing and numerical spacing are not pixel-exact specifications.
+Use the root [design system](../../../DESIGN_SYSTEM.md) and [Apricot Studio tokens](../2026-11-04-apricot-studio/tokens.json) for current visual values. This folder's [tokens.json](tokens.json) is historical provenance for the October 21 images. Raster glyphs, anti-aliasing and numerical spacing are not pixel-exact specifications.
 
 Check keyboard focus, screen-reader status, non-color labels, 200% zoom, reduced motion, safe areas, readable Event Media overlays and large touch targets in the eventual implementation. Mockup inspection is not an accessibility, runtime, print-adapter or hardware qualification result.
 

@@ -25,7 +25,7 @@
 - Guest photos exist only in browser memory/direct printer transport. Stable operation IDs, same-payload receipt recovery, no automatic resend, private/no-store responses, current authorization and same-origin protection apply throughout.
 - Preserve accepted Event Media limits from ADR-0027: Draft-only mutations; still JPEG/PNG/WebP ≤10,000,000 bytes; MP4 H.264/AVC ≤50,000,000 bytes and `0 < duration ≤ 30` seconds; muted playback; trusted content validation; no conversion/editing.
 - Monthly Events counts Draft, Live and Completed by venue-local scheduled start; excludes Cancelled and deleted Drafts. Four in-month Events with one Cancelled yields **3**. See [ADR-0028](../../adr/0028-define-monthly-event-count.md).
-- Every child uses [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), the [screen map](../../design/2026-10-21-package-recovery/screen-map.md) and its named sheets in [the approved gallery](../../design/2026-10-21-package-recovery/index.html). No new mockups, routes or product capabilities outside the approved scope.
+- Every child uses [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md) and the [Apricot Studio direction](../../design/2026-11-04-apricot-studio/README.md) accepted under [ADR-0033](../../adr/0033-adopt-apricot-studio-design-system.md). The [screen map](../../design/2026-10-21-package-recovery/screen-map.md) and named [October 21 sheets](../../design/2026-10-21-package-recovery/index.html) retain behavior/state coverage, with superseded visual styling. No new routes or product capabilities outside the approved scope; visual approval does not establish UI implementation or acceptance.
 - Before app code, read `AGENTS.md` and relevant installed Next guides: `node_modules/next/dist/docs/01-app/02-guides/{forms,authentication,server-actions}.md` and `01-app/01-getting-started/{05-server-and-client-components,15-route-handlers}.md` under that docs root.
 - Apply Ponytail to each task: preserve working implementations and existing meaningful tests. Add a failing regression only for a missing behavior; an existing passing acceptance case warrants reuse, not a rewrite or duplicate test. Commit only changed task files; no empty commits or unrelated SQL snippets.
 
@@ -115,7 +115,7 @@ git diff --check
 
 Every command must exit 0; report any failure and its subsequent fix/rerun accurately. Validate Markdown separately with Prettier because `format:check` omits docs. Keep production-build tests that deny simulation, alongside development simulation journeys. F8 must not report inherited legacy browser tests as proof of new flows. No actual printer/iPad test is authorized by these plans.
 
-Every applicable capability verifies persistent errors, loading/empty/disabled states, keyboard and focus behavior, light/dark Admin, Booth dark theme, compact/medium/wide layouts, portrait/landscape, 200% zoom, reduced motion and safe areas. Tests must assert outcomes against real #9 operations where available; component mocks alone do not close a capability.
+Every applicable capability verifies persistent errors, loading/empty/disabled states, keyboard and focus behavior, light/dark Admin, Booth light default welcome and dark camera/review/operational surfaces, compact/medium/wide layouts, portrait/landscape, 200% zoom, reduced motion and safe areas. Use current design-system tokens under ADR-0033. Tests must assert outcomes against real #9 operations where available; component mocks alone do not close a capability.
 
 ## Retirement ownership
 
