@@ -902,8 +902,12 @@ export class BoothFlow {
       !negative &&
       this.attemptId &&
       (this.view.phase === 'printing' || this.view.phase === 'confirmed')
-    )
-      return Promise.resolve();
+    ) {
+      // Keep live local equipment current without attesting the busy printer to the server.
+      if (this.equipment)
+        this.equipment = { ...this.equipment, observation: parsed, at: Date.now() };
+      return this.project();
+    }
     // Healthy samples do not invalidate a still-fresh in-flight acknowledgement.
     if (negative) this.equipmentEpoch++;
     this.nextObservation = {

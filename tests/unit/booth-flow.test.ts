@@ -1750,6 +1750,31 @@ it('keeps printing while the printer is busy with its authorized job', async () 
   expect(s.requests.filter(({ path }) => path === '/api/booth/readiness')).toHaveLength(1);
 });
 
+it('keeps a live camera available during a long print without attesting the busy printer', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([8]),
+    url: 'blob:long-busy-print',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  await vi.advanceTimersByTimeAsync(5_001);
+  await s.flow.reportEquipment(observation);
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().phase).toBe('printing');
+  expect(s.flow.getSnapshot().allowedActions.enableCamera).toBe(false);
+  expect(s.flow.getSnapshot().blockers).not.toContain('camera');
+  expect(s.flow.getSnapshot().blockers).toContain('readiness_stale');
+  expect(s.requests.filter(({ path }) => path === '/api/booth/readiness')).toHaveLength(1);
+  expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(0);
+});
+
 it('does not count a pre-shutter cancellation or retain a photo completed after stop', async () => {
   const s = guestSetup();
   await s.printer.connect();

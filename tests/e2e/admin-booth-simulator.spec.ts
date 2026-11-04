@@ -268,7 +268,14 @@ test('final booked unit sends once and counts only acknowledged simulator ejecti
           `select count(*)::integer n from public.print_attempts where run_id='${runId}'`
         )[0].n
       ).toBe(50);
-      await d.boothPage.waitForTimeout(500);
+      // Cross the five-second freshness window and the next two-second equipment poll.
+      await d.boothPage.waitForTimeout(7500);
+      await expect(
+        d.boothPage.getByRole('heading', { name: 'Preparing your print' })
+      ).toBeVisible();
+      await expect(
+        d.boothPage.getByRole('button', { name: 'Enable Camera', exact: true })
+      ).toHaveCount(0);
       await expect(d.boothPage.getByRole('heading', { name: 'Print complete' })).toHaveCount(0);
       const observed = d.boothPage.waitForResponse((response) =>
         response.url().endsWith('/observations')
