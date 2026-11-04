@@ -410,3 +410,5 @@ Independent final rereview of the exact candidate found no concrete remaining F5
 The local browser failures remain recorded; later diagnostics also observed host load average 261 and a server startup timeout before any test ran. Those observations do not establish the exact cause of every historical failure. Temporary diagnostics and an unverified setup waiter were saved outside the repository and reverted; no speculative production fix or timeout relaxation was included in the accepted candidate.
 
 Full enabled Event Media remains #30, recovery restoration remains F6, reporting remains F7, and package-only fresh-schema acceptance remains F8. Physical printer #17 and actual-iPad #7 qualification remain open. Software acceptance neither authorizes real Booth Mode nor closes parent #10.
+
+GitHub [issue #33](https://github.com/noelorph/diy-instax-photobooth/issues/33) was closed as completed on 2026-11-04 after the [published acceptance evidence](https://github.com/noelorph/diy-instax-photobooth/issues/33#issuecomment-6619187982). The review branch remains available for integration; parent #10 and the separate release gates remain open.
