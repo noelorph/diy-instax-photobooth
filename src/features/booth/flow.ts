@@ -730,18 +730,33 @@ export class BoothFlow {
           error.status !== 404
         )
           throw error;
-        if (entry.kind === 'reservation') missingReservation = true;
-        if (entry.kind === 'observation') {
-          if (!attemptId) return 'pending';
-          const replay = await this.reportObservationEntry(entry, attemptId);
-          confirmed.push(entry.operationId);
-          if (
-            replay.receipt.result.state === 'Printed' ||
-            replay.receipt.result.state === 'NotPrinted'
-          )
-            terminal = true;
+        if (entry.kind === 'capture') {
+          receipt = packageReplySchema.parse(
+            await this.dependencies.transport(
+              '/api/booth/captures',
+              packageActionSchemas.recordCapture.parse({
+                operationId: entry.operationId,
+                sessionId: entry.sessionId,
+                captureId: entry.captureId,
+                capturedAt: entry.capturedAt,
+              }),
+              this.requests.signal
+            )
+          ).receipt;
+        } else {
+          if (entry.kind === 'reservation') missingReservation = true;
+          if (entry.kind === 'observation') {
+            if (!attemptId) return 'pending';
+            const replay = await this.reportObservationEntry(entry, attemptId);
+            confirmed.push(entry.operationId);
+            if (
+              replay.receipt.result.state === 'Printed' ||
+              replay.receipt.result.state === 'NotPrinted'
+            )
+              terminal = true;
+          }
+          continue;
         }
-        continue;
       }
       const expectedKind = {
         capture: 'record_capture',

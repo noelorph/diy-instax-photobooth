@@ -1563,6 +1563,84 @@ it('does not resend after a lost dispatch response', async () => {
   expect(s.requests.some(({ path }) => path.endsWith('/reconcile'))).toBe(true);
 });
 
+it('replays a missing Capture with its original metadata and clears the journal without printing', async () => {
+  const s = guestSetup();
+  const entry = {
+    kind: 'capture' as const,
+    operationId: crypto.randomUUID(),
+    runId: '00000000-0000-4000-8000-000000000010',
+    sessionId: s.sessionId,
+    captureId: crypto.randomUUID(),
+    capturedAt: '2026-11-04T01:02:03.000Z',
+    recordedAt: Date.now(),
+  };
+  const state = (await s.transport('/api/booth/state')) as { runId: string };
+  entry.runId = state.runId;
+  s.journal.putOperation(entry);
+  expect(await s.flow.reconcilePending(s.journal.readOperations())).toBe('clear');
+  expect(s.journal.readOperations()).toEqual([]);
+  expect(s.requests.filter(({ path }) => path === '/api/booth/captures')).toEqual([
+    {
+      path: '/api/booth/captures',
+      body: {
+        operationId: entry.operationId,
+        sessionId: entry.sessionId,
+        captureId: entry.captureId,
+        capturedAt: entry.capturedAt,
+      },
+    },
+  ]);
+  expect(await s.flow.reconcilePending([])).toBe('clear');
+  expect(s.printer.commandCount).toBe(0);
+});
+
+it.each(['failed', 'mismatched'] as const)(
+  'retains a Capture after a %s replay and submits only once per reconciliation pass',
+  async (mode) => {
+    const s = guestSetup();
+    const state = (await s.transport('/api/booth/state')) as { runId: string };
+    const entry = {
+      kind: 'capture' as const,
+      operationId: crypto.randomUUID(),
+      runId: state.runId,
+      sessionId: s.sessionId,
+      captureId: crypto.randomUUID(),
+      capturedAt: '2026-11-04T01:02:03.000Z',
+      recordedAt: Date.now(),
+    };
+    s.journal.putOperation(entry);
+    let submissions = 0;
+    const flow = new BoothFlow({
+      printer: s.printer,
+      journal: s.journal,
+      transport: async (path, body) => {
+        if (path !== '/api/booth/captures') return s.transport(path, body);
+        submissions++;
+        if (mode === 'failed') throw new Error('offline');
+        return {
+          revision: 1,
+          replayed: false,
+          receipt: {
+            operationId: crypto.randomUUID(),
+            kind: 'record_capture',
+            committedRevision: 1,
+            result: {},
+          },
+        };
+      },
+    });
+    owned.push(flow);
+    for (let pass = 1; pass <= 2; pass++) {
+      const result = flow.reconcilePending(s.journal.readOperations());
+      if (mode === 'failed') await expect(result).rejects.toThrow('offline');
+      else expect(await result).toBe('pending');
+      expect(submissions).toBe(pass);
+      expect(s.journal.readOperations()).toEqual([entry]);
+    }
+    expect(s.printer.commandCount).toBe(0);
+  }
+);
+
 it('closes the old session before clearing a reservation with no receipt', async () => {
   const s = guestSetup();
   await s.printer.connect();
