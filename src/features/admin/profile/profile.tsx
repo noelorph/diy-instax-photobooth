@@ -246,7 +246,9 @@ export function Profile({
                     {state.fieldErrors.theme}
                   </p>
                 ) : null}
-                <p className={styles.description}>Booth Mode sets its own appearance for each screen.</p>
+                <p className={styles.description}>
+                  Booth Mode sets its own appearance for each screen.
+                </p>
                 <p className={styles.description}>
                   Save preferences to apply your phone number and appearance.
                 </p>
