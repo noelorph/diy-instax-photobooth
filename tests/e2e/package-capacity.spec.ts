@@ -404,7 +404,7 @@ test('purchase dialog remains keyboard usable at native 200% browser zoom', asyn
     await page.goto(`/events/${f.eventId}`);
     const before = await page.evaluate(() => ({ width: innerWidth, dpr: devicePixelRatio }));
     const worker = context.serviceWorkers()[0] ?? (await context.waitForEvent('serviceworker'));
-    const zoom = await worker.evaluate(async () => {
+    const zoom = await worker.evaluate(async (url) => {
       const { tabs } = (
         globalThis as unknown as {
           chrome: {
@@ -416,10 +416,10 @@ test('purchase dialog remains keyboard usable at native 200% browser zoom', asyn
           };
         }
       ).chrome;
-      const [tab] = await tabs.query({ url: 'http://127.0.0.1:1437/*' });
+      const [tab] = await tabs.query({ url });
       await tabs.setZoom(tab.id, 2);
       return tabs.getZoom(tab.id);
-    });
+    }, page.url());
     expect(zoom).toBe(2);
     await expect.poll(() => page.evaluate(() => innerWidth)).toBe(before.width / 2);
     expect(await page.evaluate(() => devicePixelRatio)).toBe(before.dpr * 2);

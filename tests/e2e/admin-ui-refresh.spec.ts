@@ -1,3 +1,4 @@
+import { testStack } from '../fixtures/test-stack.mjs';
 import { writeFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
@@ -206,7 +207,9 @@ for (const width of [320, 768, 1440]) {
           await noOverflow(page);
           await capture(page, info, 'events-unavailable');
           await page.goto(`/events/${eventId}`);
-          await expect(page.getByRole('heading', { name: 'Unable to load Draft' })).toBeVisible();
+          await expect(
+            page.getByRole('heading', { name: 'Unable to load Event', exact: true })
+          ).toBeVisible();
           await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
           await capture(page, info, 'draft-unavailable');
           await page.goto('/history');
@@ -275,13 +278,13 @@ for (const width of [320, 768, 1440]) {
       await expect
         .poll(async () => {
           const inbox = await fetch(
-            `http://127.0.0.1:56324/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
+            `${testStack.mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
           ).then((r) => r.json());
           messageId = inbox.messages[0]?.ID;
           return Boolean(messageId);
         })
         .toBe(true);
-      const message = await fetch(`http://127.0.0.1:56324/api/v1/message/${messageId}`).then((r) =>
+      const message = await fetch(`${testStack.mailpitUrl}/api/v1/message/${messageId}`).then((r) =>
         r.json()
       );
       const href = message.HTML.match(/href="([^"]+)"/)?.[1]?.replaceAll('&amp;', '&');

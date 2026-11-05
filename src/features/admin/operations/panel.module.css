@@ -335,7 +335,8 @@
   z-index: 100;
   background: var(--color-canvas);
 }
-.handoff {
+/* Override the shared Booth position regardless of stylesheet order. */
+.handoff[role='dialog'] {
   position: fixed;
   inset: 0;
   z-index: 101;

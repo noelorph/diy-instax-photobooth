@@ -1,3 +1,4 @@
+import { testStack } from '../fixtures/test-stack.mjs';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
 import { promisify } from 'node:util';
@@ -468,7 +469,7 @@ it('invalidates prepared confirmations on each new load fault episode without re
 const ownerProcess = (query: string) =>
   promisify(execFile)('docker', [
     'exec',
-    'supabase_db_diy-instax-package-contracts',
+    testStack.databaseContainer,
     'psql',
     '-U',
     'postgres',

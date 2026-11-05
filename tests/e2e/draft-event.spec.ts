@@ -88,10 +88,12 @@ for (const width of [390, 1440]) {
       await expect(page.getByRole('dialog')).toContainText('Event Media');
       await page.getByRole('button', { name: 'Keep Draft' }).click();
       await expect(deletion).toBeFocused();
-      const removedAction = await page.request.post(`/api/admin/events/${eventId}/redact-client`, {
-        data: {},
-      });
-      expect([404, 405]).toContain(removedAction.status());
+      for (const action of ['redact-client', 'pause']) {
+        const removedAction = await page.request.post(`/api/admin/events/${eventId}/${action}`, {
+          data: {},
+        });
+        expect([404, 405]).toContain(removedAction.status());
+      }
       await page.getByRole('button', { name: 'Edit Draft' }).click();
       await expect(page.getByLabel('Event name').filter({ visible: true })).toHaveValue(title);
       if (width === 390) {
@@ -182,7 +184,9 @@ for (const width of [390, 1440]) {
         `${title} updated`
       );
       await stale.close();
+      fixture.seedRun('Paused');
       await page.getByRole('link', { name: 'Back to Events' }).click();
+      await expect(page.getByRole('link', { name: 'Open Event', exact: true })).toBeVisible();
       const row = page
         .getByRole('row')
         .filter({ has: page.getByRole('link', { name: `${title} updated`, exact: true }) });

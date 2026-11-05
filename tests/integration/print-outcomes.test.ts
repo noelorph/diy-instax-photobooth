@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { randomBytes, randomUUID } from 'node:crypto';
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { localOwnerSql, localSupabase } from '../fixtures/local-supabase';
 
 function sql(query: string) {
@@ -21,6 +21,10 @@ type Observation = keyof typeof evidence;
 describe('Print outcome accounting', { timeout: 30000 }, () => {
   const local = localSupabase();
   const ids: string[] = [];
+  // Establish the policy even after an interrupted simulator suite.
+  beforeEach(() => {
+    sql("update public.printer_completion_policy set mode='disabled'");
+  });
   afterEach(async () => {
     for (const id of ids)
       sql(`

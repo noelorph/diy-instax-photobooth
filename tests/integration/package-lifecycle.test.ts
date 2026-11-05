@@ -1,3 +1,4 @@
+import { testStack } from '../fixtures/test-stack.mjs';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -9,7 +10,7 @@ async function withGuardHeld<T>(work: () => Promise<T>, duringHold?: () => void)
   const child = spawn('docker', [
     'exec',
     '-i',
-    'supabase_db_diy-instax-package-contracts',
+    testStack.databaseContainer,
     'psql',
     '-U',
     'postgres',
@@ -52,7 +53,7 @@ async function withEventHeld<T>(
   const child = spawn('docker', [
     'exec',
     '-i',
-    'supabase_db_diy-instax-package-contracts',
+    testStack.databaseContainer,
     'psql',
     '-U',
     'postgres',

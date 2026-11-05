@@ -137,8 +137,8 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
   ]) {
     await page.setViewportSize(viewport);
     await expect(page.getByRole('status')).toContainText('Please wait for the print outcome.');
-    await expect(page.getByRole('alert')).toContainText('Please wait.');
-    await expect(page.getByRole('alert')).not.toContainText('inform the Admin');
+    await expect(page.getByRole('main').getByRole('alert')).toContainText('Please wait.');
+    await expect(page.getByRole('main').getByRole('alert')).not.toContainText('inform the Admin');
   }
   expect(reservationBodies[0].captureId).toBe(captureBodies[1].captureId);
   expect(

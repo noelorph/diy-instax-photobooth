@@ -268,7 +268,7 @@
 }
 .liveBanner > div {
   flex: 1;
-  min-width: 10rem;
+  min-width: min(10rem, 100%);
 }
 .liveBanner p {
   margin: 0.25rem 0 0;

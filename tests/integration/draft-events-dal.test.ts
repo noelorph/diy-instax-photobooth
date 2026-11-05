@@ -1,3 +1,4 @@
+import { testStack } from '../fixtures/test-stack.mjs';
 // @vitest-environment node
 import { afterEach, beforeAll, afterAll, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -444,7 +445,7 @@ describe('protected Draft DAL with local Auth and Data API', () => {
     const child = spawn('docker', [
       'exec',
       '-i',
-      'supabase_db_diy-instax-package-contracts',
+      testStack.databaseContainer,
       'psql',
       '-U',
       'postgres',

@@ -5,16 +5,10 @@ vi.mock('server-only', () => ({}));
 const mocks = vi.hoisted(() => ({
   admin: vi.fn(),
   rpc: vi.fn(),
-  version: vi.fn(),
   simulator: vi.fn(),
 }));
 vi.mock('@/lib/operations/admin-authority', () => ({ requireAdminRequest: mocks.admin }));
 vi.mock('@/lib/operations/package-rpc', () => ({ packageRpc: mocks.rpc }));
-vi.mock('@/lib/operations/package-version', () => ({
-  isPackageEvent: mocks.version,
-  isPackageAttempt: mocks.version,
-  isPackageGrant: mocks.version,
-}));
 vi.mock('@/lib/operations/printer-gate', () => ({ requireSimulator: mocks.simulator }));
 vi.mock('@/lib/operations/privileged-client', () => ({
   createPrivilegedClient: () => ({
@@ -93,7 +87,6 @@ beforeEach(() => {
     revision: 2,
     replayed: false,
   });
-  mocks.version.mockReset().mockResolvedValue(true);
   mocks.simulator.mockReset();
 });
 

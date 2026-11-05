@@ -1,7 +1,6 @@
 import { z } from 'zod';
 import { OperationError } from './types';
 import { recoveryCallbackUrl } from '@/features/admin/auth/config';
-export const operationSchema = z.strictObject({ operationKey: z.uuid() });
 export function requireSameOrigin(request: Request) {
   let expectedOrigin: string;
   try {

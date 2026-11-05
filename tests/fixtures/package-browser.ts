@@ -1,3 +1,4 @@
+import { testStack } from './test-stack.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { once } from 'node:events';
 import { createPackageFixture, type PackageFixture } from './package-contract';
@@ -82,7 +83,7 @@ async function withMediaLockHeld<T>(
   const child = spawn('docker', [
     'exec',
     '-i',
-    'supabase_db_diy-instax-package-contracts',
+    testStack.databaseContainer,
     'psql',
     '-U',
     'postgres',
@@ -135,7 +136,7 @@ export function mediaFixtureBackendFiles(eventId: string): { name: string; bytes
       'docker',
       [
         'exec',
-        'supabase_storage_diy-instax-package-contracts',
+        testStack.storageContainer,
         'node',
         '-e',
         `
@@ -166,7 +167,7 @@ function cleanupMediaFixtureBackend(eventId: string) {
     'docker',
     [
       'exec',
-      'supabase_storage_diy-instax-package-contracts',
+      testStack.storageContainer,
       'node',
       '-e',
       `

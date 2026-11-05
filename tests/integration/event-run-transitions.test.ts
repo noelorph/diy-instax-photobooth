@@ -1,3 +1,4 @@
+import { testStack } from '../fixtures/test-stack.mjs';
 // @vitest-environment node
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -17,7 +18,7 @@ async function expireBehindGuard<T>(
   const child = spawn('docker', [
     'exec',
     '-i',
-    'supabase_db_diy-instax-package-contracts',
+    testStack.databaseContainer,
     'psql',
     '-U',
     'postgres',
