@@ -30,6 +30,7 @@ const owned: BoothFlow[] = [];
 function setup() {
   let stateGate: Promise<void> | undefined;
   let ackGate: Promise<void> | undefined;
+  const reportedWindows = new Set<unknown>();
   const observations: unknown[] = [];
   let state = 'Active';
   let calls = 0;
@@ -42,6 +43,9 @@ function setup() {
     if (fail) throw Object.assign(new Error('denied'), { status: failStatus });
     if (path === '/api/booth/readiness') {
       if (readinessError) throw Object.assign(new Error('not ready'), { status: 409 });
+      if (reportedWindows.has(body?.readinessWindowId))
+        throw Object.assign(new Error('readiness window already reported'), { status: 409 });
+      reportedWindows.add(body?.readinessWindowId);
       if (body?.kind === 'connection_changed') generation = body.connectionGeneration as number;
       calls++;
       observations.push(body?.observation);
@@ -579,6 +583,44 @@ it('accepts a fresh acknowledgement despite a newer healthy polling sample', asy
   await pending;
 });
 
+it('keeps Welcome ready when overlapping healthy samples share a single-use readiness window', async () => {
+  const s = setup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  const gate = deferred();
+  s.holdAck(gate.promise);
+  const reporting = s.flow.reportEquipment(observation);
+  // A focus event can sample equipment before the interval's state refresh returns.
+  const overlapping = s.flow.reportEquipment(observation);
+  await vi.waitFor(() => expect(s.reports()).toBe(2));
+  gate.resolve();
+  await Promise.all([reporting, overlapping]);
+  expect(s.flow.getSnapshot().phase).toBe('welcome');
+  await s.flow.reportEquipment(observation);
+  expect(s.reports()).toBe(3);
+  expect(s.flow.getSnapshot().phase).toBe('welcome');
+});
+
+it('preserves immediate camera-loss blocking during overlapping readiness reports', async () => {
+  const s = setup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  const gate = deferred();
+  s.holdAck(gate.promise);
+  const reporting = s.flow.reportEquipment(observation);
+  await vi.waitFor(() => expect(s.reports()).toBe(2));
+  const negative = s.flow.reportEquipment({ ...observation, cameraLive: false });
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  gate.resolve();
+  await Promise.all([reporting, negative]);
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  await s.flow.reportEquipment({ ...observation, cameraLive: false });
+  expect(s.observations.at(-1)).toMatchObject({ cameraLive: false });
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+});
+
 it('reports a recreated disconnected adapter against the authoritative connection before reconnecting', async () => {
   const s = connectionSetup(2);
   await s.flow.initialize();
@@ -694,7 +736,7 @@ function guestSetup(baseCounts = counts) {
             (!attemptState || attemptState === 'Printed' || attemptState === 'NotPrinted'),
           reportReadiness: true,
         },
-        readinessWindowId: '00000000-0000-4000-8000-000000000001',
+        readinessWindowId: crypto.randomUUID(),
         printerId: 'simulator',
         connectionGeneration: 1,
         pendingAttemptId:

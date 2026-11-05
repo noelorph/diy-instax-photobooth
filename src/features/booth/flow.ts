@@ -96,6 +96,7 @@ export class BoothFlow {
   private initialized?: Promise<void>;
   private refreshing?: Promise<void>;
   private reporting?: Promise<void>;
+  private reportedReadinessWindowId?: string;
   private nextObservation?: EquipmentObservation;
   private expiry?: ReturnType<typeof setTimeout>;
   private equipmentEpoch = 0;
@@ -970,6 +971,8 @@ export class BoothFlow {
       if (!this.current(pending)) return;
       await this.refresh();
       if (!this.state || !pending.readinessWindowId || !this.current(pending)) return;
+      // Overlapping focus/poll samples may share a window that permits only one report.
+      if (pending.readinessWindowId === this.reportedReadinessWindowId) return;
       const printer = await this.dependencies.printer.readReadiness();
       if (!this.current(pending)) return;
       this.equipment = { observation, at, printer };
@@ -998,6 +1001,7 @@ export class BoothFlow {
           oldJobCleared: observation.oldJobCleared && printer.ready,
         },
       });
+      this.reportedReadinessWindowId = pending.readinessWindowId;
       packageReplySchema.parse(
         await this.dependencies.transport('/api/booth/readiness', body, this.requests.signal)
       );
