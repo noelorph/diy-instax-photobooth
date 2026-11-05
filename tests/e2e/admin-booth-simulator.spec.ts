@@ -866,9 +866,9 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
       const reviewedResume = resumeResponse.request().postDataJSON();
       expect(reviewedResume.runId).toBe(original.runId);
       if (resumeResponse.status() === 409 && resumeCode === 'stale_revision') {
-        await expect(d.phonePage.getByRole('alert')).toContainText(
-          'The Event changed. Review current state'
-        );
+        await expect(
+          d.phonePage.getByRole('region', { name: 'Booth controls' }).getByRole('alert')
+        ).toContainText('The Event changed. Review current state');
         await d.phonePage.reload();
         const rereviewedResume = d.phonePage.waitForResponse(
           (response) =>
