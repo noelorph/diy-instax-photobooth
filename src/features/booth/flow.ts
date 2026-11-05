@@ -318,6 +318,31 @@ export class BoothFlow {
         }
       }
       await this.refresh();
+      if (this.view.phase === 'finished') {
+        // Finished proof permits only bounded Capture submission, not state or receipt reads.
+        for (const entry of this.dependencies.journal.readOperations()) {
+          if (entry.kind !== 'capture') continue;
+          const reply = packageReplySchema.parse(
+            await this.dependencies.transport(
+              '/api/booth/captures',
+              packageActionSchemas.recordCapture.parse({
+                operationId: entry.operationId,
+                sessionId: entry.sessionId,
+                captureId: entry.captureId,
+                capturedAt: entry.capturedAt,
+              }),
+              this.requests.signal
+            )
+          );
+          if (
+            reply.receipt.operationId !== entry.operationId ||
+            reply.receipt.kind !== 'record_capture'
+          )
+            throw new Error('Unexpected capture receipt');
+          this.dependencies.journal.acknowledgeOperation(entry.operationId);
+        }
+        return;
+      }
       if (this.state && !this.sessionId) {
         let entries: readonly JournalEntry[] = [];
         let malformed = false;

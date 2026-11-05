@@ -148,6 +148,81 @@ it.each(['Paused', 'Finishing', 'Finished'])(
     expect(s.flow.getSnapshot().phase).toBe(state.toLowerCase());
   }
 );
+it.each([
+  'accepted',
+  'replayed',
+  'response lost',
+  'expired proof',
+  'wrong operation',
+  'wrong kind',
+])('reconciles only saved Capture metadata after Finished: %s', async (outcome) => {
+  const journal = new BrowserBoothMetadataJournal(sessionStorage);
+  const capture = {
+    kind: 'capture' as const,
+    operationId: crypto.randomUUID(),
+    runId: crypto.randomUUID(),
+    sessionId: crypto.randomUUID(),
+    captureId: crypto.randomUUID(),
+    capturedAt: new Date(Date.now() - 1_000).toISOString(),
+    recordedAt: Date.now() - 1_000,
+  };
+  const reservation = {
+    kind: 'reservation' as const,
+    operationId: crypto.randomUUID(),
+    runId: capture.runId,
+    sessionId: capture.sessionId,
+    captureId: capture.captureId,
+    recordedAt: capture.recordedAt,
+  };
+  journal.putOperation(reservation);
+  journal.putOperation(capture);
+  const transport = vi.fn(async (path: string) => {
+    if (path === '/api/booth/state') return { state: 'Finished' };
+    if (path !== '/api/booth/captures') throw new Error('No live authority');
+    if (outcome === 'response lost') throw new Error('Response lost');
+    if (outcome === 'expired proof') throw Object.assign(new Error('Denied'), { status: 401 });
+    return {
+      revision: 3,
+      replayed: outcome === 'replayed',
+      receipt: {
+        operationId: outcome === 'wrong operation' ? crypto.randomUUID() : capture.operationId,
+        kind: outcome === 'wrong kind' ? 'reserve' : 'record_capture',
+        committedRevision: 3,
+        result: {},
+      },
+    };
+  });
+  const flow = new BoothFlow({
+    transport,
+    journal,
+    printer: new SimulatedPrinterV2('simulator'),
+  });
+  owned.push(flow);
+  await flow.initialize();
+  expect(transport.mock.calls.map(([path]) => path)).toEqual([
+    '/api/booth/state',
+    '/api/booth/captures',
+  ]);
+  expect(transport).toHaveBeenLastCalledWith(
+    '/api/booth/captures',
+    {
+      operationId: capture.operationId,
+      sessionId: capture.sessionId,
+      captureId: capture.captureId,
+      capturedAt: capture.capturedAt,
+    },
+    expect.any(AbortSignal)
+  );
+  expect(journal.readOperations()).toEqual(
+    ['accepted', 'replayed'].includes(outcome) ? [reservation] : [reservation, capture]
+  );
+  expect(flow.getSnapshot()).toMatchObject({
+    phase: 'finished',
+    blockers: [],
+    allowedActions: { connectPrinter: false, enableCamera: false },
+  });
+  expect(flow.getSnapshot().counts).toBeUndefined();
+});
 it('access denial clears the admission state', async () => {
   const s = setup();
   await s.flow.initialize();
