@@ -5,6 +5,243 @@ import { BoothFlow } from '@/features/booth/flow';
 import { SimulatedPrinterV2 } from '@/features/booth/printer/simulator-v2';
 import { BrowserBoothMetadataJournal } from '@/features/booth/print-journal';
 afterEach(cleanup);
+it.each(['printing', 'paused', 'finishing'] as const)(
+  'asks Guests to wait without requesting Admin intervention for a healthy pending print in %s',
+  (phase) => {
+    const flow = new BoothFlow({
+      printer: new SimulatedPrinterV2('simulator'),
+      journal: new BrowserBoothMetadataJournal(sessionStorage),
+      transport: async () => ({}),
+    });
+    vi.spyOn(flow, 'initialize').mockResolvedValue();
+    vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
+    vi.spyOn(flow, 'getSnapshot').mockReturnValue({
+      phase,
+      counts: {
+        originalPackages: 1,
+        additionalPackages: 0,
+        totalBookedPrints: 10,
+        printed: 0,
+        unresolved: 1,
+        printsRemaining: 10,
+        printsAvailable: 9,
+      },
+      blockers: ['print_pending'],
+      allowedActions: { enableCamera: false, connectPrinter: false },
+    });
+    render(
+      <BoothClient flow={flow} camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }} />
+    );
+    expect(screen.getByRole('alert').textContent).toContain('Please wait');
+    expect(screen.getByRole('alert').textContent).not.toMatch(/inform the Admin/);
+  }
+);
+it('offers an accessible Continue action during preview inactivity', async () => {
+  const flow = new BoothFlow({
+    printer: new SimulatedPrinterV2('simulator'),
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async () => ({}),
+  });
+  vi.spyOn(flow, 'initialize').mockResolvedValue();
+  vi.spyOn(flow, 'getSnapshot').mockReturnValue({
+    phase: 'preview',
+    inactivityWarning: true,
+    blockers: [],
+    allowedActions: { enableCamera: false, connectPrinter: false },
+  });
+  const continuing = vi.spyOn(flow, 'continueGuest');
+  render(<BoothClient flow={flow} camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }} />);
+  expect(screen.getByRole('status').textContent).toContain('Continue');
+  expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Continue' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+  expect(continuing).toHaveBeenCalledOnce();
+});
+it('announces camera loss even when a print outcome remains pending', () => {
+  const flow = new BoothFlow({
+    printer: new SimulatedPrinterV2('simulator'),
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async () => ({}),
+  });
+  vi.spyOn(flow, 'initialize').mockResolvedValue();
+  vi.spyOn(flow, 'getSnapshot').mockReturnValue({
+    phase: 'unavailable',
+    counts: {
+      originalPackages: 1,
+      additionalPackages: 0,
+      totalBookedPrints: 10,
+      printed: 0,
+      unresolved: 1,
+      printsRemaining: 10,
+      printsAvailable: 9,
+    },
+    blockers: ['camera', 'print_pending'],
+    allowedActions: { enableCamera: true, connectPrinter: false },
+  });
+  vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
+  render(<BoothClient flow={flow} camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }} />);
+  expect(screen.getByRole('heading').textContent).toBe(
+    'Camera disconnected. Please inform the Admin.'
+  );
+  expect(screen.getByRole('alert').textContent).toContain('A print outcome is pending');
+  expect(screen.getByRole('alert').textContent).toContain('Please inform the Admin.');
+});
+it('shows default welcome, mirrored preview, countdown and unmirrored selected review', async () => {
+  const printer = new SimulatedPrinterV2('simulator');
+  await printer.connect();
+  let revision = 1;
+  const captureBodies: Record<string, unknown>[] = [];
+  const flow = new BoothFlow({
+    printer,
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async (path, body) => {
+      if (path === '/api/booth/state')
+        return {
+          revision,
+          runId: '00000000-0000-4000-8000-000000000001',
+          state: 'Active',
+          counts: {
+            originalPackages: 1,
+            additionalPackages: 0,
+            totalBookedPrints: 10,
+            printed: 0,
+            unresolved: 0,
+            printsRemaining: 10,
+            printsAvailable: 10,
+          },
+          blockers: [],
+          allowedActions: { startGuest: true, reportReadiness: true },
+          readinessWindowId: '00000000-0000-4000-8000-000000000002',
+          printerId: 'simulator',
+          connectionGeneration: 1,
+        };
+      const kind =
+        path === '/api/booth/readiness'
+          ? 'report_readiness'
+          : path === '/api/booth/sessions'
+            ? 'start_session'
+            : path === '/api/booth/captures'
+              ? 'record_capture'
+              : 'reserve';
+      if (kind === 'record_capture') captureBodies.push(body!);
+      revision++;
+      return {
+        revision,
+        replayed: false,
+        receipt: {
+          operationId: body!.operationId,
+          kind,
+          committedRevision: revision,
+          result:
+            kind === 'start_session' ? { sessionId: '00000000-0000-4000-8000-000000000003' } : {},
+        },
+      };
+    },
+  });
+  const discard = vi.fn();
+  const camera = {
+    start: async (video: HTMLVideoElement) => {
+      Object.defineProperties(video, {
+        srcObject: {
+          value: { active: true, getVideoTracks: () => [{ readyState: 'live' }] },
+          configurable: true,
+        },
+        videoWidth: { value: 600, configurable: true },
+        videoHeight: { value: 800, configurable: true },
+      });
+    },
+    stop: vi.fn(),
+    capture: vi.fn(async () => ({
+      bytes: new Uint8Array([1, 2, 3]),
+      url: 'blob:selected',
+      discard,
+    })),
+  };
+  render(<BoothClient flow={flow} camera={camera} />);
+  expect(await screen.findByRole('button', { name: 'Start' })).not.toBeNull();
+  expect(screen.getByText(/one print/i)).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Start' }));
+  expect(await screen.findByRole('button', { name: 'Take Photo' })).not.toBeNull();
+  expect(screen.getByLabelText('Mirrored camera preview')).not.toBeNull();
+  fireEvent.click(screen.getByRole('button', { name: 'Take Photo' }));
+  expect(await screen.findByText('3')).not.toBeNull();
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 3100));
+  });
+  expect(await screen.findByRole('img', { name: 'Your final photo' })).not.toBeNull();
+  expect((screen.getByRole('button', { name: 'Print' }) as HTMLButtonElement).disabled).toBe(false);
+  expect(captureBodies).toHaveLength(1);
+  fireEvent.click(screen.getByRole('button', { name: 'Retake' }));
+  expect(discard).toHaveBeenCalledOnce();
+  expect(screen.getByRole('button', { name: 'Take Photo' })).not.toBeNull();
+});
+
+it('requires a live camera again after pause stops the stream and the run quickly resumes', async () => {
+  const printer = new SimulatedPrinterV2('simulator');
+  await printer.connect();
+  let state = 'Active';
+  const flow = new BoothFlow({
+    printer,
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async (path, body) =>
+      path === '/api/booth/state'
+        ? {
+            revision: 1,
+            runId: '00000000-0000-4000-8000-000000000011',
+            state,
+            counts: {
+              originalPackages: 1,
+              additionalPackages: 0,
+              totalBookedPrints: 10,
+              printed: 0,
+              unresolved: 0,
+              printsRemaining: 10,
+              printsAvailable: 10,
+            },
+            blockers: [],
+            allowedActions: { startGuest: true, reportReadiness: true },
+            readinessWindowId: '00000000-0000-4000-8000-000000000012',
+            printerId: 'simulator',
+            connectionGeneration: 1,
+          }
+        : {
+            revision: 1,
+            replayed: false,
+            receipt: {
+              operationId: body!.operationId,
+              kind: 'report_readiness',
+              committedRevision: 1,
+              result: {},
+            },
+          },
+  });
+  let video: HTMLVideoElement;
+  const camera = {
+    start: async (element: HTMLVideoElement) => {
+      video = element;
+      Object.defineProperties(element, {
+        srcObject: {
+          value: { active: true, getVideoTracks: () => [{ readyState: 'live' }] },
+          configurable: true,
+        },
+        videoWidth: { value: 600, configurable: true },
+        videoHeight: { value: 800, configurable: true },
+      });
+    },
+    stop: vi.fn(() =>
+      Object.defineProperty(video, 'srcObject', { value: null, configurable: true })
+    ),
+    capture: vi.fn(),
+  };
+  render(<BoothClient flow={flow} camera={camera} />);
+  expect(await screen.findByRole('button', { name: 'Start' })).not.toBeNull();
+  state = 'Paused';
+  await act(() => flow.refresh());
+  expect(camera.stop).toHaveBeenCalled();
+  state = 'Active';
+  await act(() => flow.refresh());
+  expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
+  expect(screen.getByRole('button', { name: 'Enable Camera' })).not.toBeNull();
+});
 it('arrival uses passive camera intent and Enable Camera uses explicit request', async () => {
   const printer = new SimulatedPrinterV2('simulator');
   const counts = {

@@ -23,9 +23,9 @@ export default async function HistoryPage() {
         description="Completed and Cancelled Events retain their booking, media and operational history."
       />
       {summary.status === 'success' ? (
-        <div className="mb-6 flex flex-wrap gap-6 tabular-nums">
-          <p>{summary.events} non-cancelled Events</p>
-          <p>{summary.captures} Captures</p>
+        <div className="mb-6 flex flex-wrap gap-x-6 gap-y-2 rounded-2xl bg-ds-surface-muted px-5 py-4 text-lg leading-[1.625rem] font-semibold tabular-nums">
+          <p className="m-0">{summary.events} non-cancelled Events</p>
+          <p className="m-0">{summary.captures} Captures</p>
         </div>
       ) : (
         <FormFeedback kind="error">{summary.error}</FormFeedback>
@@ -33,22 +33,32 @@ export default async function HistoryPage() {
       {history.status === 'unavailable' ? (
         <FormFeedback kind="error">{history.error}</FormFeedback>
       ) : history.events.length === 0 ? (
-        <p>No completed or cancelled Events yet.</p>
+        <p className="rounded-2xl border border-dashed border-ds-border bg-ds-primary-soft px-6 py-10 text-center text-ds-text-muted">
+          No completed or cancelled Events yet.
+        </p>
       ) : (
-        <ul className="grid gap-4">
+        <ul className="m-0 grid list-none gap-4 p-0">
           {history.events.map((event) => (
-            <li key={event.id} className="border-b border-ds-border-subtle py-4">
-              <Link className="text-ds-primary underline" href={`/events/${event.id}`}>
+            <li
+              key={event.id}
+              className="grid gap-1 rounded-2xl border border-ds-border-subtle bg-ds-surface p-5 [&_p]:m-0"
+            >
+              <Link
+                className="text-lg leading-[1.625rem] font-semibold text-ds-primary underline underline-offset-4 wrap-anywhere hover:text-ds-primary-hover"
+                href={`/events/${event.id}`}
+              >
                 {event.title}
               </Link>
-              <p>{event.state} · Client details retained</p>
-              <p>{event.venue_address}</p>
-              <div>
+              <p className="text-sm leading-5 font-medium text-ds-text-muted">
+                {event.state} · Client details retained
+              </p>
+              <p className="wrap-anywhere">{event.venue_address}</p>
+              <div className="text-sm leading-5 text-ds-text-muted">
                 <p>{event.client_name}</p>
                 <p className="wrap-anywhere">{event.client_email}</p>
                 <p>{event.client_phone}</p>
               </div>
-              <div className="my-3 flex flex-wrap gap-x-6 gap-y-2 tabular-nums">
+              <div className="my-3 flex flex-wrap gap-2 text-sm leading-5 tabular-nums [&_p]:rounded-full [&_p]:bg-ds-primary-soft [&_p]:px-3 [&_p]:py-1">
                 {(() => {
                   const value = totals.get(event.id);
                   return value?.status === 'success' ? (
@@ -70,7 +80,7 @@ export default async function HistoryPage() {
                 })()}
               </div>
               {event.starts_at && (
-                <p>
+                <p className="text-sm leading-5 text-ds-text-muted">
                   {new Date(event.starts_at).toLocaleString('en', { timeZone: event.time_zone })} –{' '}
                   {new Date(event.ends_at).toLocaleString('en', { timeZone: event.time_zone })} ·{' '}
                   {event.time_zone}

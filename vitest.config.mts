@@ -11,7 +11,9 @@ export default defineConfig({
     // Integration files share the isolated local Auth/database stack. Some
     // assert complete Draft lists, so another file must not mutate those rows.
     fileParallelism: false,
+    // Local Docker/CLI discovery can exceed Vitest's 10-second hook default.
+    hookTimeout: 30000,
     environment: 'jsdom',
-    include: ['tests/**/*.test.{ts,tsx}'],
+    include: ['tests/**/*.test.{ts,tsx}', 'src/**/*.test.{ts,tsx}'],
   },
 });

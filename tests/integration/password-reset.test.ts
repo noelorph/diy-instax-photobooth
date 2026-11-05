@@ -1,3 +1,4 @@
+import { testStack } from '../fixtures/test-stack.mjs';
 // @vitest-environment node
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { randomUUID } from 'node:crypto';
@@ -66,14 +67,14 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
     let id: string | undefined;
     for (let attempt = 0; attempt < 30; attempt++) {
       const inbox = await fetch(
-        `http://127.0.0.1:56324/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
+        `${testStack.mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
       ).then((r) => r.json());
       id = inbox.messages[0]?.ID;
       if (id) break;
       await new Promise((resolve) => setTimeout(resolve, 100));
     }
     expect(Boolean(id), 'Recovery email delivered').toBe(true);
-    const message = await fetch(`http://127.0.0.1:56324/api/v1/message/${id}`).then((r) =>
+    const message = await fetch(`${testStack.mailpitUrl}/api/v1/message/${id}`).then((r) =>
       r.json()
     );
     const href = message.HTML.match(/href="([^"]+)"/)?.[1];
@@ -274,7 +275,7 @@ describe('Password recovery through local Mailpit, PKCE and active-session RLS',
       'docker',
       [
         'exec',
-        'supabase_db_diy-instax-package-contracts',
+        testStack.databaseContainer,
         'psql',
         '-U',
         'postgres',

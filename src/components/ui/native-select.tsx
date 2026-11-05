@@ -13,7 +13,7 @@ function NativeSelect({
         data-slot="native-select"
         data-size={size}
         className={cn(
-          'min-h-11 w-full min-w-0 appearance-none rounded-lg border border-ds-border bg-ds-surface px-3 py-2 pr-10 text-base leading-[1.375rem] text-ds-text transition-colors duration-120 motion-reduce:transition-none disabled:cursor-not-allowed disabled:bg-ds-surface-muted disabled:text-ds-text-muted data-[size=sm]:text-sm',
+          'min-h-11 w-full min-w-0 appearance-none rounded-xl border border-ds-border bg-ds-surface px-3 py-2 pr-10 text-base leading-6 text-ds-text transition-colors duration-180 enabled:hover:border-ds-text motion-reduce:transition-none disabled:cursor-not-allowed disabled:bg-ds-surface-muted disabled:text-ds-text-muted data-[size=sm]:text-sm',
           'focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ds-focus aria-invalid:border-ds-danger',
           className
         )}

@@ -1,11 +1,11 @@
-# DIY Instax Photo Booth — Design System
+# DIY Instax Photo Booth — Apricot Studio Design System
 
 **2026-10-27 F2 implementation and availability:** [ADR-0032](docs/adr/0032-build-full-f2-with-uploads-unavailable.md) restores the original full F2/#30 implementation target, including the dormant editor and private delivery. Runtime uploads remain temporarily unavailable under ADR-0031, with trusted upload/attachment/replacement denials intact. Full #30 acceptance still requires supported cleanup proof and enabled transfer/failure/concurrency/private-delivery/playback qualification; the disabled-scope evidence is unchanged. The Admin Event Media page must visibly remind the Admin that interrupted/late uploads and leftover files need cleanup verification before re-enabling. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure.
 
-- **Status:** Agreed presentation for the 2026-10-21 target. Version-2 contracts and handlers exist; Admin/Booth UI integration remains #10 work. [Dated #9 software acceptance evidence](docs/implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25) records passing software checks and independent evidence review; GitHub #9 is closed as completed. #10's revised plan is approved and F1–F8 are published as #29–#36. F1 is implemented; F2 has [verified local disabled-scope implementation](docs/implementation/issue-30-disabled-media-acceptance.md), with media uploads temporarily unavailable under ADR-0031. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure. Enabled-media qualification, #30 closure and #10 completion remain open. Archived image proposals do not override these tokens.
-- **Date:** 2026-10-11; typography revised 2026-10-15; behavior aligned 2026-10-21
-- **Source:** Design prompt (Git checkpoint `1de2272`, `docs/prompts/design-system-prompt.md`), [product requirements](PRD.md), and the design interview.
-- **Decision:** [One visual system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md).
+- **Status:** Apricot Studio and the smaller DM Sans typography approved on 2026-11-04. Implemented in Admin and Booth on branch `feat/apricot-studio-redesign` on 2026-11-04 as a presentation-only change; local browser checks at phone, iPad A16 portrait/landscape and desktop sizes are recorded in [§10](#10-implementation-record--2026-11-04). Actual-iPad rendering, media-backed welcome and assistive-technology checks remain pending. The October 21 mockups retain behavior/state coverage with superseded styling. Version-2 contracts and handlers exist; remaining Admin/Booth UI integration remains #10 work. [Dated #9 software acceptance evidence](docs/implementation/issue-9-package-contracts-review.md#issue-9-software-verification-passed--2026-10-25) records passing software checks and independent evidence review; GitHub #9 is closed as completed. #10's revised plan is approved and F1–F8 are published as #29–#36. F1, F3 and F4 have implementation evidence; F5 Guest capture-to-print is implemented locally with [dated evidence and open verification limits](docs/implementation/issue-10-retirement-and-acceptance.md#f5-guest-capture-to-print-evidence--2026-11-04). F6–F8 remain open; F2 has [verified local disabled-scope implementation](docs/implementation/issue-30-disabled-media-acceptance.md), with media uploads temporarily unavailable under ADR-0031. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure. Enabled-media qualification, #30 closure and #10 completion remain open. Archived image proposals do not override these tokens.
+- **Date:** 2026-11-04 visual revision; package/recovery behavior remains aligned with the 2026-10-21 contract
+- **Source:** User-approved [Apricot Studio study](docs/design/2026-11-04-apricot-studio/README.md), [product requirements](PRD.md), and the design discussion. The selected orange palette and smaller type replace the earlier cobalt proposal and Geist/teal system.
+- **Decision:** [ADR-0033: Apricot Studio](docs/adr/0033-adopt-apricot-studio-design-system.md), retaining [one visual system for Admin and Booth Mode](docs/adr/0010-one-design-system-for-admin-and-booth.md).
 
 ## 1. Authority and scope
 
@@ -17,68 +17,83 @@ Integrated Admin and Booth interfaces may use a simulated printer. The [replacem
 
 ## 2. Design philosophy
 
-1. **Let the occasion supply the energy.** The interface is calm and composed. Guest photos, Event Media, and the 3–2–1 countdown carry the celebratory moment.
+1. **Give the booth a welcoming identity.** Warm cream, apricot, burnt orange and an original camera illustration provide personality even without Event Media. Keep most surfaces neutral; concentrate accent color in actions and small details rather than full-screen color or oversized type.
 2. **Make operational truth visible.** Booked packages, available prints, readiness, and Print Attempt outcomes must be legible and correctly labeled. Never decorate an uncertain result as success.
 3. **Keep one identity across two contexts.** Admin and Booth Mode share type, semantic color roles, icons, and controls. Admin favors comparison and scanning; Booth Mode favors one clear action at a time and generous touch space.
-4. **Use the physical print as a quiet cue.** Warm paper, ink, and a restrained frame shape may evoke Instax Mini. Never imitate an official Fujifilm interface or add an effect to a Guest photo.
+4. **Use photography as the visual cue.** Warm paper, a small instant-camera illustration on welcome, and a white surround outside the review crop evoke a physical print. Never imitate an official Fujifilm identity, modify the print crop, or add illustration, lettering or effects to a Guest photo.
 5. **Protect the photo and the person.** The selected photo is the focal point on review. No design pattern may persist, upload, or later display Guest photos contrary to the PRD.
 
 ## 3. Foundations
 
 ### Color and themes
 
-All components consume semantic tokens. Map the roles below to theme-scoped CSS custom properties such as `--color-canvas` and Tailwind semantic utilities; do not use raw palette values in page components. Light and dark Admin themes use the same roles; Booth Mode uses the dark role set regardless of the Admin's Profile preference. The palette anchors are warm ivory, ink, and restrained teal. Event Media is never a source of token colors.
+All components consume semantic tokens. Map the roles below to theme-scoped CSS custom properties such as `--color-canvas` and Tailwind semantic utilities; do not use raw palette values in page components. The palette anchors are warm cream, dark brown, burnt orange and apricot. Light and dark themes share roles. The default Booth welcome uses light roles; capture and operational states use dark roles, independently of the Admin Profile preference. Event Media is never a source of token colors. The [token companion](docs/design/2026-11-04-apricot-studio/tokens.json) mirrors these exact values.
 
-| Semantic token  | Light     | Dark / Booth | Use                                          |
-| --------------- | --------- | ------------ | -------------------------------------------- |
-| `canvas`        | `#F6F5F0` | `#101B1B`    | Page background                              |
-| `surface`       | `#FFFFFF` | `#1A2929`    | Content surface                              |
-| `surface-muted` | `#ECEFEA` | `#223333`    | Subtle grouping, selected rows               |
-| `text`          | `#1D2B2A` | `#EFF5F1`    | Primary text                                 |
-| `text-muted`    | `#4D605D` | `#B5C7C2`    | Secondary text                               |
-| `border`        | `#728780` | `#708A84`    | Essential control boundaries                 |
-| `border-subtle` | `#C8D2CE` | `#3C514D`    | Decorative dividers only                     |
-| `primary`       | `#1F6663` | `#6FB7AE`    | Primary action, links, active state          |
-| `primary-hover` | `#17514F` | `#8ACAC1`    | Hover on primary actions                     |
-| `primary-soft`  | `#DAECE8` | `#24413E`    | Selected navigation, quiet emphasis          |
-| `on-primary`    | `#FFFFFF` | `#101B1B`    | Text/icon on primary fill                    |
-| `focus`         | `#1F6663` | `#8ACAC1`    | Focus ring, with separation from the control |
-| `success`       | `#226A4D` | `#88CBA5`    | Confirmed, ready                             |
-| `warning`       | `#805300` | `#FFD27D`    | Attention, pending, attention needed         |
-| `danger`        | `#A33137` | `#FF999C`    | Error, destructive action                    |
-| `danger-hover`  | `#87282D` | `#FFB3B5`    | Hover on filled destructive actions          |
-| `on-danger`     | `#FFFFFF` | `#101B1B`    | Text/icon on destructive fill                |
-| `info`          | `#245A78` | `#8CC8E8`    | Neutral operational information              |
+| Semantic token | Light | Dark | Use |
+| --- | --- | --- | --- |
+| `canvas` | `#FFF8EF` | `#211C19` | Page background |
+| `surface` | `#FFFFFF` | `#2B2420` | Content surface |
+| `surface-muted` | `#FFE1C9` | `#382E27` | Pale grouping / disabled control fill |
+| `text` | `#30251F` | `#FFF8EF` | Primary text |
+| `text-muted` | `#746054` | `#CDBCAF` | Secondary text |
+| `border` | `#8C7363` | `#A38B78` | Essential control boundaries |
+| `border-subtle` | `#E5D5C8` | `#5B4739` | Decorative dividers only |
+| `primary` | `#B84A22` | `#F7AD65` | Primary action; links on allowed surfaces |
+| `primary-hover` | `#9F3F1D` | `#FFC38E` | Hover/press fill; stronger light-theme link |
+| `primary-soft` | `#FFF1E5` | `#3C2B20` | Selected navigation, quiet emphasis |
+| `on-primary` | `#FFFFFF` | `#211C19` | Text/icon on primary fill |
+| `focus` | `#594033` | `#FFE1C9` | Outer focus ring with surface-colored gap |
+| `success` | `#226A4D` | `#9BC6A5` | Confirmed, ready |
+| `warning` | `#805300` | `#FFD08A` | Attention, pending, intervention needed |
+| `danger` | `#A9213C` | `#FFABB5` | Error, destructive action |
+| `danger-hover` | `#8D1830` | `#FFC0C7` | Hover on filled destructive actions |
+| `on-danger` | `#FFFFFF` | `#211C19` | Text/icon on destructive fill |
+| `info` | `#245A78` | `#A5CCE5` | Neutral operational information |
+| `accent` | `#F7AD65` | `#F7AD65` | Decorative apricot; dark text only |
 
 Tinted status surfaces use the matching status text color:
 
-| Semantic token | Light     | Dark / Booth |
-| -------------- | --------- | ------------ |
-| `success-soft` | `#E5F2E9` | `#1E3D30`    |
-| `warning-soft` | `#FFF1D6` | `#4A3619`    |
-| `danger-soft`  | `#FCE9EA` | `#4A292B`    |
-| `info-soft`    | `#E5F1F7` | `#1E3A48`    |
+| Semantic token | Light | Dark |
+| --- | --- | --- |
+| `success-soft` | `#E5F2E9` | `#203629` |
+| `warning-soft` | `#FFF1D6` | `#44331D` |
+| `danger-soft` | `#FCE9ED` | `#44252C` |
+| `info-soft` | `#E5F1F7` | `#24343F` |
 
-Use status colors as text or icon accents on `surface` or their matching soft surface; pair them with a label and, when useful, an icon. Do not put light teal on ivory for small text or dark teal on dark surfaces. Do not use opacity alone to create muted text or disabled states. Primary text on canvas, primary button text, muted text on surface, status text on surface and matching soft surfaces, and essential control borders have been checked against the stated contrast targets. Check essential borders against every rendered control fill, including hover and selected states. Recheck actual Event Media overlays and any new color pairing.
+Use status colors as text or icon accents on `surface` or their matching soft surface; pair them with a label and, when useful, an icon. Burnt orange identifies a brand action, not a warning or destructive state. Use `text` on pale apricot grouping surfaces; use `primary` for links on `canvas`, `surface` or `primary-soft`, not on arbitrary accent fills. On light `surface-muted`, use `text` or `primary-hover` for normal text: `primary` on that peach surface is only 4.17:1. Decorative `accent` is not a text color or button fill with a white label. Do not use opacity alone for muted text or disabled states.
 
-Authenticated Admin pages render the saved Profile light/dark preference. Ordinary Admin sign-in uses the light Admin tokens before that preference is available. Finished Booth and exceptional access-loss sign-in use the dark tokens and shared form rules. A normal pause stays on the Booth surface without sign-in. Booth Mode does not inherit the Admin preference. On the camera and review screens, dark surfaces frame the photo and keep controls predictable under different Event Media.
+The [contrast record](docs/design/2026-11-04-apricot-studio/contrast-checks.json) checks specified text/button pairs at 4.5:1 and essential boundaries/focus against their surrounding surfaces at 3:1. Focus has a 2 px gap filled by the surrounding surface; do not assume one ring contrasts directly with every filled control. These calculations do not replace rendered checks, especially media overlays and new color pairings.
+
+Authenticated Admin pages render the saved Profile light/dark preference; ordinary Admin sign-in uses light tokens. Booth presentation is state-specific, with no theme selector:
+
+| Booth surface | Theme and treatment |
+| --- | --- |
+| Default welcome | Light cream, modest camera illustration, burnt-orange Start and readable privacy copy |
+| Media-backed welcome, when enabled | Tested opaque control/text surface over the media; unchanged pause-video and reduced-motion behavior |
+| Preview, countdown, review | Dark brown neutrals; the portrait crop stays the focal point |
+| Preparing, printing, completion, fault, pause, finishing, finished and access recovery | Dark tokens with truthful state text; finished/exceptional sign-in also uses dark tokens |
+
+Booth never inherits the Admin preference. A normal pause stays on the Booth surface without sign-in. Theme changes follow the existing screen state and do not add a workflow step. Runtime media uploads remain unavailable under ADR-0031/0032; the default welcome must stand on its own.
 
 ### Typography
 
-Use **Geist Sans Variable** for all Admin and Booth UI text, with a system sans-serif fallback. Load it from locally served assets in the root layout; add italic styles only if needed and avoid a second display or monospace family. The compact Admin rhythm follows the [CodeRabbit app typography reference](docs/adr/0019-use-geist-typography-across-admin-and-booth.md), while Booth instructions and countdown retain their larger, accessible roles. Use tabular numerals for counts, times, and table columns. Keep labels in sentence case, not all caps except very short metadata eyebrows.
+Use **DM Sans** for every Admin and Booth text role, with `system-ui, sans-serif` fallback. Serve font assets locally through the root layout. Use 400 for body, 500 for labels/buttons and 600 for headings; avoid heavy 800/900 weights and oversized brand lettering. This supersedes [ADR-0019](docs/adr/0019-use-geist-typography-across-admin-and-booth.md) under ADR-0033. Use tabular numerals for counts, times and aligned columns; sentence case for labels. Add no second display or monospace family.
 
-| Role         | Size / line height          | Weight  | Typical use                                            |
-| ------------ | --------------------------- | ------- | ------------------------------------------------------ |
-| `caption`    | 12 / 16 px                  | 500     | Secondary metadata; never essential Booth instructions |
-| `body-sm`    | 14 / 18 px                  | 400–500 | Dense Admin rows and helper text                       |
-| `body`       | 16 / 22 px                  | 400–500 | Forms, descriptions, default controls                  |
-| `body-lg`    | 20 / 28 px                  | 400–600 | Booth instructions and prominent summaries             |
-| `heading-sm` | 20 / 28 px                  | 600     | Section titles                                         |
-| `heading`    | 28 / 36 px                  | 600     | Admin page titles                                      |
-| `display`    | 36 / 44 px                  | 600–700 | Booth welcome and major state                          |
-| `countdown`  | clamp(5rem, 12vw, 9rem) / 1 | 700     | 3–2–1 only                                             |
+| Role | Size / line height | Weight | Typical use |
+| --- | --- | --- | --- |
+| `caption` | 12 / 16 px | 400–500 | Nonessential metadata only |
+| `body-sm` | 14 / 20 px | 400–500 | Admin helper text, secondary labels |
+| `body` | 16 / 24 px | 400 | Admin forms, rows, default body; Booth privacy copy |
+| `control` | 16 / 24 px | 500 | Admin navigation and controls |
+| `heading-sm` | 18 / 26 px | 600 | Admin sections |
+| `body-lg` | 20 / 28 px | 400–500 | Booth instructions, event name and action labels |
+| `heading` | 28 / 36 px | 600 | Admin page titles and accounting values |
+| `display` | 36 / 44 px | 600 | Booth welcome, review and principal status heading |
+| `countdown` | clamp(5rem, 12vw, 9rem) / 1 | 600 | 3–2–1 only |
 
-Scale text with `rem` in implementation; the pixel values above describe the intended default at a 16 px root. Body text must remain readable at 200% browser zoom. Booth instructions should normally use `body-lg` or larger. Avoid truncating Event names, statuses, or error causes when the full text is needed to act.
+At the default root size, use 28 px Admin titles and 36 px Booth headings as ceilings for ordinary page/state titles. Do not inflate them to fill space or reproduce exaggerated raster glyphs. A long title wraps naturally; compact layouts may reduce a Booth heading to 28/36 px. Keep essential instructions at 20/28 px rather than shrinking all text together. The countdown is the intentional large-type exception.
+
+Implement sizes in `rem`; the table describes a 16 px default root and does not cap user zoom. Text remains readable at 200% zoom. Button label size is independent of its touch target. Do not truncate Event names, status or error causes needed to act. Use space, weight and alignment to establish hierarchy before increasing font size.
 
 ### Spacing, shape, borders, and elevation
 
@@ -87,14 +102,14 @@ Use a 4 px spacing base: `1=4`, `2=8`, `3=12`, `4=16`, `5=20`, `6=24`, `8=32`, `
 | Token            | Value                        | Use                                             |
 | ---------------- | ---------------------------- | ----------------------------------------------- |
 | `radius-sm`      | 6 px                         | Small controls and badges                       |
-| `radius-md`      | 8 px                         | Buttons, fields, media frames                   |
-| `radius-lg`      | 12 px                        | Cards, dialogs, grouped surfaces                |
+| `radius-md`      | 12 px                        | Buttons, fields, media frames                   |
+| `radius-lg`      | 16 px                        | Dialogs and necessary grouped surfaces                |
 | `radius-pill`    | 999 px                       | Booth primary actions when useful, status pills |
 | `radius-round`   | 50%                          | Shutter control only                            |
-| `border-default` | 1 px solid `border`          | Inputs, tables, cards, separations              |
+| `border-default` | 1 px solid `border`          | Essential input/control boundaries              |
 | `shadow-overlay` | 0 8px 24px rgb(0 0 0 / 0.16) | Menus and dialogs only                          |
 
-Use borders and spacing before shadows. A Booth control may be rounder and larger than its Admin counterpart; the underlying color, focus, disabled, and text rules remain shared. Borders must stay visible in dark mode. Avoid nested bordered cards unless the grouping is necessary to understand the content.
+Use open sections, space and alignment first, then `border-subtle` separators or a pale surface when grouping needs help. Reserve `border` for essential control boundaries. Avoid a card around every section and nested bordered cards. A Booth control may be rounder and larger than its Admin counterpart; color, focus, disabled and text roles remain shared. Shadows are for overlays only. Keep dark control boundaries visible. The approved study is a layout/style reference, not a requirement to reproduce every raster edge or shadow.
 
 ### Layout and responsive behavior
 
@@ -135,9 +150,9 @@ Buttons have `primary`, `secondary`, `quiet`, and `destructive` treatments. Use 
 | Secondary default / hover | `surface` with `text` and `border`; retain `border` when using `surface-muted` on hover and press                                               |
 | Quiet default / hover     | No resting fill, `text` label; use `surface-muted` on hover and press                                                                           |
 | Destructive               | Use `danger` text on a quiet control in context; use `danger` fill with `on-danger` text in the final review dialog and `danger-hover` on hover |
-| Selected                  | `primary-soft` background with `primary` text and a visible selection marker, not color alone                                                   |
+| Selected                  | `surface-muted` background with `primary-hover` text (light) or `primary` text (dark) and a visible selection marker, not color alone          |
 | Focus-visible             | `focus` ring, 2 px wide, separated 2 px from the control                                                                                        |
-| Disabled                  | `surface-muted` with `text-muted`, no action; explain the blocker nearby when needed                                                            |
+| Disabled                  | `surface-muted` with `text-muted` and `border`, no action; explain the blocker nearby when needed                                               |
 | Loading                   | Keep the action label, add a spinner or status text, and block duplicate submission                                                             |
 | Invalid input             | `danger` border/icon, visible error text, and `aria-invalid`; retain the entered value                                                          |
 
@@ -151,7 +166,7 @@ Dialogs are reserved for consequential Admin choices. Show the exact effect befo
 
 ### Admin operational panel
 
-Show original Film Packages, Additional Film Packages, total booked prints, Confirmed Prints, pending count and prints available. Label counts clearly and retain the labels on compact phone layouts. Total is ten times all booked packages; available subtracts confirmed plus unresolved attempts. A hold is not a successful print. Show **0 pending** explicitly; update only after committed state.
+Use one pale `surface-muted` accounting strip with values separated by `border` rules instead of four heavy standalone cards. Each value keeps its full label in one sentence (for example **49 printed**), set at 20/28 px semibold so labels and numbers stay together when the strip wraps. On phones, wrap it into labeled groups without horizontal clipping. Show original Film Packages, Additional Film Packages, total booked prints, Confirmed Prints, pending count and prints available. Label counts clearly and retain the labels on compact phone layouts. Total is ten times all booked packages; available subtracts confirmed plus unresolved attempts. A hold is not a successful print. Show **0 pending** explicitly; update only after committed state.
 
 Show independent readiness blockers below these numbers. Use distinct rows for printer connection, camera, connectivity, film reload needed, pending outcome and explicit pause. Clearing one must not visually clear the others. Loading film and buying packages must have separate labeled actions. Do not show a physical inventory balance or infer ten loaded sheets from the printer count.
 
@@ -215,7 +230,7 @@ The monthly Events card includes Draft, Live and Completed by venue-local schedu
 
 Use Lucide outline icons at 16 px in dense Admin rows, 20 px in standard controls, and 24–32 px in Booth messages. Keep stroke weight consistent and let the label carry meaning. Icon-only controls need an accessible name and visible tooltip on pointer devices. Never rely on icon shape or color alone for event, printer, or package status.
 
-The default welcome uses a restrained white photo-frame shape on a dark or ivory field. No decorative stickers, scattered mock prints, stock portraits, or generic gradients. The photo-frame motif is interface decoration only; it does not alter the Guest image. Event Media personalizes the welcome and the still background sits around the camera preview. Keep Event Media sections and the planned background/montage designs visible. While disabled under [ADR-0031](docs/adr/0031-temporarily-disable-event-media-uploads.md), show **“Media uploads are temporarily unavailable.”** with disabled upload controls and readable explanatory text; do not make disabled state depend on color/opacity alone. Alongside it, show persistent readable copy on Admin Event Media even with no attached media: **“Before re-enabling uploads, verify cleanup of interrupted or late uploads and leftover files.”** This is an unresolved-work reminder, without cleanup success or re-enable controls. ADR-0032 permits building the full editor/delivery code dormant while retaining this unavailable presentation and trusted denials. When enabled, show upload/replace/remove controls only for Draft Events, with approved format/size/duration guidance and persistent validation/cleanup feedback. Cleanup remains visibly pending when outstanding transfers or leftover backend bytes cannot be verified; do not show deletion success based on an empty listing. See [ADR-0030](docs/adr/0030-fence-event-media-commits-and-require-cleanup-proof.md). A failed change preserves the current preview; Live and terminal media is read-only. The trusted boundary enforces [ADR-0027](docs/adr/0027-draft-only-event-media.md). If both assets exist, the montage has priority on welcome; the still image is the fallback and remains available around the preview. If neither loads, show the default welcome. Keep Start and privacy copy on an opaque or sufficiently darkened surface over media. Provide a pause control for moving montage content; reduced-motion users see the still image or default. Crop background media with `cover` behavior and keep the central safe region clear of critical text. Never put text directly on an untested uploaded image.
+The default welcome uses a cream surface and a modest original instant-camera illustration in apricot, following the [approved study](docs/design/2026-11-04-apricot-studio/approved-direction.png). Keep it secondary to the action and available within portrait safe areas; remove unnecessary decoration on short screens before reducing touch targets or essential type. Bundle a suitable decorative asset locally, with empty alt text when surrounding text already communicates its purpose. It is not an upload, captured photo, action or official printer illustration. No stock portraits, guest-photo collage or generic gradients. On review, an optional white surround sits outside the unchanged print crop; it does not enter the printed image. Event Media personalizes the welcome and the still background sits around the camera preview. Keep Event Media sections and the planned background/montage designs visible. While disabled under [ADR-0031](docs/adr/0031-temporarily-disable-event-media-uploads.md), show **“Media uploads are temporarily unavailable.”** with disabled upload controls and readable explanatory text; do not make disabled state depend on color/opacity alone. Alongside it, show persistent readable copy on Admin Event Media even with no attached media: **“Before re-enabling uploads, verify cleanup of interrupted or late uploads and leftover files.”** This is an unresolved-work reminder, without cleanup success or re-enable controls. ADR-0032 permits building the full editor/delivery code dormant while retaining this unavailable presentation and trusted denials. When enabled, show upload/replace/remove controls only for Draft Events, with approved format/size/duration guidance and persistent validation/cleanup feedback. Cleanup remains visibly pending when outstanding transfers or leftover backend bytes cannot be verified; do not show deletion success based on an empty listing. See [ADR-0030](docs/adr/0030-fence-event-media-commits-and-require-cleanup-proof.md). A failed change preserves the current preview; Live and terminal media is read-only. The trusted boundary enforces [ADR-0027](docs/adr/0027-draft-only-event-media.md). If both assets exist, the montage has priority on welcome; the still image is the fallback and remains available around the preview. If neither loads, show the default welcome. Keep Start and privacy copy on an opaque or sufficiently darkened surface over media. Provide a pause control for moving montage content; reduced-motion users see the still image or default. Crop background media with `cover` behavior and keep the central safe region clear of critical text. Never put text directly on an untested uploaded image.
 
 ## 6. Accessibility contract
 
@@ -262,4 +277,22 @@ Before finalizing a UI change, check: semantic colors in both themes; coherent t
 
 ## Complete removal scope
 
-[ADR-0029](docs/adr/0029-remove-legacy-features-and-reset-development-schema.md) removes legacy History totals and Draft-conversion review from #10. Retained History uses current package counts only. The current mockups remain the visual reference; deleted legacy specs/mockups are available in Git history, not as alternate interface instructions. This does not remove package-era terminal retention or safe Draft deletion.
+[ADR-0029](docs/adr/0029-remove-legacy-features-and-reset-development-schema.md) removes legacy History totals and Draft-conversion review from #10. Retained History uses current package counts only. The Apricot Studio study is the current visual reference. October 21 package-model mockups retain behavior/state coverage with superseded styling; deleted legacy specs/mockups remain in Git history, not as alternate interface instructions. This does not remove package-era terminal retention or safe Draft deletion.
+
+## 10. Implementation record — 2026-11-04
+
+This section records how the running application applies the system. It changes no behavior, copy contract or release gate.
+
+- **Tokens and font.** `src/styles/globals.css` defines the light and dark roles above for `.admin-shell`, `.public-auth` and the Profile theme previews, plus `--color-primary-on-muted` (light `primary-hover`, dark `primary`) for brand text on `surface-muted`. `src/app/layout.tsx` loads DM Sans 400/500/600 through `next/font/google`, which self-hosts the files at build time.
+- **Booth tone.** `src/features/booth/booth.module.css` sets `data-tone="light"` only for the default welcome and `data-tone="dark"` for every other phase, the paused entry and the setup handoff surface. The welcome shows the bundled `WelcomeIllustration` SVG (decorative, `aria-hidden`) in place of the old empty frame, a small Photo Booth wordmark and a full-width pill Start with an arrow icon. The wordmark hides below 500 px height so touch targets keep their size.
+- **Admin shell.** Cream sidebar and compact header; active destination uses `surface-muted` with a 3 px `primary` start border. Brand icon uses `primary`.
+- **Live Event panel.** Open sections separated by `border-subtle` rules; the accounting strip described in §4; equipment rows with Lucide icons and status dots paired with text; Pause/Finishing run status in a `warning-soft` box; blockers in a `warning-soft` list.
+- **Primitives.** Buttons, fields and alerts use `radius-md` (12 px); dialogs and grouped surfaces use `radius-lg` (16 px); badges are pills with a status dot. Shadows appear only on dialogs. Empty states use a dashed `border` on `primary-soft`.
+- **Copy.** Profile's appearance note now reads "Booth Mode sets its own appearance for each screen." because the welcome is no longer dark. No other visible text changed.
+
+Verification on 2026-11-04 (local, Chromium via Playwright):
+
+- `tsc`, ESLint, Prettier and 443 unit/component tests passed. The Booth simulator suite (`playwright.booth.config.ts`, 820×1180 and 1180×820) passed 2/2.
+- A temporary screenshot sweep covered Dashboard, Events, Event detail, New Event, History and Profile in light and dark themes at 390×844, 820×1180, 1180×820 and 1440×1000, plus Booth welcome, preview and paused at 390×844, 820×1180 and 1180×820. No page had horizontal overflow, and computed `font-family` resolved to DM Sans.
+- Database-backed suites (`playwright.config.ts`, `playwright.admin-booth.config.ts`) had failures that also occur on the baseline commit `ab3d289` with these changes stashed. The local database held a leftover Live Event that violates `events_one_live_idx`. Those suites need a clean local stack to give a verdict on this change.
+- Not verified: actual iPad A16/Bluefy rendering, media-backed welcome contrast, screen readers and 200% zoom on the redesigned screens.

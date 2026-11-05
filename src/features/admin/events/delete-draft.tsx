@@ -82,7 +82,9 @@ export function DeleteDraft({
         <Dialog.Overlay className={styles.overlay} />
         <Dialog.Content className={styles.dialog}>
           <div className="flex items-start justify-between gap-4">
-            <Dialog.Title className="text-xl leading-7 font-semibold">Delete Draft?</Dialog.Title>
+            <Dialog.Title className="text-lg leading-[1.625rem] font-semibold">
+              Delete Draft?
+            </Dialog.Title>
             <Dialog.Close asChild>
               <Button
                 type="button"

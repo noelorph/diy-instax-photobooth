@@ -1,17 +1,7 @@
 import 'server-only';
 import { createHash, randomBytes } from 'node:crypto';
-import { NextRequest, type NextResponse } from 'next/server';
-import { requireSimulator } from './printer-gate';
-import { createPrivilegedClient } from './privileged-client';
-import { OperationError, type BoothAuthority } from './types';
-import { operationErrorResponse } from './responses';
-
-// Only an authoritative rejection invalidates the browser's recoverable proof.
-export class InvalidBoothGrantError extends OperationError {}
-export function boothErrorResponse(error: unknown) {
-  const response = operationErrorResponse(error);
-  return error instanceof InvalidBoothGrantError ? clearBoothCookie(response) : response;
-}
+import { NextRequest } from 'next/server';
+import { OperationError } from './types';
 export const boothCookie = '__Host-booth-grant';
 export const deviceCookie = '__Host-booth-device';
 export const cookieOptions = {
@@ -28,91 +18,6 @@ export function readSecret(request: Request, name: string) {
 }
 export function grantHash(request: Request) {
   const secret = readSecret(request, boothCookie);
-  if (!secret) throw new InvalidBoothGrantError('unauthorized');
+  if (!secret) throw new OperationError('unauthorized');
   return hashSecret(secret);
-}
-export function clearBoothCookie(response: NextResponse) {
-  response.cookies.set(boothCookie, '', { ...cookieOptions, maxAge: 0 });
-  return response;
-}
-export async function requireBoothGrant(request: Request) {
-  const hash = grantHash(request),
-    client = createPrivilegedClient();
-  const { data: grant, error } = await client
-    .from('booth_grants')
-    .select('event_id,run_id,state,expires_at,revoked_at')
-    .eq('secret_hash', hash)
-    .maybeSingle();
-  if (error) throw error;
-  if (!grant || grant.state === 'Revoked' || grant.revoked_at)
-    throw new InvalidBoothGrantError('forbidden');
-  if (Date.parse(grant.expires_at) <= Date.now()) throw new InvalidBoothGrantError('grant_expired');
-  return { grantHash: hash, runId: grant.run_id, eventId: grant.event_id, state: grant.state };
-}
-export async function requireBoothRequest(request: Request): Promise<BoothAuthority> {
-  const grant = await requireBoothGrant(request);
-  requireSimulator();
-  // Inactive proof is still needed to confirm; PauseRequested proof may still
-  // report a pending attempt through its separate database-guarded operation.
-  if (grant.state !== 'Active') throw new OperationError('forbidden');
-  const client = createPrivilegedClient();
-  const { data: run, error: runError } = await client
-    .from('booth_runs')
-    .select('state,event_id')
-    .eq('id', grant.runId)
-    .eq('event_id', grant.eventId)
-    .maybeSingle();
-  const { data: event, error: eventError } = await client
-    .from('events')
-    .select('state,deleted_at')
-    .eq('id', grant.eventId)
-    .maybeSingle();
-  if (runError) throw runError;
-  if (eventError) throw eventError;
-  if (
-    !run ||
-    !event ||
-    event.state !== 'Live' ||
-    event.deleted_at ||
-    ['Paused', 'Ended'].includes(run.state)
-  )
-    throw new InvalidBoothGrantError('forbidden');
-  if (run.state !== 'Active') throw new OperationError('forbidden');
-  return { grantHash: grant.grantHash, runId: grant.runId, eventId: grant.eventId };
-}
-
-/** Capture-only preflight; the locked record_capture RPC validates Session and timestamp scope. */
-export async function captureGrantHash(request: Request) {
-  const hash = grantHash(request);
-  requireSimulator();
-  // One database snapshot avoids combining a pre-pause grant with a post-pause run.
-  const { data: grant, error } = await createPrivilegedClient()
-    .from('booth_grants')
-    .select(
-      'state,expires_at,revoked_at,run:booth_runs!booth_grants_run_id_event_id_fkey(state),event:events!booth_grants_event_id_fkey(state,deleted_at)'
-    )
-    .eq('secret_hash', hash)
-    .maybeSingle();
-  if (error) throw error;
-  if (!grant) throw new InvalidBoothGrantError('forbidden');
-  const now = Date.now();
-  if (Date.parse(grant.expires_at) <= now) throw new InvalidBoothGrantError('grant_expired');
-  if (!grant.run || !grant.event || grant.event.deleted_at)
-    throw new InvalidBoothGrantError('forbidden');
-  if (
-    grant.state === 'Active' &&
-    !grant.revoked_at &&
-    grant.run.state === 'Active' &&
-    grant.event.state === 'Live'
-  )
-    return hash;
-  if (
-    grant.state === 'Revoked' &&
-    grant.revoked_at &&
-    ['Paused', 'Ended'].includes(grant.run.state) &&
-    now <= Date.parse(grant.revoked_at) + 120_000
-  )
-    return hash;
-  // PauseRequested proof may still report a pending print, so keep its cookie.
-  throw new OperationError('forbidden');
 }

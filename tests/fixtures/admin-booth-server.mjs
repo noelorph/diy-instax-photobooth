@@ -1,13 +1,8 @@
-import { execFileSync, spawn } from 'node:child_process';
+import { readLocalSupabaseStatus } from './test-stack.mjs';
+import { spawn } from 'node:child_process';
 const port = process.argv[2];
 if (!['1438', '1439'].includes(port)) throw new Error('Expected allowed simulator app port');
-const local = JSON.parse(
-  execFileSync('node_modules/.bin/supabase', ['status', '-o', 'json'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-);
-if (local.API_URL !== 'http://127.0.0.1:56321') throw new Error('Isolated local stack required');
+const local = readLocalSupabaseStatus();
 const child = spawn(
   process.execPath,
   ['node_modules/next/dist/bin/next', 'dev', '--hostname', '127.0.0.1', '--port', port],
@@ -20,6 +15,7 @@ const child = spawn(
       SUPABASE_SECRET_KEY: local.SERVICE_ROLE_KEY,
       ADMIN_AUTH_ORIGIN: `http://127.0.0.1:${port}`,
       BOOTH_SIMULATOR_ENABLED: 'true',
+      NEXT_PUBLIC_BOOTH_SIMULATOR_CONTROLS: 'true',
       NEXT_TELEMETRY_DISABLED: '1',
     },
   }

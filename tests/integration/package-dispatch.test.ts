@@ -1,3 +1,4 @@
+import { testStack } from '../fixtures/test-stack.mjs';
 import { randomUUID } from 'node:crypto';
 import { spawn } from 'node:child_process';
 import { once } from 'node:events';
@@ -28,7 +29,7 @@ async function raceBehindGuard<T, U>(first: () => Promise<T>, second: () => Prom
   const child = spawn('docker', [
     'exec',
     '-i',
-    'supabase_db_diy-instax-package-contracts',
+    testStack.databaseContainer,
     'psql',
     '-U',
     'postgres',
@@ -83,7 +84,7 @@ function directRpc(
     const child = spawn('docker', [
       'exec',
       '-i',
-      'supabase_db_diy-instax-package-contracts',
+      testStack.databaseContainer,
       'psql',
       '-U',
       'postgres',

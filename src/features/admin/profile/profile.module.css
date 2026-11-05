@@ -11,13 +11,13 @@
   margin-block: 0 1.5rem;
   padding: 1.5rem;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 0.75rem;
+  border-radius: 1rem;
   background: var(--color-surface);
 }
 .heading {
   margin: 0;
-  font-size: 1.25rem;
-  line-height: 1.75rem;
+  font-size: 1.125rem;
+  line-height: 1.625rem;
   font-weight: 600;
 }
 .sectionDescription {
@@ -65,15 +65,16 @@
   background: var(--color-surface);
 }
 .choice:first-of-type span {
-  border-radius: 0.5rem 0 0 0.5rem;
+  border-radius: 0.75rem 0 0 0.75rem;
 }
 .choice:last-of-type span {
-  border-radius: 0 0.5rem 0.5rem 0;
+  border-radius: 0 0.75rem 0.75rem 0;
 }
 .choice input:checked + span {
-  color: var(--color-primary);
-  background: var(--color-primary-soft);
+  color: var(--color-primary-on-muted);
+  background: var(--color-surface-muted);
   border-color: var(--color-primary);
+  font-weight: 600;
 }
 .choice input[aria-invalid='true'] + span {
   border-color: var(--color-danger);
@@ -97,7 +98,7 @@
   height: 8rem;
   overflow: hidden;
   border: 1px solid var(--color-border-subtle);
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   background: var(--color-canvas);
   color: var(--color-text);
 }

@@ -1,3 +1,4 @@
+import { testStack } from '../fixtures/test-stack.mjs';
 import { writeFile, rm } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { expect, test, type Page, type TestInfo } from '@playwright/test';
@@ -48,6 +49,7 @@ for (const width of [320, 768, 1440]) {
         const publicBackground = await page
           .locator('.public-auth')
           .evaluate((e) => getComputedStyle(e).backgroundColor);
+        expect(publicBackground).toBe('rgb(255, 248, 239)');
         await page.emulateMedia({ colorScheme: 'dark' });
         expect(
           await page.locator('.public-auth').evaluate((e) => getComputedStyle(e).backgroundColor)
@@ -56,7 +58,7 @@ for (const width of [320, 768, 1440]) {
         expect(fonts.length).toBeGreaterThan(0);
         expect(fonts.every((url) => new URL(url).origin === new URL(page.url()).origin)).toBe(true);
         expect(await page.locator('body').evaluate((e) => getComputedStyle(e).fontFamily)).toMatch(
-          /geist/i
+          /dm sans/i
         );
         await page.goto('/sign-in?from=booth');
         await expect(page.getByRole('heading', { name: 'Sign in', exact: true })).toBeVisible();
@@ -71,7 +73,7 @@ for (const width of [320, 768, 1440]) {
             () =>
               page.evaluate(() =>
                 [...document.fonts].some(
-                  (font) => /geist/i.test(font.family) && font.status === 'loaded'
+                  (font) => /dm sans/i.test(font.family) && font.status === 'loaded'
                 )
               ),
             { timeout: 10_000 }
@@ -87,8 +89,11 @@ for (const width of [320, 768, 1440]) {
         if (theme === 'dark')
           expect(
             await page.locator('.admin-shell').evaluate((e) => getComputedStyle(e).backgroundColor)
-          ).not.toBe(publicBackground);
-        await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+          ).toBe('rgb(33, 28, 25)');
+        await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toHaveCSS(
+          'font-size',
+          '28px'
+        );
         await capture(page, info, 'dashboard');
         if (width < 640) {
           const menu = page.getByRole('button', { name: 'Open navigation menu' });
@@ -206,7 +211,9 @@ for (const width of [320, 768, 1440]) {
           await noOverflow(page);
           await capture(page, info, 'events-unavailable');
           await page.goto(`/events/${eventId}`);
-          await expect(page.getByRole('heading', { name: 'Unable to load Draft' })).toBeVisible();
+          await expect(
+            page.getByRole('heading', { name: 'Unable to load Event', exact: true })
+          ).toBeVisible();
           await expect(page.getByRole('main').getByRole('alert')).toBeVisible();
           await capture(page, info, 'draft-unavailable');
           await page.goto('/history');
@@ -275,13 +282,13 @@ for (const width of [320, 768, 1440]) {
       await expect
         .poll(async () => {
           const inbox = await fetch(
-            `http://127.0.0.1:56324/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
+            `${testStack.mailpitUrl}/api/v1/search?query=${encodeURIComponent(`to:${admin.email}`)}`
           ).then((r) => r.json());
           messageId = inbox.messages[0]?.ID;
           return Boolean(messageId);
         })
         .toBe(true);
-      const message = await fetch(`http://127.0.0.1:56324/api/v1/message/${messageId}`).then((r) =>
+      const message = await fetch(`${testStack.mailpitUrl}/api/v1/message/${messageId}`).then((r) =>
         r.json()
       );
       const href = message.HTML.match(/href="([^"]+)"/)?.[1]?.replaceAll('&amp;', '&');

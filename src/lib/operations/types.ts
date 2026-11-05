@@ -19,4 +19,3 @@ export class OperationError extends Error {
   }
 }
 export type AdminAuthority = { userId: string; sessionId: string };
-export type BoothAuthority = { grantHash: string; runId: string; eventId: string };

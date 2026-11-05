@@ -28,6 +28,10 @@ The private active-Admin predicate checks the JWT session against live Auth sess
 
 Fixtures discover only this checkout's local stack, provision synthetic Auth users through the Admin API and clean their exact identities. They must refuse hosted/other URLs and never consume arbitrary app environment credentials. Vitest files and browser commands run serially across processes. Following the F8 rebuild, restart test workers so cached local credentials cannot refer to the old stack.
 
+## Isolated software verification
+
+When the ordinary stack contains development Events or unresolved printer work, do not delete or settle that work for a test run. Fixture discovery now rejects nonempty Event data and unresolved work before returning credentials. Start the separate synthetic-data stack with `node tests/fixtures/start-verification-stack.mjs`, then prefix test/browser commands with `INSTAX_TEST_WORKDIR="$PWD/.worktrees/verification-stack"`. It uses `diy-instax-retirement-verification` at API `58321`, DB `58322`, Mailpit `58324`, validates the API and Docker project identity, and runs the same accumulated migration chain. It neither resets the ordinary stack nor implements F8's package-only baseline. Run commands serially against each stack and keep exact-ID fixture cleanup. If the verification stack itself is nonempty, investigate fixture teardown before another run; startup does not erase it.
+
 ## Verification
 
 The [plan environment table](../superpowers/plans/2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules) owns exact commands and application/DB ports. The ordinary browser suite uses a production build at `1437`; simulator suites use development apps at `1438` and `1439`. F8 adds the independent baseline fixture at `1440` against `57321/57322`, then verifies the whole suite on the rebuilt `56321/56322` stack. Those new baseline files are planned creations.

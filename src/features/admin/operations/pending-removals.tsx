@@ -10,17 +10,23 @@ export function PendingRemovals({ removals }: { removals: PendingMediaRemoval[] 
     [message, setMessage] = useState('');
   if (!removals.length) return null;
   return (
-    <section className="my-8 grid gap-4">
-      <h2 className="text-xl font-semibold">Pending media removal</h2>
-      <p>
+    <section className="my-8 grid gap-4 border-t border-ds-border-subtle pt-6">
+      <h2 className="m-0 text-lg leading-[1.625rem] font-semibold">Pending media removal</h2>
+      <p className="m-0 max-w-prose text-sm leading-5 text-ds-text-muted">
         Identifying details are erased. Opaque audit references are retained. Cleanup is not
         complete until media removal succeeds.
       </p>
       {message && <FormFeedback kind="status">{message}</FormFeedback>}
       {removals.map((row) => (
-        <div key={row.eventId}>
-          <p className="wrap-anywhere">Draft deletion · Reference {row.eventId}</p>
+        <div
+          key={row.eventId}
+          className="flex flex-wrap items-center justify-between gap-3 rounded-xl bg-ds-warning-soft px-4 py-3"
+        >
+          <p className="m-0 min-w-0 flex-1 basis-56 wrap-anywhere">
+            Draft deletion · Reference {row.eventId}
+          </p>
           <Button
+            variant="secondary"
             disabled={busy}
             onClick={async () => {
               setBusy(true);

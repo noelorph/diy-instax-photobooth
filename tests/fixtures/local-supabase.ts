@@ -1,6 +1,6 @@
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { resolve } from 'node:path';
+import { readLocalSupabaseStatus, testStack } from './test-stack.mjs';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 type LocalStatus = {
@@ -15,15 +15,7 @@ let localStatus: LocalStatus | undefined;
 export function localSupabaseStatus() {
   // shortcut: one stack per test worker; restart the worker after restarting the local stack.
   if (localStatus) return localStatus;
-  const status = JSON.parse(
-    execFileSync(resolve('node_modules/.bin/supabase'), ['status', '-o', 'json'], {
-      encoding: 'utf8',
-      stdio: ['ignore', 'pipe', 'pipe'],
-    })
-  ) as LocalStatus;
-  if (status.API_URL !== 'http://127.0.0.1:56321') {
-    throw new Error('Integration fixtures require the isolated local Supabase API on port 56321.');
-  }
+  const status = readLocalSupabaseStatus() as LocalStatus;
   return (localStatus = status);
 }
 
@@ -83,24 +75,8 @@ export async function readProfile(client: SupabaseClient) {
 }
 
 // Local postgres setup only: never imported by application code.
-let ownerStackChecked = false;
 export function localOwnerSql(query: string): Record<string, unknown>[] {
-  if (!ownerStackChecked) {
-    localSupabaseStatus();
-    const project = execFileSync(
-      'docker',
-      [
-        'inspect',
-        '--format',
-        '{{index .Config.Labels "com.supabase.cli.project"}}',
-        'supabase_db_diy-instax-package-contracts',
-      ],
-      { encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }
-    ).trim();
-    if (project !== 'diy-instax-package-contracts')
-      throw new Error('Owner fixture requires this worktree project.');
-    ownerStackChecked = true;
-  }
+  localSupabaseStatus();
   const returnsRows =
     /^\s*(select|with)\b/i.test(query) ||
     /^\s*(insert|update|delete)\b[\s\S]*\breturning\s/i.test(query);
@@ -111,7 +87,7 @@ export function localOwnerSql(query: string): Record<string, unknown>[] {
     'docker',
     [
       'exec',
-      'supabase_db_diy-instax-package-contracts',
+      testStack.databaseContainer,
       'psql',
       '-U',
       'postgres',

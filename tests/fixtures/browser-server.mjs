@@ -1,13 +1,8 @@
+import { readLocalSupabaseStatus } from './test-stack.mjs';
 import { resolve } from 'node:path';
 import { rmSync } from 'node:fs';
 import { execFileSync, spawn } from 'node:child_process';
-const status = JSON.parse(
-  execFileSync('node_modules/.bin/supabase', ['status', '-o', 'json'], {
-    encoding: 'utf8',
-    stdio: ['ignore', 'pipe', 'pipe'],
-  })
-);
-if (status.API_URL !== 'http://127.0.0.1:56321') throw new Error('Isolated local stack required.');
+const status = readLocalSupabaseStatus();
 const faultFile = resolve('test-results/events-read-fault');
 rmSync(faultFile, { force: true });
 const env = {

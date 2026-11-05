@@ -31,12 +31,12 @@ export function FormField({
         'aria-describedby': [helpId, errorId].filter(Boolean).join(' ') || undefined,
       })}
       {help && (
-        <p id={helpId} className="m-0 text-sm leading-[1.125rem] text-ds-text-muted">
+        <p id={helpId} className="m-0 text-sm leading-5 text-ds-text-muted">
           {help}
         </p>
       )}
       {error && (
-        <p id={errorId} className="m-0 text-sm leading-[1.125rem] text-ds-danger">
+        <p id={errorId} className="m-0 text-sm leading-5 text-ds-danger">
           {error}
         </p>
       )}

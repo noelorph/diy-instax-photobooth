@@ -46,7 +46,7 @@ describe('Admin page responses with local Auth sessions', () => {
   beforeAll(async () => {
     local = localSupabase();
     routes = await startAdminRouteServer();
-  }, 60000);
+  }, 120000);
   afterEach(async () => local?.cleanup());
   afterAll(async () => routes?.stop());
 

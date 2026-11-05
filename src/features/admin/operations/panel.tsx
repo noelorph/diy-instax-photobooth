@@ -192,8 +192,12 @@ export function OperationsPanel({
   }
   return (
     <section className={styles.panel} aria-label="Event operations">
-      <h2>Event operations</h2>
-      <p>{event.state} Event</p>
+      <header className={styles.panelHeader}>
+        <h2>Event operations</h2>
+        <p className={styles.stateMeta} data-state={event.state}>
+          {event.state} Event
+        </p>
+      </header>
       {sample?.error && <FormFeedback kind="error">{sample.error}</FormFeedback>}
       {event.runState && (
         <section
@@ -231,15 +235,17 @@ export function OperationsPanel({
       <div className={styles.totals}>
         <section aria-label="Booked print capacity">
           <h3>Booked print capacity</h3>
-          <p>
+          <p className={styles.totalsMeta}>
             {counts.originalPackages} original Film Packages · {counts.additionalPackages}{' '}
             additional Film Packages
           </p>
-          <p>{counts.totalBookedPrints} total booked prints</p>
-          <p>{counts.printed} printed</p>
-          <p>{counts.unresolved} print pending</p>
-          <p>{counts.printsRemaining} prints remaining</p>
-          <p>{counts.printsAvailable} prints available</p>
+          <p className={styles.stat}>{counts.totalBookedPrints} total booked prints</p>
+          <p className={styles.stat}>{counts.printed} printed</p>
+          <p className={styles.stat} data-attention={counts.unresolved > 0 || undefined}>
+            {counts.unresolved} print pending
+          </p>
+          <p className={styles.stat}>{counts.printsRemaining} prints remaining</p>
+          <p className={styles.stat}>{counts.printsAvailable} prints available</p>
         </section>
       </div>
       <BoothControls
@@ -271,9 +277,11 @@ export function OperationsPanel({
           releaseHandoff={releaseHandoff}
         />
       )}
-      <p>{event.captures} Captures</p>
+      <p className={styles.muted}>{event.captures} Captures</p>
       {counts.unresolved > 0 && (
-        <p>A print is pending. Its booked print remains held until resolved.</p>
+        <p className={styles.warning}>
+          A print is pending. Its booked print remains held until resolved.
+        </p>
       )}
       {notice && <FormFeedback kind="status">{notice}</FormFeedback>}
       {event.state === 'Draft' && (
@@ -323,7 +331,7 @@ export function OperationsPanel({
           </Dialog.Portal>
         </Dialog.Root>
       )}
-      <section id="print-attempts">
+      <section id="print-attempts" className={styles.attempts}>
         <h3>Print Attempts</h3>
         <nav aria-label="Print Attempt pages" className={styles.actions}>
           {event.attemptsPage > 0 && (
@@ -337,7 +345,7 @@ export function OperationsPanel({
             </Link>
           )}
         </nav>
-        {event.attempts.length === 0 && <p>No Print Attempts yet.</p>}
+        {event.attempts.length === 0 && <p className={styles.muted}>No Print Attempts yet.</p>}
         {event.attempts.map((attempt) => (
           <article key={attempt.id} className={styles.attempt}>
             <p>

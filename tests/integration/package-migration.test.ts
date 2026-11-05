@@ -1,3 +1,4 @@
+import { testStack } from '../fixtures/test-stack.mjs';
 // @vitest-environment node
 import { execFileSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
@@ -12,7 +13,7 @@ function transaction(sql: string) {
     'docker',
     [
       'exec',
-      'supabase_db_diy-instax-package-contracts',
+      testStack.databaseContainer,
       'psql',
       '-U',
       'postgres',

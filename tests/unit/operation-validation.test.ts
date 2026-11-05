@@ -1,15 +1,11 @@
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
-import { z } from 'zod';
 vi.mock('server-only', () => ({}));
 import { parseOperation, requireSameOrigin } from '@/lib/operations/validation';
 import { packageActionSchemas } from '@/lib/operations/package-action-schemas';
 import { operationResponse, operationErrorResponse } from '@/lib/operations/responses';
 const key = '11111111-1111-4111-8111-111111111111';
-const schema = z.strictObject({
-  operationKey: z.uuid(),
-  expectedRevision: z.number().int().positive(),
-});
+const schema = packageActionSchemas.complete;
 const request = (body: unknown) =>
   new Request('https://booth.test/api/op', {
     method: 'POST',
@@ -33,14 +29,15 @@ describe('operation input boundary', () => {
   });
   it('accepts only the exact operation shape', async () => {
     expect(
-      await parseOperation(request({ operationKey: key, expectedRevision: 1 }), schema)
-    ).toEqual({ operationKey: key, expectedRevision: 1 });
+      await parseOperation(request({ operationId: key, expectedRevision: 1 }), schema)
+    ).toEqual({ operationId: key, expectedRevision: 1 });
   });
   it.each([
-    { operationKey: 'bad', expectedRevision: 1 },
-    { operationKey: key, expectedRevision: 0 },
-    { operationKey: key, expectedRevision: 1, photo: 'data:image/jpeg;base64,secret' },
-    { operationKey: key, expectedRevision: 1, adminUserId: key },
+    { operationKey: key, expectedRevision: 1 },
+    { operationId: 'bad', expectedRevision: 1 },
+    { operationId: key, expectedRevision: 0 },
+    { operationId: key, expectedRevision: 1, photo: 'data:image/jpeg;base64,secret' },
+    { operationId: key, expectedRevision: 1, adminUserId: key },
   ])('rejects invalid or additional fields', async (body) => {
     await expect(parseOperation(request(body), schema)).rejects.toMatchObject({
       code: 'validation_error',
@@ -114,11 +111,4 @@ it('uses a validated configured origin despite an internal runtime hostname, and
   } finally {
     vi.unstubAllEnvs();
   }
-});
-it('lets each schema own its operation identifier while legacy schemas require operationKey', async () => {
-  const target = z.strictObject({ operationId: z.uuid() });
-  expect(await parseOperation(request({ operationId: key }), target)).toEqual({ operationId: key });
-  await expect(
-    parseOperation(request({ operationId: key, expectedRevision: 1 }), schema)
-  ).rejects.toMatchObject({ code: 'validation_error' });
 });

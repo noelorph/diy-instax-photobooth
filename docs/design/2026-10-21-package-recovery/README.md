@@ -2,13 +2,13 @@
 
 **Current F2 scope — 2026-10-27:** [ADR-0032](../../adr/0032-build-full-f2-with-uploads-unavailable.md) restores full F2/#30 implementation, including the dormant media editor and private delivery, while runtime uploads remain unavailable. Preserve media sections/designs, disabled controls, trusted mutation denials, private access/retention and prior-authorized cleanup-pending safeguards. The Admin Event Media page must visibly state that interrupted/late uploads and leftover files need cleanup verification before re-enabling. Supported cleanup and enabled transfer/failure/concurrency/private-delivery/playback qualification remain required for full #30 acceptance; existing disabled-scope evidence is unchanged. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure.
 
-**Approved by the user · 21 October 2026 · implementation pending.**
+**Approved on 21 October 2026; visual styling superseded on 4 November 2026.** [Apricot Studio](../2026-11-04-apricot-studio/README.md) is the current visual direction under [ADR-0033](../../adr/0033-adopt-apricot-studio-design-system.md). This set retains package/recovery state coverage and dated visual evidence; it does not establish implementation completion.
 
 Open the [visual gallery](index.html). This set covers the full Admin navigation, phone management/recovery, portrait iPad Booth Mode, and paired phone/iPad recovery examples.
 
 ## Visual direction
 
-Use the current [design system](../../../DESIGN_SYSTEM.md): Geist Sans, warm ivory, ink and restrained teal, with the existing sidebar, cards and spacious page structure. Booth Mode uses the same typography and semantic roles on dark surfaces.
+These retained images show the former Geist, ivory and teal visual system, including its all-dark Booth presentation. For implementation, use the current [design system](../../../DESIGN_SYSTEM.md): Apricot Studio, smaller DM Sans typography, a light default welcome and dark camera/review/operational surfaces. Preserve the states, actions and privacy/recovery rules documented here; do not copy superseded styling from the rasters.
 
 The [contract](../../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md) and [PRD](../../../PRD.md) govern behavior. [ADR-0029](../../adr/0029-remove-legacy-features-and-reset-development-schema.md) removes legacy History and conversion-review requirements. The earlier source mockups are archived only in Git checkpoint `1de2272`; they are not alternate instructions. Exact tokens and behavior come from current text, not raster artifacts.
 
@@ -45,13 +45,13 @@ Each image opens at full resolution from the gallery. Multi-screen sheets show s
 Supporting files:
 
 - [Screen map and interaction notes](screen-map.md): routes, transitions, exact recovery rules and sample accounting.
-- [Exact design tokens](tokens.json): extracted from the current design system; raster colors/font glyphs are approximate.
+- [Historical design tokens](tokens.json): the values used for this October 21 set; use the current design system and [Apricot Studio tokens](../2026-11-04-apricot-studio/tokens.json) for new work.
 - [Generation prompts](generation-prompts.json) and [targeted corrections](generation-corrections.json): built-in Image Generation provenance.
 - [Review record](review-notes.md): checks and limitations for this set.
 
 ## Boundaries
 
-These PNGs are approved visual reference artifacts, not editable Figma components or a working prototype. Buttons inside them do not operate the application. All names and contact details are fictional. The guest silhouette is a capture placeholder; it is not a stored photo or a proposed default camera image.
+These PNGs are retained static reference artifacts, not editable Figma components or a working prototype. Buttons inside them do not operate the application. All names and contact details are fictional. The guest silhouette is a capture placeholder; it is not a stored photo or a proposed default camera image.
 
 A generated raster is not an authority for exact type, character limits, control semantics or hardware behavior. Use the design system, contract and screen notes for implementation. The gallery's outer browser page is only a documentation viewer.
 

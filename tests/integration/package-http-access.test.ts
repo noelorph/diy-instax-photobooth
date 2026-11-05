@@ -14,7 +14,13 @@ vi.mock('next/headers', () => ({
   }),
 }));
 import { createPackageFixture } from '../fixtures/package-contract';
-import { localOwnerSql, localSupabaseStatus, ownerUpdate } from '../fixtures/local-supabase';
+import {
+  cleanupEvents,
+  localOwnerSql,
+  localSupabaseStatus,
+  ownerInsert,
+  ownerUpdate,
+} from '../fixtures/local-supabase';
 import { sessionCookies } from '../fixtures/admin-route-server';
 import { hashSecret } from '@/lib/operations/booth-authority';
 import { GET as boothState } from '@/app/api/booth/state/route';
@@ -40,6 +46,7 @@ import { POST as captureRoute } from '@/app/api/booth/captures/route';
 import { POST as startSessionRoute } from '@/app/api/booth/sessions/route';
 import { POST as endSessionRoute } from '@/app/api/booth/sessions/[sessionId]/end/route';
 import { POST as reconcileRoute } from '@/app/api/booth/print-attempts/[attemptId]/reconcile/route';
+import { POST as observeRoute } from '@/app/api/booth/print-attempts/[attemptId]/observations/route';
 
 let priorPolicy: string;
 beforeAll(() => {
@@ -64,6 +71,74 @@ function request(body?: object, cookie = '', origin = 'https://booth.test') {
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
 }
+
+it.each([
+  ['complete', completeRoute, { expectedRevision: 2 }],
+  ['cancel', cancelRoute, { expectedRevision: 2 }],
+  ['recover', recoverAttemptRoute, { reason: 'Interrupted transport' }],
+  ['resolve', resolveAttemptRoute, { outcome: 'unused', inspectionReason: 'No output' }],
+  [
+    'observe',
+    observeRoute,
+    {
+      observationKind: 'commandAccepted',
+      evidenceCode: 'command_acknowledged',
+      observedAt: '2026-11-04T00:00:00Z',
+    },
+  ],
+] as const)(
+  'rejects the retired %s HTTP payload without mutating legacy records',
+  async (name, route, fields) => {
+    const f = await createPackageFixture();
+    const legacyEventId = randomUUID();
+    try {
+      const secret = 'f'.repeat(64);
+      localOwnerSql(`insert into public.events(id,accounting_version,title,client_name,client_email,client_phone,venue_address,time_zone,starts_at,ends_at,film_package_count,original_print_allowance)
+        select '${legacyEventId}',1,title,client_name,client_email,client_phone,venue_address,time_zone,starts_at,ends_at,film_package_count,10 from public.events where id='${f.eventId}'`);
+      if (name === 'observe') {
+        ownerInsert('booth_runs', {
+          id: f.runId,
+          event_id: legacyEventId,
+          accounting_version: 1,
+          state: 'Active',
+        });
+        ownerInsert('booth_grants', {
+          id: f.grantId,
+          event_id: legacyEventId,
+          run_id: f.runId,
+          accounting_version: 1,
+          state: 'Active',
+          secret_hash: hashSecret(secret),
+          expires_at: new Date(Date.now() + 60_000).toISOString(),
+        });
+      }
+      const session = (await f.adminClient.auth.getSession()).data.session!;
+      const cookie = `${sessionCookies(session)}; __Host-booth-grant=${secret}`;
+      for (const pair of sessionCookies(session).split('; ')) {
+        const [key, value] = pair.split('=');
+        jar.set(key, value);
+      }
+      const operationKey = randomUUID();
+      const response = await route(request({ operationKey, ...fields }, cookie), {
+        params: Promise.resolve({ eventId: legacyEventId, attemptId: randomUUID() }),
+      });
+      expect(response.status).toBe(400);
+      expect((await response.json()).code).toBe('invalid_input');
+      expect(
+        localOwnerSql(`select state,revision from public.events where id='${legacyEventId}'`)[0]
+      ).toEqual({ state: 'Draft', revision: 1 });
+      expect(
+        localOwnerSql(
+          `select count(*)::integer n from public.operation_receipts where operation_key='${operationKey}'`
+        )[0].n
+      ).toBe(0);
+    } finally {
+      cleanupEvents([legacyEventId]);
+      await f.dispose();
+    }
+  },
+  30000
+);
 
 it.each([
   [
