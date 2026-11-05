@@ -273,8 +273,8 @@
   }
 }
 
-/* iPad landscape: frame on the left, text and controls on the right. */
-@media (orientation: landscape) and (min-width: 900px) {
+/* Landscape: frame on the left, text and controls on the right. */
+@media (orientation: landscape) and (min-width: 640px) {
   .previewContent {
     max-width: 65rem;
     width: 100%;

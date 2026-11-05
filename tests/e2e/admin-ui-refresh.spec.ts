@@ -49,6 +49,7 @@ for (const width of [320, 768, 1440]) {
         const publicBackground = await page
           .locator('.public-auth')
           .evaluate((e) => getComputedStyle(e).backgroundColor);
+        expect(publicBackground).toBe('rgb(255, 248, 239)');
         await page.emulateMedia({ colorScheme: 'dark' });
         expect(
           await page.locator('.public-auth').evaluate((e) => getComputedStyle(e).backgroundColor)
@@ -88,8 +89,11 @@ for (const width of [320, 768, 1440]) {
         if (theme === 'dark')
           expect(
             await page.locator('.admin-shell').evaluate((e) => getComputedStyle(e).backgroundColor)
-          ).not.toBe(publicBackground);
-        await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+          ).toBe('rgb(33, 28, 25)');
+        await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toHaveCSS(
+          'font-size',
+          '28px'
+        );
         await capture(page, info, 'dashboard');
         if (width < 640) {
           const menu = page.getByRole('button', { name: 'Open navigation menu' });
