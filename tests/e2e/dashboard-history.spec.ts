@@ -217,7 +217,22 @@ test('Dashboard monthly Events includes Draft Live Completed and excludes Cancel
     );
     await page.getByRole('link', { name: '7 days' }).focus();
     await expect(page.getByRole('link', { name: '7 days' })).toBeFocused();
-    await page.screenshot({ path: info.outputPath('dashboard-dark-text-200.png'), fullPage: true });
+    await page.evaluate(() => scrollTo(0, 0));
+    await page.screenshot({ path: info.outputPath('dashboard-dark-text-200.png') });
+    const monthlyBox = await page.getByRole('region', { name: 'Monthly Events' }).boundingBox();
+    const bookedBox = await page.getByRole('region', { name: 'Total Events booked' }).boundingBox();
+    const firstActivity = page
+      .getByRole('region', { name: 'Recent activity' })
+      .getByRole('listitem')
+      .first();
+    const timeBox = await firstActivity.locator('time').boundingBox();
+    const actionBox = await firstActivity.locator('p').boundingBox();
+    await firstActivity.locator('time').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: info.outputPath('dashboard-dark-activity-text-200.png') });
+    expect({
+      summariesStack: bookedBox!.y >= monthlyBox!.y + monthlyBox!.height,
+      activityStacks: actionBox!.y >= timeBox!.y + timeBox!.height,
+    }).toEqual({ summariesStack: true, activityStacks: true });
     await page.evaluate(() => {
       document.documentElement.style.fontSize = '';
     });

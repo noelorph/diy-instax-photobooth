@@ -4,6 +4,9 @@
   gap: 1.25rem;
   margin-bottom: 1.25rem;
 }
+.summaries {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 13rem), 1fr));
+}
 .card {
   min-width: 0;
   padding: 1.5rem;
@@ -95,11 +98,16 @@
   margin-top: 1.5rem;
 }
 @media (min-width: 640px) {
-  .summaries {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
   .activity li {
-    grid-template-columns: 11rem minmax(0, 1fr);
+    display: flex;
+    flex-wrap: wrap;
+  }
+  .activity time {
+    flex: 0 1 11rem;
+  }
+  .activity li > div {
+    flex: 1 1 15rem;
+    min-width: 0;
   }
 }
 @media (min-width: 1024px) {

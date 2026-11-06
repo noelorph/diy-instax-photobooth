@@ -140,10 +140,16 @@ for (const width of [1000, 1440, 2400]) {
       await expect(page.getByRole('heading', { name: 'No Live Event' })).toBeVisible();
       await expectNoHorizontalOverflow(page);
       await keyboardActivate(page, page.getByRole('link', { name: '30 days', exact: true }));
+      await expect(page).toHaveURL(/activityDays=30$/);
       await captureNativeViewport(page, testInfo, 'dashboard-dark-native-200.png');
       await navigate('History');
       await expect(page.getByRole('heading', { name: 'History', exact: true })).toBeVisible();
       await keyboardActivate(page, page.getByRole('link', { name: 'Cancelled', exact: true }));
+      await expect(page).toHaveURL(/state=Cancelled$/);
+      await expect(page.getByRole('link', { name: 'Cancelled', exact: true })).toHaveAttribute(
+        'aria-current',
+        'page'
+      );
       await expectNoHorizontalOverflow(page);
       await captureNativeViewport(page, testInfo, 'history-native-200.png');
       await keyboardActivate(
