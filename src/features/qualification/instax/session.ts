@@ -26,7 +26,8 @@ const delay = (milliseconds: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 
 export async function preflightPrinter(
-  connection: PrinterConnection
+  connection: PrinterConnection,
+  allowEmpty = false
 ): Promise<{ filmRemaining: number }> {
   try {
     successful(
@@ -61,7 +62,7 @@ export async function preflightPrinter(
   if (status.payload.length < 3 || status.payload[1] !== 2)
     throw new Error('Printer film status is incomplete');
   const filmRemaining = status.payload[2] & 15;
-  if (filmRemaining === 0) throw new Error('Printer reports no film remaining');
+  if (filmRemaining === 0 && !allowEmpty) throw new Error('Printer reports no film remaining');
   return { filmRemaining };
 }
 
@@ -117,14 +118,14 @@ export async function sendTrialPrint(
 export function startStatusObservation(
   connection: PrinterConnection,
   onStatus: (response: InstaxResponse) => void,
-  onError: (error: Error) => void
+  onError: (error: Error) => void,
+  includeHistory = false
 ): () => void {
-  let elapsed = 0;
+  const deadline = Date.now() + 60_000;
   let busy = false;
   let stopped = false;
   const interval = setInterval(async () => {
-    elapsed += 900;
-    if (elapsed >= 60_000) {
+    if (Date.now() >= deadline) {
       clearInterval(interval);
       stopped = true;
       return;
@@ -132,14 +133,20 @@ export function startStatusObservation(
     if (busy) return;
     busy = true;
     try {
-      const response = await connection.exchange(
-        INSTAX_OPCODES.supportFunctionInfo,
-        new Uint8Array([2]),
-        10_000
-      );
-      if (!stopped) onStatus(response);
+      for (const selector of includeHistory ? [2, 3] : [2]) {
+        if (stopped || Date.now() >= deadline) break;
+        const response = await connection.exchange(
+          INSTAX_OPCODES.supportFunctionInfo,
+          new Uint8Array([selector]),
+          10_000
+        );
+        if (stopped || Date.now() >= deadline) break;
+        if (response.payload[1] !== selector) throw new Error('Unexpected status/history selector');
+        onStatus(response);
+      }
     } catch (error) {
-      if (!stopped) onError(error instanceof Error ? error : new Error(String(error)));
+      if (!stopped && Date.now() < deadline)
+        onError(error instanceof Error ? error : new Error(String(error)));
     } finally {
       busy = false;
     }

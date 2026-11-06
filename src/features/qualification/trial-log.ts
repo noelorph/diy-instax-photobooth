@@ -1,6 +1,8 @@
 export type TrialEventInput = {
   kind: string;
   attemptId?: string;
+  observationId?: string;
+  connectionGeneration?: number;
   opcode?: number;
   statusByte?: number;
   filmRemaining?: number;
@@ -40,13 +42,17 @@ export function createTrialLog(clock: { now(): number; iso(): string }): TrialLo
         kind: String(input.kind).slice(0, 64),
       };
       if (input.attemptId !== undefined) event.attemptId = String(input.attemptId).slice(0, 100);
+      if (input.observationId !== undefined)
+        event.observationId = String(input.observationId).slice(0, 100);
+      if (Number.isSafeInteger(input.connectionGeneration) && input.connectionGeneration! > 0)
+        event.connectionGeneration = input.connectionGeneration;
       if (input.opcode !== undefined) event.opcode = input.opcode & 65535;
       if (input.statusByte !== undefined) event.statusByte = input.statusByte & 255;
       if (input.filmRemaining !== undefined) event.filmRemaining = input.filmRemaining & 15;
       if (input.message !== undefined) event.message = String(input.message).slice(0, 300);
       if (
         input.responseHex !== undefined &&
-        ['printer-response', 'status', 'link3-status'].includes(input.kind)
+        ['printer-response', 'status', 'print-history', 'link3-status'].includes(input.kind)
       ) {
         event.responseHex = String(input.responseHex)
           .replace(/[^0-9a-f]/gi, '')

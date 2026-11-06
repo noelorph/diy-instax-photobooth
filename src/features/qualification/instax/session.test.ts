@@ -54,6 +54,13 @@ describe('supervised print session', () => {
     await expect(preflightPrinter(connection({ film: 0 }).fake)).rejects.toThrow('film');
   });
 
+  it('allows an empty connection for reload diagnostics but still blocks dispatch', async () => {
+    const { fake, calls } = connection({ film: 0 });
+    await expect(preflightPrinter(fake, true)).resolves.toEqual({ filmRemaining: 0 });
+    expect(await sendWithTimers(fake)).toMatchObject({ kind: 'rejected-before-command' });
+    expect(calls.every(({ opcode }) => opcode === 0 || opcode === 2)).toBe(true);
+  });
+
   it('uploadsThenPrintsOnce', async () => {
     const { fake, calls } = connection();
     const phases: string[] = [];
@@ -135,6 +142,46 @@ describe('supervised print session', () => {
     await Promise.resolve();
 
     expect(onStatus).not.toHaveBeenCalled();
+  });
+
+  it('serializes reload status/history polling and cancels before the next query', async () => {
+    vi.useFakeTimers();
+    const { fake } = connection();
+    let resolve!: (response: InstaxResponse) => void;
+    const exchange = vi.fn(() => new Promise<InstaxResponse>((done) => (resolve = done)));
+    fake.exchange = exchange;
+    const received = vi.fn();
+    const stop = startStatusObservation(fake, received, vi.fn(), true);
+    await vi.advanceTimersByTimeAsync(2700);
+    expect(exchange).toHaveBeenCalledTimes(1);
+    resolve({ opcode: 2, payload: new Uint8Array([0, 2, 0xb0, 0, 2, 0, 0, 0, 0, 0]) });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(
+      exchange.mock.calls.map((call) => (call as unknown as [number, Uint8Array])[1][0])
+    ).toEqual([2, 3]);
+    stop();
+    resolve({ opcode: 2, payload: new Uint8Array([0, 3, 0, 0, 0, 1, 0, 0, 0, 1]) });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(received).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(2000);
+    expect(exchange).toHaveBeenCalledTimes(2);
+  });
+
+  it('ignores a late reply after the wall-clock deadline and does not query history', async () => {
+    vi.useFakeTimers();
+    const { fake } = connection();
+    let resolve!: (response: InstaxResponse) => void;
+    const exchange = vi.fn(() => new Promise<InstaxResponse>((done) => (resolve = done)));
+    fake.exchange = exchange;
+    const received = vi.fn();
+    const stop = startStatusObservation(fake, received, vi.fn(), true);
+    await vi.advanceTimersByTimeAsync(900);
+    vi.setSystemTime(Date.now() + 60_000);
+    resolve({ opcode: 2, payload: new Uint8Array([0, 2, 3]) });
+    await vi.advanceTimersByTimeAsync(0);
+    expect(received).not.toHaveBeenCalled();
+    expect(exchange).toHaveBeenCalledTimes(1);
+    stop();
   });
 
   it('rejects malformed image variants before any printer exchange', async () => {

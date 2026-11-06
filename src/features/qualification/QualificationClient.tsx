@@ -7,6 +7,7 @@ import {
   type WebBluetoothPort,
 } from './instax/bluetooth';
 import { INSTAX_OPCODES } from './instax/protocol';
+import { createCandidateObservation, type CandidateSnapshot } from './instax/candidates';
 import {
   preflightPrinter,
   sendTrialPrint,
@@ -84,6 +85,12 @@ export function QualificationClient({ services }: { services?: QualificationServ
   const [mounted, setMounted] = useState(Boolean(services));
   const [cameraReady, setCameraReady] = useState(false);
   const [printerReady, setPrinterReady] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [reloadRunning, setReloadRunning] = useState(false);
+  const [candidateMode, setCandidateMode] = useState<'ejection' | 'reload' | null>(null);
+  const [candidateSnapshot, setCandidateSnapshot] = useState<CandidateSnapshot | null>(null);
+  const [candidateEvent, setCandidateEvent] = useState<TrialEvent | null>(null);
+  const [reloadMarkerTime, setReloadMarkerTime] = useState<string | null>(null);
   const [printerDetails, setPrinterDetails] = useState('');
   const [setupError, setSetupError] = useState('');
   const [cameraError, setCameraError] = useState('');
@@ -104,6 +111,13 @@ export function QualificationClient({ services }: { services?: QualificationServ
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const connectionRef = useRef<PrinterConnection | null>(null);
+  const connectionGenerationRef = useRef(0);
+  const observationRef = useRef<{
+    mode: 'ejection' | 'reload';
+    observationId: string;
+    attemptId?: string;
+    invalidate(reason: string): void;
+  } | null>(null);
   const jpegRef = useRef<Uint8Array | null>(null);
   const previewRef = useRef<string | null>(null);
   const logRef = useRef<TrialLog | null>(null);
@@ -143,7 +157,16 @@ export function QualificationClient({ services }: { services?: QualificationServ
       active.storage
     );
     setTrialState(controllerRef.current.getState());
+    const onVisibilityChange = () => {
+      if (document.hidden) observationRef.current?.invalidate('Page hidden during observation');
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
     return () => {
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      observationRef.current = null;
+      // Retire callbacks from whichever connection is current at unmount.
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+      connectionGenerationRef.current++;
       stopObservationRef.current?.();
       if (timeoutRef.current) clearTimeout(timeoutRef.current);
       if (markerTailRef.current) clearTimeout(markerTailRef.current);
@@ -156,17 +179,126 @@ export function QualificationClient({ services }: { services?: QualificationServ
   }, []);
 
   function record(input: Parameters<TrialLog['record']>[0]) {
-    const event = logRef.current?.record(input);
+    const event = logRef.current?.record({
+      connectionGeneration: connectionGenerationRef.current || undefined,
+      ...input,
+    });
     if (event) setEvents((previous) => [...previous, event]);
     return event;
   }
-  function stopObservation() {
+  function stopObservation(reason = 'Operator ended observation') {
+    const observation = observationRef.current;
+    if (observation)
+      record({
+        kind: `${observation.mode}-observation-stop`,
+        observationId: observation.observationId,
+        attemptId: observation.attemptId,
+        message: reason,
+      });
+    observationRef.current = null;
+    setReloadRunning(false);
     stopObservationRef.current?.();
     stopObservationRef.current = null;
     if (timeoutRef.current) clearTimeout(timeoutRef.current);
     timeoutRef.current = null;
     if (markerTailRef.current) clearTimeout(markerTailRef.current);
     markerTailRef.current = null;
+  }
+  function startCandidateObservation(mode: 'ejection' | 'reload') {
+    stopObservation();
+    const connection = connectionRef.current!;
+    const probe = createCandidateObservation(mode);
+    const context = {
+      observationId: `observation-${crypto.randomUUID()}`,
+      attemptId:
+        mode === 'ejection'
+          ? logRef.current?.getEvents().findLast((event) => event.kind === 'print-start')?.attemptId
+          : undefined,
+    };
+    let previous: CandidateSnapshot | null = null;
+    const update = (next: CandidateSnapshot) => {
+      if (next.blockedReason && !previous?.blockedReason) {
+        record({ kind: 'candidate-invalid', ...context, message: next.blockedReason });
+      } else if (next.candidate && !previous?.candidate) {
+        setCandidateEvent(
+          record({
+            kind: `${mode}-candidate`,
+            ...context,
+            message: 'rea-candidates-v1; unqualified',
+          }) ?? null
+        );
+      }
+      if (next.baseline && !previous?.baseline)
+        record({ kind: 'reload-baseline', ...context, message: JSON.stringify(next.baseline) });
+      previous = next;
+      setCandidateSnapshot(next);
+    };
+    const observation = {
+      ...context,
+      mode,
+      invalidate: (reason: string) => update(probe.invalidate(reason)),
+    };
+    observationRef.current = observation;
+    setCandidateMode(mode);
+    setCandidateSnapshot(null);
+    setCandidateEvent(null);
+    setReloadMarkerTime(null);
+    record({
+      kind: `${mode}-observation-start`,
+      ...context,
+      message: 'rea-candidates-v1; 60s; diagnostic only',
+    });
+    stopObservationRef.current = servicesRef.current!.observe(
+      connection,
+      (response) => {
+        if (observationRef.current !== observation || connectionRef.current !== connection) return;
+        const next = probe.observe(response);
+        const isHistory = response.payload[1] === 3;
+        const event = record({
+          kind: isHistory ? 'print-history' : 'status',
+          ...context,
+          opcode: response.opcode,
+          statusByte: response.payload[0],
+          filmRemaining:
+            !isHistory && response.payload[2] !== undefined ? response.payload[2] & 15 : undefined,
+          responseHex: hex(response.payload),
+        });
+        if (!isHistory && event) setLiveStatus(event);
+        update(next);
+      },
+      (error) => {
+        if (observationRef.current !== observation) return;
+        record({ kind: 'status-error', ...context, message: error.message });
+        observation.invalidate(error.message);
+      },
+      mode === 'reload'
+    );
+  }
+  function observeReload() {
+    if (
+      !connectionRef.current ||
+      reloadRunning ||
+      connecting ||
+      trialState.needsReconciliation ||
+      trialState.phase !== 'ready'
+    )
+      return;
+    startCandidateObservation('reload');
+    setReloadRunning(true);
+    setPrinterReady(false);
+    timeoutRef.current = setTimeout(
+      () => stopObservation('60-second reload observation ended'),
+      60_000
+    );
+  }
+  function markReloadCover() {
+    const observation = observationRef.current;
+    if (observation?.mode !== 'reload' || reloadMarkerTime) return;
+    const event = record({
+      kind: 'physical-reload-cover-emerged',
+      observationId: observation.observationId,
+    });
+    if (event) setReloadMarkerTime(event.timestamp);
   }
   function clearPhoto() {
     jpegRef.current = null;
@@ -204,6 +336,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     }
   }
   async function connectPrinter() {
+    if (connecting || reloadRunning) return;
     const active = servicesRef.current!;
     if (!active.bluetooth) {
       setSetupError(
@@ -212,10 +345,18 @@ export function QualificationClient({ services }: { services?: QualificationServ
       return;
     }
     setSetupError('');
+    setConnecting(true);
+    setPrinterReady(false);
+    setPrinterDetails('');
+    const generation = ++connectionGenerationRef.current;
+    const previousConnection = connectionRef.current;
+    connectionRef.current = null;
     let connection: PrinterConnection | null = null;
     try {
+      await previousConnection?.disconnect();
       connection = await active.connect(active.bluetooth, {
         onResponse(response) {
+          if (generation !== connectionGenerationRef.current) return;
           const transferResponse =
             response.opcode === INSTAX_OPCODES.downloadStart ||
             response.opcode === INSTAX_OPCODES.downloadData ||
@@ -229,19 +370,26 @@ export function QualificationClient({ services }: { services?: QualificationServ
           });
         },
         onLink3Status(bytes) {
+          if (generation !== connectionGenerationRef.current) return;
           record({ kind: 'link3-status', responseHex: hex(bytes) });
         },
         onLink3StatusReady() {
+          if (generation !== connectionGenerationRef.current) return;
           record({ kind: 'link3-status-listening' });
         },
         onLink3StatusError(error) {
+          if (generation !== connectionGenerationRef.current) return;
           record({ kind: 'link3-status-unavailable', message: error.message });
         },
         onDisconnect() {
+          if (generation !== connectionGenerationRef.current) return;
+          observationRef.current?.invalidate('Printer disconnected during observation');
+          stopObservation('Printer disconnected');
+          connectionGenerationRef.current++;
           connectionRef.current = null;
           setPrinterReady(false);
           setSetupError('Printer disconnected. Reconnect in setup.');
-          record({ kind: 'printer-disconnect' });
+          record({ kind: 'printer-disconnect', connectionGeneration: generation });
           const controller = controllerRef.current;
           if (
             controller &&
@@ -259,18 +407,27 @@ export function QualificationClient({ services }: { services?: QualificationServ
           } else setStage('setup');
         },
       });
+      if (generation !== connectionGenerationRef.current) {
+        await connection.disconnect();
+        return;
+      }
       connectionRef.current = connection;
       let preflight: Awaited<ReturnType<typeof preflightPrinter>>;
       try {
-        preflight = await active.preflight(connection);
+        preflight = await active.preflight(connection, true);
       } catch (error) {
         throw new Error(`Printer status check: ${errorText(error)}`);
       }
+      if (generation !== connectionGenerationRef.current) return;
       setPrinterDetails(
         `${connection.modelNumber} · firmware ${connection.firmwareRevision} · film reported ${preflight.filmRemaining}`
       );
-      setPrinterReady(true);
-      record({ kind: 'printer-ready', filmRemaining: preflight.filmRemaining });
+      setPrinterReady(preflight.filmRemaining > 0);
+      record({
+        kind: preflight.filmRemaining > 0 ? 'printer-ready' : 'printer-connected',
+        filmRemaining: preflight.filmRemaining,
+        message: `${connection.modelNumber}; firmware ${connection.firmwareRevision}`,
+      });
     } catch (error) {
       if (connection) {
         connectionRef.current = null;
@@ -286,6 +443,8 @@ export function QualificationClient({ services }: { services?: QualificationServ
           ? error.message
           : `Printer: ${errorText(error)}`
       );
+    } finally {
+      setConnecting(false);
     }
   }
   async function capture() {
@@ -338,6 +497,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     emergenceMarkedRef.current = false;
     setStatusTailComplete(false);
     setLiveStatus(null);
+    setCandidateMode(null);
     try {
       await controller.startPrint(jpeg);
       const current = controller.getState();
@@ -345,21 +505,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
       setEvents(logRef.current?.getEvents() ?? []);
       if (current.phase === 'awaiting-observation') {
         setStage('pending');
-        stopObservationRef.current = servicesRef.current!.observe(
-          connectionRef.current!,
-          (response) => {
-            const event = record({
-              kind: 'status',
-              opcode: response.opcode,
-              statusByte: response.payload[0],
-              filmRemaining:
-                response.payload[2] === undefined ? undefined : response.payload[2] & 15,
-              responseHex: hex(response.payload),
-            });
-            if (event) setLiveStatus(event);
-          },
-          (error) => record({ kind: 'status-error', message: error.message })
-        );
+        startCandidateObservation('ejection');
         timeoutRef.current = setTimeout(() => {
           if (controller.getState().phase !== 'awaiting-observation') return;
           controller.markUncertain(
@@ -368,7 +514,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
               : 'No observed physical ejection within 60 seconds'
           );
           setTrialState(controller.getState());
-          stopObservation();
+          stopObservation('60-second print observation ended');
           clearPhoto();
           setStage('uncertain');
         }, 60_000);
@@ -418,7 +564,7 @@ export function QualificationClient({ services }: { services?: QualificationServ
     setStage(controller.getState().phase === 'exhausted' ? 'setup' : 'camera');
   }
   function reconcile() {
-    if (!sheetsChecked) return;
+    if (!sheetsChecked || reloadRunning) return;
     const controller = controllerRef.current!;
     controller.beginNewRun(true);
     setTrialState(controller.getState());
@@ -431,6 +577,10 @@ export function QualificationClient({ services }: { services?: QualificationServ
     emergenceMarkedRef.current = false;
     setStatusTailComplete(false);
     setLiveStatus(null);
+    setCandidateMode(null);
+    setCandidateSnapshot(null);
+    setCandidateEvent(null);
+    setReloadMarkerTime(null);
   }
   function exportLog() {
     const log = logRef.current;
@@ -569,16 +719,50 @@ export function QualificationClient({ services }: { services?: QualificationServ
               </button>
             </div>
             <div className={styles.setupRow}>
-              <span>{printerReady ? 'Printer ready' : 'Printer not connected'}</span>
-              <button type="button" onClick={connectPrinter} disabled={blocked}>
-                Connect printer
+              <span>
+                {printerReady
+                  ? 'Printer ready'
+                  : connectionRef.current
+                    ? 'Connected for diagnostics; check printer before printing'
+                    : 'Printer not connected'}
+              </span>
+              <button
+                type="button"
+                onClick={connectPrinter}
+                disabled={blocked || connecting || reloadRunning}
+              >
+                {connecting ? 'Connecting…' : 'Connect printer'}
               </button>
             </div>
             {printerDetails && <p className={styles.detail}>{printerDetails}</p>}
             <button
+              type="button"
+              onClick={reloadRunning ? () => stopObservation() : observeReload}
+              disabled={
+                blocked ||
+                connecting ||
+                !connectionRef.current ||
+                trialState.needsReconciliation ||
+                trialState.phase !== 'ready'
+              }
+            >
+              {reloadRunning ? 'Stop reload observation' : 'Observe reload'}
+            </button>
+            <p className={styles.detail}>
+              Reload observation reads status and history for 60 seconds. Keep the cover closed
+              until the baseline is captured. Reconnect to check print readiness afterward.
+            </p>
+            <button
               className={styles.primary}
               type="button"
-              disabled={blocked || !cameraReady || !printerReady || trialState.phase !== 'ready'}
+              disabled={
+                blocked ||
+                reloadRunning ||
+                connecting ||
+                !cameraReady ||
+                !printerReady ||
+                trialState.phase !== 'ready'
+              }
               onClick={() => setStage('camera')}
             >
               Start trial
@@ -657,6 +841,65 @@ export function QualificationClient({ services }: { services?: QualificationServ
           </div>
         )}
       </section>
+      {candidateMode && (
+        <section className={styles.signalPanel} aria-label="REA candidate diagnostics">
+          <strong>
+            {candidateMode === 'ejection' ? 'Ejection' : 'Reload'} candidate · unqualified
+          </strong>
+          {reloadRunning && <LiveUtcClock />}
+          <p role="status">
+            {candidateSnapshot?.blockedReason
+              ? `Candidate unavailable: ${candidateSnapshot.blockedReason}`
+              : candidateEvent
+                ? `Candidate observed at ${candidateEvent.timestamp.slice(11, 23)} UTC`
+                : 'No candidate observed'}
+          </p>
+          {candidateSnapshot?.status && (
+            <span>
+              Cover {candidateSnapshot.status.coverOpen ? 'open' : 'closed'} · operation{' '}
+              {candidateSnapshot.status.operating ? 'active' : 'idle'} (
+              {candidateSnapshot.status.operationInfo}) · result{' '}
+              {candidateSnapshot.status.printResult} · error {candidateSnapshot.status.errorCode}
+              {candidateSnapshot.status.error ? ' (flag set)' : ''} · film reported{' '}
+              {candidateSnapshot.status.filmRemaining}
+            </span>
+          )}
+          {candidateMode === 'reload' && (
+            <>
+              <span>
+                {candidateSnapshot?.baseline
+                  ? `Baseline captured: prints ${candidateSnapshot.baseline.totalPrints}, FC ${candidateSnapshot.baseline.totalEjectFC}. Observe one cover cycle.`
+                  : 'Waiting for closed-cover baseline.'}
+              </span>
+              {candidateSnapshot?.history && (
+                <span>
+                  History: prints {candidateSnapshot.history.totalPrints}, FC{' '}
+                  {candidateSnapshot.history.totalEjectFC}
+                </span>
+              )}
+              <button
+                type="button"
+                onClick={markReloadCover}
+                disabled={!reloadRunning || !!reloadMarkerTime}
+              >
+                Reload cover fully emerged
+              </button>
+              {reloadMarkerTime && (
+                <time dateTime={reloadMarkerTime}>
+                  Physical cover marker at {reloadMarkerTime.slice(11, 23)} UTC
+                </time>
+              )}
+              <span>
+                {reloadRunning ? 'Reload observation running' : 'Reload observation stopped'}
+              </span>
+            </>
+          )}
+          <p>
+            Diagnostic candidates do not confirm physical ejection, prove usable film, or change the
+            trial allowance. Compare timestamps with synchronized video and physical markers.
+          </p>
+        </section>
+      )}
       <details className={styles.diagnostics}>
         <summary>Operator diagnostics</summary>
         <p>

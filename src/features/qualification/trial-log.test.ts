@@ -37,4 +37,24 @@ describe('qualification evidence log', () => {
     expect(event.responseHex).toBe('127f00');
     expect(log.exportJson()).toContain('"responseHex": "127f00"');
   });
+
+  it('exports bounded history and candidate correlation without accepting arbitrary metadata', () => {
+    const log = createTrialLog({ now: () => 0, iso: () => '2026-11-06T10:00:00Z' });
+    const event = log.record({
+      kind: 'print-history',
+      responseHex: '00 03 00 00 01 02 00 00 00 04',
+      observationId: 'x'.repeat(200),
+      connectionGeneration: 2,
+    });
+    expect(event.responseHex).toBe('00030000010200000004');
+    expect(event.observationId).toHaveLength(100);
+    expect(event.connectionGeneration).toBe(2);
+    expect(
+      log.record({ kind: 'ejection-candidate', responseHex: 'deadbeef', connectionGeneration: NaN })
+        .responseHex
+    ).toBeUndefined();
+    expect(
+      log.record({ kind: 'reload-candidate', connectionGeneration: -1 }).connectionGeneration
+    ).toBeUndefined();
+  });
 });
