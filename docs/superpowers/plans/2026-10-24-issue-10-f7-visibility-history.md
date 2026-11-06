@@ -1,6 +1,6 @@
 # F7 — Operational Visibility and Retained History Implementation Plan
 
-**Execution paused at user request — 2026-11-06:** Tasks 1 and 2 passed their task reviews. Task 3 implementation, local verification and documentation are committed; its independent task review and the final whole-branch review remain pending. See the [finished/unfinished task handoff and resume steps](../../implementation/issue-35-paused-handoff.md). Issue #35 is not complete or closed.
+**Execution resumed and completed — 2026-11-06:** All three local implementation tasks passed their review gates. Task 3 and the final whole-branch review found no actionable issues on `d4b5cb4`; source/test candidate remains `55f0afd`. See the [handoff and completion record](../../implementation/issue-35-paused-handoff.md) for preserved review reports and exact test evidence. GitHub #35 closure, integration and external qualification remain separate.
 
 **Local software verification — 2026-11-06:** All three tasks are implemented and F7-01–F7-06 have [dated local evidence](../../implementation/issue-10-retirement-and-acceptance.md#f7-software-verification--2026-11-06) for source/test candidate `55f0afdc8b94592e275c14ab71904d418476c2d6`. Actual read/page/browser/native-zoom/static results, failures and fixing revisions are retained. GitHub #35 was not changed or closed. Full #30, F6/F8, #17/#7 and parent #10 remain open.
 

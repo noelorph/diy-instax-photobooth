@@ -1,5 +1,7 @@
 # Issue #35 paused handoff — 2026-11-06
 
+**Resumed and completed — 2026-11-06:** The user requested continuation. Task 3 independently passed spec/quality review with no findings; the final whole-branch review also passed with no actionable findings on `d4b5cb4`. All three local implementation tasks are complete. Source/test candidate remains `55f0afd`; resumption changed documentation only. [Task 3 review](../../artifacts/issue-35-f7-verification/reviews/issue-35-task3-review.md) and [whole-branch review](../../artifacts/issue-35-f7-verification/reviews/issue-35-final-review.md) are preserved. The pause record below is historical, including its then-pending statuses and resume checklist. GitHub #35 remains open; integration and external qualification are separate.
+
 Paused at the user's request: “please pause for now and document the finished and unfinished tasks.” Implementation and review work has stopped. Tasks 1 and 2 passed their task reviews. Task 3's implementation, local verification and documentation are committed, but its independent review and the final whole-branch review have not run. **Issue #35 is not complete or closed.**
 
 ## Preserved branch and workspace
@@ -55,7 +57,7 @@ No dependency, SQL migration or new product decision/ADR was added. Shared legac
 4. After the Task 3 gate passes, request the final whole-branch review from base `be7d69074d01ad7450f86e49dff9c4557cd00faf` through the final HEAD. Resolve findings and record actual outcomes before marking the three-task execution complete. Update this pause note and the ledger when work resumes/completes.
 5. Preserve explicit release boundaries. This handoff does not authorize pushing, merging, deploying or closing issues.
 
-Local SDD workspace (preserved, ignored by Git): `.superpowers/sdd/2026-10-24-issue-10-f7-visibility-history/`. It holds `progress.md`, `issue-35.json`, all task briefs/reports, review diff packages and full transient artifacts. Task 1 review/re-review and Task 2 review reports were copied from `/tmp` into its `reviews/` directory so resumption does not depend on temporary files. Do not delete the SDD workspace while execution is paused.
+Local SDD workspace (preserved, ignored by Git): `.superpowers/sdd/2026-10-24-issue-10-f7-visibility-history/`. It holds `progress.md`, `issue-35.json`, all task briefs/reports, review diff packages and full transient artifacts. Task 1 review/re-review and Task 2 review reports were copied from `/tmp` into its `reviews/` directory so resumption does not depend on temporary files. The pause has ended. Review reports are now preserved in the committed evidence folder; the temporary SDD workspace may be cleaned after completion is recorded.
 
 ## Not performed or still outside this task
 

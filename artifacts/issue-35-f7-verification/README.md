@@ -17,3 +17,7 @@ Six accepted [screenshots](screenshots/) show wide light Dashboard/terminal deta
 [Exact static/Markdown commands and exit results](static-and-doc-checks.json) are retained. Static verification: changed-file ESLint and source/test Prettier passed; final `npx tsc --noEmit --incremental false` exited 0 on `55f0afd`. Documentation Markdown/link/diff checks are recorded in the central acceptance evidence and local task report. All fixture runners used `INSTAX_TEST_WORKDIR=.worktrees/verification-stack env -u NO_COLOR`, project `diy-instax-retirement-verification`, API/DB `58321/58322`, production `playwright.config.ts` / port 1437. The ordinary stack was not used.
 
 #30 enabled-media proof, F6/F8, #17/#7 and #10 remain open. No issue closure, release, hosted action or physical qualification is implied.
+
+## Independent reviews after resumption
+
+[Task 3 review](reviews/issue-35-task3-review.md) and [final whole-branch review](reviews/issue-35-final-review.md) both pass without actionable findings on `d4b5cb4`. Earlier task review reports are preserved in the same directory. Source/test candidate remains `55f0afd`; no runtime test rerun or source edit was needed during review. [Completion record](../../docs/implementation/issue-35-paused-handoff.md) distinguishes local task completion from integration, issue closure and external gates.
