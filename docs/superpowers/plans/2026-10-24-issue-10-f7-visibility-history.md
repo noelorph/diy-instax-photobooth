@@ -1,5 +1,7 @@
 # F7 — Operational Visibility and Retained History Implementation Plan
 
+**Execution paused at user request — 2026-11-06:** Tasks 1 and 2 passed their task reviews. Task 3 implementation, local verification and documentation are committed; its independent task review and the final whole-branch review remain pending. See the [finished/unfinished task handoff and resume steps](../../implementation/issue-35-paused-handoff.md). Issue #35 is not complete or closed.
+
 **Local software verification — 2026-11-06:** All three tasks are implemented and F7-01–F7-06 have [dated local evidence](../../implementation/issue-10-retirement-and-acceptance.md#f7-software-verification--2026-11-06) for source/test candidate `55f0afdc8b94592e275c14ab71904d418476c2d6`. Actual read/page/browser/native-zoom/static results, failures and fixing revisions are retained. GitHub #35 was not changed or closed. Full #30, F6/F8, #17/#7 and parent #10 remain open.
 
 **Reference and scope synchronization — 2026-11-06:** This plan incorporates the already-approved #35 Live Event card, History filters and three-task work order. That scope-synchronization checkpoint recorded no implementation or acceptance pass; subsequent software verification is recorded below. #9 and F3 #31 are completed; the verified upload-disabled F2 milestone satisfies F7’s F2 prerequisite under ADR-0032. Full #30 remains open, completes last and blocks parent #10 closure.
