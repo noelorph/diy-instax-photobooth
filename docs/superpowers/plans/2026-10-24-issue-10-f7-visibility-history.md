@@ -1,87 +1,171 @@
 # F7 — Operational Visibility and Retained History Implementation Plan
 
-**Media implementation/availability — 2026-10-27:** [ADR-0032](../../adr/0032-build-full-f2-with-uploads-unavailable.md) permits full dormant F2 editor/private-delivery implementation; runtime uploads remain unavailable under ADR-0031. Preserve sections/designs, trusted denials, private access/retention and prior-authorized cleanup-pending safeguards. Full #30 still needs supported cleanup and enabled transfer/failure/concurrency/private-delivery/playback qualification. F5 uses default welcome while disabled; F7 retains read-only/unavailable sections and the Admin cleanup reminder; F8 rechecks denials, guard/pending safety and accumulated evidence. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure. No full-media pass or issue closure follows.
+**Reference and scope synchronization — 2026-11-06:** This plan incorporates the already-approved #35 Live Event card, History filters and three-task work order. It records no implementation or acceptance pass. #9 and F3 #31 are completed; the verified upload-disabled F2 milestone satisfies F7’s F2 prerequisite under ADR-0032. Full #30 remains open, completes last and blocks parent #10 closure.
+
+**Published issue:** [#35](https://github.com/noelorph/diy-instax-photobooth/issues/35), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). The [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md#acceptance-trace) is the single F7-01–F7-06 requirement/test/evidence record. Follow the [shared command/environment rules](2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules).
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
-> **Required throughout:** Use **ponytail:ponytail, full**. Reuse current package Events and activity; delete obsolete history calculations. Add no analytics platform, ledger, charts or legacy reader.
+> **Required throughout:** Use **ponytail:ponytail, full**. Preserve working package reads, current security checks and meaningful tests. Add no analytics platform, second ledger or legacy reader.
 
-**Goal:** The Admin can understand upcoming work, recent activity and retained Events with accurate package counts and current-model terminal History.
+**Goal:** The Admin can understand current and upcoming work, recent activity and retained Events through accurate package reporting and immutable History.
 
-**Architecture:** Add authorized read projections over current package records and delete the old accounting reader. Each mutation owner records its audit; F7 displays it. Reuse F2 private media delivery and current page/shared UI structure.
+**Architecture:** Extend authorized read projections over current package Events and existing activity records. Reuse authoritative package counts; keep mutations and audit production with their existing owners. Render the new Figma references through current shared components, retaining uploads-unavailable and safe Draft-cleanup boundaries.
 
-**Tech Stack:** Existing Next.js/React/TypeScript, Temporal, Supabase read boundaries, UI components and Vitest/Playwright.
+**Tech Stack:** Existing Next.js/React/TypeScript, Temporal, Supabase read boundaries, shared UI and Vitest/Playwright. No new dependency is required by this plan.
 
-**Spec:** [Approved design, F7](../specs/2026-10-24-issue-10-functional-breakdown-design.md#f7-operational-visibility-and-retained-history). Parent #10; #9 prerequisite satisfied; additionally requires F2 and F3. [Index/shared rules](2026-10-24-issue-10-implementation-plan.md).
-
-**Published issue:** [#35](https://github.com/noelorph/diy-instax-photobooth/issues/35), native child of [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10). Prerequisites published 2026-10-25 (historical): [#9](https://github.com/noelorph/diy-instax-photobooth/issues/9) (completed), [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F3 #31](https://github.com/noelorph/diy-instax-photobooth/issues/31). Published and read-back verified 2026-10-25. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure.
+**Spec:** [PRD](../../../PRD.md), [replacement contract](../specs/2026-10-21-package-accounting-booth-recovery-design.md), [functional design](../specs/2026-10-24-issue-10-functional-breakdown-design.md#f7-operational-visibility-and-retained-history). Use the main plan’s [screen reference and presentation contract](2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): A01/A07/A08, A06 counts/activity and A05 unavailable-media pattern.
 
 ## Global Constraints
 
-- #9 passed on reviewed candidate `2f89a96` and is closed; verify the index evidence. The plan and GitHub publication are approved; F3–F8 may use the verified upload-disabled F2 milestone under ADR-0032 without waiting for full #30 closure; other capability prerequisites still apply. #30 remains in #10 and is completed last. Authenticated/private reads only; no contact/photo copies in activity or logs.
-- Monthly Events counts nondeleted Draft, Live and Completed whose scheduled start falls in the current month in each Event's venue time zone; exclude Cancelled. Total Events booked also excludes Cancelled. Upcoming/Next use future scheduled starts of Draft/Live only. Never count by creation time. See [ADR-0028](../../adr/0028-define-monthly-event-count.md). Activity is newest first, **7/30-day filters**, **25 rows per page**, stable ID tie-breaker.
-- History is Completed/Cancelled and read-only, including retained contact/media. Only package-model Events exist after the disposable-data rebuild. Do not preserve/read/convert legacy totals, correction records or redaction state.
-- Use [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), [screen map](../../design/2026-10-21-package-recovery/screen-map.md), [01 dashboard](../../design/2026-10-21-package-recovery/admin/01-dashboard.png), [09 history](../../design/2026-10-21-package-recovery/admin/09-history.png) and read-only patterns in [05 detail/activity](../../design/2026-10-21-package-recovery/admin/05-live-event.png).
-
-Follow the [shared command/environment table](2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules). Update this capability’s rows in the [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md#acceptance-trace) with actual revision/command/result before closure; pending rows are not passing evidence.
+- Authenticated/private reads only. Preserve `requireAdmin()` live-session checks, Admin RLS and private/no-store responses. Activity contains safe Event/action references without Client contact copies, credentials, signed URLs or Guest photos.
+- Monthly Events counts nondeleted Draft, Live and Completed by scheduled start in each Event's venue-local current month; exclude Cancelled. Convert both scheduled start and server time to that venue's zone. Total booked excludes Cancelled/deleted Events across all months. Upcoming/Next considers future Draft/Live starts only, ordered by start then ID. Never count by creation time.
+- Dashboard activity uses a server-supplied instant, 7/30-day windows, zero-based pages, 25 rows and `created_at DESC, id DESC` ordering. Apply predicates/pagination in the query and read 26 rows for `hasNextPage`; do not silently truncate Event summaries at the database's default row cap.
+- History is Completed/Cancelled only. Its filters change the displayed list, not accounting, retention or Dashboard definitions. Query values must be validated/defaulted; no client-provided state may broaden access to Draft/Live/deleted records.
+- Ten prints per Film Package. `printsRemaining = totalBookedPrints - printed`; `printsAvailable = printsRemaining - unresolved`. A fully ejected unusable print stays counted. No stock inventory, quality refund, editable allowance or legacy count fallback.
+- Event state and Booth run state are distinct. The Live Event card reflects the current Live Event and authoritative counts/run state, including Paused/Finished runs; it must not label every Live Event as Booth Active. No Live Event and failed read are different states.
+- Keep media sections and **“Media uploads are temporarily unavailable.”** Preserve the Admin Event Media reminder: **“Before re-enabling uploads, verify cleanup of interrupted or late uploads and leftover files.”** No media attached must be established by a successful authorized read, not inferred from unavailable delivery or a query failure. No re-enable control is added.
+- Terminal records have no edit, reopen, Add Film Packages, redaction or deletion controls. Pending removal retry is scoped to previously deleted Drafts and remains separate from terminal History.
+- Query only current package records while the pre-F8 schema still contains legacy objects. A current-version predicate is an exclusion guard, not a dual-version reader; F8 owns removing the obsolete schema/version machinery.
+- The main plan’s screen reference governs presentation under ADR-0034; existing product/security rules remain authoritative. Use shared components and preserve the required states/accessibility even when omitted from an example screen.
 
 ## Review Focus
 
-1. UTC/venue month boundaries and DST cannot count by the wrong month — task 1.
-2. Same-timestamp activity and page/filter changes cannot duplicate, skip or disclose contact data — task 1.
-3. Empty results and failed reads must be distinct; zero cannot mask an error — tasks 1–2.
-4. A fully ejected unusable print remains counted in terminal History without a refund path — task 2.
-5. Terminal detail via a direct URL, expired media URL or revoked Admin cannot expose mutation controls/private data — task 2.
+1. Venue-month boundaries, DST and out-of-month bookings must not corrupt monthly versus all-time totals — Task 1.
+2. Tied activity timestamps, deleted Event references and filter/page changes must not lose stable ordering, expose contact data or manufacture successful empty results — Tasks 1 and 3.
+3. No Live Event, a Live Event with a Paused/Finished run, and an unavailable count read must remain distinct — Task 1.
+4. History filters and direct terminal URLs must retain correct package counts, contact records and read-only behavior, including unusable ejections — Task 2.
+5. Revoked Admin access, failed media reads and pending Draft cleanup must not disclose retained content, falsely report no media or expose terminal mutation controls — Tasks 2 and 3. Enabled URL renewal remains #30 qualification.
 
 ## File map and proposed read interfaces
 
-Create `src/features/admin/dashboard/{read.ts,types.ts,dashboard.tsx,dashboard.module.css}`; modify `src/app/(admin)/dashboard/page.tsx`, `src/app/(admin)/history/page.tsx`, `src/app/(admin)/events/[eventId]/page.tsx`, `src/lib/events/history.ts`, `src/features/admin/operations/{read.ts,types.ts,panel.tsx}`. Reuse `src/components/shared/` and F2 media delivery. Create `tests/integration/dashboard-read.test.ts`, `tests/components/dashboard-history.test.tsx`, `tests/e2e/dashboard-history.spec.ts`; extend `tests/integration/admin-operations-read.test.ts`, `tests/components/admin-operations-pages.test.tsx`. Add a forward read index/projection migration only if required by the proven query, with no new product data source.
+| Files                                                                                                                                   | Responsibility                                                                  |
+| --------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Create `src/features/admin/dashboard/{read.ts,types.ts,dashboard.tsx,dashboard.module.css}`                                             | Dashboard projection, types and presentation                                    |
+| Modify `src/app/(admin)/dashboard/page.tsx`                                                                                             | Server time, validated activity query and Dashboard rendering                   |
+| Modify `src/lib/events/history.ts` and `src/app/(admin)/history/page.tsx`                                                               | Filtered package History with authoritative counts and retained fields          |
+| Modify `src/app/(admin)/events/[eventId]/page.tsx`                                                                                      | Dedicated immutable terminal detail; preserve Draft/Live consumers              |
+| Create `src/features/admin/events/{history-detail.tsx,history-detail.module.css}`                                                       | Read-only A08 booking, count, activity and media-status view                    |
+| Extend `src/features/admin/events/event-media.tsx` only as needed                                                                       | Reuse unavailable/retained presentation without terminal upload/remove controls |
+| Modify `src/features/admin/operations/{read.ts,types.ts,panel.tsx}` only where required                                                 | Reuse authoritative package projections, preserve existing operational callers  |
+| Create `tests/integration/dashboard-read.test.ts`, `tests/components/dashboard-history.test.tsx`, `tests/e2e/dashboard-history.spec.ts` | Real read, presentation and browser acceptance                                  |
+| Extend `tests/integration/admin-operations-read.test.ts`, `tests/components/admin-operations-pages.test.tsx`                            | History/direct-detail regression and existing consumers                         |
 
-`readDashboard(input: {now: string; activityDays: 7 | 30; page: number}): Promise<DashboardReadResult>` in `dashboard/read.ts`; `now` is supplied by server code, not an authorization or arbitrary client clock. Result is `{status: 'success'; summary: {monthEvents: number; upcomingEvents: number; nextEvent: {id: string; title: string; startsAtUtc: string; timeZone: string} | null; totalBookedEvents: number}; activity: ActivityItem[]; hasNextPage: boolean}` or `{status: 'unavailable'; error: string}`. `ActivityItem = {id: string; eventId: string | null; operationKind: string; occurredAt: string}`; join only a safe display label when needed, not contact fields. History keeps `listHistory()`'s result convention and uses `counts: PackageCounts` from F3 for every `HistoryEvent`. There is no `LegacyHistoryCounts`, `1 | 2` branch, or fallback to old totals.
+Use existing `tests/fixtures/{local-supabase.ts,package-contract.ts,package-browser.ts,test-stack.mjs}`. Add a forward read index/projection migration only if a measured query requires one; no new source of product data. Do not create files already supplied by intervening work.
 
-## Task 1: Complete Dashboard summaries and activity
+**Task 1 produces:**
 
-**Files:** Dashboard files/tests and existing activity producers in F2/F3 as consumed interfaces. No new audit-writing responsibility moves into Dashboard.
+```ts
+type ActivityItem = {
+  id: string;
+  eventId: string | null;
+  operationKind: string;
+  occurredAt: string;
+};
+type DashboardLiveEvent = {
+  id: string;
+  title: string;
+  venueAddress: string;
+  startsAtUtc: string;
+  endsAtUtc: string;
+  timeZone: string;
+  runState: RunState | null;
+  counts: PackageCounts;
+};
+type DashboardReadResult =
+  | {
+      status: 'success';
+      summary: {
+        monthEvents: number;
+        upcomingEvents: number;
+        totalBookedEvents: number;
+        nextEvent: { id: string; title: string; venueAddress: string; startsAtUtc: string; endsAtUtc: string; timeZone: string } | null;
+      };
+      liveEvent: DashboardLiveEvent | null;
+      activity: ActivityItem[];
+      hasNextPage: boolean;
+    }
+  | { status: 'unavailable'; error: string };
 
-- [ ] Write real read tests using fixed server time, Events around venue-local month boundaries, cancelled/deleted rows, >25 activities and tied timestamps. Assert the approved values:
+readDashboard(input: { now: string; activityDays: 7 | 30; page: number }): Promise<DashboardReadResult>;
+```
+
+`PackageCounts` and `RunState` are imported from `src/lib/operations/package-contract.ts`. `now` comes from server code, never arbitrary client time. Put the new types in `dashboard/types.ts` and the read in `dashboard/read.ts`. Use existing package-state reads rather than recalculating a second ledger. A safe Event display label may be joined separately; never expose the raw audit row or Client fields.
+
+**Task 2 produces in `src/lib/events/history.ts`:**
+
+- `HistoryFilter = 'all' | 'Completed' | 'Cancelled'`.
+- `HistoryEvent` retains its existing booking/contact/schedule fields and adds `counts: PackageCounts`.
+- `listHistory(filter: HistoryFilter = 'all')` retains the existing `{status: 'success'; events: HistoryEvent[]}` / `{status: 'unavailable'; error: string}` convention; existing no-argument callers continue to work.
+- `getHistoryEvent(id: string, activityPage = 0)` returns `{status: 'success'; event: HistoryEvent; captures: number; activity: ActivityItem[]; hasNextPage: boolean; mediaAssetCount: number}` or `{status: 'not_found'}` or `{status: 'unavailable'; error: string}`. It reads only nondeleted terminal package Events. `mediaAssetCount` counts attached retained assets through authorized metadata, not abandoned uploads or cleanup records; a failed read returns unavailable.
+
+Terminal activity is retained all-time Event history, newest first with the same stable ordering and 25-row pages; do not apply the Dashboard's 7/30-day retention window. Use the existing count/read boundaries without fetching every Event's print-attempt pages just to render a History list. Validate page values as bounded nonnegative safe integers using the existing operations-read convention; invalid query defaults to page 0. History uses `state=all|Completed|Cancelled`; invalid state defaults to `all`. Terminal activity uses `activityPage` without breaking existing `attemptPage` callers.
+
+## Task 1: Complete Dashboard summaries, Live Event card and activity
+
+**Files:** Dashboard files/tests and Dashboard page from the file map; existing activity producers are consumed interfaces, not new Dashboard mutation responsibilities.
+
+**Interfaces:** Consume current Admin authorization, `PackageCounts`, `RunState`, existing package-state operations and `activity_events`. Produce `readDashboard()` and its types above for the server page; Task 2 reuses the `ActivityItem` type.
+
+- [ ] **Step 1: Write real read and component regressions for the missing projection.** Use fixed server time, venue-local month boundaries/DST, deleted/Cancelled rows, more than 25 activities and tied timestamps. Include the named case `monthly Events includes Draft Live Completed and excludes Cancelled`. With four in-month Events, one per state, assert: Retain the named regression `monthly Events includes Draft Live Completed and excludes Cancelled`.
 
   ```ts
+  expect(result.summary.monthEvents).toBe(3);
+  expect(result.summary.totalBookedEvents).toBe(3);
   expect(result.activity).toHaveLength(25);
   expect(result.hasNextPage).toBe(true);
   expect(result.activity[0]).not.toHaveProperty('client_email');
-  expect(result.summary.totalBookedEvents).toBe(nonCancelledCount);
   ```
 
-  Use explicit fixture instants on either side of a venue's month boundary and assert month/upcoming/next separately. Add 7/30-day selection, malformed page/query defaults, unauthorized and database-error cases; a failed query returns unavailable, not successful zero.
+  Cancelling the Draft reduces both totals to 2 while both Cancelled records remain retained. A separate noncancelled out-of-month control increments total booked but not monthly; a deleted Draft increments neither. Test upcoming/next independently, including tied starts. Assert 7/30-day inclusion boundaries, malformed query defaults, stable page membership on a fixed dataset, unknown audit-kind fallback, deleted Event audit references, revoked Admin and database failure returning unavailable rather than zero.
 
-- [ ] Add `monthly Events includes Draft Live Completed and excludes Cancelled` to `tests/integration/dashboard-read.test.ts` and its rendered-card assertion in `tests/e2e/dashboard-history.spec.ts` (trace F7-01). At fixed `now`, seed four in-month Events, one of each state; assert `monthEvents === 3` and `totalBookedEvents === 3`. A Completed Event still counts; cancelling the Draft reduces both to 2 without removing either Cancelled record from History. Add out-of-month and deleted-Draft controls that do not contribute. The card counts bookings, not just future or unfinished work.
+- [ ] **Step 2: Add Live Event card regressions.** For five original plus one additional package, 37 Printed and one Pending, assert 60 booked and 22 available. Test Active, Paused, Finished and no-run labels while the Event is Live; the link targets `/events/{id}`. No Live Event returns `liveEvent: null`; failure to read counts returns unavailable. Completed/Cancelled/deleted Events never become the Live card. Render the named cases `Live Event card uses authoritative counts and current run state` and `missing Live Event is distinct from unavailable reporting`.
+- [ ] **Step 3: Run the new tests before implementation.** Run `npm test -- tests/integration/dashboard-read.test.ts tests/components/dashboard-history.test.tsx`. Expected: the new assertions fail for the missing Dashboard behavior, not fixture/auth startup failure. Reuse any existing passing cases rather than duplicating them.
+- [ ] **Step 4: Implement `readDashboard()` in `dashboard/read.ts`.** Use current Admin/RLS and package-only reads, exact summary definitions, stable query ordering and a 26-row activity lookahead. Read all qualifying summary rows without a silent database cap. Return honest unavailable results on required read failures; activity label handling must tolerate unknown current kinds and missing/deleted Event references.
+- [ ] **Step 5: Render A01 through `dashboard.tsx`, its CSS and the Dashboard page.** Supply server time, validated query values, summary cards, Live Event card, next/upcoming links, 7/30-day controls, page navigation and contextual empty/error/loading states. Filter changes reset the activity page; page links preserve the selected window. Keep the visible Dashboard heading/accessibility name even if Figma uses a greeting. Use the main plan’s presentation foundations; use no hardcoded example counts or false “Booth Active” status.
+- [ ] **Step 6: Run focused read/component and real-browser verification.** Rerun Step 3, then `npx playwright test --config playwright.config.ts tests/e2e/dashboard-history.spec.ts -g 'Dashboard'`. Expected: pass with real seeded data, the rendered four-state monthly count, Live/run-state variants, filters/pages, direct links, both Admin themes and keyboard focus.
+- [ ] **Step 7: Commit the verified Task 1 files.** Suggested message: `feat: complete dashboard summaries live event and activity`. Stage only its changed source/tests; no empty commit or unrelated changes.
 
-- [ ] Run `npm test -- tests/integration/dashboard-read.test.ts tests/components/dashboard-history.test.tsx`; new read/view assertions should fail before implementation.
-- [ ] Implement the defined read projection with current Admin authorization and stable `created_at DESC, id DESC` activity ordering. Apply time/filter/pagination predicates in the data query, read 26 rows to determine the next 25-row page, and use the existing Temporal/venue semantics for monthly counts. Exclude deleted/Cancelled Events from booked/month totals; Upcoming/Next consider future scheduled starts of Draft/Live Events, with start then ID ordering. The 7/30-day activity window is measured back from the server-supplied `now`; page numbering is zero-based. Query all qualifying Events without a silent Supabase default-row cap. Present summary, next/upcoming links, filters, persistent errors and contextual empty states with existing components. Display every required activity kind from #9/F2/F3/fixtures; an unknown current audit kind receives a safe label rather than crashing.
-- [ ] Rerun focused tests and `npx playwright test --config playwright.config.ts tests/e2e/dashboard-history.spec.ts`; verify actual read data, filter/page navigation, direct links, both themes and keyboard focus. Expected pass; no charts/revenue or Guest media.
-- [ ] Commit with `feat: complete dashboard summaries and activity`.
+## Task 2: Complete filtered History and immutable Event detail
 
-## Task 2: Complete retained History and immutable Event detail
+**Files:** History/read/page, terminal-detail files and existing operations consumers/tests from the file map. Preserve `src/features/admin/operations/pending-removals.tsx` and its safe Draft receipt flow.
 
-**Files:** History/read/page files and tests from the file map, plus all callers of the deleted legacy count types. Delete obsolete correction/redaction fixtures; retain package-model Draft cleanup fixtures.
+**Interfaces:** Consume authoritative package-state counts and Task 1's `ActivityItem`; produce `HistoryFilter`, extended `HistoryEvent`, `listHistory(filter)` and `getHistoryEvent(id, activityPage)` above. The terminal view receives successful read data; it adds no mutation endpoint or delivery authorization mechanism.
 
-**Interfaces:** `listHistory()` returns Completed/Cancelled Events under current Admin RLS with `counts: PackageCounts`. Reuse authoritative package reads and F2's Admin `EventMedia` delivery. No schema-version discriminator, old correction calculation or snapshot reader is added.
-
-- [ ] Extend real read/page tests with package-model Completed and Cancelled Events, retained private media and a deleted Draft. A five-package Event with 13 confirmed ejections displays 50 booked and 13 printed; an unusable fully ejected output remains among those 13. Assert:
+- [ ] **Step 1: Extend real read/page tests with Completed and Cancelled package Events, a deleted Draft and retained asset metadata.** The case `History filters retain immutable package records` verifies all three filters and invalid-query defaulting. Five packages with 13 confirmed ejections—including an unusable fully ejected sheet—must satisfy:
 
   ```ts
-  expect(completed.counts).toMatchObject({ totalBookedPrints: 50, printed: 13 });
+  expect(completed.counts).toMatchObject({
+    totalBookedPrints: 50,
+    printed: 13,
+  });
   expect(completed.counts).not.toHaveProperty('originalPrintAllowance');
   expect(
-    screen.queryByRole('button', { name: /redact|delete event|add film packages/i })
+    screen.queryByRole('button', {
+      name: /redact|delete event|add film packages|reopen|edit event/i,
+    })
   ).toBeNull();
   ```
 
-  Direct terminal URLs are read-only; deleted Drafts are absent from History and counts. Cover revoked Admin, expired media URL renewal, query errors and empty states separately. Confirm cancellation retains current contact/media without a mutation control.
+  Assert retained contact/schedule/time-zone fields, correct original/additional packages, separate Capture totals including Retakes, no legacy rows/count fallback and deleted Draft exclusion. Terminal activity includes records older than 30 days and paginates stably. Read failures and empty results are distinct. Cover Completed and Cancelled direct URLs, revoked Admin and denied terminal mutations through existing trusted boundaries.
 
-- [ ] Run `npm test -- tests/integration/admin-operations-read.test.ts tests/components/admin-operations-pages.test.tsx tests/components/dashboard-history.test.tsx`; new assertions must expose the remaining legacy projection or missing current History behavior.
-- [ ] Implement package-only History/detail and remove legacy count types, readers, stock/waste/redaction joins, version branches and obsolete fixtures/tests. Update every caller. Retain pending cleanup only for safe Draft deletion; terminal media remains private and read-only. Remove obsolete terminal redaction/delete routes and helpers once F2's Draft cleanup no longer depends on them; record shared SQL dependencies for F8.
-- [ ] Rerun focused tests and `npx playwright test --config playwright.config.ts tests/e2e/dashboard-history.spec.ts`; run changed-file lint/type/format. Expected pass for package History, unavailable/empty distinction, current authorization, private media and responsive/keyboard presentation.
-- [ ] Commit with `feat: complete package event history and remove legacy readers`.
+- [ ] **Step 2: Add disabled-media and cleanup regressions.** `terminal media state never treats a failed read as no attachment` checks attached, successfully empty and failed metadata reads. Retained assets stay private/read-only; no usable signed URL, upload/remove control or enabled-transfer proof is invented. Show the unavailable status and persistent cleanup reminder in the Event Media section, including when empty. Verify separate opaque deleted-Draft cleanup retry remains available and does not become a terminal deletion action.
+- [ ] **Step 3: Run tests before implementing missing behavior.** Run `npm test -- tests/integration/admin-operations-read.test.ts tests/components/admin-operations-pages.test.tsx tests/components/dashboard-history.test.tsx`. Expected: new assertions expose missing filters, count projection or terminal detail/media state. Existing passing package read/security tests remain intact.
+- [ ] **Step 4: Implement `listHistory(filter)` and `getHistoryEvent()` in `src/lib/events/history.ts`.** Keep current Admin authorization/RLS, terminal/deleted/current-package predicates and authoritative counts. Preserve pending Draft-cleanup reads and receipt identity. Eliminate unnecessary per-row operational attempt-page reads in History. Do not add `LegacyHistoryCounts`, schema-version unions, snapshots, correction readers or conversion paths.
+- [ ] **Step 5: Render A07 and A08.** Update History query/navigation with All History / Completed / Cancelled filters and retained rows. Route terminal Event URLs to the dedicated immutable detail with booking/contact, package/print/Capture totals, Event activity and honest media status. Preserve Draft/Live pages and existing print-attempt access where applicable. The new terminal view must not reuse editable Draft forms or display Live mutation controls. Existing unavailable media presentation may be reused/refactored without enabling its deferred uploader; authorized retained delivery is consumed only when F2 actually supplies it.
+- [ ] **Step 6: Run focused read/component and real-browser verification.** Rerun Step 3, then `npx playwright test --config playwright.config.ts tests/e2e/dashboard-history.spec.ts -g 'History'`. Expected: pass for filter links/reload/direct URLs, 50 booked/13 printed, retained records, read errors, revoked access, disabled media, separate pending Draft cleanup and responsive/keyboard presentation.
+- [ ] **Step 7: Commit verified Task 2 files.** Suggested message: `feat: complete filtered package history and immutable detail`. Remove only remaining obsolete F7 application consumers and update all affected callers/tests.
 
-**Done:** Dashboard and History display accurate authorized data through real read queries and remain usable under empty/error/private-media conditions. Can complete after F3 using existing contract operations/fixtures for later activity types. F8 owns schema absence, fresh installation and final denial of all old redaction/deletion/stock writes; no reporting expansion belongs here.
+## Task 3: Complete integrated verification and retirement evidence
+
+**Files:** `tests/e2e/dashboard-history.spec.ts`, the focused tests above, and affected F7 source only for demonstrated defects. Synchronize `docs/superpowers/plans/2026-10-24-issue-10-f7-visibility-history.md`, `docs/superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md`, `docs/implementation/issue-10-retirement-and-acceptance.md` and `docs/github-issue-update-drafts.md`. Update affected `PRD.md`, `docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md`, design-reference guidance and ADR records where required by the approved additions, following `AGENTS.md`'s decision-confirmation rule. No documentation pass may imply runtime acceptance.
+
+**Interfaces:** Consumes the Task 1/2 pages and read contracts; produces exact candidate/environment evidence and a retirement inventory, not a new runtime abstraction.
+
+- [ ] **Step 1: Audit remaining retirement scope against the execution revision.** Record F3's removal of allowance/stock reads, F5's Wasted Film retirement and later legacy HTTP cleanup (including `655270a`) as upstream implementation evidence, then verify current absence. The reviewed application tree already lacks terminal redaction/delete routes and the old reporting count types/joins; do not recreate them to “complete” their deletion. Identify only actual remaining F7 callers/helpers/tests. Retain negative stale-request tests and factual historical evidence. Shared SQL, generated types, old migration chain and fresh-schema proof remain F8-owned.
+- [ ] **Step 2: Add any missing cross-page regression before fixing a demonstrated gap.** Use the real local fixture to prove Dashboard → Live Event and History → terminal detail navigation, filter/query persistence, absence of terminal controls, and current-session denial. Preserve meaningful tests; do not write tests merely mirroring implementation or claim component mocks establish full acceptance.
+- [ ] **Step 3: Verify the combined F7 candidate.** Run `npm test -- tests/integration/dashboard-read.test.ts tests/integration/admin-operations-read.test.ts tests/components/admin-operations-pages.test.tsx tests/components/dashboard-history.test.tsx` and `npx playwright test --config playwright.config.ts tests/e2e/dashboard-history.spec.ts` in the main plan’s verification and environment table. Expected: all selected tests pass. Exercise persistent errors, loading/empty/disabled states, compact/medium/wide layouts, portrait/landscape, light/dark Admin, keyboard/focus, 200% zoom and reduced motion. Verify production simulation denial where affected. Record failures and the fixing revision/rerun; no arbitrary retry pass or disabled test substitutes for evidence.
+- [ ] **Step 4: Run static checks and reconcile the documentation.** Run changed-file ESLint/Prettier, `npx tsc --noEmit --incremental false` and `git diff --check`; expected exit 0. Check changed Markdown separately with Prettier. Synchronize the approved Figma links, scope additions, actual read interfaces, fixture guidance, already-completed retirement and F7-01–F7-06 acceptance ownership. Preserve dated failed/successful evidence and distinguish disabled-media acceptance from #30's open enabled proof.
+- [ ] **Step 5: Record acceptance and commit the evidence.** Record the exact tested source/test revision, date, command/config, selected stack, result and any unperformed checks. Suggested message: `test: verify f7 reporting and record retirement evidence`. Only mark F7 rows passed when their assertions ran successfully. Keep #30, F8, #17/#7 and parent #10 obligations explicit; this task cannot close them.
+
+**Done:** Dashboard and filtered History display accurate authorized package data through real reads, match the November references under the main plan’s presentation contract, and remain usable under empty/error/disabled-media conditions. Terminal detail is immutable. Upstream retirement is verified, remaining F7 consumers are removed and exact F7 acceptance evidence is recorded. F7 can complete using the disabled F2 milestone and existing contract operations/fixtures without waiting for every later UI producer or enabled-media qualification.

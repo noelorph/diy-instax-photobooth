@@ -72,7 +72,7 @@ Only the monthly count required a product interpretation. Environment separation
 
 ## Eight capability issues
 
-F1–F8 remain capability identifiers; their published GitHub numbers are #29–#36, mapped in the dependency table and linked plans. All design references are under [docs/design/2026-10-21-package-recovery](../../design/2026-10-21-package-recovery/README.md). Every child must cite its specific sheets, the [screen map](../../design/2026-10-21-package-recovery/screen-map.md) and [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md). Exact copy, behavior and tokens come from the active documents, not raster artifacts.
+F1–F8 map to GitHub #29–#36. The [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract) is the single per-screen presentation reference: 22 extracted Admin PDF pages, explicitly supplementary Booth/dialog frames, capability ownership, responsive/accessibility requirements and interpretation rules. PRD/ADRs and the replacement contract govern behavior. Example content is not runtime evidence.
 
 ### F1. Admin access and account management
 
@@ -80,7 +80,7 @@ Complete sign-in, neutral recovery requests, password reset with confirmed globa
 
 This issue owns account/session behavior; F4 consumes local sign-out during Booth handoff and F6 consumes authenticated exceptional recovery. It does not replace the #9 authorization fix. Acceptance covers success, invalid/expired credentials, incomplete revocation, revoked sessions, sign-out failures, saved themes and focus/status feedback.
 
-**Design:** `admin/08-authentication.png`, `admin/10-profile.png`, `admin/11-dialogs-feedback.png`; shared shell in `admin/01-dashboard.png`.
+**Design:** [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): A09–A15; A01 shared shell; D15–D17 feedback/reset states.
 
 ### F2. Event preparation and private media
 
@@ -90,7 +90,7 @@ Retain planned ownership of private Event Media upload/validation, authorized Ad
 
 Original booking input belongs here; F3 owns Live package additions and operational counts. F4 owns start and Live completion/cancellation. F7 owns retained-history presentation. The implementation plan must use the approved media-policy values rather than silently inventing upload restrictions.
 
-**Design:** `admin/02-events.png`, `admin/03-event-editor.png`, booking/media portions of `admin/04-draft-setup.png`, `admin/11-dialogs-feedback.png`; serving contract used by `booth/01-welcome-capture.png`.
+**Design:** [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): A02/A03/A05/A22; A04/A21 booking context; D11–D14/D17; B01/B26 as F5 delivery consumers.
 
 ### F3. Booked print capacity and Additional Film Packages
 
@@ -98,7 +98,7 @@ Integrate the #9 package counts into Admin Event operations: original/additional
 
 Own the complete Admin purchase/counts workflow, including final-print holds, additions during pause or after a run finishes while the Event remains Live, and clear distinctions between remaining and available. Reuse server accounting instead of adding a second ledger. F4 consumes refreshed capacity for lifecycle guards and status; F5 owns Booth capacity presentation and the complete exhaustion → phone package addition → fresh Guest admission journey, including final-unit dispatch. F6 verifies added capacity cannot erase another blocker or pause. F3's acceptance uses real #9 mutations and state, without requiring the not-yet-integrated Booth journey. Remove the related individual-print and shared-stock product consumers through the coordinated retirement process.
 
-**Design:** `admin/05-live-event.png`, `admin/06-phone-management.png`, `admin/11-dialogs-feedback.png`, capacity state in `booth/04-printer-and-capacity.png`.
+**Design:** [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): A06/A16/A20; D01/D18; B19 capacity context.
 
 ### F4. Booth setup, access and lifecycle
 
@@ -110,7 +110,7 @@ Implement the reusable handoff and authenticated same-run replacement flow with 
 
 Own lifecycle commands, their guards and truthful pending-work status. Stop before dispatch denies new work; dispatch authorized first may still print. F5 consumes stop state at Guest/dispatch boundaries. F6 restores readiness without clearing a stop. The known-pending lifecycle cases can be tested through real #9 contracts and seeded simulator attempts before F5/F6 integration; their complete cross-device journeys are verified by those later owners and F8.
 
-**Design:** `admin/04-draft-setup.png`, `admin/05-live-event.png`, `admin/06-phone-management.png`, `admin/11-dialogs-feedback.png`, `booth/05-pause-finish-access.png`.
+**Design:** [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): A04/A06/A16/A19–A21; B20–B25/B30; D05–D10.
 
 ### F5. Guest capture-to-print journey
 
@@ -120,7 +120,7 @@ Own 75/90-second preview/review inactivity, bounded metadata-only Capture reconc
 
 Own normal execution and immediate safe reaction to failure. F6 owns restoring operation after that failure. F5 includes duplicate actions, final-unit dispatch at zero available after reservation, booked-print exhaustion followed by a phone package addition and fresh admission only when ready, journal failure, response-loss protection and no automatic resend; safety cannot be deferred until F6. Use simulator events, not a new in-app Test Print feature.
 
-**Design:** `booth/01-welcome-capture.png`, `booth/02-review-printing-complete.png`, applicable stop/blocked presentation in `booth/04-printer-and-capacity.png` and `booth/05-pause-finish-access.png`.
+**Design:** [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): B01–B09/B19/B26–B28 plus required blocked/stop states; A16/D01 phone purchase context.
 
 ### F6. Booth recovery across devices
 
@@ -130,15 +130,15 @@ Own combined-blocker presentation and recovery sequencing. Loading film never ad
 
 For a paused Booth that loses Bluetooth, F4 owns the persisted pause and explicit guarded Resume; F6 owns reconnect/reconciliation and tests that the Booth remains Paused afterward. Similar ownership applies to Finishing, camera loss during a print and exceptional replacement into Paused.
 
-**Design:** `admin/07-phone-recovery.png`, `admin/06-phone-management.png`, `admin/11-dialogs-feedback.png`, `booth/03-connection-recovery.png`, `booth/04-printer-and-capacity.png`, `booth/05-pause-finish-access.png`, `journeys/01-ipad-phone-recovery.png`.
+**Design:** [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): A17–A19, A06/A16 context; B10–B25/B29/B30; D02–D08/D19.
 
 ### F7. Operational visibility and retained history
 
-Complete month/upcoming/next Event summaries: monthly counts nondeleted Draft/Live/Completed by venue-local scheduled start and excludes Cancelled; total booked also excludes Cancelled; upcoming/next uses future Draft/Live starts. Include newest-first activity with 7/30-day filters and 25 rows per page, and retained Completed/Cancelled Event history and read-only detail. Show package counts and current-model history only. Delete legacy totals, corrections, version-switch readers and conversion fixtures; existing test records will be discarded.
+Complete month/upcoming/next Event summaries: monthly counts nondeleted Draft/Live/Completed by venue-local scheduled start and excludes Cancelled; total booked also excludes Cancelled; upcoming/next uses future Draft/Live starts. Include newest-first activity with 7/30-day filters and 25 rows per page, and retained Completed/Cancelled Event history and read-only detail. Show the current Live Event with authoritative package counts and independent Active/Paused/Finished/no-run state; absent Live and failed read are distinct. History offers All History / Completed / Cancelled filters, retained contacts, separate Capture totals and all-time paginated terminal activity. Keep terminal detail immutable and distinguish unavailable/failed media reads from a successful empty result; preserve its cleanup reminder. Read current package records only. Verify upstream retirement and delete only remaining F7 legacy consumers; shared SQL/generated types and fresh-schema proof remain F8-owned. Existing test records will be discarded during F8.
 
 Consume the existing operational/audit records from #9 and the owning capabilities; each mutation owner must preserve its required audit entry. Own read projections, filtering, pagination, empty/error states and responsive presentation, including retained private Event Media under existing authorized access. Preserve the media section and unavailable status; F2 delivery/renewal implementation may proceed dormant under ADR-0032; runtime activation and enabled qualification remain gated. Do not add charts, revenue, Guest galleries or redaction/deletion of terminal Events. This issue can validate activity types with #9 operations and fixtures without waiting for every UI producer.
 
-**Design:** `admin/01-dashboard.png`, `admin/09-history.png`, read-only Event-detail and activity patterns in `admin/05-live-event.png`.
+**Design:** [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): A01/A07/A08, A06 counts/activity and A05 unavailable-media pattern.
 
 ### F8. Fresh package-only installation, complete removal and final acceptance
 
@@ -148,7 +148,7 @@ Build the complete current schema from the final effective #9 definitions plus F
 
 Prove installation on an empty isolated local database, then rebuild the named disposable local test stack and run the full application suite against that baseline. Keep test apps stopped during resets; verify exact local project identity and no connected/in-flight physical printer. Failed installs stay unavailable and are fixed/recreated as disposable tests. Do not build a data-preserving upgrade or rollback system.
 
-**Design:** The current 17-sheet gallery and screen map remain the presentation reference. F8 adds no product screen. #17/#7, hosted deployment and real printing remain outside #10 acceptance.
+**Design:** [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): all applicable A/B/D references and written states; no new product screen.
 
 ## Dependencies and completion boundaries
 
@@ -186,11 +186,11 @@ For every row, trace controls, callers, actions, endpoints, database functions, 
 
 ## Shared acceptance and scope limits
 
-Every capability follows the existing authorization/origin/private-response boundaries, stable operation IDs and receipt recovery, stale revision handling, exact copy and accessibility rules. Integrate keyboard/focus/status behavior, light/dark Admin, compact/medium/wide layouts, Booth light default welcome and dark camera/review/operational surfaces, safe areas and reduced motion into each applicable capability. Use the current design system and [Apricot Studio direction](../../design/2026-11-04-apricot-studio/README.md) under [ADR-0033](../../adr/0033-adopt-apricot-studio-design-system.md); the October 21 sheets retain state coverage but no longer govern styling. Do not postpone all accessibility or privacy checks to F8.
+Every capability follows the existing authorization/origin/private-response boundaries, stable operation IDs and receipt recovery, stale revision handling, exact copy and accessibility rules. Integrate keyboard/focus/status behavior, light/dark Admin, compact/medium/wide layouts, state-specific Booth presentation independent of the Admin preference, safe areas and reduced motion into each applicable capability. Use the [main plan](../plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract) under [ADR-0034](../../adr/0034-use-november-screen-reference-in-implementation-plan.md); the written failure/recovery states remain required even when absent from the PDF. Do not postpone all accessibility or privacy checks to F8.
 
 Use `PrinterAdapterV2`, the existing version-2 simulator, `dispatchReservedAttempt`, the metadata journal and #9's server contracts. Preserve two-second visible state refresh, five-second readiness freshness, grant lifecycle and scoped evidence policy. The detailed plan must cover final capacity, lost responses, overlapping faults, stop/dispatch races, lost access and package History and fresh-install absence/security with named owners and acceptance scenarios.
 
-Exclude #9 repairs, new accounting rules, automatic hardware qualification, optional automatic reload research, production deployment, offline operation, booking/payment, multiple Admins/booths/printers, galleries, digital delivery, editing, charts and unapproved visual redesigns. ADR-0033 records the separately approved Apricot Studio presentation; it changes none of these functional scope limits. A newly discovered product or durable technical decision is raised for focused approval under AGENTS.md and documented through the existing ADR process; it is not silently added to a child.
+Exclude #9 repairs, new accounting rules, automatic hardware qualification, optional automatic reload research, production deployment, offline operation, booking/payment, multiple Admins/booths/printers, galleries, digital delivery, editing, charts and unapproved visual redesigns. ADR-0034 records the November presentation reference; it changes none of these functional scope limits. A newly discovered product or durable technical decision is raised for focused approval under AGENTS.md and documented through the existing ADR process; it is not silently added to a child.
 
 ## GitHub publication record
 

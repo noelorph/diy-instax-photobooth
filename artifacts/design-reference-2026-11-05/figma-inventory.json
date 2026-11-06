@@ -1,0 +1,490 @@
+{
+  "figmaFile": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj",
+  "checkedAt": "2026-11-05",
+  "screenCount": 74,
+  "pages": [
+    {
+      "page": "01 · Admin",
+      "counts": {
+        "FRAME": 444,
+        "VECTOR": 271,
+        "TEXT": 487,
+        "INSTANCE": 83,
+        "RECTANGLE": 25
+      },
+      "fontFamilies": ["Manrope", "Libre Baskerville"],
+      "imageNodes": [],
+      "issues": [],
+      "screens": [
+        {
+          "id": "4:179",
+          "name": "A01 · Dashboard",
+          "width": 1440,
+          "height": 1024
+        },
+        {
+          "id": "4:307",
+          "name": "A02 · Events",
+          "width": 1440,
+          "height": 1024
+        },
+        {
+          "id": "4:416",
+          "name": "A03 · Draft Event Editor",
+          "width": 1440,
+          "height": 1024
+        },
+        {
+          "id": "4:550",
+          "name": "A04 · Draft Setup on iPad",
+          "width": 1440,
+          "height": 1024
+        },
+        {
+          "id": "4:689",
+          "name": "A05 · Draft Media — unavailable",
+          "width": 1440,
+          "height": 1024
+        },
+        {
+          "id": "4:803",
+          "name": "A06 · Live Event — desktop",
+          "width": 1440,
+          "height": 1024
+        },
+        {
+          "id": "4:938",
+          "name": "A07 · History",
+          "width": 1440,
+          "height": 1024
+        },
+        {
+          "id": "4:1038",
+          "name": "A08 · History detail",
+          "width": 1440,
+          "height": 1024
+        },
+        {
+          "id": "4:1143",
+          "name": "A09 · Profile",
+          "width": 1440,
+          "height": 1024
+        },
+        {
+          "id": "4:1247",
+          "name": "A10 · Authentication — Sign in",
+          "width": 960,
+          "height": 840
+        },
+        {
+          "id": "4:1287",
+          "name": "A11 · Authentication — Forgot password",
+          "width": 960,
+          "height": 840
+        },
+        {
+          "id": "4:1320",
+          "name": "A12 · Authentication — Email confirmation",
+          "width": 960,
+          "height": 840
+        },
+        {
+          "id": "4:1351",
+          "name": "A13 · Authentication — Reset password",
+          "width": 960,
+          "height": 840
+        },
+        {
+          "id": "4:1385",
+          "name": "A14 · Authentication — Link expired",
+          "width": 960,
+          "height": 840
+        },
+        {
+          "id": "4:1415",
+          "name": "A15 · Authentication — Reset complete",
+          "width": 960,
+          "height": 840
+        },
+        {
+          "id": "4:1440",
+          "name": "A16 · Live Event — phone",
+          "width": 390,
+          "height": 844
+        },
+        {
+          "id": "4:1487",
+          "name": "A17 · Phone — pending recovery",
+          "width": 390,
+          "height": 844
+        },
+        {
+          "id": "4:1534",
+          "name": "A18 · Phone — film reload needed",
+          "width": 390,
+          "height": 844
+        },
+        {
+          "id": "4:1575",
+          "name": "A19 · Phone — paused and ready",
+          "width": 390,
+          "height": 844
+        },
+        {
+          "id": "4:1609",
+          "name": "A20 · Phone — run finished",
+          "width": 390,
+          "height": 844
+        },
+        {
+          "id": "12:249",
+          "name": "A21 · Draft Setup — iPad portrait",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "12:324",
+          "name": "A22 · Draft Event Editor — phone",
+          "width": 390,
+          "height": 1400
+        }
+      ]
+    },
+    {
+      "page": "02 · Booth — iPad A16",
+      "counts": {
+        "FRAME": 234,
+        "TEXT": 161,
+        "VECTOR": 199,
+        "INSTANCE": 18,
+        "GROUP": 5,
+        "RECTANGLE": 9
+      },
+      "fontFamilies": ["Manrope", "Libre Baskerville"],
+      "imageNodes": [],
+      "issues": [],
+      "screens": [
+        {
+          "id": "9:249",
+          "name": "B01 · Welcome / default",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:280",
+          "name": "B02 · Camera preview",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:314",
+          "name": "B03 · Countdown",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:344",
+          "name": "B04 · Photo review",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:386",
+          "name": "B05 · Inactivity warning",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:409",
+          "name": "B06 · Preparing your print",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:439",
+          "name": "B07 · Sending to Instax",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:469",
+          "name": "B08 · Waiting for ejection",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:499",
+          "name": "B09 · Print complete",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:517",
+          "name": "B10 · Bluetooth disconnected",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:538",
+          "name": "B11 · Camera disconnected",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:560",
+          "name": "B12 · Camera permission denied",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:584",
+          "name": "B13 · Wi-Fi disconnected",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:605",
+          "name": "B14 · Connection unavailable",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:622",
+          "name": "B15 · Printer out of film",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:642",
+          "name": "B16 · Temporarily unavailable",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:657",
+          "name": "B17 · Last print unresolved",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:673",
+          "name": "B18 · Pending print + Bluetooth lost",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:696",
+          "name": "B19 · Booked prints exhausted",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:714",
+          "name": "B20 · Booth paused",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:728",
+          "name": "B21 · Paused + Bluetooth lost",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:750",
+          "name": "B22 · Finishing Booth Mode",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:764",
+          "name": "B23 · Booth Mode finished",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:784",
+          "name": "B24 · Booth access ended",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:805",
+          "name": "B25 · Finishing + reconnect required",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:827",
+          "name": "B30 · Paused + unresolved print",
+          "width": 820,
+          "height": 1180
+        },
+        {
+          "id": "9:843",
+          "name": "B26 · Welcome / landscape",
+          "width": 1180,
+          "height": 820
+        },
+        {
+          "id": "9:875",
+          "name": "B27 · Camera preview / landscape",
+          "width": 1180,
+          "height": 820
+        },
+        {
+          "id": "9:912",
+          "name": "B28 · Photo review / landscape",
+          "width": 1180,
+          "height": 820
+        },
+        {
+          "id": "9:955",
+          "name": "B29 · Bluetooth recovery / landscape",
+          "width": 1180,
+          "height": 820
+        }
+      ]
+    },
+    {
+      "page": "03 · Dialogs & reference",
+      "verification": "20 frames passed the post-polish bounds audit; 2 mobile frames passed creation assertions and rendered inspection. Final repeated whole-page audit stopped by Starter MCP quota.",
+      "screens": [
+        {
+          "id": "9:979",
+          "name": "00 / Instax Booth — new design reference",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1004",
+          "name": "01 / Foundations — type, color and interaction",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1075",
+          "name": "02 / Research, device assumptions and authority",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1120",
+          "name": "D01 / Add Film Packages",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1201",
+          "name": "D02 / Confirm physical reload",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1277",
+          "name": "D03 / Resolve pending — Printed",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1366",
+          "name": "D04 / Resolve pending — Not printed blocked",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1449",
+          "name": "D05 / Pause Booth",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1509",
+          "name": "D06 / Resume blocked",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1573",
+          "name": "D07 / Resume ready",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1646",
+          "name": "D08 / Finish Booth Mode",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1709",
+          "name": "D09 / Complete Event",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1781",
+          "name": "D10 / Complete Event blocked",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1834",
+          "name": "D11 / Cancel Draft",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1902",
+          "name": "D12 / Delete Draft",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:1964",
+          "name": "D13 / Draft deletion — cleanup pending",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:2025",
+          "name": "D14 / Stale Draft conflict",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:2093",
+          "name": "D15 / Password reset — incomplete, active session",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:2159",
+          "name": "D16 / Password reset — new link required",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "9:2213",
+          "name": "D17 / Feedback — progress, success, error and offline",
+          "width": 1200,
+          "height": 1100
+        },
+        {
+          "id": "13:561",
+          "name": "D18 / Add Film Packages — phone 390 × 844",
+          "width": 390,
+          "height": 844
+        },
+        {
+          "id": "13:615",
+          "name": "D19 / Not printed — phone 390 × 844",
+          "width": 390,
+          "height": 844
+        }
+      ],
+      "issues": [],
+      "limits": ["Final repeat audit not performed after Starter read quota was reached."]
+    }
+  ]
+}

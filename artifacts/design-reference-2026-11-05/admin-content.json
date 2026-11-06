@@ -1,0 +1,335 @@
+{
+  "status": "Independent visual proposal; does not replace current product decisions or issue references.",
+  "brand": "Instax Booth",
+  "event": {
+    "name": "Mia & Leo's wedding",
+    "client": "Sofia Reyes",
+    "email": "sofia@example.com",
+    "phone": "+63 917 555 0123",
+    "venue": "The Glasshouse",
+    "address": "18 Garden Avenue, Makati",
+    "schedule": "5 Nov 2026 · 5:00–9:00 PM",
+    "timeZone": "Asia/Manila · UTC+08:00",
+    "originalPackages": 5,
+    "additionalPackages": 1,
+    "totalBookedPrints": 60,
+    "confirmedPrints": 37,
+    "pendingPrints": 1,
+    "printsAvailable": 22
+  },
+  "navigation": ["Dashboard", "Events", "History", "Profile"],
+  "screens": [
+    {
+      "id": "A01-dashboard",
+      "title": "A good day for memories.",
+      "sections": [
+        "Monthly Events · 3",
+        "Total Events booked · 24",
+        "Next Event · Mia & Leo's wedding",
+        "Upcoming Events",
+        "Recent activity · Last 7 days / Last 30 days · 25 per page"
+      ],
+      "copy": [
+        "November 2026 · Scheduled in each venue's time zone",
+        "Your next Event is ready to prepare.",
+        "No activity yet.",
+        "Activity could not be loaded. Try again."
+      ],
+      "interactions": [
+        "Create Event",
+        "View Event",
+        "Change activity period",
+        "Previous / Next page",
+        "Retry"
+      ],
+      "conditions": [
+        "Monthly count includes Draft, Live, Completed and excludes Cancelled/deleted; scheduled start determines month.",
+        "Activity contains Event/action references, no contact copies or Guest photos.",
+        "No charts or revenue."
+      ]
+    },
+    {
+      "id": "A02-events",
+      "title": "Events",
+      "sections": ["Live Event", "Draft Events", "Upcoming annotation", "Overdue Draft"],
+      "copy": [
+        "Prepare the details. Make room for the moment.",
+        "No Events yet. Create your first Event to get started."
+      ],
+      "interactions": ["Create Event", "Open Draft", "Manage Live Event"],
+      "conditions": [
+        "Only Draft and Live; terminal Events are in History.",
+        "Overdue Drafts remain visible; future Draft/Live scheduled starts are Upcoming."
+      ]
+    },
+    {
+      "id": "A03-draft-editor",
+      "title": "Prepare an Event",
+      "sections": [
+        "Event name",
+        "Client · name / email / phone",
+        "Venue · name / address / time zone",
+        "Schedule · start / end",
+        "Original Film Packages · 5 packages / 50 booked prints"
+      ],
+      "copy": [
+        "Each Film Package provides 10 Event prints.",
+        "You can save a Draft with zero packages. Add at least one before starting Booth Mode.",
+        "Times are in Asia/Manila (UTC+08:00).",
+        "End time must be after start time.",
+        "This Event changed on another device. Reload the latest version before saving."
+      ],
+      "interactions": ["Save Draft", "Cancel editing", "Reload latest version"],
+      "conditions": [
+        "Whole nonnegative packages; derived print total is not editable.",
+        "Reject invalid/ambiguous/nonexistent venue-local times and stale saves.",
+        "Saving/failed/lost-response recovery must not duplicate an Event."
+      ]
+    },
+    {
+      "id": "A04-draft-setup",
+      "title": "Ready for the first Guest?",
+      "sections": [
+        "Booking summary",
+        "Camera preview",
+        "Internet and server",
+        "Instax connection and readiness",
+        "Film loaded",
+        "Printer power",
+        "Guided Access",
+        "50 prints available"
+      ],
+      "copy": [
+        "Always test the printer before starting Booth Mode.",
+        "Start Booth Mode on the booth iPad.",
+        "You'll be signed out on this iPad. Your phone stays signed in.",
+        "Checking camera and printer before welcoming Guests…"
+      ],
+      "interactions": [
+        "Enable Camera",
+        "Connect to Instax",
+        "Confirm film loaded",
+        "Start Booth Mode"
+      ],
+      "conditions": [
+        "No Test Print button or test-result prerequisite.",
+        "Start blocked until required readiness and positive original booking.",
+        "Fresh camera/printer readiness after navigation, before Guest admission."
+      ]
+    },
+    {
+      "id": "A05-event-media",
+      "title": "A personal welcome",
+      "sections": [
+        "Background image · JPEG, PNG or WebP · up to 10 MB",
+        "Welcome montage · MP4 H.264 · up to 50 MB / 30 seconds",
+        "Default Booth presentation preview"
+      ],
+      "copy": [
+        "Media uploads are temporarily unavailable.",
+        "Before re-enabling uploads, verify cleanup of interrupted or late uploads and leftover files.",
+        "Your booth works with the default welcome.",
+        "Event Media is separate from Guest photos."
+      ],
+      "interactions": ["Upload background — disabled", "Upload montage — disabled"],
+      "conditions": [
+        "Current reference shows runtime-unavailable controls, no re-enable action.",
+        "Live and terminal media read-only; media not required for readiness.",
+        "Retained optional future media cannot alter the captured or printed photo."
+      ]
+    },
+    {
+      "id": "A06-live-desktop",
+      "title": "Mia & Leo's wedding",
+      "sections": [
+        "Event Live / Booth Active or blocked",
+        "60 booked · 37 confirmed · 1 pending · 22 available",
+        "5 original + 1 additional Film Packages",
+        "Booking and Client details",
+        "Booth readiness",
+        "Recent activity"
+      ],
+      "copy": [
+        "A print is awaiting an outcome. New Guests are on hold.",
+        "Booking details and original packages are locked while Live.",
+        "Adding a Film Package adds 10 booked prints. Loading film is a separate step."
+      ],
+      "interactions": [
+        "Add Film Packages",
+        "Inspect pending print",
+        "Pause Booth",
+        "Finish Booth Mode"
+      ],
+      "conditions": [
+        "Do not imply 22 physical sheets or measured film inventory.",
+        "Finish Booth Mode leaves Event Live.",
+        "Complete/Cancel only with Finished runs and terminal attempts."
+      ]
+    },
+    {
+      "id": "A07-phone-management",
+      "title": "Your booth, at a glance.",
+      "sections": [
+        "Mia & Leo's wedding · Live",
+        "Booth state",
+        "22 prints available",
+        "37 confirmed / 1 pending / 60 booked",
+        "Equipment status",
+        "Controls"
+      ],
+      "copy": [
+        "Booth paused",
+        "The booth stays paused until you resume it.",
+        "Resolve the pending print and equipment issues before resuming."
+      ],
+      "interactions": ["Add Film Packages", "Pause Booth", "Resume Booth", "Finish Booth Mode"],
+      "conditions": [
+        "Phone actions retain iPad device access.",
+        "Equipment recovery never silently clears a deliberate pause.",
+        "Resume requires valid access and readiness."
+      ]
+    },
+    {
+      "id": "A08-phone-recovery",
+      "title": "The booth needs your attention",
+      "sections": [
+        "Film reload needed",
+        "Pending print outcome",
+        "Bluetooth / camera / internet readiness",
+        "Required next action"
+      ],
+      "copy": [
+        "Load a new film package into the printer, then confirm below.",
+        "Confirming a reload does not add booked prints or settle the pending print.",
+        "If you cannot establish the outcome, leave it pending.",
+        "Only choose Not printed when the old job cannot eject later."
+      ],
+      "interactions": ["Confirm film loaded", "Printed", "Not printed", "Reason — required"],
+      "conditions": [
+        "Inspection only for unknown outcomes; no routine manual success confirmation.",
+        "Not printed requires safe-clear assurance as well as reason.",
+        "Known outcomes need no inspection choice; no resend or old-photo retry."
+      ]
+    },
+    {
+      "id": "A09-history",
+      "title": "Good moments, kept in the details.",
+      "sections": [
+        "Completed Events",
+        "Cancelled Events",
+        "Name / schedule and zone / venue / Client / packages / print totals",
+        "Read-only Event detail",
+        "Retained media and activity"
+      ],
+      "copy": [
+        "No completed or cancelled Events yet.",
+        "History is unavailable right now. Try again.",
+        "Completed · 60 booked prints · 59 Confirmed Prints"
+      ],
+      "interactions": ["View Event", "Retry"],
+      "conditions": [
+        "No edit/delete/redact controls.",
+        "No Guest photo gallery.",
+        "Cancelled contacts/media retained; deleted Draft absent."
+      ]
+    },
+    {
+      "id": "A10-profile",
+      "title": "Your account",
+      "sections": [
+        "Verified email · admin@example.com",
+        "Phone · optional",
+        "Appearance · Light / Dark",
+        "Password",
+        "This device"
+      ],
+      "copy": [
+        "Your appearance preference applies to Admin screens.",
+        "Sign out ends your Admin session on this device. Booth access stays active."
+      ],
+      "interactions": ["Save phone", "Choose Light / Dark", "Change password", "Sign out"],
+      "conditions": [
+        "No avatar or public signup.",
+        "Authenticated password change; Booth presentation independent from preference."
+      ]
+    },
+    {
+      "id": "A11-authentication",
+      "title": "Welcome back.",
+      "sections": [
+        "Sign in · email / password",
+        "Forgot password · email",
+        "Reset password · new password / confirmation",
+        "Reset link unavailable",
+        "Reset incomplete",
+        "Reset complete"
+      ],
+      "copy": [
+        "If an account matches that email, we'll send a password reset link.",
+        "Choose a password different from your current password.",
+        "This link is no longer available. Request a new reset link.",
+        "Your password was saved, but we couldn't confirm that all Admin sessions ended.",
+        "Your password has been changed and all Admin sessions have ended. Sign in with your new password."
+      ],
+      "interactions": [
+        "Sign in",
+        "Forgot password",
+        "Send reset link",
+        "Reset password",
+        "Request a new link"
+      ],
+      "conditions": [
+        "No account-existence disclosure.",
+        "Different-password retry only if recovery session confirmed active.",
+        "No success until global Admin revocation confirmed; Booth access unchanged."
+      ]
+    },
+    {
+      "id": "A12-dialogs-feedback",
+      "title": "Clear decisions. Honest feedback.",
+      "sections": [
+        "Add Film Packages",
+        "Confirm film loaded",
+        "Resolve pending print",
+        "Pause / Resume blocked",
+        "Finish Booth Mode",
+        "Complete Event",
+        "Cancel Draft",
+        "Delete Draft / cleanup pending",
+        "Stale save",
+        "Password reset incomplete"
+      ],
+      "copy": [
+        "Finish Booth Mode? The Event stays Live. Any print already sent may still finish.",
+        "Complete Event? This Event will move to History and become read-only.",
+        "Cancel Draft? The Event and its media will be retained in History.",
+        "Delete Draft? Booking details will be removed. Deletion completes only after private media cleanup is verified.",
+        "Media cleanup pending. Deletion is not complete."
+      ],
+      "interactions": [
+        "Clearly named confirm action",
+        "Cancel / Keep Draft / Keep Live",
+        "Required reason or Client-request note where applicable",
+        "Persistent error and pending feedback"
+      ],
+      "conditions": [
+        "Consequential actions explain effects before commitment.",
+        "Destructive controls are separate from routine work.",
+        "No false success while receipt/outcome/cleanup remains unknown."
+      ]
+    }
+  ],
+  "preservedIssues": [30, 34, 35],
+  "authorities": [
+    "PRD.md",
+    "GLOSSARY.md",
+    "ARCHITECTURE.md",
+    "docs/adr/0015-complete-admin-reset-only-after-password-change-and-revocation.md",
+    "docs/adr/0025-package-accounting-and-booth-recovery.md",
+    "docs/adr/0027-draft-only-event-media.md",
+    "docs/adr/0028-define-monthly-event-count.md",
+    "docs/adr/0030-fence-event-media-commits-and-require-cleanup-proof.md",
+    "docs/adr/0031-temporarily-disable-event-media-uploads.md",
+    "docs/adr/0032-build-full-f2-with-uploads-unavailable.md"
+  ]
+}

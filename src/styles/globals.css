@@ -38,7 +38,7 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-/* Apricot Studio light roles (docs/design/2026-11-04-apricot-studio/tokens.json). */
+/* Apricot Studio light roles; dated evidence: docs/implementation/2026-11-04-apricot-studio-evidence.md. */
 :root,
 .public-auth,
 .admin-shell,

@@ -2,7 +2,7 @@
 
 **Location superseded:** [ADR-0020](0020-place-shared-ui-components-under-src.md) moves the existing shared library to `src/components/`. The component responsibilities and styling guidance below remain in effect; the root-location and special-alias choices are historical.
 
-The Admin foundation currently repeats native form controls and styles them through broad global selectors, even though [DESIGN_SYSTEM.md](../../DESIGN_SYSTEM.md) calls for Tailwind CSS 4, customized shadcn/ui primitives, and Lucide icons. The owner approved a cohesive refresh of every implemented Admin screen, with project-wide reusable components under root `/components`.
+The Admin foundation currently repeats native form controls and styles them through broad global selectors, even though the then-current presentation guide calls for Tailwind CSS 4, customized shadcn/ui primitives, and Lucide icons. The owner approved a cohesive refresh of every implemented Admin screen, with project-wide reusable components under root `/components`.
 
 Store selectively installed and customized shadcn/ui primitives in `components/ui/`, product-neutral compositions in `components/shared/`, and reusable auth/Admin layouts in `components/layout/`. Keep feature state, validation, data access, and page-specific compositions in `src/features/admin/`. Configure import aliases for root `components/` without changing the existing `@/*` mapping for `src/*`. Map component styling to the design system's semantic tokens; remove global element selectors when component styles replace them. Use Lucide only where an icon improves scanning or identifies a control, with accessible text and names.
 

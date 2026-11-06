@@ -41,7 +41,7 @@ Earlier ADRs retain decision history with explicit supersession notices. The rep
 | ADR-0023                     | Retain `/booth`; replace handoff on ordinary pause/failure                                                                                                                                     |
 | ADR-0024                     | Historical implementation reference; replace tests, quality corrections, reconnect revocation and old recovery flow; preserve bounded metadata reconciliation, one-send and origin protections |
 
-Unaffected decisions remain in force: photo privacy (0001), visual system (0010), local HTTPS (0013), Auth reset safety (0015), component placement (0020) and the shared typography policy (0019 at the time of this decision; replaced by [ADR-0033](0033-adopt-apricot-studio-design-system.md) on 2026-11-04). ADR-0018 remains superseded by 0020. [ADR index](README.md) links every decision and its current scope.
+Unaffected decisions remain in force: photo privacy (0001), visual system (0010), local HTTPS (0013), Auth reset safety (0015), component placement (0020) and the shared typography policy (0019 at the time of this decision; replaced by [ADR-0033](0033-adopt-apricot-studio-design-system.md) on 2026-11-04, then [ADR-0034](0034-use-november-screen-reference-in-implementation-plan.md) on 2026-11-06). ADR-0018 remains superseded by 0020. [ADR index](README.md) links every decision and its current scope.
 
 ## Refinement
 

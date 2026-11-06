@@ -17,10 +17,10 @@ The [#10 functional design](docs/superpowers/specs/2026-10-24-issue-10-functiona
 ## Read first
 
 - [Replacement contract](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md): transitions, formulas, access/database rules, target APIs and recovery.
-- [PRD](PRD.md), [architecture](ARCHITECTURE.md), [glossary](GLOSSARY.md), [design system](DESIGN_SYSTEM.md).
+- [PRD](PRD.md), [architecture](ARCHITECTURE.md), [glossary](GLOSSARY.md), [screen reference](docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract).
 - [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md): decisions and supersession map; [ADR-0026](docs/adr/0026-order-captures-by-shutter-time.md): shutter-time Capture ordering and explicitly selected ties.
 - [Proof checklist](docs/qualification/booth-recovery-proof-checklist.md): known observations, unproven work, pass criteria and fallbacks.
-- [Approved Apricot Studio direction](docs/design/2026-11-04-apricot-studio/README.md): orange/apricot colors and smaller DM Sans typography for Admin and Booth under [ADR-0033](docs/adr/0033-adopt-apricot-studio-design-system.md); implemented in the application on 2026-11-04, with actual-iPad verification pending. The [October 21 gallery](docs/design/2026-10-21-package-recovery/index.html) and [screen notes](docs/design/2026-10-21-package-recovery/screen-map.md) retain package/recovery state coverage, with superseded visual styling.
+- [November screen reference](docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): 22 extracted Admin pages and supplementary Booth/dialog references, with capability owners and accessibility rules under [ADR-0034](docs/adr/0034-use-november-screen-reference-in-implementation-plan.md). Application adoption and physical qualification remain separate work.
 - [Documentation index](docs/README.md): active guides versus historical artifacts.
 - [Documentation review](docs/documentation-review.md): historical approval record; [implementation review](docs/implementation/issue-9-package-contracts-review.md): current software evidence and #10 handoff.
 - [GitHub issue publication record](docs/github-issue-update-drafts.md): accepted #9 and the published #10 complete-removal scope, child links and dependency verification. #17/#7 drafts remain unpublished.

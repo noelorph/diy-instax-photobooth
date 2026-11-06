@@ -138,7 +138,10 @@ export type DispatchAuthorization = {
   printerId: string;
   connectionGeneration: number;
 };
-export type DispatchResult = PackageOperationResult<{ attemptId: string; state: AttemptState }> &
+export type DispatchResult = PackageOperationResult<{
+  attemptId: string;
+  state: AttemptState;
+}> &
   ({ sendAllowed: true; authorization: DispatchAuthorization } | { sendAllowed: false });
 ```
 
@@ -419,7 +422,7 @@ async function dispatchReservedAttempt(
 
 ## 5. Issue #10 handoff outline — not an execution plan yet
 
-After #9 review, split #10 into focused implementation work before claiming it complete. Use [the approved mockup gallery](../../design/2026-10-21-package-recovery/README.md), [screen map](../../design/2026-10-21-package-recovery/screen-map.md), [routes/flowchart](../../booth-user-flow.md) and root `DESIGN_SYSTEM.md`. Preserve the approved consistent Admin visual language. Use Superpowers TDD and Ponytail again; do not redesign while wiring the contract.
+After #9 review, split #10 into focused implementation work before claiming it complete. For current #10 work, use the [main plan’s screen reference](2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract) and [routes/flowchart](../../booth-user-flow.md). Preserve the approved consistent Admin visual language. Use Superpowers TDD and Ponytail again; do not redesign while wiring the contract.
 
 | Work package                                 | Existing consumers to update                                                                                                             | Acceptance                                                                                                                                                                                                                                                                                       |
 | -------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |

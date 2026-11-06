@@ -1,7 +1,7 @@
 # ADR-0033: Adopt Apricot Studio and a smaller DM Sans type scale
 
-**Status:** Accepted, 2026-11-04. Implemented as a presentation-only change on branch `feat/apricot-studio-redesign` the same day; local browser verification is recorded in the [design system implementation record](../../DESIGN_SYSTEM.md#10-implementation-record--2026-11-04). Actual-iPad rendering and media-backed welcome verification remain pending.
-**Authority:** [Design system](../../DESIGN_SYSTEM.md), [approved direction](../design/2026-11-04-apricot-studio/README.md).
+**Status:** Superseded by [ADR-0034](0034-use-november-screen-reference-in-implementation-plan.md), 2026-11-06. Accepted and implemented on 2026-11-04; the [dated implementation evidence](../implementation/2026-11-04-apricot-studio-evidence.md) preserves actual results and limits.
+**Current presentation authority:** [Main plan](../superpowers/plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract). The decision below records the previous Apricot target; original references are archived at Git revision `969e27eaa9082992ed58bbacd1b8c32c4393fbf0`.
 
 ## Context
 
@@ -9,7 +9,7 @@ The owner found the existing Geist/teal interface too generic and muted. They ch
 
 ## Decision
 
-- Use warm cream, dark brown text, burnt-orange actions and pale apricot surfaces. Reserve the brighter peach accent for illustration and decoration. Exact light/dark roles live in the design system and its [token companion](../design/2026-11-04-apricot-studio/tokens.json).
+- Use warm cream, dark brown text, burnt-orange actions and pale apricot surfaces. Reserve the brighter peach accent for illustration and decoration. Exact light/dark roles were recorded in the presentation guide and token companion archived at that Git revision.
 - Use locally served **DM Sans** throughout, with regular 400 body text, medium 500 labels/buttons and semibold 600 headings. Admin page titles are 28/36 px, section titles 18/26 px, body text 16/24 px and secondary text 14/20 px. Booth headings are 36/44 px and instructions/buttons 20/28 px. Keep the larger countdown and generous touch targets.
 - Give the default welcome a light cream surface and an original instant-camera illustration. Camera preview, countdown, review, printing, completion and operational/recovery screens use dark brown neutrals. The existing Admin light/dark preference remains; Booth appearance is determined by its state, independently of that preference. Add no theme selector.
 - Use open sections, subtle separators and a pale accounting strip instead of enclosing every group in a card. Preserve labels, controls, route order, field validation and responsive access to every existing action.
@@ -21,7 +21,7 @@ This records a presentation decision, not a new feature or an implementation acc
 
 The approved raster is a visual reference for the welcome and Live Event page. Exact font size, colors, states and accessibility come from the written system; the raster is not a pixel specification. Dark mode, remaining screens and responsive layouts follow the shared tokens and existing behavior, and still require browser/actual-device verification during implementation.
 
-The October 21 mockups, generation records and tokens remain historical presentation evidence and useful state-coverage references. Their Geist/teal styling and always-dark welcome are superseded. No dated software or physical acceptance result is rewritten by this decision.
+The October 21 mockups, generation records and tokens are archived historical presentation evidence; the current main-plan catalog replaces their active state-coverage role. Their Geist/teal styling and always-dark welcome are superseded. No dated software or physical acceptance result is rewritten by this decision.
 
 ## Implementation notes — 2026-11-04
 

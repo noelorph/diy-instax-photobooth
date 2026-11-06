@@ -1,0 +1,105 @@
+const page=await figma.getNodeByIdAsync('0:1');await figma.setCurrentPageAsync(page);
+function shell(name,index,active='Events'){
+ const f=artboard(name,1440,1024,index,3);f.layoutMode='HORIZONTAL';
+ const nav=box(f,'Navigation',216,12,24,'surface');nav.resize(216,1024);nav.primaryAxisSizingMode='FIXED';
+ const brand=row(nav,'Brand',10);icon(brand,'Camera',30,'accent');txt(brand,'instax\nbooth',20,'ink','ExtraBold',100);spacer(nav,46);
+ [['Dashboard','LayoutDashboard'],['Events','CalendarDays'],['History','History'],['Profile','UserRound']].forEach(([label,ico])=>{const r=box(nav,'Navigate / '+label,168,12,12,label===active?'accentSoft':null,'HORIZONTAL');r.cornerRadius=12;icon(r,ico,22,label===active?'accent':'muted');txt(r,label,14,label===active?'accent':'muted',label===active?'Bold':'Medium',104);});
+ spacer(nav,510);txt(nav,'ONE MOMENT.\nONE KEEPSAKE.',11,'muted','Bold');
+ const main=box(f,'Main',1224,24,40);return {f,main};
+}
+function heading(p,kicker,name,action){eyebrow(p,kicker);const r=row(p,'Page heading',20);title(r,name,36,action?850:inner(p));if(action)button(r,action,'primary',260);}
+function pills(p,labels){const r=row(p,'Filters',12);labels.forEach((l,i)=>button(r,l,i===0?'dark':'secondary',l.length*8+36,44));}
+function item(p,titleText,sub,status,extra){const r=row(p,'Event row',20);const a=box(r,'Event',520,5);txt(a,titleText,18,'ink','Bold');txt(a,sub,14,'muted');badge(r,status,(status==='Live'||status==='Completed')?'success':status==='Cancelled'?'danger':'warning',120);txt(r,extra,14,'muted','Regular',240);icon(r,'ArrowUpRight',24);rule(p);}
+function activity(p,rows){rows.forEach(([time,label,detail])=>{const r=row(p,'Activity item',16);txt(r,time,12,'muted','Medium',70);const t=box(r,'Description',inner(p)-86,4);txt(t,label,14,'ink','SemiBold');if(detail)txt(t,detail,12,'muted');rule(p);});}
+function packageSummary(p){eyebrow(p,'Film Packages');title(p,'50 prints',32);txt(p,'5 original Film Packages × 10 prints',15,'muted');rule(p);txt(p,'Adding a package books prints. Loading film prepares the printer.',14,'muted');}
+
+{
+ const {f,main:m}=shell('A01 · Dashboard',0,'Dashboard');heading(m,'Thursday, 5 November','Good evening.','Create Event');
+ const stats=row(m,'Booking summary',20);metric(stats,'Monthly Events','3','November · each venue’s local time',352);metric(stats,'Total Events booked','18','Excludes cancelled Events',352);metric(stats,'Upcoming Events','2','Draft and Live with future starts',400);
+ const r=row(m,'Today and next',24);const live=card(r,'Live Event',704,'ink',28);const b=row(live,'State',12);badge(b,'Live');txt(b,'BOOTH ACTIVE',12,'paper','Bold',260);txt(live,'Mia & Leo’s wedding',32,'surface','SemiBold');txt(live,'The Glasshouse · 5 Nov, 5:00–9:00 PM\nAsia/Manila · UTC+08:00',15,'paper');const lr=row(live,'Print summary',24);txt(lr,'37\nConfirmed Prints',20,'surface','SemiBold',280);txt(lr,'23\nPrints available',20,'surface','SemiBold',280);button(live,'Open Live Event','primary',250);
+ const next=card(r,'Next Event',416);eyebrow(next,'Up next');title(next,'A little\ncelebration.',28);txt(next,'Isla’s first birthday',17,'ink','Bold');txt(next,'14 Nov · 2:00–5:00 PM\nThe Garden Room · Asia/Manila',14,'muted');button(next,'Open Draft','secondary');
+ const ac=card(m,'Recent activity');const ar=row(ac,'Activity filters',16);title(ar,'Recent activity',22,740);button(ar,'7 days','dark',100,44);button(ar,'30 days','secondary',120,44);activity(ac,[['6:42 PM','Print confirmed','Mia & Leo’s wedding'],['6:18 PM','1 Film Package added','10 additional booked prints'],['5:02 PM','Booth Mode started','Mia & Leo’s wedding']]);
+ caption(f,'Monthly Events: Draft + Live + Completed by venue-local scheduled start; Cancelled/deleted excluded. Activity: 25 rows/page. Fictional example data.');
+}
+{
+ const {f,main:m}=shell('A02 · Events',1);heading(m,'Your bookings','Events','Create Event');pills(m,['All Events','Draft','Live']);
+ const list=card(m,'Event list');eyebrow(list,'3 Events');item(list,'Mia & Leo’s wedding','5 Nov 2026 · 5:00–9:00 PM · Asia/Manila','Live','60 total booked prints');item(list,'Isla’s first birthday','14 Nov 2026 · 2:00–5:00 PM · Asia/Manila','Draft','Upcoming · 50 prints');item(list,'Studio open house','3 Nov 2026 · 10:00 AM–4:00 PM · Asia/Manila','Draft','Past schedule · 0 prints');
+ notice(m,'One booth. One Live Event.','Finish and complete the current Event before starting another.','success');
+ caption(f,'Draft and Live Events remain visible. Upcoming is a schedule annotation. Overdue Drafts are not silently hidden.');
+}
+{
+ const {f,main:m}=shell('A03 · Draft Event Editor',2);heading(m,'Events / New Event','Make room for a moment.');
+ const r=row(m,'Editor and booking summary',24);const form=card(r,'Event form',760);title(form,'Event details',22);field(form,'Event name','Isla’s first birthday');const a=row(form,'Client fields',16);field(a,'Client name','Sofia Reyes',348);field(a,'Client email','sofia@example.com',348);const b=row(form,'Contact and venue',16);field(b,'Client phone','+63 917 555 0123',348);field(b,'Venue','The Garden Room',348);field(form,'Venue address','24 Example Lane, Makati');const c=row(form,'Schedule',16);field(c,'Start · venue local time','14 Nov 2026, 2:00 PM',348);field(c,'End · venue local time','14 Nov 2026, 5:00 PM',348);const d=row(form,'Zone and package',16);field(d,'Venue time zone','Asia/Manila',348);field(d,'Original Film Packages','5',348);
+ const sum=card(r,'Booking summary',360,'accentSoft');packageSummary(sum);txt(sum,'A Draft can be saved with zero packages. Starting Booth Mode requires at least one.',14,'muted');
+ const actions=row(m,'Save actions',16);button(actions,'Save Draft','primary',200);button(actions,'Cancel','secondary',140);txt(actions,'All times use the venue time zone.',13,'muted','Regular',560);
+ caption(f,'Visible labels; errors beside fields plus linked summary after submit. Preserve values on errors and stale saves. Whole nonnegative packages; end after start.');
+}
+{
+ const {f,main:m}=shell('A04 · Draft Setup on iPad',3);heading(m,'Events / Isla’s first birthday','Ready when you are.');
+ const r=row(m,'Setup',24);const checks=card(r,'Readiness checklist',720);title(checks,'Prepare this iPad',24);txt(checks,'Start Booth Mode here. You can manage the Live Event from your phone.',15,'muted');
+ [['Internet & server','Connected'],['Camera','Live preview confirmed'],['Instax Mini Link 3','Connected · ready'],['Film loaded','Physical load confirmed'],['Printer power','Connected to continuous power'],['Guided Access','Ready on this iPad']].forEach(([a,b])=>{const rr=row(checks,a,16);icon(rr,'CircleCheck',24,'success');const cc=box(rr,'Check',390,3);txt(cc,a,15,'ink','Bold');txt(cc,b,13,'muted');badge(rr,'Ready','success',90);rule(checks);});
+ const side=card(r,'Start summary',400);badge(side,'Draft','warning');title(side,'Isla’s first birthday',28);facts(side,[['Venue','The Garden Room'],['Starts','14 Nov · 2:00 PM'],['Time zone','Asia/Manila'],['Film Packages','5'],['Booked prints','50']]);notice(side,'Before you start','Always test the printer before starting Booth Mode.','warning');txt(side,'Starting signs you out on this iPad only. Your phone remains signed in.',14,'muted');button(side,'Start Booth Mode');
+ caption(f,'Readiness shown as a qualified target state. After local sign-out/handoff, fresh camera and printer checks must pass again. No in-app Test Print button.');
+}
+{
+ const {f,main:m}=shell('A05 · Draft Media — unavailable',4);heading(m,'Events / Isla’s first birthday','A personal welcome.');pills(m,['Event Media','Booking details','Booth setup']);notice(m,'Media uploads are temporarily unavailable.','Default Booth presentation is ready to use.','warning');
+ const r=row(m,'Optional media',24);const a=card(r,'Background image',560);icon(a,'Image',40,'accent');title(a,'Background image',24);txt(a,'Optional · appears behind the Booth welcome.\nNever added to a Guest photo.',15,'muted');const ap=box(a,'Default background illustration',512,16,40,'paper');icon(ap,'Camera',72,'accent');txt(ap,'The default is ready.',24,'ink','SemiBold');button(a,'Upload background','disabled');txt(a,'JPEG, PNG or WebP · up to 10 MB',13,'muted');const b=card(r,'Welcome montage',560);icon(b,'Play',40,'accent');title(b,'Welcome montage',24);txt(b,'Optional · silent video on the welcome screen.\nGuests can pause playback.',15,'muted');const bp=box(b,'Montage placeholder',512,16,40,'paper');icon(bp,'Film',72,'muted');txt(bp,'No montage attached.',24,'ink','SemiBold');button(b,'Upload montage','disabled');txt(b,'MP4 H.264/AVC · up to 50 MB · 30 seconds',13,'muted');
+ notice(m,'Cleanup verification needed','Before re-enabling uploads, verify cleanup of interrupted or late uploads and leftover files.','warning');
+ caption(f,'Upload controls are semantically disabled. Cleanup reminder persists even with no media; it is not a cleanup-complete claim or a re-enable control.');
+}
+{
+ const {f,main:m}=shell('A06 · Live Event — desktop',5);heading(m,'Events / Live','Mia & Leo’s wedding','Add Film Packages');const st=row(m,'Event and run state',12);badge(st,'Event Live');badge(st,'Booth Active');txt(st,'Updated just now',13,'muted','Regular',300);
+ const stats=row(m,'Print accounting',16);metric(stats,'Total booked prints','60','5 original + 1 additional package',274);metric(stats,'Confirmed Prints','37','Full sheets ejected',274);metric(stats,'Pending print','1','Outcome needs confirmation',274);metric(stats,'Prints available','22','23 remaining − 1 pending',274,true);
+ const r=row(m,'Run controls and booking',24);const run=card(r,'Booth controls',704);notice(run,'A print needs attention','Keep the next Guest waiting until this print is resolved.','warning');button(run,'Review pending print','dark');const rr=row(run,'Run actions',16);button(rr,'Pause Booth','secondary',310);button(rr,'Finish Booth Mode','secondary',310);txt(run,'Finishing Booth Mode ends this run. The Event stays Live.',14,'muted');
+ const detail=card(r,'Frozen booking',416);title(detail,'Booking details',22);facts(detail,[['Client','Sofia Reyes'],['Email','sofia@example.com'],['Phone','+63 917 555 0123'],['Venue','The Glasshouse'],['Schedule','5 Nov · 5–9 PM'],['Time zone','Asia/Manila']]);txt(detail,'Booking details are locked while Live.',13,'muted');
+ const ac=card(m,'Activity');title(ac,'Event activity',22);activity(ac,[['6:42 PM','Print outcome pending','1 booked print held'],['6:18 PM','1 Film Package added','Client requested 10 more prints']]);caption(f,'Event state and Booth run state are distinct. 10 × (5+1)=60; 60−37=23 remaining; 23−1=22 available. No photos or physical film inventory.');
+}
+{
+ const {f,main:m}=shell('A07 · History',6,'History');heading(m,'Past moments','History');pills(m,['All History','Completed','Cancelled']);const list=card(m,'History list');item(list,'The autumn supper','29 Oct 2026 · 6:00–10:00 PM · Asia/Manila\nThe Glasshouse · Sofia Reyes\nsofia@example.com · +63 917 555 0123\n5 original Film Packages · 0 additional','Completed','48 of 50 prints confirmed');item(list,'Studio anniversary','18 Oct 2026 · 4:00–8:00 PM · Asia/Manila\nFoundry Studio · Alex Cruz\nalex@example.com · +63 917 555 0118\n5 original Film Packages · 1 additional','Completed','60 of 60 prints confirmed');item(list,'Sunday gathering','11 Oct 2026 · 2:00–5:00 PM · Asia/Manila\nThe Garden Room · Mara Santos\nmara@example.com · +63 917 555 0141\n2 original Film Packages · 0 additional','Cancelled','Never started');txt(m,'Completed and Cancelled Events are kept here as read-only records.',15,'muted');caption(f,'No terminal delete, redact, edit, or reopen controls. Draft deletion removes that Draft from lists; no Guest photo gallery.');
+}
+{
+ const {f,main:m}=shell('A08 · History detail',7,'History');heading(m,'History / Completed','The autumn supper');badge(m,'Completed');const r=row(m,'Final totals',24);metric(r,'Total booked prints','50','5 original · 0 additional packages',365);metric(r,'Confirmed Prints','48','No pending attempts',365);metric(r,'Captures','61','Includes Retakes',366);const d=row(m,'Retained record',24);const book=card(d,'Booking record',560);title(book,'Booking record',24);facts(book,[['Client','Sofia Reyes'],['Email','sofia@example.com'],['Phone','+63 917 555 0123'],['Venue','The Glasshouse'],['Schedule','29 Oct · 6–10 PM'],['Time zone','Asia/Manila']]);const hist=card(d,'Audit',560);title(hist,'Event activity',24);activity(hist,[['10:06 PM','Event completed','All runs finished'],['10:04 PM','Booth Mode finished','No pending print'],['10:02 PM','Print confirmed','Final confirmed total: 48']]);notice(m,'Event Media','No Event Media attached. The default Booth presentation was used.','success');caption(f,'Retained contact and media are Admin-only. Captures count shutters separately from prints. Terminal records remain immutable.');
+}
+{
+ const {f,main:m}=shell('A09 · Profile',8,'Profile');heading(m,'Your account','Profile');const r=row(m,'Profile settings',24);const profile=card(r,'Contact and appearance',640);title(profile,'Account',24);const identity=box(profile,'Read-only verified email',inner(profile),6);txt(identity,'Verified email',15,'ink','SemiBold');txt(identity,'admin@example.com',16,'ink');txt(profile,'Verified email · read-only',13,'success');field(profile,'Phone · optional','+63 917 555 0148');button(profile,'Save changes','primary',200);rule(profile);title(profile,'Appearance',22);const modes=row(profile,'Theme options',16);button(modes,'Light','dark',180);button(modes,'Dark','secondary',180);txt(profile,'Applies to Admin screens. Booth appearance stays independent.',14,'muted');const secure=card(r,'Security',480);icon(secure,'ShieldCheck',32,'success');title(secure,'Account security',24);txt(secure,'Change your password while signed in.',15,'muted');button(secure,'Change password','secondary');rule(secure);txt(secure,'Sign out of Admin on this device. Active Booth access remains separate.',15,'muted');button(secure,'Sign out','secondary');caption(f,'Email is read-only verified identity. Theme uses a two-option control. Authenticated password change is separate from recovery reset; only recovery reset requires confirmed global Admin-session revocation.');
+}
+
+function auth(name,index,headline,sub){
+ const f=artboard(name,960,840,0,1);f.x=100+(index%3)*1060;f.y=3800+Math.floor(index/3)*1010;f.layoutMode='HORIZONTAL';const left=box(f,'Editorial panel',390,28,40,'ink');left.resize(390,840);left.primaryAxisSizingMode='FIXED';icon(left,'Camera',44,'paper');spacer(left,138);txt(left,'A little moment.\nA lasting keepsake.',40,'paper','Regular',310,'Libre Baskerville');txt(left,'One booth, thoughtfully managed.',15,'paper');spacer(left,150);txt(left,'INSTAX BOOTH / ADMIN',12,'paper','Bold');const right=box(f,'Authentication form',570,20,48,'paper');spacer(right,66);title(right,headline,32);txt(right,sub,15,'muted');return {f,right};
+}
+{
+ const {f,right:r}=auth('A10 · Authentication — Sign in',0,'Welcome back.','Sign in to manage your Events.');field(r,'Email','admin@example.com');field(r,'Password','••••••••••••');txt(r,'Show password',13,'accent','Bold');button(r,'Sign in');button(r,'Forgot password','secondary');caption(f,'No public signup. Allow password-manager autofill and paste; show-password control has an accessible name. Sign-in success → Dashboard.');
+}
+{
+ const {f,right:r}=auth('A11 · Authentication — Forgot password',1,'Reset your password.','We’ll help you get back to your Events.');field(r,'Email','admin@example.com');button(r,'Send reset link');button(r,'Back to sign in','secondary');caption(f,'Submitting uses account-independent feedback. Errors retain the email and expose retry without revealing account existence.');
+}
+{
+ const {f,right:r}=auth('A12 · Authentication — Email confirmation',2,'Check your inbox.','If an account exists for that email, you’ll receive a password reset link.');icon(r,'Mail',56,'accent');txt(r,'Check your spam folder too. You can request another link if needed.',16,'muted');button(r,'Back to sign in');button(r,'Send another link','secondary');caption(f,'Neutral confirmation for both existing and unknown email addresses. No account-existence disclosure.');
+}
+{
+ const {f,right:r}=auth('A13 · Authentication — Reset password',3,'Choose a new password.','Use a password different from your current one.');field(r,'New password','••••••••••••');field(r,'Confirm new password','••••••••••••');button(r,'Reset password');txt(r,'A completed reset signs out Admin sessions on every device. Active Booth access is unchanged.',14,'muted');caption(f,'Same-password response is an inline error. Success requires password change and confirmed global Admin-session revocation.');
+}
+{
+ const {f,right:r}=auth('A14 · Authentication — Link expired',4,'This link has expired.','Request a new link to reset your password.');icon(r,'Clock',56,'warning');button(r,'Request a new link');button(r,'Back to sign in','secondary');caption(f,'Invalid, expired and already-used recovery links reveal no protected data. Authentication never starts Guest work.');
+}
+{
+ const {f,right:r}=auth('A15 · Authentication — Reset complete',5,'Your password is updated.','Admin sessions have been signed out on all devices.');icon(r,'CircleCheck',56,'success');txt(r,'Active Booth access is unchanged.',15,'muted');button(r,'Sign in');caption(f,'This state is shown only after revocation is confirmed. Incomplete-revocation designs are on Dialogs & reference.');
+}
+
+function phone(name,index){const f=artboard(name,390,844,0,1);f.x=100+index*490;f.y=6000;const m=box(f,'Phone content',390,16,24);const h=row(m,'Mobile header',12);icon(h,'ArrowLeft',24);txt(h,'Events',15,'ink','Bold',240);title(m,'Mia & Leo’s\nwedding',28);return {f,m};}
+{
+ const {f,m}=phone('A16 · Live Event — phone',0);const b=row(m,'State',10);badge(b,'Live');badge(b,'Booth Active');const stats=row(m,'Counts',12);const l=box(stats,'Confirmed',165,4);txt(l,'37',44,'ink','SemiBold');txt(l,'Confirmed Prints',13,'muted');const r=box(stats,'Available',165,4);txt(r,'23',44,'ink','SemiBold');txt(r,'Prints available',13,'muted');txt(m,'60 booked · 0 pending\n5 original + 1 additional Film Package',13,'muted');button(m,'Add Film Packages');const state=card(m,'Readiness',342,'successSoft',16);txt(state,'Booth is ready',16,'success','Bold');txt(state,'Updated just now',13,'muted');button(m,'Pause Booth','secondary');button(m,'Finish Booth Mode','secondary');txt(m,'Finish the run before completing the Event.',13,'muted');footer(m,'Dashboard   Events   History   Profile');caption(f,'Phone control view. Controls ≥48 px; no horizontal overflow. Live accounting remains the source of truth.');
+}
+{
+ const {f,m}=phone('A17 · Phone — pending recovery',1);badge(m,'Attention needed','warning',180);notice(m,'Print outcome pending','One print is held until the outcome is known.','warning');facts(m,[['Booked prints','60'],['Confirmed Prints','37'],['Pending print','1'],['Prints available','22']]);button(m,'Review pending print','dark');notice(m,'Bluetooth disconnected','Reconnect on the booth iPad. Do not resend the photo.','warning');button(m,'Pause Booth','secondary');button(m,'Finish Booth Mode','secondary');caption(f,'Exceptional inspection is on phone; device reconnect is on iPad. Unknown outcome blocks new Guests and preserves capacity hold.');
+}
+{
+ const {f,m}=phone('A18 · Phone — film reload needed',2);badge(m,'Booth unavailable','warning',180);notice(m,'Film reload needed','Load a new Film Package into the Instax printer.','warning');txt(m,'23 prints are still available for this Event.',17,'ink','Bold');txt(m,'Physical loading does not add booked prints.',15,'muted');button(m,'Confirm film loaded');button(m,'Add Film Packages','secondary');rule(m);button(m,'Pause Booth','secondary');button(m,'Finish Booth Mode','secondary');caption(f,'Confirmation applies only to the current reload request. Loading film does not resolve a separate pending attempt.');
+}
+{
+ const {f,m}=phone('A19 · Phone — paused and ready',3);badge(m,'Booth Paused','warning',160);notice(m,'Ready to resume','Camera, printer and connection are ready.','success');txt(m,'23 prints available',28,'ink','SemiBold');button(m,'Resume Booth');txt(m,'Resume admits new Guests. Equipment recovery alone never resumes a paused Booth.',15,'muted');button(m,'Add Film Packages','secondary');button(m,'Finish Booth Mode','secondary');caption(f,'Resume rechecks fresh readiness and reuses valid device access. Failure remains Paused with blockers.');
+}
+{
+ const {f,m}=phone('A20 · Phone — run finished',4);badge(m,'Event Live');notice(m,'Booth Mode finished','All print outcomes are resolved.','success');facts(m,[['Booked prints','60'],['Confirmed Prints','60'],['Pending print','0']]);button(m,'Complete Event');button(m,'Add Film Packages','secondary');txt(m,'To start another run, open this Event on the booth iPad and complete setup.',15,'muted');caption(f,'Completing moves the retained Event to History. Finishing a run alone leaves the Event Live.');
+}
+return audit();

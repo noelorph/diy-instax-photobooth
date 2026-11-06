@@ -19,7 +19,7 @@
 - #9 passed on reviewed candidate `2f89a96` and is closed. Verify the index evidence; F1 implementation and its dated acceptance are recorded in the shared trace.
 - Reset succeeds only after a different password and confirmed global Admin-session revocation. Profile sign-out is local; an independent Booth grant survives both.
 - No public signup, Client account, new role or authentication-driven automatic Booth start.
-- Use [DESIGN_SYSTEM.md](../../../DESIGN_SYSTEM.md), [screen map](../../design/2026-10-21-package-recovery/screen-map.md), sheets [08 authentication](../../design/2026-10-21-package-recovery/admin/08-authentication.png), [10 profile](../../design/2026-10-21-package-recovery/admin/10-profile.png), [11 feedback](../../design/2026-10-21-package-recovery/admin/11-dialogs-feedback.png) and shared shell in [01 dashboard](../../design/2026-10-21-package-recovery/admin/01-dashboard.png).
+- Use the main plan’s [screen reference and presentation contract](2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): A09–A15; A01 shared shell; D15–D17 feedback/reset states. PDF pages and supplementary Figma frames are identified separately there; missing variants remain written verification obligations.
 
 Follow the [shared command/environment table](2026-10-24-issue-10-implementation-plan.md#verification-and-environment-rules). Update this capability’s rows in the [acceptance trace](../../implementation/issue-10-retirement-and-acceptance.md#acceptance-trace) with actual revision/command/result before closure; pending rows are not passing evidence.
 

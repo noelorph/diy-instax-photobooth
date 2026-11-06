@@ -18,8 +18,11 @@ const eslintConfig = defineConfig([
     'docs/qualification/multipart-isolated/instrumentation/patched-handler.js',
   ]),
   {
-    files: ['docs/qualification/multipart-isolated/instrumentation/qualification-hook.cjs'],
-    // This hook is loaded by require() inside the immutable CommonJS test image.
+    files: [
+      'docs/qualification/multipart-isolated/instrumentation/qualification-hook.cjs',
+      'artifacts/design-reference-2026-11-05/verify.cjs',
+    ],
+    // The qualification hook and standalone drawing-source check run as CommonJS.
     rules: { '@typescript-eslint/no-require-imports': 'off' },
   },
   prettierConfig,

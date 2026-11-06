@@ -1,5 +1,29 @@
 # GitHub issue publication record and remaining drafts
 
+## November screen-reference publication — 2026-11-06
+
+The owner confirmed full adoption of the November visual reference, including fonts/colors, and removal of the former presentation files while preserving Git history and dated evidence. The [main implementation plan](superpowers/plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract) now owns the per-screen catalog and presentation/accessibility contract under [ADR-0034](adr/0034-use-november-screen-reference-in-implementation-plan.md). The supplied PDF has 22 Admin pages, extracted individually with hashes and dimensions in the [manifest](references/2026-11-06-instax-booth/manifest.json). The 30 Booth frames, 19 dialogs and three boards are supplementary Figma inventory links, not PDF extractions or freshly reverified remote designs.
+
+Updated the bodies of [F2 #30](https://github.com/noelorph/diy-instax-photobooth/issues/30), [F6 #34](https://github.com/noelorph/diy-instax-photobooth/issues/34), [F7 #35](https://github.com/noelorph/diy-instax-photobooth/issues/35) and [F8 #36](https://github.com/noelorph/diy-instax-photobooth/issues/36) with the canonical plan path, capability screen IDs, direct Figma links and explicit uncommitted/unpushed local-reference status. Refreshed two presentation-reference sentences in parent [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10) so it no longer points to the retired guide. The historical parent snapshot below also uses that current reference; its remaining wording describes the original publication.
+
+F7's already-approved Live Event card, History filters and third verification task are synchronized into the local F7 plan, PRD, functional spec and F7-01–F7-06 rows. The shared acceptance trace remains the single evidence record; all six rows are pending. F2's full-media qualification, its last-in-#10 sequencing, F6 recovery requirements, F8 fresh-schema scope and #17/#7 physical gates remain unchanged. Original issue task checkbox states were preserved. The retained F2 historical plan has refreshed presentation references, with its functional acceptance requirements preserved.
+
+Exact complete-body read-back passed after publication. All five issues remain open with unchanged titles, labels and assignees; #10 retains children #29–#36 and their existing states. Native blockers are unchanged:
+
+| Issue | GitHub updated at (UTC) | Blockers                         | Published body SHA-256                                             |
+| ----- | ----------------------- | -------------------------------- | ------------------------------------------------------------------ |
+| #10   | 2026-11-06 01:51:19     | #9                               | `57191fb7ad92e57f377ed833384bd7688e95968aeae5757d88ca54c81b4861af` |
+| #30   | 2026-11-06 01:50:44     | #9, #29                          | `684309ec3b170f7c719c9301d2c8fca80533a7d6738b944d680afefea00657bc` |
+| #34   | 2026-11-06 01:50:53     | #9, #31, #32, #33                | `cbbad33681d15860757d37f4d205f3783e30bc81a6401eadf630f5c50751c60f` |
+| #35   | 2026-11-06 01:50:59     | #9, #31                          | `b60171a954e2784f8e5e0d3e9e4f9cd827ccdb760af132a29b3be18e8b569025` |
+| #36   | 2026-11-06 01:51:07     | #9, #29, #31, #32, #33, #34, #35 | `70d0ab049aa5df08c0509222683b8224be4636df3ea85524241e54b5d0e6c68b` |
+
+#7/#17 bodies and metadata are unchanged; their drafts remain unpublished. No #9 or closed-child issue edit occurred. This work changed documentation, reference assets and one CSS provenance comment only; application behavior, databases and tests were not changed. No application/browser or physical verification, issue closure, deployment, Git staging, commit or push occurred. The owner explicitly requested leaving the edits uncommitted.
+
+Local reference verification passed: the copied PDF is byte-identical to the supplied source; all 22 PNG page numbers, dimensions and hashes match the manifest; all 74 source-frame links appear in the catalog; 614 local links across 86 maintained documents resolve. No retired presentation-path references remain in those documents. F7 has six pending acceptance rows, and all four capability issue checklists retain their previous checkbox states. Prettier checked all 33 changed/new Markdown, JSON and CSS files; `git diff --check` passed. The CSS diff changes only its provenance comment. HEAD remains `969e27e`; the index is empty. Installed dependency documentation was excluded from the maintained-document link scan.
+
+**Subsequent commit authorization — 2026-11-06:** The owner requested committing the current changes and including the design artifacts if necessary. The 12-file November 5 drawing-source bundle is included to preserve editable Figma sources, font/palette provenance and the Booth/dialog inventory absent from the PDF. Its README now distinguishes current adoption from the dated creation evidence; the drawing scripts retain their original contents and the two JSON files retain their original data with formatting normalization only. The source self-check passes for all 74 frames without executing Figma mutations. A narrow existing CommonJS ESLint exception also covers that self-check; `npm run lint` passes with 13 cross-file unused-helper warnings in the archived drawing sources and no errors. Earlier uncommitted/index-empty statements above describe the publication checkpoint before this later authorization. No push, application implementation or hardware qualification is authorized or performed by this commit request.
+
 ## F2 final-in-#10 sequencing publication — 2026-10-27
 
 The user chose to keep [#30](https://github.com/noelorph/diy-instax-photobooth/issues/30) under [#10](https://github.com/noelorph/diy-instax-photobooth/issues/10) and finish it last. Updated the live #10 and #30–#36 bodies with the current execution order: F3–F8 may proceed using the verified upload-disabled F2 milestone; #30 stays open and is the final blocker to #10 closure. F8 can finish fresh-schema, retirement and integrated acceptance for that disabled state, but full media cleanup, transfer and private-delivery qualification remain in #30. The historical bodies below record their original publication, not current sequencing.
@@ -67,7 +91,7 @@ This issue remains open for the complete application integration, complete legac
 - **Guest journey:** welcome with private Event Media or default presentation; live preview; capture and 3–2–1 countdown; review; Retake; printing; completion; and return to a fresh welcome. Implement approved crop, Capture selection, inactivity, and photo-disposal rules.
 - **Phone operations:** Additional Film Packages, reload requests and physical reload confirmation, exceptional inspection with a required reason, Pause, Resume, Finish Booth, and separate Event completion.
 - **Recovery:** camera, Bluetooth, network/server, page-reload, and access-loss recovery. Preserve pending attempts and explicit pauses. Routine recovery stays in Booth Mode; exceptional access replacement follows protected setup and returns the run to Paused.
-- **Privacy and presentation:** keep Guest photo bytes in memory/direct printer transport only; provide private, validated Event Media; enforce Admin/Booth access separation; meet the design system’s accessibility and responsive-layout requirements.
+- **Privacy and presentation:** keep Guest photo bytes in memory/direct printer transport only; provide private, validated Event Media; enforce Admin/Booth access separation; meet the main implementation plan’s accessibility and responsive-layout requirements.
 - **Simulation and verification:** use a nonproduction printer simulator for complete integrated journeys and deterministic failure scenarios. Distinguish acceptance from ejection and uncertainty; never automatically resend an ambiguous attempt.
 
 Setup retains only the reminder: **“Always test the printer before starting Booth Mode.”**
@@ -121,7 +145,7 @@ Real-printer enablement requires physically qualified automatic normal full-ejec
 
 ### Detailed references
 
-- `PRD.md`, `ARCHITECTURE.md`, `DESIGN_SYSTEM.md`, and `GLOSSARY.md`
+- `PRD.md`, `ARCHITECTURE.md`, `GLOSSARY.md`, and `docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract`
 - `docs/adr/0025-package-accounting-and-booth-recovery.md`
 - `docs/adr/0026-order-captures-by-shutter-time.md`
 - `docs/adr/0029-remove-legacy-features-and-reset-development-schema.md`

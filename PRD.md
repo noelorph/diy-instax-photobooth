@@ -4,7 +4,7 @@
 
 **Status:** Approved target product, revised 2026-10-25 for the approved media/count/readiness rules and complete legacy removal under ADR-0029. Version-2 database contracts, handlers and a provisional simulator path are verified for the #9 software prerequisite; the [issue #9 review](docs/implementation/issue-9-package-contracts-review.md) records the passing 2026-10-25 software acceptance and retained failures; GitHub #9 is closed as completed. F4 Booth setup and F5 Guest capture-to-print use version-2 contracts; see [local F5 evidence and remaining gates](docs/implementation/issue-10-retirement-and-acceptance.md#f5-guest-capture-to-print-evidence--2026-11-04). F6 recovery, F7 reporting and F8 package-only schema acceptance remain open. Hosted deployment and #17/#7 physical qualification remain open.
 **Contract:** [Accounting, access and Booth recovery](docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md).
-**Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md). **Presentation:** [Design system](DESIGN_SYSTEM.md). **Boundaries:** [Architecture](ARCHITECTURE.md).
+**Decision:** [ADR-0025](docs/adr/0025-package-accounting-and-booth-recovery.md). **Presentation:** [Screen reference and presentation contract](docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract). **Boundaries:** [Architecture](ARCHITECTURE.md).
 
 ## 1. Product summary
 
@@ -66,7 +66,7 @@ Routine fault/pause recovery does not open sign-in on the iPad. Finished Booth M
 
 ### Dashboard — `/dashboard`
 
-Show Events scheduled in the current venue-local month, upcoming Events and next Event. Monthly Events counts nondeleted **Draft, Live and Completed**, excluding **Cancelled**, using scheduled start rather than creation time. Compare the scheduled start and the server's current instant in each Event's venue time zone. Four in-month Events with one Cancelled show **3**; Completed still counts. Total Events booked excludes Cancelled/deleted Events across all months. Upcoming/Next uses future scheduled starts of Draft/Live Events. See [ADR-0028](docs/adr/0028-define-monthly-event-count.md). Activity lists creation/Draft deletion, media uploads, Captures, print outcomes/inspection, package additions and booth actions; newest first, 7/30-day filters, 25 rows per page. Activity references Event/action without duplicating contact details or photos. Detailed charts and revenue remain out of scope.
+Show Events scheduled in the current venue-local month, upcoming Events and next Event. Monthly Events counts nondeleted **Draft, Live and Completed**, excluding **Cancelled**, using scheduled start rather than creation time. Compare the scheduled start and the server's current instant in each Event's venue time zone. Four in-month Events with one Cancelled show **3**; Completed still counts. Total Events booked excludes Cancelled/deleted Events across all months. Upcoming/Next uses future scheduled starts of Draft/Live Events. See [ADR-0028](docs/adr/0028-define-monthly-event-count.md). Activity lists creation/Draft deletion, media uploads, Captures, print outcomes/inspection, package additions and booth actions; newest first, 7/30-day filters, 25 rows per page. Activity references Event/action without duplicating contact details or photos. Show the current Live Event with authoritative package counts and independent Booth run state, including Paused, Finished or no run; distinguish no Live Event from a failed read. Link to its existing Event detail. Detailed charts and revenue remain out of scope.
 
 ### Events — `/events`, `/events/new`, `/events/[eventId]`
 
@@ -84,11 +84,11 @@ When enabled, upload, replacement and removal are Draft-only, with authority, st
 
 ### History — `/history`
 
-List Completed/Cancelled Events with name, schedule, venue, Client contact, package counts and print totals. Retain media and audit history under Admin access. No redaction or deletion controls. History contains package-model Events only. Existing disposable development/test records are discarded during the later fresh-schema rebuild; no legacy reader or conversion UI is required.
+List Completed/Cancelled Events with All History / Completed / Cancelled filters, name, schedule, venue, Client contact, package counts and print totals. Direct terminal detail is immutable, with separate Capture totals, all-time paginated activity and honest retained/unavailable media status; a failed read never means no attachment. Filtering does not alter retention or accounting. Retain media and audit history under Admin access. No redaction or deletion controls. History contains package-model Events only. Existing disposable development/test records are discarded during the later fresh-schema rebuild; no legacy reader or conversion UI is required.
 
 ### Profile — `/profile`
 
-Verified Admin email, optional phone, light/dark preference, authenticated password change and **Sign out**. Sign out ends the current device's Admin session only. Booth appearance remains independent of the Admin preference: the approved Apricot Studio design uses a light default welcome and dark camera, review and operational surfaces; see [ADR-0033](docs/adr/0033-adopt-apricot-studio-design-system.md) and [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md). Booth access is unchanged. No profile picture required.
+Verified Admin email, optional phone, light/dark preference, authenticated password change and **Sign out**. Sign out ends the current device’s Admin session only. Booth appearance remains state-specific and independent of the Admin preference; see [ADR-0034](docs/adr/0034-use-november-screen-reference-in-implementation-plan.md) and the [screen reference](docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract). Booth access is unchanged. No profile picture required.
 
 ## 6. Booth Mode experience
 

@@ -1,0 +1,545 @@
+{
+  "source": "source.pdf",
+  "sourceFilename": "Instax Booth · New design reference · Nov 2026.pdf",
+  "sourceSha256": "bb97d79a34fd334bfe4e5ea549cd14893d095a8f5310a321913e4441d99f0dba",
+  "pdfPageCount": 22,
+  "extractedAt": "2026-11-06",
+  "method": "macOS PDFKit, one unmodified media-box page per PNG at original page dimensions",
+  "adminScreens": [
+    {
+      "screen": "A01",
+      "name": "Dashboard",
+      "pdfPage": 1,
+      "width": 1440,
+      "height": 1024,
+      "image": "admin/a01-dashboard.png",
+      "sha256": "27dff1daf175c1ac28812aeb974756a86a3b44a13783278e638ca3f676cfa428",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-179"
+    },
+    {
+      "screen": "A02",
+      "name": "Events",
+      "pdfPage": 2,
+      "width": 1440,
+      "height": 1024,
+      "image": "admin/a02-events.png",
+      "sha256": "582032ab476461a9cb0ac1e8d773f24adb2de7ace717a24f282b2e05358044c9",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-307"
+    },
+    {
+      "screen": "A03",
+      "name": "Draft Event Editor",
+      "pdfPage": 3,
+      "width": 1440,
+      "height": 1024,
+      "image": "admin/a03-draft-event-editor.png",
+      "sha256": "c3de33bcaa9ff563f451dd01391c2d7b20d7cfd946dbe860b0f1ffee7087190d",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-416"
+    },
+    {
+      "screen": "A04",
+      "name": "Draft Setup on iPad",
+      "pdfPage": 4,
+      "width": 1440,
+      "height": 1024,
+      "image": "admin/a04-draft-setup-on-ipad.png",
+      "sha256": "2c3e177df8d6f44776e7e3aee92eb0598b3bafa1d33ed271b96876c7c05da9d0",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-550"
+    },
+    {
+      "screen": "A05",
+      "name": "Draft Media — unavailable",
+      "pdfPage": 5,
+      "width": 1440,
+      "height": 1024,
+      "image": "admin/a05-draft-media-unavailable.png",
+      "sha256": "0da7fd9b7752424e8013f05716949edfa08acdeb14fe0fe220c93068bbf96a8c",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-689"
+    },
+    {
+      "screen": "A06",
+      "name": "Live Event — desktop",
+      "pdfPage": 6,
+      "width": 1440,
+      "height": 1024,
+      "image": "admin/a06-live-event-desktop.png",
+      "sha256": "43a04649510130e4c20a4574560ec891194bc3357848c09d51ca2b3715ec3213",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-803"
+    },
+    {
+      "screen": "A07",
+      "name": "History",
+      "pdfPage": 7,
+      "width": 1440,
+      "height": 1024,
+      "image": "admin/a07-history.png",
+      "sha256": "cfb0a505b2fe564db2e8e5fb227011f2932c82b5f4d9819486565ff8599a23cd",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-938"
+    },
+    {
+      "screen": "A08",
+      "name": "History detail",
+      "pdfPage": 8,
+      "width": 1440,
+      "height": 1024,
+      "image": "admin/a08-history-detail.png",
+      "sha256": "304830cd121c8000bae1d5c972acc43288c8d00eeed2f03c2a3a3aef2c13b707",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1038"
+    },
+    {
+      "screen": "A09",
+      "name": "Profile",
+      "pdfPage": 9,
+      "width": 1440,
+      "height": 1024,
+      "image": "admin/a09-profile.png",
+      "sha256": "0e53a7bd08f4031f7118ec108fc928c7fc426ff69792a63ebec7eb35fb612c0f",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1143"
+    },
+    {
+      "screen": "A10",
+      "name": "Authentication — Sign in",
+      "pdfPage": 10,
+      "width": 960,
+      "height": 840,
+      "image": "admin/a10-authentication-sign-in.png",
+      "sha256": "a31af5300c8a3fc7d52bac494ae8749674e1e6722d343ee6f3a5261927dcc4b6",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1247"
+    },
+    {
+      "screen": "A11",
+      "name": "Authentication — Forgot password",
+      "pdfPage": 11,
+      "width": 960,
+      "height": 840,
+      "image": "admin/a11-authentication-forgot-password.png",
+      "sha256": "52833b479d749409d439351e45230d7743509f05fcbea41a7b65dc31b2f38d6f",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1287"
+    },
+    {
+      "screen": "A12",
+      "name": "Authentication — Email confirmation",
+      "pdfPage": 12,
+      "width": 960,
+      "height": 840,
+      "image": "admin/a12-authentication-email-confirmation.png",
+      "sha256": "feebb5aad8e41921af932f2c5f557b3c9e90fddfa78baa073f45e519f9b1c3e3",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1320"
+    },
+    {
+      "screen": "A13",
+      "name": "Authentication — Reset password",
+      "pdfPage": 13,
+      "width": 960,
+      "height": 840,
+      "image": "admin/a13-authentication-reset-password.png",
+      "sha256": "4710035df7631ea0ed58b63a875efdcf3c322e75537c80d2f40cb25f46aeb36f",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1351"
+    },
+    {
+      "screen": "A14",
+      "name": "Authentication — Link expired",
+      "pdfPage": 14,
+      "width": 960,
+      "height": 840,
+      "image": "admin/a14-authentication-link-expired.png",
+      "sha256": "b1b335ed4d858d17f3c7f45a126086567a52627969ca86a51fb010473916a0fb",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1385"
+    },
+    {
+      "screen": "A15",
+      "name": "Authentication — Reset complete",
+      "pdfPage": 15,
+      "width": 960,
+      "height": 840,
+      "image": "admin/a15-authentication-reset-complete.png",
+      "sha256": "249169ab5366fa1d1ebda125ea19e130da0ce81563220483f5a7fe706e51aab8",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1415"
+    },
+    {
+      "screen": "A16",
+      "name": "Live Event — phone",
+      "pdfPage": 16,
+      "width": 390,
+      "height": 844,
+      "image": "admin/a16-live-event-phone.png",
+      "sha256": "c279e9fa9f64c18147cd321af03159a3e4176f8bdf73cfb297f48ccd77abe97d",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1440"
+    },
+    {
+      "screen": "A17",
+      "name": "Phone — pending recovery",
+      "pdfPage": 17,
+      "width": 390,
+      "height": 844,
+      "image": "admin/a17-phone-pending-recovery.png",
+      "sha256": "8daa061460314f375b50ba07c54f5f9e4b47d9dbf7a7dfd830ef6b16836d6656",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1487"
+    },
+    {
+      "screen": "A18",
+      "name": "Phone — film reload needed",
+      "pdfPage": 18,
+      "width": 390,
+      "height": 844,
+      "image": "admin/a18-phone-film-reload-needed.png",
+      "sha256": "f2e52f9f3a55586af9385bd43f7cf254d1141a275e0500f709d05e733ad4776e",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1534"
+    },
+    {
+      "screen": "A19",
+      "name": "Phone — paused and ready",
+      "pdfPage": 19,
+      "width": 390,
+      "height": 844,
+      "image": "admin/a19-phone-paused-and-ready.png",
+      "sha256": "80f035cc77a6fbedd41b3e50dbee92adbf4e9143f3de76a82f476dccc00bb6fe",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1575"
+    },
+    {
+      "screen": "A20",
+      "name": "Phone — run finished",
+      "pdfPage": 20,
+      "width": 390,
+      "height": 844,
+      "image": "admin/a20-phone-run-finished.png",
+      "sha256": "d13f1e5f38d53b79dca8e026f4b536eb42f39725e6e67471aaacb9a2bbb5c74c",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=4-1609"
+    },
+    {
+      "screen": "A21",
+      "name": "Draft Setup — iPad portrait",
+      "pdfPage": 21,
+      "width": 820,
+      "height": 1180,
+      "image": "admin/a21-draft-setup-ipad-portrait.png",
+      "sha256": "af398fc69c48c00c14064da640b2355a27d6a83dfbb3660cb5048fab190c7a00",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=12-249"
+    },
+    {
+      "screen": "A22",
+      "name": "Draft Event Editor — phone",
+      "pdfPage": 22,
+      "width": 390,
+      "height": 1400,
+      "image": "admin/a22-draft-event-editor-phone.png",
+      "sha256": "2a7cbd0284682c2497ee21ec9e2ab07becae026325ede40db58078591cc13cec",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=12-324"
+    }
+  ],
+  "supplementaryFigmaProvenance": "November 5 local Figma inventory; not included in supplied PDF; remote frames not reverified on November 6",
+  "supplementaryScreens": [
+    {
+      "name": "B01 · Welcome / default",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-249",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B02 · Camera preview",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-280",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B03 · Countdown",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-314",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B04 · Photo review",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-344",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B05 · Inactivity warning",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-386",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B06 · Preparing your print",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-409",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B07 · Sending to Instax",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-439",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B08 · Waiting for ejection",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-469",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B09 · Print complete",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-499",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B10 · Bluetooth disconnected",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-517",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B11 · Camera disconnected",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-538",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B12 · Camera permission denied",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-560",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B13 · Wi-Fi disconnected",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-584",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B14 · Connection unavailable",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-605",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B15 · Printer out of film",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-622",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B16 · Temporarily unavailable",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-642",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B17 · Last print unresolved",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-657",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B18 · Pending print + Bluetooth lost",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-673",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B19 · Booked prints exhausted",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-696",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B20 · Booth paused",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-714",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B21 · Paused + Bluetooth lost",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-728",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B22 · Finishing Booth Mode",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-750",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B23 · Booth Mode finished",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-764",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B24 · Booth access ended",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-784",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B25 · Finishing + reconnect required",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-805",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B30 · Paused + unresolved print",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-827",
+      "width": 820,
+      "height": 1180
+    },
+    {
+      "name": "B26 · Welcome / landscape",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-843",
+      "width": 1180,
+      "height": 820
+    },
+    {
+      "name": "B27 · Camera preview / landscape",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-875",
+      "width": 1180,
+      "height": 820
+    },
+    {
+      "name": "B28 · Photo review / landscape",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-912",
+      "width": 1180,
+      "height": 820
+    },
+    {
+      "name": "B29 · Bluetooth recovery / landscape",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-955",
+      "width": 1180,
+      "height": 820
+    },
+    {
+      "name": "00 / Instax Booth — new design reference",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-979",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "01 / Foundations — type, color and interaction",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1004",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "02 / Research, device assumptions and authority",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1075",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D01 / Add Film Packages",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1120",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D02 / Confirm physical reload",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1201",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D03 / Resolve pending — Printed",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1277",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D04 / Resolve pending — Not printed blocked",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1366",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D05 / Pause Booth",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1449",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D06 / Resume blocked",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1509",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D07 / Resume ready",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1573",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D08 / Finish Booth Mode",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1646",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D09 / Complete Event",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1709",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D10 / Complete Event blocked",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1781",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D11 / Cancel Draft",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1834",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D12 / Delete Draft",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1902",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D13 / Draft deletion — cleanup pending",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-1964",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D14 / Stale Draft conflict",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-2025",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D15 / Password reset — incomplete, active session",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-2093",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D16 / Password reset — new link required",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-2159",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D17 / Feedback — progress, success, error and offline",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=9-2213",
+      "width": 1200,
+      "height": 1100
+    },
+    {
+      "name": "D18 / Add Film Packages — phone 390 × 844",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=13-561",
+      "width": 390,
+      "height": 844
+    },
+    {
+      "name": "D19 / Not printed — phone 390 × 844",
+      "figmaUrl": "https://www.figma.com/design/LhIiTbBL18iOkDTfrx88Jj?node-id=13-615",
+      "width": 390,
+      "height": 844
+    }
+  ]
+}
