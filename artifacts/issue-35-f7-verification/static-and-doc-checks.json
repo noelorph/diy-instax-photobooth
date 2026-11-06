@@ -1,0 +1,50 @@
+{
+  "sourceCandidate": "55f0afdc8b94592e275c14ab71904d418476c2d6",
+  "checks": [
+    {
+      "command": "npx eslint src/components/layout/admin-shell.tsx src/features/admin/events/history-detail.tsx tests/components/admin-operations-pages.test.tsx tests/components/dashboard-history.test.tsx tests/e2e/dashboard-history.spec.ts tests/e2e/native-zoom.spec.ts",
+      "revision": "652d181",
+      "exitCode": 0,
+      "stdout": "No diagnostics"
+    },
+    {
+      "command": "npx eslint tests/e2e/native-zoom.spec.ts",
+      "revision": "55f0afd matching final native test blob before commit",
+      "exitCode": 0,
+      "stdout": "No diagnostics"
+    },
+    {
+      "command": "npx tsc --noEmit --incremental false",
+      "revision": "55f0afd",
+      "exitCode": 0,
+      "stdout": "No diagnostics"
+    },
+    {
+      "command": "npx prettier --check src/components/layout/admin-shell.tsx src/features/admin/events/history-detail.tsx src/features/admin/dashboard/dashboard.module.css tests/components/admin-operations-pages.test.tsx tests/components/dashboard-history.test.tsx tests/e2e/dashboard-history.spec.ts tests/e2e/native-zoom.spec.ts",
+      "revision": "55f0afd",
+      "exitCode": 0,
+      "stdout": "Checking formatting...\nAll matched files use Prettier code style!"
+    },
+    {
+      "command": "npx prettier --check AGENTS.md PRD.md ARCHITECTURE.md README.md docs/README.md docs/booth-user-flow.md docs/superpowers/plans/2026-10-24-issue-10-f7-visibility-history.md docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md docs/superpowers/specs/2026-10-24-issue-10-functional-breakdown-design.md docs/implementation/issue-10-retirement-and-acceptance.md docs/github-issue-update-drafts.md artifacts/issue-35-f7-verification/README.md artifacts/issue-35-f7-verification/*.json",
+      "revision": "documentation/evidence working tree after 55f0afd",
+      "exitCode": 0,
+      "stdout": "Checking formatting...\nAll matched files use Prettier code style!\n",
+      "stderr": ""
+    },
+    {
+      "command": "git diff --check",
+      "revision": "documentation/evidence working tree after 55f0afd",
+      "exitCode": 0,
+      "stdout": "",
+      "stderr": ""
+    }
+  ],
+  "warnings": "No warning diagnostics in final focused/static commands. Initial failed browser commands remain failed; native/helper and navigation timing fixes are documented separately.",
+  "remainingGates": "No repository-wide suite, enabled media, fresh-schema, hosted, printer/ejection or actual-iPad qualification. #30/F6/F8/#17/#7/#10 remain open; no GitHub mutation/closure.",
+  "stagedEvidenceCheck": {
+    "command": "git diff --cached --check",
+    "exitCode": 0,
+    "initialFailure": "One extra blank line at EOF in the generated retirement inventory; trimmed and staged check passed. No runtime source or tests changed."
+  }
+}

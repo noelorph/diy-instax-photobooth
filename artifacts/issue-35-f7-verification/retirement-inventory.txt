@@ -1,0 +1,109 @@
+runtime allowance/stock/waste/corrected totals/summary/redaction
+rg -n original_print_allowance|additional_print_entries|film_stock|WastedFilm|wasted_film|corrected_total|correctedTotal|getHistorySummary|redact src --glob !database.types.ts
+1
+
+retired route names
+rg --files src/app/api
+0
+src/app/api/admin/events/[eventId]/media/[assetId]/route.ts
+src/app/api/admin/print-attempts/[attemptId]/recover/route.ts
+src/app/api/booth/readiness/route.ts
+src/app/api/admin/events/[eventId]/media/uploads/route.ts
+src/app/api/admin/print-attempts/[attemptId]/resolve/route.ts
+src/app/api/admin/booth-handoffs/[handoffId]/issue/route.ts
+src/app/api/admin/events/[eventId]/film-packages/route.ts
+src/app/api/booth/operations/[operationId]/route.ts
+src/app/api/booth/captures/route.ts
+src/app/api/booth/sessions/[sessionId]/end/route.ts
+src/app/api/booth/sessions/route.ts
+src/app/api/booth/state/route.ts
+src/app/api/admin/events/[eventId]/booth/finish/route.ts
+src/app/api/admin/events/[eventId]/reload-requests/route.ts
+src/app/api/admin/events/[eventId]/booth/recover-access/route.ts
+src/app/api/admin/events/[eventId]/cancel/route.ts
+src/app/api/booth/print-attempts/[attemptId]/observations/route.ts
+src/app/api/admin/events/[eventId]/booth/pause/route.ts
+src/app/api/admin/events/[eventId]/reload-confirmations/route.ts
+src/app/api/booth/print-attempts/[attemptId]/dispatch/route.ts
+src/app/api/admin/events/[eventId]/booth/start/route.ts
+src/app/api/admin/events/[eventId]/booth/resume/route.ts
+src/app/api/booth/handoff/confirm/route.ts
+src/app/api/booth/print-attempts/route.ts
+src/app/api/booth/print-attempts/[attemptId]/reconcile/route.ts
+src/app/api/admin/events/[eventId]/booth/setup-readiness/route.ts
+src/app/api/admin/events/[eventId]/operations/[operationId]/route.ts
+src/app/api/admin/events/[eventId]/complete/route.ts
+src/app/api/admin/events/[eventId]/booth/state/route.ts
+src/app/api/admin/events/[eventId]/delete-draft/route.ts
+
+F3 upstream
+git show --format=oneline --name-status acc90cb
+0
+acc90cb64bc18c6edba6c3700d14c10b7b53a290 feat: show package capacity in event operations
+M	src/app/(admin)/events/[eventId]/page.tsx
+M	src/app/(admin)/history/page.tsx
+M	src/features/admin/operations/panel.tsx
+M	src/features/admin/operations/read.ts
+M	src/features/admin/operations/types.ts
+M	src/lib/events/history.ts
+M	src/lib/operations/package-state.ts
+M	tests/components/admin-operations-pages.test.tsx
+M	tests/components/admin-operations.test.tsx
+M	tests/integration/admin-operations-read.test.ts
+
+F5 upstream waste retirement
+git log --oneline --diff-filter=D --all -- *wasted*
+0
+fa4a347 feat: complete guest timeouts and safe fault boundaries
+b355860 Revert "Merge pull request #28 from noelorph/development"
+
+later HTTP upstream
+git show --format=oneline --stat 655270a
+0
+655270a7e1a05c903264d87806573cce8012bc75 Retire legacy HTTP branches and isolate verification fixtures
+ docs/implementation/issue9-local-development.md    |   4 +
+ .../legacy-http-retirement-verification.md         | 139 +++++++++++++++++++++
+ src/app/api/admin/events/[eventId]/cancel/route.ts |  15 +--
+ .../api/admin/events/[eventId]/complete/route.ts   |  15 +--
+ src/app/api/admin/events/[eventId]/pause/route.ts  |   5 -
+ .../print-attempts/[attemptId]/recover/route.ts    |  38 ++----
+ .../print-attempts/[attemptId]/resolve/route.ts    |  48 ++-----
+ .../[attemptId]/observations/route.ts              |  63 ++--------
+ src/features/admin/events/draft.module.css         |   2 +-
+ src/features/admin/operations/panel.module.css     |   3 +-
+ src/lib/operations/admin-lifecycle.ts              |  38 ------
+ src/lib/operations/admin-route.ts                  |  99 ---------------
+ src/lib/operations/admin-validation.ts             |  29 -----
+ src/lib/operations/booth-authority.ts              | 101 +--------------
+ src/lib/operations/package-route.ts                |  21 +---
+ src/lib/operations/package-version.ts              |  36 ------
+ src/lib/operations/types.ts                        |   1 -
+ src/lib/operations/validation.ts                   |   1 -
+ tests/e2e/admin-ui-refresh.spec.ts                 |   9 +-
+ tests/e2e/booth-simulator.spec.ts                  |   4 +-
+ tests/e2e/draft-event.spec.ts                      |  12 +-
+ tests/e2e/package-capacity.spec.ts                 |   6 +-
+ tests/fixtures/admin-booth-server.mjs              |  11 +-
+ tests/fixtures/browser-server.mjs                  |   9 +-
+ tests/fixtures/events-read-fault.mjs               |   3 +-
+ tests/fixtures/local-supabase.ts                   |  32 +----
+ tests/fixtures/package-browser.ts                  |   7 +-
+ tests/fixtures/start-verification-stack.mjs        |  30 +++++
+ tests/fixtures/test-stack.mjs                      |  66 ++++++++++
+ tests/integration/admin-auth-actions.test.ts       |   7 +-
+ tests/integration/admin-routes.test.ts             |   2 +-
+ tests/integration/draft-events-dal.test.ts         |   3 +-
+ tests/integration/event-run-transitions.test.ts    |   3 +-
+ tests/integration/package-dispatch.test.ts         |   5 +-
+ tests/integration/package-http-access.test.ts      |  77 +++++++++++-
+ tests/integration/package-http-contracts.test.ts   |   7 --
+ tests/integration/package-late-capture.test.ts     |   6 +-
+ tests/integration/package-lifecycle.test.ts        |   5 +-
+ tests/integration/package-migration.test.ts        |   3 +-
+ tests/integration/package-readiness.test.ts        |   3 +-
+ tests/integration/password-reset.test.ts           |   7 +-
+ tests/integration/print-outcomes.test.ts           |   6 +-
+ tests/unit/operation-validation.test.ts            |  26 ++--
+ tests/unit/test-stack.test.ts                      |  64 ++++++++++
+ vitest.config.mts                                  |   2 +
+ 45 files changed, 492 insertions(+), 581 deletions(-)
