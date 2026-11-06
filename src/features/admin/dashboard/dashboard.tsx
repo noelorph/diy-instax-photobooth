@@ -1,3 +1,4 @@
+import { activityLabel } from './activity-label';
 import Link from 'next/link';
 import { PageHeader } from '@/components/shared/page-header';
 import { FormFeedback } from '@/components/shared/form-feedback';
@@ -139,11 +140,7 @@ export function Dashboard({
                       UTC
                     </time>
                     <div>
-                      <p>
-                        {Object.hasOwn(activityLabels, item.operationKind)
-                          ? activityLabels[item.operationKind]
-                          : 'Event activity recorded'}
-                      </p>
+                      <p>{activityLabel(item.operationKind)}</p>
                       {item.eventId ? (
                         <Link href={`/events/${item.eventId}`}>Open Event</Link>
                       ) : (
@@ -200,23 +197,3 @@ function Schedule({
     </p>
   );
 }
-const activityLabels: Record<string, string> = {
-  create_draft: 'Draft created',
-  update_draft: 'Draft updated',
-  start: 'Booth Mode started',
-  complete: 'Event completed',
-  cancel: 'Event cancelled',
-  begin_delete_draft: 'Draft removal started',
-  complete_delete_draft: 'Draft removed',
-  add_packages: 'Film Packages added',
-  pause: 'Booth Paused',
-  resume: 'Booth Resumed',
-  finish: 'Booth Mode finished',
-  record_capture: 'Capture recorded',
-  observe: 'Print feedback recorded',
-  resolve_attempt: 'Print outcome resolved',
-  reserve: 'Print requested',
-  dispatch: 'Print dispatched',
-  end_session: 'Guest session ended',
-  reconcile: 'Print outcome reconciled',
-};

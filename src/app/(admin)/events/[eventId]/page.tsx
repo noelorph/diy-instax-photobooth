@@ -1,3 +1,5 @@
+import { getHistoryEvent } from '@/lib/events/history';
+import { HistoryDetail } from '@/features/admin/events/history-detail';
 import { OperationsPanel } from '@/features/admin/operations/panel';
 import { getOperationalEvent } from '@/features/admin/operations/read';
 import { PageHeader } from '@/components/shared/page-header';
@@ -17,10 +19,33 @@ export default async function EventPage({
   searchParams,
 }: {
   params: Promise<{ eventId: string }>;
-  searchParams?: Promise<{ attemptPage?: string }>;
+  searchParams?: Promise<{ attemptPage?: string; activityPage?: string | string[] }>;
 }) {
   const { eventId } = await params;
-  const page = Number((await searchParams)?.attemptPage ?? 0);
+  const query = await searchParams;
+  const candidate =
+    typeof query?.activityPage === 'string' && /^\d+$/.test(query.activityPage)
+      ? Number(query.activityPage)
+      : 0;
+  const activityPage = Number.isSafeInteger(candidate) && candidate <= 1000000 ? candidate : 0;
+  const history = await getHistoryEvent(eventId, activityPage);
+  if (history.status === 'success')
+    return <HistoryDetail result={history} activityPage={activityPage} />;
+  if (history.status === 'unavailable')
+    return (
+      <section>
+        <PageHeader title="Unable to load Event" />
+        <FormFeedback kind="error">
+          {history.error}{' '}
+          <Button asChild variant="secondary">
+            <a href={`/events/${encodeURIComponent(eventId)}?activityPage=${activityPage}`}>
+              Try again
+            </a>
+          </Button>
+        </FormFeedback>
+      </section>
+    );
+  const page = Number(query?.attemptPage ?? 0);
   const operations = await getOperationalEvent(eventId, page);
   const result = await getDraft(eventId);
   const panel =

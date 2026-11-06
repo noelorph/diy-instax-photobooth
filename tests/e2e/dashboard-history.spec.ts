@@ -259,3 +259,262 @@ function contrast(a: string, b: string) {
   const values = [luminance(a), luminance(b)].sort((x, y) => y - x);
   return (values[0] + 0.05) / (values[1] + 0.05);
 }
+
+test('History filters retain immutable package records and honest terminal media across direct URLs and responsive themes', async ({
+  page,
+}, info) => {
+  info.setTimeout(120000);
+  const f = await createPackageBrowserFixture();
+  const [cancelledId, deletedId, legacyId] = [randomUUID(), randomUUID(), randomUUID()];
+  const faultFile = resolve('test-results/events-read-fault');
+  try {
+    f.seedRun('Finished');
+    ownerUpdate('events', f.eventId, {
+      revision: 3,
+      film_package_count: 3,
+      title: 'The autumn supper',
+    });
+    ownerInsert('additional_film_package_entries', {
+      event_id: f.eventId,
+      packages: 2,
+      client_request_note: 'Client requested two packages',
+      actor_id: f.adminUser.id,
+      operation_key: randomUUID(),
+    });
+    localOwnerSql(`insert into public.guest_sessions(id,event_id,run_id,accounting_version,state,closed_at) select gen_random_uuid(),'${f.eventId}','${f.runId}',2,'Printed',now() from generate_series(1,13);
+      insert into public.captures(id,event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) select gen_random_uuid(),event_id,run_id,id,2,now(),gen_random_uuid() from public.guest_sessions where event_id='${f.eventId}';
+      insert into public.print_attempts(event_id,run_id,session_id,capture_id,accounting_version,kind,state,request_key,connection_id) select event_id,run_id,session_id,id,2,'Guest','Printed',gen_random_uuid(),gen_random_uuid() from public.captures where event_id='${f.eventId}';
+      insert into public.print_attempt_events(attempt_id,accounting_version,actor_scope,state,evidence_kind,evidence_policy_version,reason) select id,2,'admin:fixture','Diagnostic','inspection','simulator-v1','Sheet fully ejected but image unusable' from public.print_attempts where event_id='${f.eventId}' limit 1;
+      insert into public.captures(event_id,run_id,session_id,accounting_version,captured_at,shutter_operation_id) select event_id,run_id,id,2,now()+interval '1 second',gen_random_uuid() from public.guest_sessions where event_id='${f.eventId}' limit 1;
+      insert into public.activity_events(event_id,accounting_version,actor_scope,operation_kind,created_at) select '${f.eventId}',2,'admin:fixture','observe','2026-01-01T10:00:00Z' from generate_series(1,27);`);
+    ownerUpdate('events', f.eventId, { state: 'Completed', revision: 4 });
+    for (const [id, state, version, title] of [
+      [cancelledId, 'Cancelled', 2, 'Sunday gathering'],
+      [deletedId, 'Draft', 2, 'Secret deleted booking'],
+      [legacyId, 'Completed', 1, 'Legacy record'],
+    ] as const) {
+      ownerInsert('events', {
+        id,
+        state,
+        accounting_version: version,
+        title,
+        client_name: 'Retained client',
+        client_email: 'retained@example.test',
+        client_phone: '123',
+        venue_address: 'The Glasshouse',
+        time_zone: 'Asia/Manila',
+        starts_at: '2026-10-29T10:00:00Z',
+        ends_at: '2026-10-29T14:00:00Z',
+        film_package_count: 2,
+        ...(version === 1 ? { original_print_allowance: 17 } : {}),
+      });
+    }
+    const assetId = randomUUID();
+    ownerInsert('event_media_assets', {
+      id: assetId,
+      event_id: f.eventId,
+      kind: 'background',
+      state: 'attached',
+      path: `${f.eventId}/${assetId}`,
+      uploaded_by: f.adminUser.id,
+      content_type: 'image/jpeg',
+      byte_length: 123,
+    });
+    const pendingAsset = randomUUID();
+    ownerInsert('event_media_assets', {
+      id: pendingAsset,
+      event_id: deletedId,
+      kind: 'background',
+      state: 'uploading',
+      path: `${deletedId}/${pendingAsset}`,
+      uploaded_by: f.adminUser.id,
+    });
+    expect(
+      (await f.admin('begin_delete_draft', { eventId: deletedId, expectedRevision: 1 })).error
+    ).toBeNull();
+    await page.goto('/sign-in');
+    await page.getByLabel('Email', { exact: true }).fill(f.adminUser.email);
+    await page.getByLabel('Password', { exact: true }).fill(f.adminUser.password);
+    await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
+    await page.goto('/history');
+    await expect(
+      page.getByRole('list', { name: 'Retained Events' }).getByRole('listitem')
+    ).toHaveCount(2);
+    await expect(page.getByText('13 of 50 prints confirmed')).toBeVisible();
+    await expect(page.getByText('3 original Film Packages · 2 additional')).toBeVisible();
+    await expect(page.getByText('Secret deleted booking')).toHaveCount(0);
+    await expect(page.getByText('Legacy record')).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Retry media removal' })).toBeVisible();
+    await page.getByRole('button', { name: 'Retry media removal' }).click();
+    await expect(page.getByRole('status')).toContainText('Media removal still pending');
+    await page.getByRole('link', { name: 'Completed', exact: true }).click();
+    await expect(page).toHaveURL(/state=Completed$/);
+    await page.reload();
+    await expect(page.getByRole('link', { name: 'The autumn supper' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Sunday gathering' })).toHaveCount(0);
+    await page.getByRole('link', { name: 'Cancelled', exact: true }).click();
+    await expect(page.getByRole('link', { name: 'Sunday gathering' })).toBeVisible();
+    await expect(page.getByRole('link', { name: 'The autumn supper' })).toHaveCount(0);
+    await page.goto('/history?state=Live');
+    await expect(page.getByRole('link', { name: 'All History' })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    await page.getByRole('link', { name: 'The autumn supper' }).click();
+    await expect(
+      page.getByRole('region', { name: 'Total booked prints' }).locator('strong')
+    ).toHaveText('50');
+    await expect(
+      page.getByRole('region', { name: 'Confirmed Prints' }).locator('strong')
+    ).toHaveText('13');
+    await expect(
+      page.getByRole('region', { name: 'Captures', exact: true }).locator('strong')
+    ).toHaveText('14');
+    await expect(page.getByText('Includes Retakes')).toBeVisible();
+    await expect(page.getByText('package@example.test', { exact: true })).toBeVisible();
+    await expect(page.getByText('Asia/Manila', { exact: true })).toBeVisible();
+    await expect(page.getByText('No pending attempts')).toBeVisible();
+    await expect(
+      page.getByRole('region', { name: 'Event activity' }).getByRole('listitem')
+    ).toHaveCount(25);
+    await page.getByRole('link', { name: 'Older activity' }).click();
+    await expect(
+      page.getByRole('region', { name: 'Event activity' }).getByRole('listitem')
+    ).toHaveCount(2);
+    await expect(page.getByText('Page 2', { exact: true })).toBeVisible();
+    await page.goto(`/events/${f.eventId}?activityPage=1e3&attemptPage=2`);
+    await expect(page.getByText('Page 1', { exact: true })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Event Media' })).toContainText(
+      '1 retained Event Media attachment. Preview unavailable.'
+    );
+    await expect(page.getByRole('region', { name: 'Event Media' })).toContainText(
+      'Media uploads are temporarily unavailable.'
+    );
+    await expect(page.getByRole('region', { name: 'Event Media' })).toContainText(
+      'Before re-enabling uploads, verify cleanup of interrupted or late uploads and leftover files.'
+    );
+    await expect(page.getByRole('main').getByRole('button')).toHaveCount(0);
+    for (const endpoint of ['film-packages', 'complete', 'cancel', 'delete-draft']) {
+      const response = await page.request.post(`/api/admin/events/${f.eventId}/${endpoint}`, {
+        headers: { origin: 'http://127.0.0.1:1437', 'x-package-admin-id': f.adminUser.id },
+        data: {
+          operationId: randomUUID(),
+          ...(endpoint === 'film-packages'
+            ? { packages: 1, clientRequestNote: 'Denied terminal mutation' }
+            : { expectedRevision: 4 }),
+        },
+      });
+      expect(response.status()).toBe(409);
+      expect(await response.json()).toMatchObject({ code: 'invalid_transition' });
+    }
+    for (const theme of ['light', 'dark']) {
+      expect(
+        (await f.local.service.from('admin_profiles').update({ theme }).eq('id', f.adminUser.id))
+          .error
+      ).toBeNull();
+      for (const route of ['/history', `/events/${f.eventId}`]) {
+        await page.goto(route);
+        for (const viewport of [
+          { width: 1440, height: 1024 },
+          { width: 768, height: 1024 },
+          { width: 390, height: 844 },
+          { width: 844, height: 390 },
+        ]) {
+          await page.setViewportSize(viewport);
+          await page.evaluate(() => document.fonts.ready);
+          expect(
+            await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)
+          ).toBe(true);
+          const link = page.getByRole('link', {
+            name: route === '/history' ? 'Completed' : 'Back to History',
+            exact: true,
+          });
+          await link.focus();
+          await expect(link).toBeFocused();
+          await expect(link).toHaveCSS('outline-style', 'solid');
+          const pairs = await page
+            .locator('[data-state], [aria-label="Event Media"]')
+            .evaluateAll((elements) =>
+              elements.map((element) => {
+                const style = getComputedStyle(element);
+                return [style.color, style.backgroundColor];
+              })
+            );
+          for (const [foreground, background] of pairs)
+            expect(contrast(foreground, background)).toBeGreaterThanOrEqual(4.5);
+          await page.screenshot({
+            path: info.outputPath(
+              `history-${route === '/history' ? 'list' : 'detail'}-${theme}-${viewport.width}.png`
+            ),
+            fullPage: true,
+          });
+        }
+      }
+    }
+    await page.setViewportSize({ width: 720, height: 1024 });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '200%';
+    });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
+      true
+    );
+    const bookedBox = await page.getByRole('region', { name: 'Total booked prints' }).boundingBox();
+    const printedBox = await page.getByRole('region', { name: 'Confirmed Prints' }).boundingBox();
+    expect(printedBox!.y).toBeGreaterThanOrEqual(bookedBox!.y + bookedBox!.height);
+    await page.screenshot({
+      path: info.outputPath('history-detail-dark-text-200.png'),
+      fullPage: true,
+    });
+    await page.evaluate(() => {
+      document.documentElement.style.fontSize = '';
+    });
+    await page.emulateMedia({ reducedMotion: 'reduce' });
+    await page.goto(`/events/${cancelledId}`);
+    await expect(page.getByRole('heading', { name: 'Sunday gathering' })).toBeVisible();
+    await expect(page.getByRole('region', { name: 'Event Media' })).toContainText(
+      'No Event Media attached.'
+    );
+    await expect(page.getByRole('region', { name: 'Event Media' })).toContainText(
+      'Before re-enabling uploads'
+    );
+    await expect(page.getByRole('main').getByRole('button')).toHaveCount(0);
+    localOwnerSql('revoke select on public.event_media_assets from authenticated');
+    try {
+      await page.reload();
+      await expect(page.getByRole('main').getByRole('alert')).toContainText(
+        'Unable to load Events'
+      );
+      await expect(page.getByText(/No Event Media attached/)).toHaveCount(0);
+    } finally {
+      localOwnerSql('grant select on public.event_media_assets to authenticated');
+    }
+    await writeFile(faultFile, 'test outage');
+    await page.goto('/history');
+    await expect(page.getByRole('main').getByRole('alert').first()).toContainText(
+      'Unable to load Events'
+    );
+    await expect(page.getByText(/No completed or cancelled Events yet/)).toHaveCount(0);
+    await page.screenshot({ path: info.outputPath('history-error-dark.png'), fullPage: true });
+    await rm(faultFile, { force: true });
+    await page.getByRole('link', { name: 'Try again' }).click();
+    await expect(page.getByRole('list', { name: 'Retained Events' })).toBeVisible();
+    cleanupEvents([cancelledId]);
+    await page.goto('/history?state=Cancelled');
+    await expect(page.getByText('No cancelled Events yet.')).toBeVisible();
+    await page.screenshot({ path: info.outputPath('history-empty-dark.png'), fullPage: true });
+    await f.adminClient.auth.signOut({ scope: 'global' });
+    await page.goto(`/events/${f.eventId}`);
+    await expect(page).toHaveURL(/sign-in/);
+    await expect(page.getByText('package@example.test')).toHaveCount(0);
+    await page.goto('/history');
+    await expect(page).toHaveURL(/sign-in/);
+  } finally {
+    await rm(faultFile, { force: true });
+    try {
+      cleanupEvents([cancelledId, deletedId, legacyId]);
+    } finally {
+      await f.dispose();
+    }
+  }
+});
