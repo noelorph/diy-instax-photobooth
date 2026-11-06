@@ -5,14 +5,17 @@ import { expect, test } from '@playwright/test';
 import { cleanupEvents, localOwnerSql, ownerInsert, ownerUpdate } from '../fixtures/local-supabase';
 import { createPackageBrowserFixture } from '../fixtures/package-browser';
 
-test('Dashboard summaries, Live run states, activity controls and responsive themes', async ({
+test('Dashboard monthly Events includes Draft Live Completed and excludes Cancelled; Live run states, activity controls and responsive themes', async ({
   page,
 }, info) => {
   info.setTimeout(120000);
   const f = await createPackageBrowserFixture();
   const faultFile = resolve('test-results/events-read-fault');
-  const ids = [randomUUID(), randomUUID(), randomUUID()];
+  const ids = [randomUUID(), randomUUID(), randomUUID(), randomUUID()];
   const now = new Date();
+  // Keep the venue month stable throughout this two-minute real-clock test.
+  const timeZone = now.getUTCHours() === 23 ? 'Pacific/Honolulu' : 'UTC';
+  const upcomingStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 2, 15, 12));
   const start = now.toISOString();
   const end = new Date(now.getTime() + 4 * 60 * 60_000).toISOString();
   try {
@@ -20,6 +23,7 @@ test('Dashboard summaries, Live run states, activity controls and responsive the
     ownerUpdate('events', f.eventId, {
       revision: 3,
       title: 'Live celebration',
+      time_zone: timeZone,
       starts_at: start,
       ends_at: end,
       film_package_count: 5,
@@ -29,14 +33,20 @@ test('Dashboard summaries, Live run states, activity controls and responsive the
       ids.map((id, index) => ({
         id,
         accounting_version: 2,
-        state: ['Draft', 'Completed', 'Cancelled'][index],
-        title: ['Next celebration', 'Past celebration', 'Cancelled celebration'][index],
+        state: ['Draft', 'Completed', 'Cancelled', 'Draft'][index],
+        title: [
+          'Draft celebration',
+          'Past celebration',
+          'Cancelled celebration',
+          'Next celebration',
+        ][index],
         client_name: 'Client',
         client_email: 'private@example.test',
         client_phone: '123',
-        starts_at: index === 0 ? new Date(now.getTime() + 60 * 60_000).toISOString() : start,
-        ends_at: end,
-        time_zone: 'Asia/Manila',
+        starts_at: index === 3 ? upcomingStart.toISOString() : start,
+        ends_at:
+          index === 3 ? new Date(upcomingStart.getTime() + 4 * 60 * 60_000).toISOString() : end,
+        time_zone: timeZone,
         venue_address: 'Hall',
         film_package_count: 1,
       }))
@@ -63,7 +73,7 @@ test('Dashboard summaries, Live run states, activity controls and responsive the
     );
     await expect(
       page.getByRole('region', { name: 'Total Events booked' }).locator('strong')
-    ).toHaveText('3');
+    ).toHaveText('4');
     await expect(
       page.getByRole('region', { name: 'Upcoming Events' }).locator('strong')
     ).toHaveText('1');
@@ -75,7 +85,7 @@ test('Dashboard summaries, Live run states, activity controls and responsive the
     );
     await expect(page.getByRole('region', { name: 'Up next' }).getByRole('link')).toHaveAttribute(
       'href',
-      `/events/${ids[0]}`
+      `/events/${ids[3]}`
     );
     await expect(
       page.getByRole('region', { name: 'Recent activity' }).getByRole('listitem')

@@ -324,3 +324,55 @@ it('returns unavailable rather than invented zero summaries when a required data
     await f.dispose();
   }
 });
+
+it('returns unavailable when an authorized Live package-count dependency fails while Event and activity reads succeed', async () => {
+  const f = await fixture();
+  const activityId = randomUUID();
+  try {
+    f.seedRun('Active');
+    ownerInsert('activity_events', {
+      id: activityId,
+      event_id: f.eventId,
+      accounting_version: 2,
+      actor_scope: 'admin:fixture',
+      operation_kind: 'start',
+      created_at: now,
+    });
+    const before = await readDashboard({ now, activityDays: 7, page: 0 });
+    expect(before.status === 'success' && before.liveEvent).toMatchObject({
+      id: f.eventId,
+      counts: { totalBookedPrints: 50 },
+    });
+    localOwnerSql(
+      'revoke execute on function public.package_admin_read(uuid,uuid,uuid,uuid) from service_role'
+    );
+    const event = await f.adminClient
+      .from('events')
+      .select('id,state')
+      .eq('id', f.eventId)
+      .single();
+    const activity = await f.adminClient
+      .from('activity_events')
+      .select('id')
+      .eq('id', activityId)
+      .single();
+    expect(event.error).toBeNull();
+    expect(event.data).toEqual({ id: f.eventId, state: 'Live' });
+    expect(activity.error).toBeNull();
+    expect(activity.data).toEqual({ id: activityId });
+    expect((await f.readAdmin()).error).not.toBeNull();
+    expect(await readDashboard({ now, activityDays: 7, page: 0 })).toEqual({
+      status: 'unavailable',
+      error: 'Unable to load Dashboard. Reload to try again.',
+    });
+  } finally {
+    try {
+      localOwnerSql(
+        'grant execute on function public.package_admin_read(uuid,uuid,uuid,uuid) to service_role'
+      );
+      expect((await f.readAdmin()).error).toBeNull();
+    } finally {
+      await f.dispose();
+    }
+  }
+});
