@@ -3,6 +3,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { getOperationalEvent } from '@/features/admin/operations/read';
 import { getHistoryEvent } from '@/lib/events/history';
 import EventPage from '@/app/(admin)/events/[eventId]/page';
+import { AdminShell } from '@/components/layout/admin-shell';
 vi.mock('@/lib/events/drafts', () => ({ getDraft: async () => ({ status: 'not_found' }) }));
 vi.mock('@/features/admin/events/actions', () => ({
   createDraftAction: vi.fn(),
@@ -40,10 +41,21 @@ vi.mock('@/features/admin/operations/read', () => ({
     },
   })),
 }));
-vi.mock('next/navigation', () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock('next/navigation', () => ({
+  useRouter: () => ({ refresh: vi.fn() }),
+  usePathname: () => '/events/h',
+}));
 afterEach(cleanup);
 it('renders Live Event management instead of a missing Draft', async () => {
-  render(await EventPage({ params: Promise.resolve({ eventId: 'a' }) }));
+  render(
+    <AdminShell theme="light">
+      {await EventPage({ params: Promise.resolve({ eventId: 'a' }) })}
+    </AdminShell>
+  );
+  expect(
+    screen.getByRole('navigation', { name: 'Admin' }).querySelector('[aria-current="page"]')
+      ?.textContent
+  ).toBe('Events');
   expect(screen.getByRole('heading', { name: 'Live celebration' })).toBeTruthy();
   expect(screen.getByText('20 total booked prints')).toBeTruthy();
 });
@@ -139,11 +151,17 @@ it.each(['Completed', 'Cancelled'] as const)(
       mediaAssetCount: 1,
     });
     render(
-      await EventPage({
-        params: Promise.resolve({ eventId: 'h' }),
-        searchParams: Promise.resolve({ activityPage: '1' }),
-      })
+      <AdminShell theme="light">
+        {await EventPage({
+          params: Promise.resolve({ eventId: 'h' }),
+          searchParams: Promise.resolve({ activityPage: '1' }),
+        })}
+      </AdminShell>
     );
+    expect(
+      screen.getByRole('navigation', { name: 'Admin' }).querySelector('[aria-current="page"]')
+        ?.textContent
+    ).toBe('History');
     expect(screen.getByRole('heading', { name: 'Past celebration' })).toBeTruthy();
     expect(screen.getByRole('region', { name: 'Total booked prints' }).textContent).toContain('50');
     expect(screen.getByRole('region', { name: 'Confirmed Prints' }).textContent).toContain('13');
@@ -183,11 +201,11 @@ it('failed terminal reads never render no attachment or invented totals', async 
   expect(screen.queryByRole('region', { name: 'Total booked prints' })).toBeNull();
 });
 
-it('successful empty terminal media is explicit and invalid activity queries default to the first page', async () => {
+it('a never-started Cancelled Event reports empty media without claiming a Booth ran and invalid activity queries default to the first page', async () => {
   vi.mocked(getHistoryEvent).mockResolvedValueOnce({
     status: 'success',
-    event: retained,
-    captures: 14,
+    event: { ...retained, state: 'Cancelled' },
+    captures: 0,
     activity: [],
     hasNextPage: false,
     mediaAssetCount: 0,
@@ -198,9 +216,7 @@ it('successful empty terminal media is explicit and invalid activity queries def
       searchParams: Promise.resolve({ activityPage: '1e3', attemptPage: '2' }),
     })
   );
-  expect(
-    screen.getByText('No Event Media attached. The default Booth presentation was used.')
-  ).toBeTruthy();
+  expect(screen.getByText('No Event Media attached.', { exact: true })).toBeTruthy();
   expect(screen.getByText('Page 1')).toBeTruthy();
   expect(screen.queryByRole('link', { name: 'Newer activity' })).toBeNull();
   expect(

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { HistoryNavigation } from '@/components/layout/admin-shell';
 import { PageHeader } from '@/components/shared/page-header';
 import { buttonVariants } from '@/components/ui/button';
 import { activityLabel } from '@/features/admin/dashboard/activity-label';
@@ -12,6 +13,7 @@ export function HistoryDetail({ result, activityPage }: { result: Detail; activi
   const { counts } = event;
   return (
     <div>
+      <HistoryNavigation />
       <Link href="/history" className={buttonVariants({ variant: 'quiet' })}>
         Back to History
       </Link>
@@ -117,7 +119,7 @@ export function HistoryDetail({ result, activityPage }: { result: Detail; activi
         <h2>Event Media</h2>
         <p>
           {mediaAssetCount === 0
-            ? 'No Event Media attached. The default Booth presentation was used.'
+            ? 'No Event Media attached.'
             : `${mediaAssetCount} retained Event Media attachment${mediaAssetCount === 1 ? '' : 's'}. Preview unavailable.`}
         </p>
         <p>{EVENT_MEDIA_UNAVAILABLE_MESSAGE}</p>

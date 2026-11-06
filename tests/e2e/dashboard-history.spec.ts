@@ -104,7 +104,9 @@ test('Dashboard monthly Events includes Draft Live Completed and excludes Cancel
       'href',
       '/dashboard?activityDays=30&page=0'
     );
-    await page.goto('/dashboard?activityDays=invalid&page=1e3');
+    const dashboardResponse = await page.goto('/dashboard?activityDays=invalid&page=1e3');
+    expect(dashboardResponse!.headers()['cache-control']).toContain('private');
+    expect(dashboardResponse!.headers()['cache-control']).toContain('no-store');
     await expect(page.getByRole('link', { name: '7 days' })).toHaveAttribute(
       'aria-current',
       'page'
@@ -236,6 +238,19 @@ test('Dashboard monthly Events includes Draft Live Completed and excludes Cancel
     await page.getByRole('link', { name: 'Open Live Event' }).click();
     await expect(page).toHaveURL(`/events/${f.eventId}`);
     await expect(page.getByRole('heading', { name: 'Live celebration' })).toBeVisible();
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Admin' })
+        .getByRole('link', { name: 'Events', exact: true })
+    ).toHaveAttribute('aria-current', 'page');
+    await page.reload();
+    await expect(
+      page
+        .getByRole('navigation', { name: 'Admin' })
+        .getByRole('link', { name: 'Events', exact: true })
+    ).toHaveAttribute('aria-current', 'page');
+    await page.goBack();
+    await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
   } finally {
     await rm(faultFile, { force: true });
     try {
@@ -265,7 +280,12 @@ test('History filters retain immutable package records and honest terminal media
 }, info) => {
   info.setTimeout(120000);
   const f = await createPackageBrowserFixture();
-  const [cancelledId, deletedId, legacyId] = [randomUUID(), randomUUID(), randomUUID()];
+  const [cancelledId, deletedId, legacyId, draftId] = [
+    randomUUID(),
+    randomUUID(),
+    randomUUID(),
+    randomUUID(),
+  ];
   const faultFile = resolve('test-results/events-read-fault');
   try {
     f.seedRun('Finished');
@@ -292,6 +312,7 @@ test('History filters retain immutable package records and honest terminal media
       [cancelledId, 'Cancelled', 2, 'Sunday gathering'],
       [deletedId, 'Draft', 2, 'Secret deleted booking'],
       [legacyId, 'Completed', 1, 'Legacy record'],
+      [draftId, 'Draft', 2, 'Upcoming gathering'],
     ] as const) {
       ownerInsert('events', {
         id,
@@ -337,7 +358,9 @@ test('History filters retain immutable package records and honest terminal media
     await page.getByLabel('Password', { exact: true }).fill(f.adminUser.password);
     await page.getByRole('button', { name: 'Sign in', exact: true }).click();
     await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toBeVisible();
-    await page.goto('/history');
+    const historyResponse = await page.goto('/history');
+    expect(historyResponse!.headers()['cache-control']).toContain('private');
+    expect(historyResponse!.headers()['cache-control']).toContain('no-store');
     await expect(
       page.getByRole('list', { name: 'Retained Events' }).getByRole('listitem')
     ).toHaveCount(2);
@@ -356,12 +379,54 @@ test('History filters retain immutable package records and honest terminal media
     await page.getByRole('link', { name: 'Cancelled', exact: true }).click();
     await expect(page.getByRole('link', { name: 'Sunday gathering' })).toBeVisible();
     await expect(page.getByRole('link', { name: 'The autumn supper' })).toHaveCount(0);
+    await page.goBack();
+    await expect(page).toHaveURL(/state=Completed$/);
+    await expect(page.getByRole('link', { name: 'Completed', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
     await page.goto('/history?state=Live');
     await expect(page.getByRole('link', { name: 'All History' })).toHaveAttribute(
       'aria-current',
       'page'
     );
     await page.getByRole('link', { name: 'The autumn supper' }).click();
+    await expect(page).toHaveURL(`/events/${f.eventId}`);
+    await expect(
+      page.getByRole('heading', { name: 'The autumn supper', exact: true })
+    ).toBeVisible();
+    const navigation = page.getByRole('navigation', { name: 'Admin' });
+    await expect(navigation.getByRole('link', { name: 'History', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    await expect(navigation.getByRole('link', { name: 'Events', exact: true })).not.toHaveAttribute(
+      'aria-current'
+    );
+    const terminalResponse = await page.reload();
+    expect(terminalResponse!.headers()['cache-control']).toContain('private');
+    expect(terminalResponse!.headers()['cache-control']).toContain('no-store');
+    await expect(navigation.getByRole('link', { name: 'History', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    await navigation.getByRole('link', { name: 'Events', exact: true }).click();
+    await expect(page).toHaveURL('/events');
+    await page.getByRole('link', { name: 'Upcoming gathering', exact: true }).click();
+    await expect(page).toHaveURL(`/events/${draftId}`);
+    await expect(navigation.getByRole('link', { name: 'Events', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    await expect(page.getByRole('button', { name: 'Edit Draft', exact: true })).toBeVisible();
+    await page.goBack();
+    await expect(page).toHaveURL('/events');
+    await page.goBack();
+    await expect(page).toHaveURL(`/events/${f.eventId}`);
+    await expect(navigation.getByRole('link', { name: 'History', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
     await expect(
       page.getByRole('region', { name: 'Total booked prints' }).locator('strong')
     ).toHaveText('50');
@@ -472,6 +537,12 @@ test('History filters retain immutable package records and honest terminal media
     await page.emulateMedia({ reducedMotion: 'reduce' });
     await page.goto(`/events/${cancelledId}`);
     await expect(page.getByRole('heading', { name: 'Sunday gathering' })).toBeVisible();
+    await expect(navigation.getByRole('link', { name: 'History', exact: true })).toHaveAttribute(
+      'aria-current',
+      'page'
+    );
+    await expect(page.getByText('No Event Media attached.', { exact: true })).toBeVisible();
+    await expect(page.getByText(/default Booth presentation was used/)).toHaveCount(0);
     await expect(page.getByRole('region', { name: 'Event Media' })).toContainText(
       'No Event Media attached.'
     );
@@ -509,10 +580,13 @@ test('History filters retain immutable package records and honest terminal media
     await expect(page.getByText('package@example.test')).toHaveCount(0);
     await page.goto('/history');
     await expect(page).toHaveURL(/sign-in/);
+    await page.goto('/dashboard');
+    await expect(page).toHaveURL(/sign-in/);
+    await expect(page.getByText('Upcoming gathering')).toHaveCount(0);
   } finally {
     await rm(faultFile, { force: true });
     try {
-      cleanupEvents([cancelledId, deletedId, legacyId]);
+      cleanupEvents([cancelledId, deletedId, legacyId, draftId]);
     } finally {
       await f.dispose();
     }

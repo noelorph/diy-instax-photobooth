@@ -1,7 +1,7 @@
 import { chromium, expect, test, type Locator, type Page, type TestInfo } from '@playwright/test';
 import { resolve } from 'node:path';
 import { writeFile } from 'node:fs/promises';
-import { cleanupEvents } from '../fixtures/local-supabase';
+import { cleanupEvents, ownerUpdate } from '../fixtures/local-supabase';
 import { createPackageBrowserFixture } from '../fixtures/package-browser';
 
 async function keyboardActivate(page: Page, control: Locator) {
@@ -51,6 +51,7 @@ for (const width of [1000, 1440, 2400]) {
     const fixture = await createPackageBrowserFixture();
     const local = fixture.local;
     const admin = fixture.adminUser;
+    ownerUpdate('events', fixture.eventId, { state: 'Cancelled', revision: 2 });
     const title = `Native zoom ${admin.id} ${'Celebration'.repeat(14)}`;
     let eventId: string | undefined;
     let failed = false;
@@ -104,6 +105,9 @@ for (const width of [1000, 1440, 2400]) {
         contentType: 'application/json',
       });
 
+      await expectNoHorizontalOverflow(page);
+      await captureNativeViewport(page, testInfo, 'dashboard-light-native-200.png');
+
       async function navigate(name: string) {
         if (after.compact) {
           const toggle = page.getByRole('button', { name: 'Open navigation' });
@@ -132,8 +136,31 @@ for (const width of [1000, 1440, 2400]) {
       await expect(page.locator('.admin-shell')).toHaveAttribute('data-theme', 'dark');
       expect((await measure()).width).toBe(after.width);
 
+      await navigate('Dashboard');
+      await expect(page.getByRole('heading', { name: 'No Live Event' })).toBeVisible();
+      await expectNoHorizontalOverflow(page);
+      await keyboardActivate(page, page.getByRole('link', { name: '30 days', exact: true }));
+      await captureNativeViewport(page, testInfo, 'dashboard-dark-native-200.png');
       await navigate('History');
       await expect(page.getByRole('heading', { name: 'History', exact: true })).toBeVisible();
+      await keyboardActivate(page, page.getByRole('link', { name: 'Cancelled', exact: true }));
+      await expectNoHorizontalOverflow(page);
+      await captureNativeViewport(page, testInfo, 'history-native-200.png');
+      await keyboardActivate(
+        page,
+        page.getByRole('link', { name: 'Package fixture', exact: true })
+      );
+      await expect(
+        page.getByRole('heading', { name: 'Package fixture', exact: true })
+      ).toBeVisible();
+      await expect(page.getByRole('region', { name: 'Total booked prints' })).toContainText('10');
+      await expect(page.getByRole('main').getByRole('button')).toHaveCount(0);
+      await expectNoHorizontalOverflow(page);
+      await captureNativeViewport(page, testInfo, 'history-detail-native-200.png');
+      await keyboardActivate(
+        page,
+        page.getByRole('link', { name: 'Back to History', exact: true })
+      );
       await navigate('Events');
       await keyboardActivate(page, page.getByRole('link', { name: 'Create Event' }));
       const save = page.getByRole('button', { name: 'Save Draft' });

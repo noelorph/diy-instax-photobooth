@@ -146,3 +146,17 @@ it.each(['constructor', '__proto__'])(
     expect(screen.getByText('Event activity recorded')).toBeTruthy();
   }
 );
+
+it.each([
+  ['Dashboard', () => import('@/app/(admin)/dashboard/loading')],
+  ['History', () => import('@/app/(admin)/history/loading')],
+  ['Event', () => import('@/app/(admin)/events/[eventId]/loading')],
+] as const)(
+  '%s loading exposes accessible progress without invented reporting',
+  async (_, load) => {
+    const { default: Loading } = await load();
+    render(<Loading />);
+    expect(screen.getByRole('status').textContent).toMatch(/loading/i);
+    expect(screen.queryByRole('region', { name: 'Total booked prints' })).toBeNull();
+  }
+);
