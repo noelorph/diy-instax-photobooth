@@ -65,4 +65,6 @@ The earlier supporting videos were supplied as `c823768d-4db7-44f6-a5e9-06f72985
 - **P3/P4/P10/P11:** qualify fault handling or the approved generic-fault/inspection fallback, physical reload, safe old-job clearance and readiness. The empty trial supplies one passing negative case, not a complete no-film classifier or recovery procedure.
 - **P6–P9:** verify Bluetooth, network, camera and page reload/crash boundaries without duplicate sends or delayed output from an unresolved old command.
 
-The live issue's older routine-manual-production alternative is superseded by ADR-0025 and the replacement contract. The [issue scope mapping](../github-issue-update-drafts.md) remains an unpublished draft. Actual-iPad release qualification belongs separately to #7; it is not the reason to discount this successful demonstration. No GitHub issue state, production evidence policy or accounting behavior was changed by this record.
+Actual-iPad release qualification belongs separately to #7. The accepted trial checks above remain valid within their recorded scope; production evidence policy and accounting behavior are unchanged.
+
+**Publication follow-up — 2026-11-07:** The [issue publication record](../github-issue-update-drafts.md#printer-qualification-evidence-publication--2026-11-07) records the updated #17 body, including these passed checks and the remaining qualification requirements. The obsolete routine-manual-production alternative was removed in line with ADR-0025 and the replacement contract. #17 remains open; #7's replacement scope remains unpublished.

@@ -1,5 +1,17 @@
 # GitHub issue publication record and remaining drafts
 
+## Printer qualification evidence publication — 2026-11-07
+
+The owner authorized updating the outdated qualification documentation and aligning issue #17 with the current contract and reviewed evidence. Updated [#17](https://github.com/noelorph/diy-instax-photobooth/issues/17) to record three passed November 6 trial checks separately from the incomplete P1–P4/P6–P11 qualification: automatic candidates accompanied reviewed used-sheet output, the physical last used sheet produced a candidate, and the known-empty attempt produced no false candidate.
+
+The published body preserves October observations, requires automatic normal full-ejection completion, makes P3's qualified generic-fault/inspection alternative explicit, keeps automatic reload optional and actual-iPad release in #7, and removes obsolete routine-manual-production, Test Print/stock and #8-prerequisite wording. Existing requirements are clarified; no product policy or physical acceptance gate is waived.
+
+Complete-body read-back matched the prepared text exactly. GitHub updated at `2026-11-06T16:12:53Z` (November 7 in Asia/Manila); body SHA-256: `451a1de69b195e2a0aec1b0e70fae92b93ce2a385779996630e6f5f58693a14e`. #17 remains **OPEN**, with unchanged title, labels and assignees. No other issue body or metadata was changed.
+
+The November trial report is committed locally as `0c688e6` and has not been pushed. The issue therefore names the local evidence revision and document paths without a broken remote file link. Videos remain local. This publication added no hardware/software test results and did not close an issue, enable production or push repository changes.
+
+Earlier publication checkpoints below retain their dated state. The [#17 section](#issue-17--physical-printer-evidence) now preserves the updated published body; #7 remains a draft.
+
 ## November screen-reference publication — 2026-11-06
 
 The owner confirmed full adoption of the November visual reference, including fonts/colors, and removal of the former presentation files while preserving Git history and dated evidence. The [main implementation plan](superpowers/plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract) now owns the per-screen catalog and presentation/accessibility contract under [ADR-0034](adr/0034-use-november-screen-reference-in-implementation-plan.md). The supplied PDF has 22 Admin pages, extracted individually with hashes and dimensions in the [manifest](references/2026-11-06-instax-booth/manifest.json). The 30 Booth frames, 19 dialogs and three boards are supplementary Figma inventory links, not PDF extractions or freshly reverified remote designs.
@@ -171,19 +183,51 @@ All eight are native sub-issues of #10. Each also records the already-completed 
 
 ## Issue #17 — physical printer evidence
 
-### Proposed replacement scope
+**Published and read-back verified, 2026-11-07.** The body below records accepted trial checks and incomplete qualification; publication does not close the issue.
 
-Keep the existing report's observed successes and failures intact. Continue physical investigation under `docs/qualification/booth-recovery-proof-checklist.md`. Seven matching fresh-film prints and the used-sheet diagnostics do not prove reliable automatic full ejection. Printer count is diagnostic only. The original complete fresh-film sequence remains unproven.
+### Goal and current status
 
-Automatic normal completion is mandatory. Remove the old proposal that routine manual production completion could substitute. Phone Printed / Not printed is exceptional unknown-outcome recovery only; its inspection and safe-clearing procedure also needs validation. Automatic reload detection is optional; physically loading and confirming from the phone is the approved fallback after qualification.
+Updated 2026-11-07, Asia/Manila; the latest trial timestamps are 2026-11-06 UTC.
 
-### Proposed acceptance checklist
+Qualify automatic normal **full physical ejection** and safe recovery on the supported Mini Link 3 setup before enabling real printer-backed Booth Mode. **This issue remains open.** Phone inspection is exceptional recovery; ordinary successful printing must complete automatically.
 
-- [ ] P1/P2: reliable full-ejection correlation and complete fresh-film sequence.
-- [ ] P3/P4/P10/P11: no-film classification or qualified generic-fault fallback, manual reload/inspection and safe idle/new-job readiness.
-- [ ] P6–P9: Bluetooth, internet, camera and reload/crash boundaries with no duplicate physical send.
-- [ ] P5: investigate automatic reload only as optional capability; never infer ten loaded usable sheets from counter reset.
-- [ ] Record evidence versions, precision, failures and supported hardware limits. Keep real Booth disabled until mandatory completion/recovery requirements pass.
+The accepted milestone is: **Automatic ejection detection demonstrated successfully on FI033/0102 in the reviewed trials.** This is scoped trial success, not a qualified production adapter or release approval. #10 development may continue with a nonproduction simulator. Actual-iPad release qualification remains separately tracked in #7.
+
+### Passed November 6 trial checks
+
+- [x] Automatic `rea-candidates-v1` ejection candidates accompanied the reviewed successful used-sheet outputs.
+- [x] The last physical used sheet also produced an automatic candidate.
+- [x] The subsequent known-empty attempt produced no false ejection candidate: it recorded an error, candidate invalidation and an uncertain outcome.
+
+The last-sheet and empty attempts are attempts 1 and 2 of `run-a79dc280-a5e6-47bd-8591-c447ff817840`. The cumulative export repeats attempt 1; its candidate does not belong to the empty attempt.
+
+The harness still required manual final confirmation. These trials did not establish automatic production completion/accounting, precise full-clearance timing across required conditions, exclusive no-film diagnosis, or post-error recovery. Reported film count remained nine while the operator knew the cartridge was empty; the count is not physical inventory.
+
+### Preserved October evidence
+
+The supervised iPhone dry run passed camera, capture, Retake, Guided Access, connection and pre-command disconnect checks. Seven fresh-film qualification prints matched reviewed crop/orientation, but page resets and missed manual confirmations interrupted the required sequence. A separate three-used-sheet run demonstrated Retake and exhaustion of the historical local harness limit; the operator reported the fourth trial blocked and the supplied log contains no fourth command. Its reported count fell 10 → 7 while physical sheets fell 3 → 0. A later one-sheet run left no physical sheet known loaded while reporting nine.
+
+The official-app trace showed count drop before `12 7f` clearing; Bluefy often sampled them together. These October observations did not resolve the ordering against complete physical emergence, and no separate Link 3 ejection notification was recorded. Those results remain valid for their recorded scope; neither establishes the current automatic completion/recovery contract.
+
+### Remaining qualification
+
+- [ ] **P1:** qualify full-ejection correlation with synchronized video/logs, documented timing precision, normal fresh-film/last-sheet and relevant fault cases; record exact device, OS, browser, firmware and evidence-policy versions.
+- [ ] **P2:** complete three consecutive fresh-film Guest Sessions, including Retake, matching reviewed crop/orientation and automatic completion without a manual success tap.
+- [ ] **P3:** qualify reliable attempt-specific no-film/no-output classification **or the approved generic-fault/Pending/inspection fallback**; never infer no output from a timeout or count alone.
+- [ ] **P4/P10/P11:** validate physical reload, exceptional inspection, old-job clearance and readiness, including uncertain/partial output and stale or interrupted recovery. Loading film does not settle an old attempt or add Event capacity.
+- [ ] **P6–P9:** verify Bluetooth, internet, camera and page reload/crash boundaries without duplicate sends or delayed output from an unresolved old attempt.
+
+**P5 automatic reload detection is optional.** Qualified physical loading plus phone confirmation is the approved fallback. Unknown outcomes remain unresolved and block new guests. Never automatically resend an ambiguous print.
+
+### Governing documents and evidence
+
+- `docs/adr/0025-package-accounting-and-booth-recovery.md`
+- `docs/superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md`
+- `docs/qualification/booth-recovery-proof-checklist.md`
+- `docs/qualification/issue-17-trial-report.md` — preserved October observations.
+- `docs/qualification/2026-11-06-ejection-detection-trials.md` — November trial record, local evidence commit `0c688e6` (not pushed); videos remain local.
+
+Passed individual checks do not complete the remaining qualification groups or authorize production printing.
 
 ## Issue #7 — actual iPad release trial
 
@@ -202,4 +246,4 @@ Validate the implemented target on the actual iPad A16, with recorded model, iPa
 
 ## Cross-issue cleanup notes
 
-For the remaining drafts, replace stale scope references to ADR-0014 when the intended evidence checkpoint is ADR-0021, now narrowed by ADR-0025. Do not reintroduce closed issue #8 as a new pre-build blocker; current contracts supersede its old recovery policy. Preserve traceability to original decisions. The earlier #9/#10 publication preserved unrelated issue metadata. The revised #10 body above is still local; publish it only under the approved publication plan. Do not change #9's accepted state or publish #17/#7 as part of this revision.
+The November 7 #17 publication supersedes its older unpublished scope and obsolete prerequisites. #7's replacement scope remains a draft; do not infer publication or acceptance from its presence here. Keep #9's accepted state and the published #10 scope intact. For future updates to #7, use ADR-0021 for staged physical qualification and ADR-0025 for current completion/recovery policy; preserve dated observations and do not restore closed #8 as a pre-build blocker.
