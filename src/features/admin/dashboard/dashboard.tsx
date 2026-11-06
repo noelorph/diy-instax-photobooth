@@ -142,7 +142,12 @@ export function Dashboard({
                     <div>
                       <p>{activityLabel(item.operationKind)}</p>
                       {item.eventId ? (
-                        <Link href={`/events/${item.eventId}`}>Open Event</Link>
+                        <Link
+                          href={`/events/${item.eventId}`}
+                          className={buttonVariants({ variant: 'link' })}
+                        >
+                          Open Event
+                        </Link>
                       ) : (
                         <span>Event no longer available</span>
                       )}
