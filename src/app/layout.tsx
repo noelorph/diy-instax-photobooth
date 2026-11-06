@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { DM_Sans } from 'next/font/google';
+import localFont from 'next/font/local';
 import '@/styles/globals.css';
 
 // Self-hosted by next/font at build time; no runtime request to Google.
@@ -10,6 +11,12 @@ const dmSans = DM_Sans({
   display: 'swap',
 });
 
+const manrope = localFont({
+  src: '../../public/fonts/manrope-variable.ttf',
+  variable: '--font-manrope',
+  display: 'swap',
+});
+
 export const metadata: Metadata = {
   title: 'DIY Instax Photobooth',
   description: 'DIY Instax photobooth for souvenirs.',
@@ -17,7 +24,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: LayoutProps<'/'>) {
   return (
-    <html lang="en" className={dmSans.variable}>
+    <html lang="en" className={`${dmSans.variable} ${manrope.variable}`}>
       <body>{children}</body>
     </html>
   );
