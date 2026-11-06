@@ -5,6 +5,7 @@ import { cleanupEvents, ownerUpdate } from '../fixtures/local-supabase';
 import { createPackageBrowserFixture } from '../fixtures/package-browser';
 
 async function keyboardActivate(page: Page, control: Locator) {
+  await expect(control).toBeEnabled();
   await control.focus();
   await expect(control).toBeFocused();
   await expect(control).toBeInViewport();
