@@ -2,12 +2,12 @@
 
 **Media-only refinement — 2026-10-27:** [ADR-0032](../adr/0032-build-full-f2-with-uploads-unavailable.md) permits full dormant F2 implementation while uploads remain unavailable and default welcome stays usable. Keep media sections/designs, the Admin cleanup reminder and prior-authorized cleanup-pending safety. Full #30 cleanup and enabled transfer/failure/concurrency/private-delivery/playback qualification remain open. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure. All mandatory printer/recovery and actual-iPad proofs below remain open and required.
 
-**Status:** Approved acceptance checklist, 2026-10-21. Version-2 software contract work is tracked in the [issue #9 verification record](../implementation/issue-9-package-contracts-review.md). No new physical trial has been performed; every physical proof below remains open.
+**Status:** Approved acceptance checklist, 2026-10-21. Version-2 software contract work is tracked in the [issue #9 verification record](../implementation/issue-9-package-contracts-review.md). The [2026-11-06 trials](2026-11-06-ejection-detection-trials.md) demonstrated automatic ejection detection successfully on FI033/0102, including a known-empty attempt with no false candidate. This supplies partial P1/P3 evidence; every full proof below remains open.
 **Authority:** [Replacement contract](../superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md), [ADR-0025](../adr/0025-package-accounting-and-booth-recovery.md), [PRD](../../PRD.md).
 
 ## What the existing evidence establishes
 
-The [dated issue #17 report](issue-17-trial-report.md) is the observation record. Its October 2026 setup was iPhone 15 Plus, iOS 26.2.1, Bluefy 3.9.3, Mini Link 3 FI033 firmware 0102(RX). Record versions afresh in future trials.
+The [dated issue #17 report](issue-17-trial-report.md) preserves October observations; the [November 6 report](2026-11-06-ejection-detection-trials.md) records the later successful detection milestone and its limits. The October 2026 setup was iPhone 15 Plus, iOS 26.2.1, Bluefy 3.9.3, Mini Link 3 FI033 firmware 0102(RX). Record versions afresh in future trials. The following bullets describe the earlier evidence.
 
 - Supervised camera/capture/Retake, connection and direct printing worked in that setup. Seven fresh-film prints matched the reviewed crop/orientation.
 - A separate three-used-sheet sequence demonstrated Retake and exhaustion of the **old local harness limit**. The operator reported the next print blocked; supplied logs show no fourth command. This does not prove the new package model or image quality on fresh film.
