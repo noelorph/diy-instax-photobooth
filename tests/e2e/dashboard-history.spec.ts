@@ -238,6 +238,8 @@ test('Dashboard monthly Events includes Draft Live Completed and excludes Cancel
     await page.getByRole('link', { name: 'Open Live Event' }).click();
     await expect(page).toHaveURL(`/events/${f.eventId}`);
     await expect(page.getByRole('heading', { name: 'Live celebration' })).toBeVisible();
+    await expect(page.locator('#print-attempts').getByRole('article')).toHaveCount(38);
+    await expect(page.getByText('Guest · Pending', { exact: true })).toBeVisible();
     await expect(
       page
         .getByRole('navigation', { name: 'Admin' })
