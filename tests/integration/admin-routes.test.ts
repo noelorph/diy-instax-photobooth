@@ -31,9 +31,9 @@ async function expectDenied(response: Response, sessionEnded = false) {
     '';
   expect(destination).toContain('/sign-in');
   if (sessionEnded) expect(destination).toBe('/sign-in?reason=session-ended');
-  expect(body).not.toContain('Admin foundation');
-  expect(body).not.toContain('Event management is not available yet');
-  expect(body).not.toContain('Event history is not available yet');
+  expect(body).not.toContain('Monthly Events');
+  expect(body).not.toContain('Recent activity');
+  expect(body).not.toContain('Completed and Cancelled Events are kept here as read-only records.');
   expect(body).not.toContain('Email (Admin)');
   expect(body).not.toContain('Plan upcoming Events and manage the live booth.');
   expect(body).not.toContain('Client email');
@@ -64,7 +64,7 @@ describe('Admin page responses with local Auth sessions', () => {
     }
   }, 60000);
 
-  it('renders truthful protected foundation pages only for the provisioned Admin', async () => {
+  it('renders protected Admin pages only for the provisioned Admin', async () => {
     const { session } = await adminSession();
     for (const destination of destinations) {
       for (const rsc of [false, true]) {
@@ -87,11 +87,11 @@ describe('Admin page responses with local Auth sessions', () => {
           expect(body).not.toContain('Client email');
         } else if (destination === '/history') {
           expect(body).toContain(
-            'Completed and Cancelled Events retain their booking, media and operational history.'
+            'Completed and Cancelled Events are kept here as read-only records.'
           );
         } else {
-          expect(body).toContain('Admin foundation');
-          expect(body).toContain('not available yet');
+          expect(body).toContain('Monthly Events');
+          expect(body).toContain('Recent activity');
         }
         expect(body).not.toMatch(/Start Booth|Resume Booth|Test Print/);
         expect(body).not.toContain(session.access_token);
@@ -156,7 +156,8 @@ describe('Admin page responses with local Auth sessions', () => {
     const response = await routes.request('/dashboard', sessionCookies(expired));
     const body = await response.text();
     expect(response.status).toBe(200);
-    expect(body).toContain('Admin foundation');
+    expect(body).toContain('Monthly Events');
+    expect(body).toContain('Recent activity');
     expect(response.headers.get('set-cookie')).toContain('sb-127-auth-token');
     expect(response.headers.get('pragma')).toBe('no-cache');
     expect(response.headers.get('expires')).toBe('0');
@@ -167,7 +168,7 @@ describe('Admin page responses with local Auth sessions', () => {
       .join('; ');
     const revisit = await routes.request('/history', cookie);
     expect(await revisit.text()).toContain(
-      'Completed and Cancelled Events retain their booking, media and operational history.'
+      'Completed and Cancelled Events are kept here as read-only records.'
     );
   });
 
