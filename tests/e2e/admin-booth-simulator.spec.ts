@@ -172,9 +172,17 @@ test('setup handoff reestablishes scoped readiness before Guest admission', asyn
       expect(grants.data?.map((g) => g.state)).toEqual(['Active']);
       const countsBeforeReload = state.body.counts;
       const reportsBeforeReload = scopedReports;
-      await d.boothPage.reload();
+      // A late pre-reload response can increment the counter without reporting disconnection.
+      await Promise.all([
+        d.boothPage.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/booth/readiness') &&
+            response.ok() &&
+            response.request().postDataJSON()?.observation?.printerConnected === false
+        ),
+        d.boothPage.reload(),
+      ]);
       await expect(d.boothPage.getByRole('button', { name: 'Connect to Instax' })).toBeVisible();
-      await expect.poll(() => scopedReports).toBeGreaterThan(reportsBeforeReload);
       expect(
         (
           await f.local.service
