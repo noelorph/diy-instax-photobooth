@@ -102,25 +102,3 @@ export async function listLiveEvents() {
         })),
       };
 }
-export async function getHistorySummary() {
-  try {
-    await requireAdmin();
-    const client = await createClient();
-    const [events, captures] = await Promise.all([
-      client
-        .from('events')
-        .select('id', { count: 'exact', head: true })
-        .neq('state', 'Cancelled')
-        .is('deleted_at', null),
-      client
-        .from('captures')
-        .select('id,events!inner(id)', { count: 'exact', head: true })
-        .is('events.deleted_at', null),
-    ]);
-    if (events.error || captures.error) throw events.error ?? captures.error;
-    return { status: 'success' as const, events: events.count!, captures: captures.count! };
-  } catch (error) {
-    unstable_rethrow(error);
-    return { status: 'unavailable' as const, error: 'Unable to load History totals.' };
-  }
-}

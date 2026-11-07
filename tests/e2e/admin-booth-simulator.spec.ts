@@ -172,9 +172,17 @@ test('setup handoff reestablishes scoped readiness before Guest admission', asyn
       expect(grants.data?.map((g) => g.state)).toEqual(['Active']);
       const countsBeforeReload = state.body.counts;
       const reportsBeforeReload = scopedReports;
-      await d.boothPage.reload();
+      // A late pre-reload response can increment the counter without reporting disconnection.
+      await Promise.all([
+        d.boothPage.waitForResponse(
+          (response) =>
+            response.url().endsWith('/api/booth/readiness') &&
+            response.ok() &&
+            response.request().postDataJSON()?.observation?.printerConnected === false
+        ),
+        d.boothPage.reload(),
+      ]);
       await expect(d.boothPage.getByRole('button', { name: 'Connect to Instax' })).toBeVisible();
-      await expect.poll(() => scopedReports).toBeGreaterThan(reportsBeforeReload);
       expect(
         (
           await f.local.service
@@ -1092,7 +1100,7 @@ test('protected replacement preserves the same Paused run and counts; phone Resu
         d.phonePage.getByRole('button', { name: 'Complete Event', exact: true })
       ).toBeEnabled();
       await reviewPhoneCommand(d.phonePage, 'complete');
-      await expect(d.phonePage.getByText('Completed Event', { exact: true })).toBeVisible();
+      await expect(d.phonePage.getByText('Completed', { exact: true })).toBeVisible();
       expect(
         localOwnerSql(`select state from public.print_attempts where id='${printedId}'`)[0].state
       ).toBe('Printed');
@@ -1148,7 +1156,7 @@ test('eligible Live cancellation keeps History and usable confirmation across th
           const dialog = page.getByRole('dialog');
           await expect(dialog).toContainText('History');
           expect(await dialog.evaluate((el) => getComputedStyle(el).backgroundColor)).toBe(
-            theme === 'dark' ? 'rgb(43, 36, 32)' : 'rgb(255, 255, 255)'
+            theme === 'dark' ? 'rgb(48, 59, 51)' : 'rgb(255, 255, 255)'
           );
           expect(await dialog.evaluate((el) => el.contains(document.activeElement))).toBe(true);
           await page.keyboard.press('Tab');
@@ -1184,7 +1192,7 @@ test('eligible Live cancellation keeps History and usable confirmation across th
       );
       await page.getByRole('button', { name: 'Confirm Cancel Event' }).click();
       expect((await cancellation).ok()).toBe(true);
-      await expect(page.getByText('Cancelled Event', { exact: true })).toBeVisible();
+      await expect(page.getByText('Cancelled', { exact: true })).toBeVisible();
       await expect(page.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0);
       const retained = (
         await f.local.service
@@ -1240,7 +1248,7 @@ test('idle phone polls only scoped state and observes remote Event completion', 
         { eventId: f.eventId, revision: state.body.revision }
       );
       expect(status).toBe(200);
-      await expect(d.phonePage.getByText('Completed Event', { exact: true })).toBeVisible();
+      await expect(d.phonePage.getByText('Completed', { exact: true })).toBeVisible();
       expect(routeRefreshes).toBe(1);
       await expect(
         d.phonePage.getByRole('button', { name: 'Complete Event', exact: true })

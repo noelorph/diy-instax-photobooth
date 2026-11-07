@@ -12,6 +12,12 @@ The November trial report is committed locally as `0c688e6` and has not been pus
 
 Earlier publication checkpoints below retain their dated state. The [#17 section](#issue-17--physical-printer-evidence) now preserves the updated published body; #7 remains a draft.
 
+## F7 local software evidence synchronization — 2026-11-06
+
+The owner confirmed “Yes—sync scope and verified evidence”. [Dated F7 evidence](implementation/issue-10-retirement-and-acceptance.md#f7-software-verification--2026-11-06) records F7-01–F7-06 local software verification on source/test candidate `55f0afd`, exact commands/stack/results, failures/fixes and verified upstream retirement. The F7 plan/interfaces, functional design, acceptance trace and affected current status notes are synchronized. The earlier publication checkpoint below retains its then-pending statements and issue checkboxes; approved November links and behavioral contracts are unchanged.
+
+No GitHub issue body, checkbox, dependency, label, assignee or state changed during this implementation/evidence work; #35 closure is separate. Full #30, F6/F8, #17/#7 and parent #10 remain open. Local software verification is not release or physical acceptance.
+
 ## November screen-reference publication — 2026-11-06
 
 The owner confirmed full adoption of the November visual reference, including fonts/colors, and removal of the former presentation files while preserving Git history and dated evidence. The [main implementation plan](superpowers/plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract) now owns the per-screen catalog and presentation/accessibility contract under [ADR-0034](adr/0034-use-november-screen-reference-in-implementation-plan.md). The supplied PDF has 22 Admin pages, extracted individually with hashes and dimensions in the [manifest](references/2026-11-06-instax-booth/manifest.json). The 30 Booth frames, 19 dialogs and three boards are supplementary Figma inventory links, not PDF extractions or freshly reverified remote designs.

@@ -1,0 +1,53 @@
+{
+  "native-zoom-shell-Profile--864eb-e-200-page-zoom-from-1440px": {
+    "nativeZoom": 2,
+    "before": {
+      "width": 1440,
+      "dpr": 1,
+      "compact": false,
+      "wide": true,
+      "cssZoom": "1"
+    },
+    "after": {
+      "width": 720,
+      "dpr": 2,
+      "compact": false,
+      "wide": false,
+      "cssZoom": "1"
+    }
+  },
+  "native-zoom-shell-Profile--85979-e-200-page-zoom-from-2400px": {
+    "nativeZoom": 2,
+    "before": {
+      "width": 2400,
+      "dpr": 1,
+      "compact": false,
+      "wide": true,
+      "cssZoom": "1"
+    },
+    "after": {
+      "width": 1200,
+      "dpr": 2,
+      "compact": false,
+      "wide": true,
+      "cssZoom": "1"
+    }
+  },
+  "native-zoom-shell-Profile--d7afb-e-200-page-zoom-from-1000px": {
+    "nativeZoom": 2,
+    "before": {
+      "width": 1000,
+      "dpr": 1,
+      "compact": false,
+      "wide": false,
+      "cssZoom": "1"
+    },
+    "after": {
+      "width": 500,
+      "dpr": 2,
+      "compact": true,
+      "wide": false,
+      "cssZoom": "1"
+    }
+  }
+}

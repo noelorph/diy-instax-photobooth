@@ -89,7 +89,7 @@ for (const width of [320, 768, 1440]) {
         if (theme === 'dark')
           expect(
             await page.locator('.admin-shell').evaluate((e) => getComputedStyle(e).backgroundColor)
-          ).toBe('rgb(33, 28, 25)');
+          ).toBe('rgb(32, 39, 34)');
         await expect(page.getByRole('heading', { name: 'Dashboard', exact: true })).toHaveCSS(
           'font-size',
           '28px'

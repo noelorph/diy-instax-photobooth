@@ -105,11 +105,60 @@ body {
   color-scheme: dark;
 }
 
+/* November Admin presentation; public Auth and Booth retain their current roles. */
+.admin-shell,
+.profile-theme-preview[data-theme='light'] {
+  --color-canvas: #f7f4ee;
+  --color-surface-muted: #f9e4dc;
+  --color-text: #252a27;
+  --color-text-muted: #62675f;
+  --color-border: #62675f;
+  --color-border-subtle: #d8dbd2;
+  --color-primary: #ad402b;
+  --color-primary-hover: #913421;
+  --color-primary-soft: #f9e4dc;
+  --color-focus: #252a27;
+  --color-success: #28614b;
+  --color-success-soft: #e6f0e8;
+  --color-warning: #805519;
+  --color-warning-soft: #f5ecd9;
+  --color-danger: #ae3434;
+  --color-danger-hover: #952b2b;
+  --color-danger-soft: #f9e7e3;
+  --color-accent: #ad402b;
+  --color-primary-on-muted: var(--color-primary-hover);
+}
+.admin-shell[data-theme='dark'],
+.profile-theme-preview[data-theme='dark'] {
+  --color-canvas: #202722;
+  --color-surface: #303b33;
+  --color-surface-muted: #41463d;
+  --color-text: #f7f4ee;
+  --color-text-muted: #c4cbbf;
+  --color-border: #a6b29f;
+  --color-border-subtle: #566151;
+  --color-primary: #f4a38f;
+  --color-primary-hover: #ffc0ae;
+  --color-primary-soft: #4c322c;
+  --color-on-primary: #252a27;
+  --color-focus: #f7f4ee;
+  --color-success: #a9d3b7;
+  --color-success-soft: #203d2c;
+  --color-warning: #efcc8b;
+  --color-warning-soft: #44381f;
+  --color-danger: #ffb4ab;
+  --color-danger-hover: #ffc8c1;
+  --color-danger-soft: #492b2b;
+  --color-on-danger: #252a27;
+  --color-accent: #f4a38f;
+  --color-primary-on-muted: var(--color-primary);
+}
+
 .admin-shell {
   min-height: 100dvh;
   background: var(--color-canvas);
   color: var(--color-text);
-  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-family: var(--font-manrope), system-ui, sans-serif;
   font-size: 1rem;
   line-height: 1.5;
 }
