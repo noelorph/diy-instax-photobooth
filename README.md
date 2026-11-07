@@ -23,7 +23,7 @@ The [#10 functional design](docs/superpowers/specs/2026-10-24-issue-10-functiona
 - [November screen reference](docs/superpowers/plans/2026-10-24-issue-10-implementation-plan.md#screen-reference-and-presentation-contract): 22 extracted Admin pages and supplementary Booth/dialog references, with capability owners and accessibility rules under [ADR-0034](docs/adr/0034-use-november-screen-reference-in-implementation-plan.md). Application adoption and physical qualification remain separate work.
 - [Documentation index](docs/README.md): active guides versus historical artifacts.
 - [Documentation review](docs/documentation-review.md): historical approval record; [implementation review](docs/implementation/issue-9-package-contracts-review.md): current software evidence and #10 handoff.
-- [GitHub issue publication record](docs/github-issue-update-drafts.md): accepted #9 and the published #10 complete-removal scope, child links and dependency verification. #17/#7 drafts remain unpublished.
+- [GitHub issue publication record](docs/github-issue-update-drafts.md): accepted #9 and the published #10 complete-removal scope, child links and dependency verification. #17 now records the November detection milestones and remaining qualification; #7 remains an unpublished draft.
 
 ## Local development of existing code
 

@@ -36,9 +36,11 @@ Before work on Booth Mode, printer feedback, accounting or hardware gates, read 
 
 Integrated development may use a nonproduction simulator. Real Booth Mode requires physically qualified automatic normal full-ejection completion and safe recovery; phone inspection is exceptional only. The actual iPad release gate remains open. Seven fresh-film prints matched review in the old iPhone trial; a separate used-sheet run demonstrated the historical local limit. Neither proves the new contract. Do not treat printer-reported count as physical inventory or proof that ten usable sheets were loaded. Manual physical reload confirmation is the approved fallback if automatic detection cannot be proven.
 
+The [November 6 evidence](docs/qualification/2026-11-06-ejection-detection-trials.md) records successful automatic ejection detection on FI033/0102, including the physical last used sheet and a known-empty attempt with no false candidate. Preserve these passed trial checks separately from the remaining full qualification requirements. P3 may pass through reliable no-film classification or the approved qualified generic-fault/inspection procedure; exclusive no-film diagnosis is not mandatory when that alternative is validated.
+
 ### Documentation authority
 
-Read [docs/README.md](docs/README.md) before using historical specs, plans or mockups. ADR-0025 and the replacement contract govern package/recovery behavior. [ADR-0029](docs/adr/0029-remove-legacy-features-and-reset-development-schema.md) replaces legacy-data preservation/conversion with complete removal and a fresh package-only development schema within #10. Current #9 contracts and safety requirements remain accepted and must be reverified after integration/schema changes. Root PRD, architecture, glossary, the main plan’s screen reference and current flow guide are aligned target documentation. Earlier obsolete feature specs/plans and mockups are archived at Git checkpoint `1de2272`. The former presentation guide and October/Apricot reference collection are archived at `969e27eaa9082992ed58bbacd1b8c32c4393fbf0`; the main plan’s November screen reference replaces them. Retained ADR history and dated #9/physical evidence are not current work orders. The [issue publication record](docs/github-issue-update-drafts.md) distinguishes accepted #9 evidence, the published complete-removal scope and F1–F8 links, and unpublished #17/#7 drafts. Do not infer implementation or issue completion from description publication or doc approval.
+Read [docs/README.md](docs/README.md) before using historical specs, plans or mockups. ADR-0025 and the replacement contract govern package/recovery behavior. [ADR-0029](docs/adr/0029-remove-legacy-features-and-reset-development-schema.md) replaces legacy-data preservation/conversion with complete removal and a fresh package-only development schema within #10. Current #9 contracts and safety requirements remain accepted and must be reverified after integration/schema changes. Root PRD, architecture, glossary, the main plan’s screen reference and current flow guide are aligned target documentation. Earlier obsolete feature specs/plans and mockups are archived at Git checkpoint `1de2272`. The former presentation guide and October/Apricot reference collection are archived at `969e27eaa9082992ed58bbacd1b8c32c4393fbf0`; the main plan’s November screen reference replaces them. Retained ADR history and dated #9/physical evidence are not current work orders. The [issue publication record](docs/github-issue-update-drafts.md) distinguishes accepted #9 evidence, the published complete-removal scope and F1–F8 links, the published #17 evidence and remaining qualification, and the unpublished #7 draft. Do not infer implementation or issue completion from description publication or doc approval.
 
 ### UI/UX
 
@@ -53,3 +55,24 @@ For changes affecting user-facing behavior or layout, verify the affected flow i
 Before modifying important documentation such as `PRD.md`, `GLOSSARY.md`, `docs/adr/`, or product specs, ask the user focused questions about the intended decision, its scope, and affected behavior. Wait for the answers before editing those files.
 
 When work adds or changes a durable product or technical decision, document it in `docs/adr/` in the same change. If it replaces an existing decision, identify the superseded ADR and link the new decision from it so the history remains clear. Update every affected document, including `PRD.md`, `GLOSSARY.md`, the README, specs, and relevant guides, so they describe the current decision and behavior. Do not leave conflicting guidance in place.
+
+<!-- BEGIN:nextjs-agent-feedback -->
+
+## Report Next.js feedback
+
+The project owner enabled `experimental.agentFeedback`, authorizing this feedback pass. When enabled, `next dev` writes this block and restores it if removed. Commit `AGENTS.md` with your work to keep the tree clean.
+
+During the current user request, retain anonymized facts as feedback candidates for meaningful or recurring Next.js issues:
+
+- Crashes, hangs, OOMs, or unexpected slowness
+- Incorrect behavior, output, errors, or diagnostics
+- Missing, unclear, or conflicting documentation
+- Unexpected CLI, codemod, Skill, or upgrade behavior and non-obvious workarounds
+
+Continue the current user request without reporting immediately. Routine debugging is not feedback. Verify changes before retaining them as feedback candidates. Never retain code, logs, paths, URLs, secrets, personal information, or project-specific data.
+
+Retain qualifying friction even if it is later fixed or worked around; record the final outcome during the reporting pass.
+
+Before the final response, run one reporting pass. If candidates remain, from this file's directory run `npx --no-install next internal agent-feedback-instructions` once without piping or truncating its output. Follow its output or error guidance. If a network sandbox blocks it, retry with network access; if it still returns no output, continue normally.
+
+<!-- END:nextjs-agent-feedback -->

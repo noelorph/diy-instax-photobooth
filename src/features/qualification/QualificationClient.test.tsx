@@ -350,4 +350,154 @@ describe('supervised iPhone qualification page', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Copy JSON' }));
     expect(await screen.findByText(/Touch and hold the JSON text/)).toBeDefined();
   });
+
+  it('logs an ejection candidate once with attempt and connection correlation without confirming the print', async () => {
+    const { services } = fixture();
+    await enterTrial(services);
+    fireEvent.click(screen.getByRole('button', { name: 'Capture' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Print' }));
+    await screen.findByText('Waiting for film ejection');
+    const receive = vi.mocked(services.observe).mock.calls[0][1];
+    act(() => {
+      receive({ opcode: 2, payload: new Uint8Array([0, 2, 0xb1, 0x12, 127, 11, 0, 0, 0, 0]) });
+      receive({ opcode: 2, payload: new Uint8Array([0, 2, 0xb0, 0, 0, 11, 0, 0, 0, 0]) });
+      receive({ opcode: 2, payload: new Uint8Array([0, 2, 0xb0, 0, 0, 11, 0, 0, 0, 0]) });
+    });
+    expect(screen.getByText(/Candidate observed at/)).toBeDefined();
+    expect(screen.getByText('3 sheets available')).toBeDefined();
+    expect(
+      screen.getByRole('button', { name: 'Observed film ejection' }).hasAttribute('disabled')
+    ).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Export non-photo log' }));
+    const events = JSON.parse(
+      (screen.getByRole('textbox', { name: 'Non-photo log JSON' }) as HTMLTextAreaElement).value
+    ).events;
+    const candidates = events.filter(
+      (event: { kind: string }) => event.kind === 'ejection-candidate'
+    );
+    expect(candidates).toHaveLength(1);
+    expect(candidates[0]).toMatchObject({
+      attemptId: events.find((event: { kind: string }) => event.kind === 'print-start').attemptId,
+      connectionGeneration: 1,
+      observationId: expect.stringMatching(/^observation-/),
+    });
+    expect(services.send).toHaveBeenCalledOnce();
+  });
+
+  it('observes reload while empty without a camera and keeps allowance/readiness unchanged', async () => {
+    const { services } = fixture();
+    vi.mocked(services.preflight).mockResolvedValue({ filmRemaining: 0 });
+    render(<QualificationClient services={services} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Connect printer' }));
+    await screen.findByText(/Connected for diagnostics/);
+    fireEvent.click(screen.getByRole('button', { name: 'Observe reload' }));
+    expect(vi.mocked(services.observe).mock.calls[0][3]).toBe(true);
+    const receive = vi.mocked(services.observe).mock.calls[0][1];
+    act(() => {
+      receive({ opcode: 2, payload: new Uint8Array([0, 2, 0xb0, 0, 2, 0, 0, 0, 0, 0]) });
+      receive({ opcode: 2, payload: new Uint8Array([0, 3, 0, 0, 1, 2, 0, 0, 0, 3]) });
+      receive({ opcode: 2, payload: new Uint8Array([0, 2, 0xb0, 1, 1, 0, 0, 0, 0, 0]) });
+      receive({ opcode: 2, payload: new Uint8Array([0, 2, 0xba, 0, 0, 0, 0, 0, 0, 0]) });
+      receive({ opcode: 2, payload: new Uint8Array([0, 3, 0, 0, 1, 2, 0, 0, 0, 4]) });
+    });
+    expect(screen.getByText(/Candidate observed at/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Reload cover fully emerged' }));
+    expect(screen.getByText(/Physical cover marker at/)).toBeDefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Stop reload observation' }));
+    expect(screen.getByText('3 sheets available')).toBeDefined();
+    expect(screen.getByRole('button', { name: 'Start trial' }).hasAttribute('disabled')).toBe(true);
+    expect(screen.getByText(/Connected for diagnostics/)).toBeDefined();
+    expect(services.send).not.toHaveBeenCalled();
+    expect(services.getUserMedia).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: 'Export non-photo log' }));
+    const events = JSON.parse(
+      (screen.getByRole('textbox', { name: 'Non-photo log JSON' }) as HTMLTextAreaElement).value
+    ).events;
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: 'print-history', responseHex: '00030000010200000004' })
+    );
+    expect(events).toContainEqual(
+      expect.objectContaining({ kind: 'reload-candidate', connectionGeneration: 1 })
+    );
+    expect(events.some((event: { kind: string }) => event.kind === 'observed-ejection')).toBe(
+      false
+    );
+  });
+
+  it('ignores old reload callbacks after cancellation and reconnect', async () => {
+    const { services } = fixture();
+    render(<QualificationClient services={services} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Connect printer' }));
+    await screen.findByText('Printer ready');
+    fireEvent.click(screen.getByRole('button', { name: 'Observe reload' }));
+    const receiveOld = vi.mocked(services.observe).mock.calls[0][1];
+    const oldConnection = vi.mocked(services.connect).mock.calls[0][1];
+    fireEvent.click(screen.getByRole('button', { name: 'Stop reload observation' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Connect printer' }));
+    await screen.findByText('Printer ready');
+    fireEvent.click(screen.getByRole('button', { name: 'Observe reload' }));
+    act(() => {
+      receiveOld({ opcode: 2, payload: new Uint8Array([0, 2, 0xb0, 1, 1, 0, 0, 0, 0, 0]) });
+      oldConnection.onDisconnect();
+    });
+    expect(screen.queryByText(/Candidate unavailable/)).toBeNull();
+    expect(screen.getByText('Waiting for closed-cover baseline.')).toBeDefined();
+    expect(screen.getByText('Reload observation running')).toBeDefined();
+  });
+
+  it('invalidates the candidate when observation errors and ends reload polling at 60 seconds', async () => {
+    const { services } = fixture();
+    render(<QualificationClient services={services} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Connect printer' }));
+    await screen.findByText('Printer ready');
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole('button', { name: 'Observe reload' }));
+    act(() => vi.mocked(services.observe).mock.calls[0][2](new Error('Query timed out')));
+    expect(screen.getByText('Candidate unavailable: Query timed out')).toBeDefined();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(60_000);
+    });
+    expect(screen.getByText('Reload observation stopped')).toBeDefined();
+    expect(vi.mocked(services.observe).mock.results[0].value).toHaveBeenCalledOnce();
+    expect(services.send).not.toHaveBeenCalled();
+  });
+
+  it.each(['page hidden', 'disconnect'])(
+    'invalidates a reload on %s without accepting later replies',
+    async (interruption) => {
+      const { services } = fixture();
+      render(<QualificationClient services={services} />);
+      fireEvent.click(screen.getByRole('button', { name: 'Connect printer' }));
+      await screen.findByText('Printer ready');
+      fireEvent.click(screen.getByRole('button', { name: 'Observe reload' }));
+      const receive = vi.mocked(services.observe).mock.calls[0][1];
+      act(() => {
+        receive({ opcode: 2, payload: new Uint8Array([0, 2, 0xb0, 0, 0, 0, 0, 0, 0, 0]) });
+        receive({ opcode: 2, payload: new Uint8Array([0, 3, 0, 0, 0, 1, 0, 0, 0, 1]) });
+      });
+      if (interruption === 'page hidden') {
+        const hidden = vi.spyOn(document, 'hidden', 'get').mockReturnValue(true);
+        act(() => document.dispatchEvent(new Event('visibilitychange')));
+        hidden.mockRestore();
+      } else act(() => vi.mocked(services.connect).mock.calls[0][1].onDisconnect());
+      act(() => {
+        receive({ opcode: 2, payload: new Uint8Array([0, 2, 0xb0, 1, 1, 0, 0, 0, 0, 0]) });
+        receive({ opcode: 2, payload: new Uint8Array([0, 2, 0xba, 0, 0, 0, 0, 0, 0, 0]) });
+        receive({ opcode: 2, payload: new Uint8Array([0, 3, 0, 0, 0, 1, 0, 0, 0, 2]) });
+      });
+      expect(screen.getByText(/Candidate unavailable:/)).toBeDefined();
+      expect(screen.queryByText(/Candidate observed at/)).toBeNull();
+      expect(screen.getByText('3 sheets available')).toBeDefined();
+      if (interruption === 'disconnect') {
+        fireEvent.click(screen.getByRole('button', { name: 'Export non-photo log' }));
+        const events = JSON.parse(
+          (screen.getByRole('textbox', { name: 'Non-photo log JSON' }) as HTMLTextAreaElement).value
+        ).events;
+        expect(
+          events.find((event: { kind: string }) => event.kind === 'printer-disconnect')
+            .connectionGeneration
+        ).toBe(1);
+      }
+    }
+  );
 });
