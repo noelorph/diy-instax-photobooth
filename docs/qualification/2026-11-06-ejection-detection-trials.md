@@ -57,6 +57,10 @@ Files are in the operator's `/Users/brandonorphiano/Downloads/` directory. SHA-2
 
 The earlier supporting videos were supplied as `c823768d-4db7-44f6-a5e9-06f72985ba5d.mp4` and `99b539d5-1363-482f-9ff4-d1964f326509.mp4`. Their viewpoints did not resolve exact trailing-edge clearance; the 34 ms marker/candidate separation in the first run must not be interpreted as measured physical detection latency.
 
+Three additional standalone video paths were supplied in the conversation: `5ed95ca9-4b74-4d44-9b7f-c91657584d70.mp4`, `9b7fb4c9-4b2b-45e0-874a-a1d748d348b6.mp4`, and `77b810c9-d805-48cd-bdfc-7c54aa84944a.mp4`, all under the same Downloads directory. Their run mapping and acceptance role were not established; they are indexed as supplemental references only. They do not add another passing trial.
+
+The [November 7 preservation audit](2026-11-07-evidence-audit.md) records current file availability and the limits of the repository's raw-artifact coverage. Historical review results and hashes above are retained as dated evidence.
+
 ## Issue #17 disposition
 
 [Issue #17](https://github.com/noelorph/diy-instax-photobooth/issues/17) remains open. The successful demonstration above is accepted; the following broader qualification remains required:

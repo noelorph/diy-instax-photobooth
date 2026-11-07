@@ -10,6 +10,10 @@
 
 **Physical evidence — 2026-11-06:** [Automatic ejection detection demonstrated successfully on FI033/0102](qualification/2026-11-06-ejection-detection-trials.md), including a physical last-used-sheet print and a known-empty attempt without a false candidate. This accepted demonstration advances the evidence; full #17 qualification and #7 release gates remain open.
 
+**Reload evidence — 2026-11-07:** [Automatic normal-reload detection accepted on FI033/0102](qualification/2026-11-07-reload-detection-trial.md). The candidate was independent of the operator's late marker. False-positive reload cases and old-job recovery remain separate, outstanding checks; production reload authority and accounting are unchanged.
+
+**Evidence coverage — 2026-11-07:** [Trial/REA documentation audit and remaining recovery work](qualification/2026-11-07-evidence-audit.md) maps the accepted results, existing software safeguards, integration gaps and artifact-preservation limits. Trial reports are documented; original physical logs/videos are not a complete repository archive.
+
 1. [Replacement contract](superpowers/specs/2026-10-21-package-accounting-booth-recovery-design.md): exact transitions, formulas, access, recovery and current interfaces. Section 8 now requires fresh installation instead of old-data conversion.
 2. [ADR-0025](adr/0025-package-accounting-and-booth-recovery.md): package/recovery decision; [ADR-0026](adr/0026-order-captures-by-shutter-time.md): shutter ordering; [ADR-0027](adr/0027-draft-only-event-media.md): media limits; [ADR-0028](adr/0028-define-monthly-event-count.md): monthly count; [ADR-0029](adr/0029-remove-legacy-features-and-reset-development-schema.md): removal and baseline. The [ADR index](adr/README.md) identifies retained versus superseded scope.
 3. Root [PRD](../PRD.md), [architecture](../ARCHITECTURE.md), [glossary](../GLOSSARY.md), [README](../README.md) and [agent instructions](../AGENTS.md).
