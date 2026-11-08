@@ -69,6 +69,14 @@ jobs:
       - name: Verify Booth setup and lifecycle
         run: npx playwright test --config playwright.admin-booth.config.ts
 
+      - name: Verify physical adapter with synthetic Bluetooth
+        run: npx playwright test --config playwright.instax.config.ts
+
+      - name: Verify production physical Booth restrictions
+        env:
+          BOOTH_PRINTER_MODE: 'instax-development'
+        run: npx playwright test --config playwright.config.ts tests/e2e/admin-booth-handoff.spec.ts
+
       - name: Verify production Booth restrictions
         env:
           BOOTH_PRINTER_MODE: 'simulated'

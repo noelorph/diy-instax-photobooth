@@ -132,6 +132,7 @@ export class BoothFlow {
   constructor(
     private readonly dependencies: {
       transport: BoothTransport;
+      reconciliationOnly?: boolean;
       printer: PrinterAdapterV2;
       journal: BoothMetadataJournal;
     }
@@ -412,6 +413,7 @@ export class BoothFlow {
       reconciled &&
       connected &&
       printer.ready &&
+      printer.oldJobCleared &&
       !!equipment &&
       equipment.observation.printerConnected &&
       equipment.observation.printerReady &&
@@ -419,6 +421,7 @@ export class BoothFlow {
       equipment.printer.printerId === printer.printerId &&
       equipment.printer.connectionGeneration === printer.connectionGeneration;
     const blockers = [...state.blockers];
+    if (this.dependencies.reconciliationOnly) blockers.push('qualification_required');
     if (this.pendingRecovery) blockers.push('print_pending');
     if (this.sessionClosing) blockers.push('guest_session_closing');
     if (equipment && !equipment.observation.serverReachable) blockers.push('offline');
@@ -487,7 +490,13 @@ export class BoothFlow {
     }));
   }
   private async beginSession(): Promise<void> {
-    if (this.view.phase !== 'welcome' || !this.state || this.sessionId) return;
+    if (
+      this.dependencies.reconciliationOnly ||
+      this.view.phase !== 'welcome' ||
+      !this.state ||
+      this.sessionId
+    )
+      return;
     const state = this.state;
     const body = packageActionSchemas.startSession.parse({
       operationId: crypto.randomUUID(),
@@ -639,6 +648,7 @@ export class BoothFlow {
           reconcile: (entries) => this.reconcilePending(entries),
           canSendNow: () =>
             !this.disposed &&
+            !this.dependencies.reconciliationOnly &&
             this.view.phase === 'printing' &&
             this.sessionId === sessionId &&
             this.state?.state === 'Active' &&
@@ -940,16 +950,37 @@ export class BoothFlow {
       this.failure(error);
     }
   }
+  async reportEnvironment(
+    environment: Pick<
+      z.infer<typeof readinessObservationSchema>,
+      'cameraPermission' | 'cameraLive' | 'serverReachable'
+    >
+  ) {
+    // Camera/network loss closes admission before any asynchronous printer read.
+    if (!environment.cameraPermission || !environment.cameraLive || !environment.serverReachable) {
+      this.equipmentEpoch++;
+      this.stopForBlocker(!environment.serverReachable ? 'offline' : 'camera');
+    }
+    const epoch = this.equipmentEpoch;
+    const printer = await this.dependencies.printer.readReadiness();
+    if (this.disposed || epoch !== this.equipmentEpoch) return;
+    return this.reportEquipment({
+      ...environment,
+      printerConnected: printer.connected,
+      printerReady: printer.ready,
+      oldJobCleared: printer.oldJobCleared,
+    });
+  }
   reportEquipment(observation: z.infer<typeof readinessObservationSchema>): Promise<void> {
     if (this.disposed || this.connecting) return Promise.resolve();
     const parsed = readinessObservationSchema.parse(observation);
+    const busy = !!this.attemptId && ['printing', 'confirmed'].includes(this.view.phase);
     const negative =
       !parsed.cameraLive ||
       !parsed.cameraPermission ||
       !parsed.printerConnected ||
       !parsed.serverReachable ||
-      !parsed.printerReady ||
-      !parsed.oldJobCleared;
+      (!busy && (!parsed.printerReady || !parsed.oldJobCleared));
     if (
       !negative &&
       this.attemptId &&
@@ -1054,7 +1085,8 @@ export class BoothFlow {
         observation.printerReady &&
         observation.oldJobCleared &&
         printer.connected &&
-        printer.ready
+        printer.ready &&
+        printer.oldJobCleared
           ? at
           : 0;
       clearTimeout(this.expiry);

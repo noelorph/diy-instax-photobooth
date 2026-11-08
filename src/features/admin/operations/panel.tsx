@@ -1,4 +1,5 @@
 'use client';
+import type { BoothPrinterMode } from '@/lib/operations/package-contract';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState, useTransition } from 'react';
 import { useRouter } from 'next/navigation';
@@ -30,9 +31,11 @@ const phoneReadinessSchema = z.object({
 });
 
 export function OperationsPanel({
+  printerMode,
   event: serverEvent,
   adminUserId,
 }: {
+  printerMode: BoothPrinterMode;
   event: OperationalEvent;
   adminUserId: string;
 }) {
@@ -266,7 +269,8 @@ export function OperationsPanel({
       />
       {['Draft', 'Live'].includes(event.state) && (
         <BoothSetup
-          key={`setup:${event.id}:${adminUserId}`}
+          printerMode={printerMode}
+          key={`setup:${event.id}:${adminUserId}:${printerMode}`}
           eventId={event.id}
           revision={event.revision}
           runId={event.runId}

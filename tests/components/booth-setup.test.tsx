@@ -2,7 +2,10 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { BoothSetup } from '@/features/admin/operations/booth-setup';
 import { getBoothPrinter } from '@/features/booth/equipment';
+const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn() }));
+vi.mock('next/navigation', () => ({ useRouter: () => router }));
 beforeEach(() => {
+  router.replace.mockClear();
   const originalWindow = window;
   const location = { replace: vi.fn() };
   vi.stubGlobal(
@@ -21,7 +24,7 @@ afterEach(() => {
 it('setup explicit camera gesture requests permission; background refresh never does', async () => {
   const getUserMedia = vi.fn().mockRejectedValue(new Error('denied'));
   vi.stubGlobal('navigator', { mediaDevices: { getUserMedia } });
-  render(<BoothSetup eventId={crypto.randomUUID()} revision={1} />);
+  render(<BoothSetup printerMode="simulated" eventId={crypto.randomUUID()} revision={1} />);
   expect(getUserMedia).not.toHaveBeenCalled();
   expect(screen.getByLabelText('Setup camera preview').hasAttribute('hidden')).toBe(true);
   fireEvent.click(screen.getByRole('button', { name: 'Enable Camera' }));
@@ -79,7 +82,7 @@ it.each([
       );
     });
     vi.stubGlobal('fetch', fetcher);
-    render(<BoothSetup eventId={crypto.randomUUID()} revision={1} />);
+    render(<BoothSetup printerMode="simulated" eventId={crypto.randomUUID()} revision={1} />);
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Enable Camera' }));
     });
@@ -186,7 +189,14 @@ it.each([
     });
   });
   vi.stubGlobal('fetch', fetcher);
-  render(<BoothSetup eventId={crypto.randomUUID()} revision={1} adminUserId="admin-a" />);
+  render(
+    <BoothSetup
+      printerMode="simulated"
+      eventId={crypto.randomUUID()}
+      revision={1}
+      adminUserId="admin-a"
+    />
+  );
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Enable Camera' }));
   });
@@ -216,7 +226,7 @@ it.each([
   expect(screen.getByText('10 prints available')).toBeTruthy();
   expect(screen.getByText('Always test the printer before starting Booth Mode.')).toBeTruthy();
   if (mode === 'stale final sample') {
-    const printer = getBoothPrinter();
+    const printer = getBoothPrinter('simulated');
     const sample = await printer.readReadiness();
     vi.spyOn(printer, 'readReadiness').mockResolvedValue({ ...sample, observedAgeMs: 5001 });
     await act(async () => {
@@ -260,7 +270,7 @@ it.each([
     return;
   }
   if (mode === 'printer lost during window request') {
-    getBoothPrinter().emit('connection_changed');
+    getBoothPrinter('simulated').emit('connection_changed');
     await act(async () => {
       release();
     });
@@ -301,7 +311,9 @@ it.each([
   expect(JSON.parse(String(starts[0][1]?.body))).toMatchObject({
     readinessWindowId: latestWindow,
   });
-  expect(window.location.replace).toHaveBeenCalledWith('/booth');
+  expect(router.replace).toHaveBeenCalledWith(
+    expect.stringMatching(/^\/booth\?entry=[0-9a-f-]{36}$/)
+  );
 });
 it('a delayed setup readiness reply after unmount cannot report or touch a new camera owner', async () => {
   vi.useFakeTimers();
@@ -317,7 +329,9 @@ it('a delayed setup readiness reply after unmount cannot report or touch a new c
     });
   });
   vi.stubGlobal('fetch', fetcher);
-  const surface = render(<BoothSetup eventId={crypto.randomUUID()} revision={1} />);
+  const surface = render(
+    <BoothSetup printerMode="simulated" eventId={crypto.randomUUID()} revision={1} />
+  );
   await act(async () => {
     fireEvent.click(screen.getByRole('button', { name: 'Connect to Instax' }));
   });
@@ -420,7 +434,7 @@ it.each(['receipt', 'exact replay', 'issue loss', 'confirmation loss'])(
     const surface = render(
       <>
         <p>Private booking contact</p>
-        <BoothSetup {...props} />
+        <BoothSetup printerMode="simulated" {...props} />
       </>
     );
     await act(async () => {
@@ -444,7 +458,13 @@ it.each(['receipt', 'exact replay', 'issue loss', 'confirmation loss'])(
       surface.rerender(
         <>
           <p>Private booking contact</p>
-          <BoothSetup {...props} revision={2} runId={crypto.randomUUID()} runState="Prepared" />
+          <BoothSetup
+            printerMode="simulated"
+            {...props}
+            revision={2}
+            runId={crypto.randomUUID()}
+            runState="Prepared"
+          />
         </>
       );
       const before = paths.length;
@@ -463,9 +483,11 @@ it.each(['receipt', 'exact replay', 'issue loss', 'confirmation loss'])(
       ).toBeTruthy();
       expect(screen.queryByRole('button', { name: /Retry|Start|Resume/ })).toBeNull();
       expect(paths.filter((path) => path.endsWith('/issue'))).toHaveLength(1);
-      expect(window.location.replace).not.toHaveBeenCalled();
+      expect(router.replace).not.toHaveBeenCalled();
     } else {
-      expect(window.location.replace).toHaveBeenCalledWith('/booth');
+      expect(router.replace).toHaveBeenCalledWith(
+        expect.stringMatching(/^\/booth\?entry=[0-9a-f-]{36}$/)
+      );
       expect(screen.getByRole('dialog', { name: 'Preparing Booth Mode' })).toBeTruthy();
       expect(
         screen.getByText('Private booking contact').closest('[aria-hidden="true"]')
@@ -521,6 +543,7 @@ it.each(['receipt', 'exact replay'])(
     });
     const view = render(
       <BoothSetup
+        printerMode="simulated"
         eventId={eventId}
         revision={3}
         runId={runId}
@@ -536,6 +559,7 @@ it.each(['receipt', 'exact replay'])(
       await screen.findByRole('alert');
       view.rerender(
         <BoothSetup
+          printerMode="simulated"
           eventId={eventId}
           revision={9}
           runId={runId}
@@ -559,6 +583,7 @@ it('does not issue setup windows from a passive phone view before a local equipm
   vi.stubGlobal('fetch', fetcher);
   render(
     <BoothSetup
+      printerMode="simulated"
       eventId={crypto.randomUUID()}
       revision={5}
       runId={crypto.randomUUID()}
@@ -578,13 +603,13 @@ it('disables reviewed replacement if Finish or possible delivery arrives before 
     runId: crypto.randomUUID(),
     runState: 'Paused' as const,
   };
-  const view = render(<BoothSetup {...props} />);
+  const view = render(<BoothSetup printerMode="simulated" {...props} />);
   fireEvent.click(screen.getByRole('button', { name: 'Replace Booth access' }));
-  view.rerender(<BoothSetup {...props} runState="Finishing" />);
+  view.rerender(<BoothSetup printerMode="simulated" {...props} runState="Finishing" />);
   expect(screen.getByRole('button', { name: 'Confirm replacement' }).hasAttribute('disabled')).toBe(
     true
   );
-  view.rerender(<BoothSetup {...props} possibleDelivery />);
+  view.rerender(<BoothSetup printerMode="simulated" {...props} possibleDelivery />);
   expect(screen.getByRole('button', { name: 'Confirm replacement' }).hasAttribute('disabled')).toBe(
     true
   );
@@ -655,6 +680,7 @@ it.each(['cancel while waiting', 'cancel after Start', 'readiness expires'] as c
     });
     const view = render(
       <BoothSetup
+        printerMode="simulated"
         eventId={crypto.randomUUID()}
         revision={1}
         prepareHandoff={() => (mode === 'cancel after Start' ? Promise.resolve() : gate)}
@@ -740,7 +766,7 @@ it.each(['network', 503, 409] as const)(
           : { revision: 1, readinessWindowId: crypto.randomUUID(), readiness }
       );
     });
-    render(<BoothSetup eventId={crypto.randomUUID()} revision={1} />);
+    render(<BoothSetup printerMode="simulated" eventId={crypto.randomUUID()} revision={1} />);
     await act(async () => {
       fireEvent.click(screen.getByRole('button', { name: 'Connect to Instax' }));
     });
@@ -768,3 +794,33 @@ it.each(['network', 503, 409] as const)(
     );
   }
 );
+
+it('disabled setup offers no equipment gesture or printer owner', () => {
+  render(<BoothSetup printerMode="disabled" eventId={crypto.randomUUID()} revision={1} />);
+  expect(screen.getByText('Printer qualification is required before Booth setup.')).toBeTruthy();
+  expect(screen.queryByRole('button', { name: 'Connect to Instax' })).toBeNull();
+  expect(screen.queryByRole('button', { name: 'Start Booth Mode' })).toBeNull();
+});
+
+it('retains the physical setup owner after unmount and never simulates a failed connection', async () => {
+  const { releaseBoothPrinter } = await import('@/features/booth/equipment');
+  await releaseBoothPrinter();
+  const requestDevice = vi.fn().mockRejectedValue(Error('denied'));
+  vi.stubGlobal('navigator', { bluetooth: { requestDevice } });
+  try {
+    const view = render(
+      <BoothSetup printerMode="instax-development" eventId={crypto.randomUUID()} revision={1} />
+    );
+    const owner = getBoothPrinter('instax-development');
+    const disconnect = vi.spyOn(owner, 'disconnect');
+    fireEvent.click(screen.getByRole('button', { name: 'Connect to Instax' }));
+    expect(await screen.findByText('Printer unavailable. Try connecting again.')).toBeTruthy();
+    view.unmount();
+    expect(disconnect).not.toHaveBeenCalled();
+    expect(getBoothPrinter('instax-development')).toBe(owner);
+    expect(() => getBoothPrinter('simulated')).toThrow();
+    expect(requestDevice).toHaveBeenCalledOnce();
+  } finally {
+    await releaseBoothPrinter();
+  }
+});

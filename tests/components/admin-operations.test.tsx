@@ -57,7 +57,13 @@ it('recovers a stalled Pause by its original receipt after the request deadline'
       );
     });
   });
-  render(<OperationsPanel adminUserId="admin-a" event={{ ...event, runState: 'Active' }} />);
+  render(
+    <OperationsPanel
+      printerMode="simulated"
+      adminUserId="admin-a"
+      event={{ ...event, runState: 'Active' }}
+    />
+  );
   await act(async () => {
     await vi.advanceTimersByTimeAsync(32);
   });
@@ -79,6 +85,7 @@ it('shows durable Paused status and expires independently reported equipment rea
   vi.useFakeTimers();
   render(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{
         ...event,
@@ -127,6 +134,7 @@ it('disables Resume when readiness expires and restores it only after a fresh sc
   vi.stubGlobal('fetch', fetcher);
   render(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{
         ...event,
@@ -160,7 +168,7 @@ it('disables Resume when readiness expires and restores it only after a fresh sc
   expect(fetcher.mock.calls[0][0]).toBe(`/api/admin/events/${event.id}/booth/state`);
 });
 it('shows server package capacity and preserves the pending print at zero availability', () => {
-  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   expect(screen.getByText('50 total booked prints')).toBeTruthy();
   expect(screen.getByText('49 printed')).toBeTruthy();
   expect(screen.getByText('1 print pending')).toBeTruthy();
@@ -185,6 +193,7 @@ it.each(['finish', 'cancel', 'replacement', 'Draft cancellation'] as const)(
     render(
       <div className="admin-shell" data-theme="dark">
         <OperationsPanel
+          printerMode="simulated"
           adminUserId="admin-a"
           event={
             action === 'Draft cancellation'
@@ -216,6 +225,7 @@ it('cancels a Draft using the package operation contract', async () => {
   });
   render(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{ ...event, state: 'Draft', counts: packageCounts(5, 0, 0, 0), attempts: [] }}
     />
@@ -235,6 +245,7 @@ it('keeps failed cancellation visible and retries with the same operation identi
   });
   render(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{ ...event, state: 'Draft', counts: packageCounts(5, 0, 0, 0) }}
     />
@@ -248,7 +259,13 @@ it('keeps failed cancellation visible and retries with the same operation identi
   expect(bodies[1]).toEqual(bodies[0]);
 });
 it('retains terminal records without redaction or deletion controls', () => {
-  render(<OperationsPanel adminUserId="admin-a" event={{ ...event, state: 'Cancelled' }} />);
+  render(
+    <OperationsPanel
+      printerMode="simulated"
+      adminUserId="admin-a"
+      event={{ ...event, state: 'Cancelled' }}
+    />
+  );
   expect(screen.queryByRole('button', { name: 'Cancel Event' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Redact Client' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Delete Draft' })).toBeNull();
@@ -256,6 +273,7 @@ it('retains terminal records without redaction or deletion controls', () => {
 it('preserves attempt pagination links', () => {
   render(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{ ...event, attemptsPage: 1, hasOlderAttempts: true }}
     />
@@ -385,7 +403,7 @@ it('recovers a committed purchase after a lost response without issuing another 
       });
     return Response.json({ counts: packageCounts(5, 1, 49, 1), revision: 4 });
   });
-  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   await waitFor(() =>
     expect(
       (screen.getByRole('button', { name: 'Add Film Packages' }) as HTMLButtonElement).disabled
@@ -429,7 +447,7 @@ it('replays only the frozen original payload when receipt lookup finds no commit
       replayed: false,
     });
   });
-  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   await waitFor(() =>
     expect(
       (screen.getByRole('button', { name: 'Add Film Packages' }) as HTMLButtonElement).disabled
@@ -449,9 +467,12 @@ it('replays only the frozen original payload when receipt lookup finds no commit
 });
 
 it('shows fresh server props after another device changes capacity', () => {
-  const view = render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  const view = render(
+    <OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />
+  );
   view.rerender(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{ ...event, revision: 4, counts: packageCounts(5, 1, 49, 1) }}
     />
@@ -468,7 +489,13 @@ it('keeps receipt recovery available if the Event becomes terminal before acknow
       clientRequestNote: 'Client request',
     })
   );
-  render(<OperationsPanel adminUserId="admin-a" event={{ ...event, state: 'Completed' }} />);
+  render(
+    <OperationsPanel
+      printerMode="simulated"
+      adminUserId="admin-a"
+      event={{ ...event, state: 'Completed' }}
+    />
+  );
   await screen.findByRole('button', { name: 'Retry request' });
   expect(screen.getByLabelText('Additional Film Packages').getAttribute('disabled')).not.toBeNull();
 });
@@ -503,7 +530,9 @@ it('preserves A’s pending purchase across an Admin switch without letting B re
       });
     return Response.json({ counts: packageCounts(5, 1, 49, 1), revision: 4 });
   });
-  const view = render(<OperationsPanel event={event} adminUserId={adminA} />);
+  const view = render(
+    <OperationsPanel printerMode="simulated" event={event} adminUserId={adminA} />
+  );
   await waitFor(() =>
     expect(
       (screen.getByRole('button', { name: 'Add Film Packages' }) as HTMLButtonElement).disabled
@@ -517,13 +546,13 @@ it('preserves A’s pending purchase across an Admin switch without letting B re
   await screen.findByRole('alert');
   const saved = Object.entries(sessionStorage);
   actor = adminB;
-  view.rerender(<OperationsPanel event={event} adminUserId={adminB} />);
+  view.rerender(<OperationsPanel printerMode="simulated" event={event} adminUserId={adminB} />);
   await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
   expect(screen.queryByRole('button', { name: 'Retry request' })).toBeNull();
   expect(Object.entries(sessionStorage)).toEqual(saved);
   expect(purchases).toBe(1);
   actor = adminA;
-  view.rerender(<OperationsPanel event={event} adminUserId={adminA} />);
+  view.rerender(<OperationsPanel printerMode="simulated" event={event} adminUserId={adminA} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Retry request' }));
   await screen.findByText('Film Packages added.');
   expect(purchases).toBe(1);
@@ -564,7 +593,7 @@ it('retries a blocked storage read without losing the original purchase or trapp
       : Response.json({ counts: packageCounts(5, 2, 49, 1) })
   );
   vi.stubGlobal('fetch', fetcher);
-  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   await screen.findByRole('alert');
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   expect(screen.queryByRole('dialog')).toBeNull();
@@ -589,7 +618,7 @@ it.each([
   ['1.5', 'Enter a whole number of Film Packages.'],
   ['214748364', 'You can add at most 214748359 Film Packages to this Event.'],
 ])('explains invalid package quantity %s beside its field', async (value, message) => {
-  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   await waitFor(() =>
     expect(
       (screen.getByRole('button', { name: 'Add Film Packages' }) as HTMLButtonElement).disabled
@@ -620,7 +649,7 @@ it.each([true, false])(
         : Response.json({ counts: packageCounts(5, 1, 49, 1) })
     );
     vi.stubGlobal('fetch', fetcher);
-    render(<OperationsPanel adminUserId="admin-a" event={event} />);
+    render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
     await screen.findByText(/Saved purchase details are damaged/);
     fireEvent.click(screen.getByRole('button', { name: 'Retry request' }));
     if (committed) {
@@ -647,7 +676,7 @@ it('keeps an unreadable purchase identity blocked until the original saved reque
   sessionStorage.setItem(storageKey, '{broken');
   const fetcher = vi.fn();
   vi.stubGlobal('fetch', fetcher);
-  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   await screen.findByText(/reference cannot be read/);
   fireEvent.keyDown(screen.getByRole('dialog'), { key: 'Escape' });
   expect(screen.queryByRole('dialog')).toBeNull();
@@ -673,7 +702,7 @@ it('does not send a purchase when storage cannot retain it and allows retry afte
     throw new TypeError('Response lost');
   });
   vi.stubGlobal('fetch', fetcher);
-  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Add Film Packages' }).hasAttribute('disabled')).toBe(
       false
@@ -715,7 +744,13 @@ it('pauses with one frozen command and recovers a lost reply from its receipt', 
       });
     return Response.json({});
   });
-  render(<OperationsPanel adminUserId="admin-a" event={{ ...event, runState: 'Active' }} />);
+  render(
+    <OperationsPanel
+      printerMode="simulated"
+      adminUserId="admin-a"
+      event={{ ...event, runState: 'Active' }}
+    />
+  );
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Pause Booth' }).hasAttribute('disabled')).toBe(false)
   );
@@ -730,7 +765,7 @@ it('pauses with one frozen command and recovers a lost reply from its receipt', 
 it('keeps Resume disabled for pending work and requires confirmation before Finish', async () => {
   const fetcher = vi.fn(async () => Response.json({}));
   vi.stubGlobal('fetch', fetcher);
-  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   expect(
     (await screen.findByRole('button', { name: 'Resume Booth' })).hasAttribute('disabled')
   ).toBe(true);
@@ -754,7 +789,11 @@ it('replays only the original Booth payload after polling changes the revision',
     return Response.json({ receipt: { operationId: bodies[0].operationId, kind: 'pause' } });
   });
   const view = render(
-    <OperationsPanel adminUserId="admin-a" event={{ ...event, runState: 'Active' }} />
+    <OperationsPanel
+      printerMode="simulated"
+      adminUserId="admin-a"
+      event={{ ...event, runState: 'Active' }}
+    />
   );
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Pause Booth' }).hasAttribute('disabled')).toBe(false)
@@ -762,7 +801,11 @@ it('replays only the original Booth payload after polling changes the revision',
   fireEvent.click(screen.getByRole('button', { name: 'Pause Booth' }));
   await screen.findByText(/Booth command outcome is unconfirmed/);
   view.rerender(
-    <OperationsPanel adminUserId="admin-a" event={{ ...event, revision: 9, runState: 'Paused' }} />
+    <OperationsPanel
+      printerMode="simulated"
+      adminUserId="admin-a"
+      event={{ ...event, revision: 9, runState: 'Paused' }}
+    />
   );
   fireEvent.click(screen.getByRole('button', { name: 'Retry Booth command' }));
   await screen.findByText('Booth command recorded. Refreshing current state.');
@@ -783,7 +826,7 @@ it('rejects a mismatched Booth receipt and does not send a new command', async (
     Response.json({ receipt: { operationId: crypto.randomUUID(), kind: 'pause' } })
   );
   vi.stubGlobal('fetch', fetcher);
-  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Retry Booth command' }));
   await waitFor(() => expect(fetcher).toHaveBeenCalledTimes(1));
   expect(screen.queryByText('Booth command recorded. Refreshing current state.')).toBeNull();
@@ -802,15 +845,17 @@ it('fences a saved Booth command when the signed-in Admin changes', async () => 
     actors.push(new Headers(options?.headers).get('x-package-admin-id'));
     return Response.json({ receipt: { operationId: saved.body.operationId, kind: 'pause' } });
   });
-  const view = render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  const view = render(
+    <OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />
+  );
   await screen.findByRole('button', { name: 'Retry Booth command' });
-  view.rerender(<OperationsPanel adminUserId="admin-b" event={event} />);
+  view.rerender(<OperationsPanel printerMode="simulated" adminUserId="admin-b" event={event} />);
   await waitFor(() =>
     expect(screen.queryByRole('button', { name: 'Retry Booth command' })).toBeNull()
   );
   expect(sessionStorage.getItem(key)).toBe(JSON.stringify(saved));
   expect(actors).toEqual([]);
-  view.rerender(<OperationsPanel adminUserId="admin-a" event={event} />);
+  view.rerender(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   fireEvent.click(await screen.findByRole('button', { name: 'Retry Booth command' }));
   await screen.findByText('Booth command recorded. Refreshing current state.');
   expect(actors).toEqual(['admin-a']);
@@ -818,7 +863,13 @@ it('fences a saved Booth command when the signed-in Admin changes', async () => 
 
 it('keeps a stale command visibly rejected and does not report success', async () => {
   vi.stubGlobal('fetch', async () => Response.json({ code: 'stale_revision' }, { status: 409 }));
-  render(<OperationsPanel adminUserId="admin-a" event={{ ...event, runState: 'Active' }} />);
+  render(
+    <OperationsPanel
+      printerMode="simulated"
+      adminUserId="admin-a"
+      event={{ ...event, runState: 'Active' }}
+    />
+  );
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Pause Booth' }).hasAttribute('disabled')).toBe(false)
   );
@@ -850,7 +901,9 @@ it('polls scoped phone readiness without rerendering the route while its revisio
     });
   });
   vi.stubGlobal('fetch', fetcher);
-  const view = render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  const view = render(
+    <OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />
+  );
   await act(async () => {
     await vi.advanceTimersByTimeAsync(32);
   });
@@ -911,7 +964,9 @@ it('refreshes the full Event only when scoped state reports a newer revision', a
       equipment: null,
     })
   );
-  const view = render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  const view = render(
+    <OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />
+  );
   refresh.mockClear();
   await act(async () => {
     await vi.advanceTimersByTimeAsync(2000);
@@ -925,6 +980,7 @@ it('refreshes the full Event only when scoped state reports a newer revision', a
   expect(refresh).toHaveBeenCalledTimes(1);
   view.rerender(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{ ...event, revision, state: 'Completed', runState: 'Finished' }}
     />
@@ -968,6 +1024,7 @@ it.each(['malformed', 'server error', 'timeout'])(
     });
     render(
       <OperationsPanel
+        printerMode="simulated"
         adminUserId="admin-a"
         event={{ ...event, resumeAllowed: true, counts: packageCounts(1, 0, 0, 0) }}
       />
@@ -1000,7 +1057,9 @@ it('guards Resume on authoritative readiness and explains independent blockers',
     resumeAllowed: false,
     blockers: ['camera', 'readiness_stale'],
   };
-  const view = render(<OperationsPanel adminUserId="admin-a" event={current} />);
+  const view = render(
+    <OperationsPanel printerMode="simulated" adminUserId="admin-a" event={current} />
+  );
   await waitFor(() =>
     expect(screen.getByRole('button', { name: 'Finish Booth Mode' }).hasAttribute('disabled')).toBe(
       false
@@ -1011,6 +1070,7 @@ it('guards Resume on authoritative readiness and explains independent blockers',
   expect(screen.getByText('Equipment readiness is out of date.')).toBeTruthy();
   view.rerender(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{ ...current, resumeAllowed: true, blockers: [] }}
     />
@@ -1018,6 +1078,7 @@ it('guards Resume on authoritative readiness and explains independent blockers',
   expect(screen.getByRole('button', { name: 'Resume Booth' }).hasAttribute('disabled')).toBe(true);
   view.rerender(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{
         ...current,
@@ -1037,7 +1098,7 @@ it('guards Resume on authoritative readiness and explains independent blockers',
 });
 
 it('returns focus to Finish after dismissing its confirmation', async () => {
-  render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  render(<OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />);
   const trigger = screen.getByRole('button', { name: 'Finish Booth Mode' });
   await waitFor(() => expect(trigger.hasAttribute('disabled')).toBe(false));
   trigger.focus();
@@ -1058,7 +1119,13 @@ it('coalesces repeated phone Pause gestures while the command is in flight', asy
     await gate;
     return Response.json({ receipt: { operationId: body.operationId, kind: 'pause' } });
   });
-  render(<OperationsPanel adminUserId="admin-a" event={{ ...event, runState: 'Active' }} />);
+  render(
+    <OperationsPanel
+      printerMode="simulated"
+      adminUserId="admin-a"
+      event={{ ...event, runState: 'Active' }}
+    />
+  );
   const button = screen.getByRole('button', { name: 'Pause Booth' });
   await waitFor(() => expect(button.hasAttribute('disabled')).toBe(false));
   fireEvent.click(button);
@@ -1077,12 +1144,15 @@ it('keeps Finish confirmation bound to the reviewed run and revision', async () 
     submitted = JSON.parse(String(options?.body));
     return Response.json({ receipt: { operationId: submitted.operationId, kind: 'finish' } });
   });
-  const view = render(<OperationsPanel adminUserId="admin-a" event={event} />);
+  const view = render(
+    <OperationsPanel printerMode="simulated" adminUserId="admin-a" event={event} />
+  );
   const trigger = screen.getByRole('button', { name: 'Finish Booth Mode' });
   await waitFor(() => expect(trigger.hasAttribute('disabled')).toBe(false));
   fireEvent.click(trigger);
   view.rerender(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{ ...event, revision: 9, runId: 'replacement-run', runState: 'Active' }}
     />
@@ -1095,6 +1165,7 @@ it('keeps Finish confirmation bound to the reviewed run and revision', async () 
 it('offers a new local setup after Finished, separately from Event completion', async () => {
   render(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{ ...event, runState: 'Finished', counts: packageCounts(5, 0, 49, 0), attempts: [] }}
     />
@@ -1114,6 +1185,7 @@ it.each(['Active', 'Paused', 'Finishing'] as const)(
   async (runState) => {
     render(
       <OperationsPanel
+        printerMode="simulated"
         adminUserId="admin-a"
         event={{ ...event, runState, counts: packageCounts(5, 0, 49, 0) }}
       />
@@ -1150,7 +1222,9 @@ it.each(['complete', 'cancel'])(
       counts: packageCounts(5, 0, 49, 0),
       attempts: [],
     };
-    const view = render(<OperationsPanel adminUserId="admin-a" event={finished} />);
+    const view = render(
+      <OperationsPanel printerMode="simulated" adminUserId="admin-a" event={finished} />
+    );
     const name = action === 'complete' ? 'Complete Event' : 'Cancel Event';
     const trigger = screen.getByRole('button', { name });
     await waitFor(() => expect(trigger.hasAttribute('disabled')).toBe(false));
@@ -1161,7 +1235,13 @@ it.each(['complete', 'cancel'])(
       expect(
         screen.getByRole('button', { name: 'Confirm Cancel Event' }).getAttribute('data-variant')
       ).toBe('destructive');
-    view.rerender(<OperationsPanel adminUserId="admin-a" event={{ ...finished, revision: 8 }} />);
+    view.rerender(
+      <OperationsPanel
+        printerMode="simulated"
+        adminUserId="admin-a"
+        event={{ ...finished, revision: 8 }}
+      />
+    );
     fireEvent.click(screen.getByRole('button', { name: `Confirm ${name}` }));
     await screen.findByRole('alert');
     expect(submitted!).toEqual({ operationId: expect.any(String), expectedRevision: 3 });
@@ -1174,17 +1254,26 @@ it.each(['complete', 'cancel'])(
 
 it('keeps server-proven unsent recovery distinct from possible delivery and Finishing', () => {
   const view = render(
-    <OperationsPanel adminUserId="admin-a" event={{ ...event, possibleDelivery: false }} />
+    <OperationsPanel
+      printerMode="simulated"
+      adminUserId="admin-a"
+      event={{ ...event, possibleDelivery: false }}
+    />
   );
   expect(
     screen.getByRole('button', { name: 'Replace Booth access' }).hasAttribute('disabled')
   ).toBe(false);
   view.rerender(
-    <OperationsPanel adminUserId="admin-a" event={{ ...event, possibleDelivery: true }} />
+    <OperationsPanel
+      printerMode="simulated"
+      adminUserId="admin-a"
+      event={{ ...event, possibleDelivery: true }}
+    />
   );
   expect(screen.queryByRole('button', { name: 'Replace Booth access' })).toBeNull();
   view.rerender(
     <OperationsPanel
+      printerMode="simulated"
       adminUserId="admin-a"
       event={{ ...event, runState: 'Finishing', possibleDelivery: false }}
     />

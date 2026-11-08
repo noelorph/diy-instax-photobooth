@@ -2087,3 +2087,189 @@ it('forwards the adapter load-fault identity in scoped readiness', async () => {
   await s.flow.reportEquipment(observation);
   expect(s.observations.at(-1)).toMatchObject({ loadFault: 'cover_open', loadFaultId });
 });
+
+it('keeps a delayed matching acknowledgement unconfirmed, then ends exactly once after 3000ms', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([7]),
+    url: 'blob:ack',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  const gate = deferred();
+  s.holdObservation(gate.promise);
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() =>
+    expect(s.requests.some(({ path }) => path.endsWith('/observations'))).toBe(true)
+  );
+  expect(s.flow.getSnapshot().phase).not.toBe('confirmed');
+  expect(s.flow.getSnapshot().counts?.printed).toBe(0);
+  gate.resolve();
+  await vi.advanceTimersByTimeAsync(0);
+  expect(s.flow.getSnapshot().phase).toBe('confirmed');
+  s.printer.emit('ready_for_new_job', s.authorization);
+  await s.flow.reportEquipment(observation);
+  await vi.advanceTimersByTimeAsync(2999);
+  expect(s.flow.getSnapshot().phase).toBe('confirmed');
+  expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(0);
+  await vi.advanceTimersByTimeAsync(1);
+  expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(1);
+});
+it('never admits a new Guest when mounted for pinned reconciliation only', async () => {
+  const s = guestSetup();
+  const flow = new BoothFlow({
+    printer: s.printer,
+    journal: s.journal,
+    transport: s.transport,
+    reconciliationOnly: true,
+  });
+  owned.push(flow);
+  await s.printer.connect();
+  await flow.initialize();
+  await flow.reportEquipment(observation);
+  await flow.start();
+  await flow.print();
+  expect(flow.getSnapshot().blockers).toContain('qualification_required');
+  expect(
+    s.requests.some(({ path }) => path === '/api/booth/sessions' || path.endsWith('/dispatch'))
+  ).toBe(false);
+});
+
+it('blocks environment loss synchronously before waiting for measured printer safety', async () => {
+  const s = guestSetup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  const snapshot = await s.printer.readReadiness();
+  let release!: () => void;
+  vi.spyOn(s.printer, 'readReadiness').mockReturnValueOnce(
+    new Promise((resolve) => {
+      release = () => resolve(snapshot);
+    })
+  );
+  const report = s.flow.reportEnvironment({
+    cameraPermission: true,
+    cameraLive: false,
+    serverReachable: true,
+  });
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  release();
+  await report;
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+});
+
+it('cannot restore admission from a healthy environment read started before camera loss', async () => {
+  const s = setup();
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  const snapshot = await s.printer.readReadiness();
+  let release!: () => void;
+  vi.spyOn(s.printer, 'readReadiness').mockReturnValueOnce(
+    new Promise((resolve) => {
+      release = () => resolve(snapshot);
+    })
+  );
+  const healthy = s.flow.reportEnvironment({
+    cameraPermission: true,
+    cameraLive: true,
+    serverReachable: true,
+  });
+  await s.flow.reportEnvironment({
+    cameraPermission: false,
+    cameraLive: false,
+    serverReachable: true,
+  });
+  release();
+  await healthy;
+  expect(s.flow.getSnapshot().phase).toBe('unavailable');
+  expect(s.flow.getSnapshot().blockers).toContain('camera');
+});
+
+it('connects framed physical feedback to acknowledged Booth completion without a simulator completion hook', async () => {
+  const { installInstaxBluetooth } = await import('../fixtures/instax-bluetooth');
+  const { getBoothPrinter, releaseBoothPrinter } = await import('@/features/booth/equipment');
+  const { readFileSync } = await import('node:fs');
+  await releaseBoothPrinter();
+  await installInstaxBluetooth({
+    addInitScript: async (fn: (arg: unknown) => void, arg: unknown) => fn(arg),
+  } as never);
+  const s = guestSetup();
+  const printer = getBoothPrinter('instax-development');
+  const flow = new BoothFlow({
+    printer,
+    journal: s.journal,
+    transport: async (path, body) => {
+      const reply = await s.transport(path, body);
+      return {
+        ...reply,
+        printerId: 'synthetic-fi033',
+        ...('authorization' in reply
+          ? { authorization: { ...reply.authorization, printerId: 'synthetic-fi033' } }
+          : {}),
+      };
+    },
+  });
+  owned.push(flow);
+  try {
+    await printer.connect();
+    await flow.initialize();
+    await flow.reportEnvironment({
+      cameraPermission: true,
+      cameraLive: true,
+      serverReachable: true,
+    });
+    await flow.start();
+    flow.countdown();
+    await flow.shutter(async () => ({
+      bytes: new Uint8Array(
+        readFileSync('src/features/qualification/fixtures/baseline-600x800.jpg')
+      ),
+      url: 'blob:physical',
+      discard: vi.fn(),
+    }));
+    await flow.print();
+    await vi.waitFor(() =>
+      expect(s.requests.some(({ body }) => body?.kind === 'command_accepted')).toBe(true)
+    );
+    expect(flow.getSnapshot().phase).toBe('printing');
+    expect(flow.getSnapshot().counts?.printed).toBe(0);
+    const f = (
+      window as unknown as {
+        __instaxFixture: { counts(): { executeCount: number }; status(value: string): void };
+      }
+    ).__instaxFixture;
+    f.status('active');
+    await new Promise((resolve) => setTimeout(resolve, 1100));
+    f.status('idle');
+    await vi.waitFor(() => expect(flow.getSnapshot().phase).toBe('confirmed'), { timeout: 2000 });
+    expect(
+      s.requests.find(({ body }) => body?.kind === 'full_ejection_confirmed')?.body
+    ).toMatchObject({
+      printerId: 'synthetic-fi033',
+      adapterVersion: 'instax-mini-link3-v1',
+      evidenceVersion: 'instax-fi033-0102-dev-v1',
+      connectionGeneration: 1,
+      dispatchId: s.authorization.dispatchId,
+      operationId: expect.any(String),
+      observationId: expect.any(String),
+      metadata: {},
+    });
+    expect(f.counts().executeCount).toBe(1);
+    await vi.waitFor(
+      () => expect(s.requests.filter(({ path }) => path.endsWith('/end'))).toHaveLength(1),
+      { timeout: 4000 }
+    );
+    expect(flow.getSnapshot().counts?.printed).toBe(1);
+  } finally {
+    flow.dispose();
+    await releaseBoothPrinter();
+  }
+}, 15000);

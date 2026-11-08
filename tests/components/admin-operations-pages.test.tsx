@@ -4,6 +4,7 @@ import { getOperationalEvent } from '@/features/admin/operations/read';
 import { getHistoryEvent } from '@/lib/events/history';
 import EventPage from '@/app/(admin)/events/[eventId]/page';
 import { AdminShell } from '@/components/layout/admin-shell';
+vi.mock('@/lib/operations/printer-gate', () => ({ getBoothPrinterMode: () => 'simulated' }));
 vi.mock('@/lib/events/drafts', () => ({ getDraft: async () => ({ status: 'not_found' }) }));
 vi.mock('@/features/admin/events/actions', () => ({
   createDraftAction: vi.fn(),

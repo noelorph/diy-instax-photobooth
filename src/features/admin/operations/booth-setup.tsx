@@ -1,7 +1,8 @@
 'use client';
 import { useEffect, useRef, useState } from 'react';
 import { Dialog } from 'radix-ui';
-import type { RunState } from '@/lib/operations/package-contract';
+import { useRouter } from 'next/navigation';
+import type { BoothPrinterMode, RunState } from '@/lib/operations/package-contract';
 import { z } from 'zod';
 import { Button } from '@/components/ui/button';
 import { FormFeedback } from '@/components/shared/form-feedback';
@@ -27,6 +28,7 @@ const setupSchema = z.object({
 });
 export function BoothSetup({
   eventId,
+  printerMode,
   revision,
   runId,
   runState,
@@ -35,6 +37,7 @@ export function BoothSetup({
   prepareHandoff,
   releaseHandoff,
 }: {
+  printerMode: BoothPrinterMode;
   eventId: string;
   revision: number;
   runId?: string | null;
@@ -44,6 +47,7 @@ export function BoothSetup({
   prepareHandoff?: () => Promise<void>;
   releaseHandoff?: () => void;
 }) {
+  const router = useRouter();
   const newRun = !runId || runState === 'Finished';
   const replaceAllowed =
     !!runId && ['Prepared', 'Active', 'Paused'].includes(runState ?? '') && !possibleDelivery;
@@ -53,7 +57,9 @@ export function BoothSetup({
     null
   );
   const [camera] = useState(() => new BrowserBoothCamera());
-  const [printer] = useState(getBoothPrinter);
+  const [printer] = useState(() =>
+    printerMode === 'disabled' ? null : getBoothPrinter(printerMode)
+  );
   const video = useRef<HTMLVideoElement>(null);
   const mounted = useRef(false);
   const reporting = useRef<Promise<void> | null>(null);
@@ -112,6 +118,7 @@ export function BoothSetup({
   async function refresh(): Promise<void> {
     if (reporting.current) return reporting.current;
     if (
+      !printer ||
       !newRun ||
       !localSetup.current ||
       !mounted.current ||
@@ -123,6 +130,7 @@ export function BoothSetup({
       reporting.current = null;
     }));
     async function measureReadiness() {
+      if (!printer) return;
       const observedCameraEpoch = cameraEpoch.current;
       try {
         const binding = await printer.readReadiness();
@@ -303,6 +311,7 @@ export function BoothSetup({
   }
   async function start(replacement = false) {
     if (
+      !printer ||
       starting.current ||
       (!startCommand.current &&
         (replacement ? !replaceAllowed || !reviewedReplacement.current : !ready || !latest.current))
@@ -442,8 +451,8 @@ export function BoothSetup({
       }
       if (mounted.current) {
         camera.stop();
-        // A cached /booth tree may own a disposed controller and released equipment.
-        window.location.replace('/booth');
+        // A new handoff remounts cached controllers while retaining the Bluetooth owner.
+        router.replace(`/booth?entry=${pending.id}`);
       }
     } catch (error) {
       if (mounted.current) {
@@ -467,6 +476,7 @@ export function BoothSetup({
       }
     }
   }
+  if (!printer) return <p>Printer qualification is required before Booth setup.</p>;
   if (!newRun && !busy && !accessRequired && !uncertainStart && !review && !replaceAllowed)
     return possibleDelivery ? (
       <p>Resolve the pending print outcome before replacing Booth access.</p>

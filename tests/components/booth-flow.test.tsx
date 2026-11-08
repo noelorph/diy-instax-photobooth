@@ -30,7 +30,11 @@ it.each(['printing', 'paused', 'finishing'] as const)(
       allowedActions: { enableCamera: false, connectPrinter: false },
     });
     render(
-      <BoothClient flow={flow} camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }} />
+      <BoothClient
+        printerMode="simulated"
+        flow={flow}
+        camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }}
+      />
     );
     expect(screen.getByRole('alert').textContent).toContain('Please wait');
     expect(screen.getByRole('alert').textContent).not.toMatch(/inform the Admin/);
@@ -50,7 +54,13 @@ it('offers an accessible Continue action during preview inactivity', async () =>
     allowedActions: { enableCamera: false, connectPrinter: false },
   });
   const continuing = vi.spyOn(flow, 'continueGuest');
-  render(<BoothClient flow={flow} camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }} />);
+  render(
+    <BoothClient
+      printerMode="simulated"
+      flow={flow}
+      camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }}
+    />
+  );
   expect(screen.getByRole('status').textContent).toContain('Continue');
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Continue' }));
   fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
@@ -78,7 +88,13 @@ it('announces camera loss even when a print outcome remains pending', () => {
     allowedActions: { enableCamera: true, connectPrinter: false },
   });
   vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
-  render(<BoothClient flow={flow} camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }} />);
+  render(
+    <BoothClient
+      printerMode="simulated"
+      flow={flow}
+      camera={{ start: vi.fn(), stop: vi.fn(), capture: vi.fn() }}
+    />
+  );
   expect(screen.getByRole('heading').textContent).toBe(
     'Camera disconnected. Please inform the Admin.'
   );
@@ -156,7 +172,7 @@ it('shows default welcome, mirrored preview, countdown and unmirrored selected r
       discard,
     })),
   };
-  render(<BoothClient flow={flow} camera={camera} />);
+  render(<BoothClient printerMode="simulated" flow={flow} camera={camera} />);
   expect(await screen.findByRole('button', { name: 'Start' })).not.toBeNull();
   expect(screen.getByText(/one print/i)).not.toBeNull();
   fireEvent.click(screen.getByRole('button', { name: 'Start' }));
@@ -232,7 +248,7 @@ it('requires a live camera again after pause stops the stream and the run quickl
     ),
     capture: vi.fn(),
   };
-  render(<BoothClient flow={flow} camera={camera} />);
+  render(<BoothClient printerMode="simulated" flow={flow} camera={camera} />);
   expect(await screen.findByRole('button', { name: 'Start' })).not.toBeNull();
   state = 'Paused';
   await act(() => flow.refresh());
@@ -293,7 +309,7 @@ it('arrival uses passive camera intent and Enable Camera uses explicit request',
     stop: vi.fn(),
     capture: vi.fn(),
   };
-  render(<BoothClient flow={flow} camera={camera} />);
+  render(<BoothClient printerMode="simulated" flow={flow} camera={camera} />);
   await waitFor(() => expect(intents).toContain('existing'));
   fireEvent.click(await screen.findByRole('button', { name: 'Enable Camera' }));
   await waitFor(() => expect(intents).toEqual(['existing', 'request']));
@@ -308,10 +324,10 @@ it('polls every two seconds only while visible and refreshes immediately on focu
     transport: async () => ({}),
   });
   vi.spyOn(flow, 'initialize').mockResolvedValue();
-  const reports = vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
+  const reports = vi.spyOn(flow, 'reportEnvironment').mockResolvedValue();
   const camera = { start: vi.fn(async () => {}), stop: vi.fn(), capture: vi.fn() };
   const visible = vi.spyOn(document, 'visibilityState', 'get').mockReturnValue('visible');
-  const view = render(<BoothClient flow={flow} camera={camera} />);
+  const view = render(<BoothClient printerMode="simulated" flow={flow} camera={camera} />);
   await act(async () => {});
   reports.mockClear();
   await act(async () => {
@@ -364,7 +380,7 @@ it('shows a truthful pending status during a deliberate pause without local take
   });
   vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
   const camera = { start: vi.fn(async () => {}), stop: vi.fn(), capture: vi.fn() };
-  render(<BoothClient flow={flow} camera={camera} />);
+  render(<BoothClient printerMode="simulated" flow={flow} camera={camera} />);
   expect(screen.getByRole('heading', { name: 'Booth paused' })).toBeTruthy();
   expect(screen.getByRole('alert').textContent).toMatch(/A print outcome is pending/);
   expect(screen.getByText('Please wait for the Admin to resume from the phone.')).toBeTruthy();
@@ -388,7 +404,7 @@ it.each(['access-required', 'unavailable'] as const)(
     });
     vi.spyOn(flow, 'reportEquipment').mockResolvedValue();
     const camera = { start: vi.fn(async () => {}), stop: vi.fn(), capture: vi.fn() };
-    render(<BoothClient flow={flow} camera={camera} />);
+    render(<BoothClient printerMode="simulated" flow={flow} camera={camera} />);
     expect(screen.getByRole('alert').textContent).toMatch(/inform the Admin/);
   }
 );
@@ -445,7 +461,7 @@ it('polls lifecycle independently of a held readiness report and preserves Finis
     },
   });
   const camera = { start: vi.fn(async () => {}), stop: vi.fn(), capture: vi.fn() };
-  const view = render(<BoothClient flow={flow} camera={camera} />);
+  const view = render(<BoothClient printerMode="simulated" flow={flow} camera={camera} />);
   try {
     await act(async () => {});
     expect(posts).toBe(1);
@@ -526,7 +542,7 @@ it('healthy polling keeps Welcome and does not refocus the heading', async () =>
   render(
     <>
       <button>Focus marker</button>
-      <BoothClient flow={flow} camera={camera} />
+      <BoothClient printerMode="simulated" flow={flow} camera={camera} />
     </>
   );
   const heading = await screen.findByRole('heading', { name: 'Make a memory' });
@@ -546,4 +562,44 @@ it('healthy polling keeps Welcome and does not refocus the heading', async () =>
   expect(flow.getSnapshot().phase).toBe('welcome');
   expect(focus).not.toHaveBeenCalled();
   expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Focus marker' }));
+});
+
+it('a replacement handoff key mounts a new controller after a cached controller was disposed, retaining its printer owner', async () => {
+  const { getBoothPrinter } = await import('@/features/booth/equipment');
+  const printer = getBoothPrinter('simulated');
+  const disconnect = vi.spyOn(printer, 'disconnect');
+  const dependencies = {
+    printer,
+    journal: new BrowserBoothMetadataJournal(sessionStorage),
+    transport: async () => ({}),
+  };
+  const first = new BoothFlow(dependencies),
+    replacement = new BoothFlow(dependencies);
+  const firstBoot = vi.spyOn(first, 'initialize').mockResolvedValue();
+  const replacementBoot = vi.spyOn(replacement, 'initialize').mockResolvedValue();
+  const camera = { start: vi.fn(), stop: vi.fn(), capture: vi.fn() };
+  const view = render(
+    <BoothClient
+      key="first-acknowledged-handoff"
+      printerMode="simulated"
+      flow={first}
+      camera={camera}
+    />
+  );
+  await act(async () => {});
+  first.dispose();
+  view.rerender(
+    <BoothClient
+      key="replacement-handoff-same-run"
+      printerMode="simulated"
+      flow={replacement}
+      camera={camera}
+    />
+  );
+  await act(async () => {});
+  expect(firstBoot).toHaveBeenCalledOnce();
+  expect(replacementBoot).toHaveBeenCalledOnce();
+  expect(getBoothPrinter('simulated')).toBe(printer);
+  expect(disconnect).not.toHaveBeenCalled();
+  view.unmount();
 });

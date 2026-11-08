@@ -16,7 +16,7 @@ import {
   TriangleAlert,
 } from 'lucide-react';
 import { WelcomeIllustration } from './welcome-illustration';
-import type { DispatchAuthorization } from '@/lib/operations/package-contract';
+import type { BoothPrinterMode, DispatchAuthorization } from '@/lib/operations/package-contract';
 export function BoothPaused() {
   return (
     <main className={styles.booth} data-tone="dark">
@@ -30,9 +30,13 @@ export function BoothPaused() {
   );
 }
 export function BoothClient({
+  printerMode,
+  reconciliationOnly = false,
   flow: suppliedFlow,
   camera: suppliedCamera,
 }: {
+  printerMode: Exclude<BoothPrinterMode, 'disabled'>;
+  reconciliationOnly?: boolean;
   flow?: BoothFlow;
   camera?: BoothCamera;
 }) {
@@ -41,7 +45,8 @@ export function BoothClient({
       suppliedFlow ??
       new BoothFlow({
         transport: (path, body, signal) => boothFetch(path, body, undefined, signal),
-        printer: getBoothPrinter(),
+        printer: getBoothPrinter(printerMode),
+        reconciliationOnly,
         journal: new BrowserBoothMetadataJournal({
           getItem: (key) => sessionStorage.getItem(key),
           setItem: (key, value) => sessionStorage.setItem(key, value),
@@ -60,13 +65,10 @@ export function BoothClient({
   const wasGuest = useRef(false);
   const report = useCallback(() => {
     const live = hasLiveCamera(video.current);
-    return flow.reportEquipment({
+    return flow.reportEnvironment({
       cameraPermission: live,
       cameraLive: live,
       serverReachable: navigator.onLine,
-      printerConnected: true,
-      printerReady: true,
-      oldJobCleared: true,
     });
   }, [flow]);
   useEffect(() => {
@@ -77,19 +79,21 @@ export function BoothClient({
       __boothSimulatorReady?: (authorization: DispatchAuthorization) => void;
     };
     if (
+      printerMode === 'simulated' &&
       process.env.NODE_ENV !== 'production' &&
       process.env.NEXT_PUBLIC_BOOTH_SIMULATOR_CONTROLS === 'true'
     ) {
       controls.__boothSimulatorEject = (authorization) =>
-        getBoothPrinter().emit('full_ejection_confirmed', authorization);
+        getBoothPrinter('simulated').emit('full_ejection_confirmed', authorization);
       controls.__boothSimulatorReady = (authorization) =>
-        getBoothPrinter().emit('ready_for_new_job', authorization);
+        getBoothPrinter('simulated').emit('ready_for_new_job', authorization);
     }
     const current = () => owner.current === token;
     const url = new URL(window.location.href);
     const handoff = url.searchParams.get('handoff') ?? undefined;
-    if (handoff) {
+    if (handoff || url.searchParams.has('entry')) {
       url.searchParams.delete('handoff');
+      url.searchParams.delete('entry');
       history.replaceState(null, '', url.pathname + url.search);
     }
     const start = async () => {
@@ -141,7 +145,7 @@ export function BoothClient({
         }
       });
     };
-  }, [flow, camera, report]);
+  }, [flow, camera, report, printerMode]);
   useEffect(() => {
     heading.current?.focus();
     if (['preview', 'countdown', 'capturing', 'review', 'printing'].includes(view.phase))

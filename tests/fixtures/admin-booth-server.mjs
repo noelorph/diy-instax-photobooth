@@ -1,7 +1,7 @@
 import { readLocalSupabaseStatus } from './test-stack.mjs';
 import { spawn } from 'node:child_process';
 const port = process.argv[2];
-if (!['1438', '1439'].includes(port)) throw new Error('Expected allowed simulator app port');
+if (!['1438', '1439', '1441'].includes(port)) throw new Error('Expected allowed Booth app port');
 const local = readLocalSupabaseStatus();
 const child = spawn(
   process.execPath,
@@ -14,8 +14,8 @@ const child = spawn(
       NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY: local.ANON_KEY,
       SUPABASE_SECRET_KEY: local.SERVICE_ROLE_KEY,
       ADMIN_AUTH_ORIGIN: `http://127.0.0.1:${port}`,
-      BOOTH_PRINTER_MODE: 'simulated',
-      NEXT_PUBLIC_BOOTH_SIMULATOR_CONTROLS: 'true',
+      BOOTH_PRINTER_MODE: port === '1441' ? 'instax-development' : 'simulated',
+      NEXT_PUBLIC_BOOTH_SIMULATOR_CONTROLS: port === '1441' ? 'false' : 'true',
       NEXT_TELEMETRY_DISABLED: '1',
     },
   }

@@ -1,3 +1,4 @@
+import { getBoothPrinterMode } from '@/lib/operations/printer-gate';
 import { getHistoryEvent } from '@/lib/events/history';
 import { HistoryDetail } from '@/features/admin/events/history-detail';
 import { OperationsPanel } from '@/features/admin/operations/panel';
@@ -50,7 +51,11 @@ export default async function EventPage({
   const result = await getDraft(eventId);
   const panel =
     operations.status === 'success' ? (
-      <OperationsPanel event={operations.event} adminUserId={operations.adminUserId} />
+      <OperationsPanel
+        printerMode={getBoothPrinterMode()}
+        event={operations.event}
+        adminUserId={operations.adminUserId}
+      />
     ) : (
       <FormFeedback kind="error">
         Unable to load Event operations. Reload to try again.
