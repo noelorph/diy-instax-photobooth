@@ -8,6 +8,8 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 
 <!-- END:nextjs-agent-rules -->
 
+**Instax development integration — 2026-11-08:** [Current implementation and software gaps](docs/implementation/real-instax-booth-integration.md). Tasks 1–4 are implemented and source-reviewed; database-backed verification remains blocked, so this is not software integration acceptance or operational release. Existing dated evidence and physical/iPad/F6/F8/media gates remain unchanged.
+
 ## Agent skills
 
 ### Issue tracker

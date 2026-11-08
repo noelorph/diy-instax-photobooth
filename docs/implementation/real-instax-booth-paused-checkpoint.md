@@ -1,5 +1,7 @@
 # Real Instax Booth integration — paused checkpoint
 
+**Historical checkpoint, superseded after owner-authorized resume:** use [current integration status](real-instax-booth-integration.md). The pause and next-action text below record the earlier state; Tasks 2–4 have since completed source review. Required database/browser acceptance remains outstanding.
+
 Paused on 2026-11-08 at the owner's request. Implementation is incomplete and must not be presented as operationally qualified. No implementation agent remains running. No Task 2 fix was dispatched after the pause.
 
 ## Location and authorization

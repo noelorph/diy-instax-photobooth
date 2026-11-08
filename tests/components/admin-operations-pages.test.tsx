@@ -99,7 +99,7 @@ vi.mock('@/lib/events/history', () => ({
 }));
 it('shows History and opaque pending cleanup retries', async () => {
   const { default: HistoryPage } = await import('@/app/(admin)/history/page');
-  render(await HistoryPage());
+  render(await HistoryPage({}));
   expect(screen.getByRole('link', { name: 'Past celebration' })).toBeTruthy();
   expect(screen.getByRole('button', { name: 'Retry media removal' })).toBeTruthy();
   expect(screen.getByText(/Celebration Hall/)).toBeTruthy();

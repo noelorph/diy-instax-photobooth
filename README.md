@@ -1,5 +1,7 @@
 # DIY Instax Photo Booth
 
+**Instax development integration — 2026-11-08:** [Current implementation and software gaps](docs/implementation/real-instax-booth-integration.md). Tasks 1–4 are implemented and source-reviewed; database-backed verification remains blocked, so this is not software integration acceptance or operational release. Existing dated evidence and physical/iPad/F6/F8/media gates remain unchanged.
+
 **2026-10-27 F2 implementation and availability:** [ADR-0032](docs/adr/0032-build-full-f2-with-uploads-unavailable.md) restores the original full F2/#30 implementation target, including the dormant editor and private delivery. Runtime uploads remain temporarily unavailable under ADR-0031, with trusted upload/attachment/replacement denials intact. Full #30 acceptance still requires supported cleanup proof and enabled transfer/failure/concurrency/private-delivery/playback qualification; the disabled-scope evidence is unchanged. The Admin Event Media page must visibly remind the Admin that interrupted/late uploads and leftover files need cleanup verification before re-enabling. F3–F8 may proceed against the verified upload-disabled F2 milestone; #30 stays in #10, remains open and is completed last as the final blocker to #10 closure.
 
 An Event photo booth with an Admin application and Guest-facing `/booth`. The target release uses iPad A16, Bluefy and Instax Mini Link 3, subject to physical qualification.

@@ -46,3 +46,5 @@
 [0034: November screen reference in the implementation plan](0034-use-november-screen-reference-in-implementation-plan.md): current presentation-reference target; application acceptance remains separate.
 
 [0035: Allow bounded development Instax integration](0035-allow-development-instax-integration.md) refines ADR-0025 with immutable development evidence policies, correlated outcomes and physical lifecycle safety; operational qualification remains open.
+
+Current [Instax integration implementation and software gaps](../implementation/real-instax-booth-integration.md) distinguish source review from required database/browser acceptance and remaining physical qualification.

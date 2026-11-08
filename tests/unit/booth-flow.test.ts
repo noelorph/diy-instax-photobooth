@@ -2407,3 +2407,77 @@ it('replays a reload journal by its original receipt even after the active reque
   expect(paths.some((path) => path.endsWith('/observations'))).toBe(false);
   expect(flow.getSnapshot().phase).toBe('paused');
 });
+
+it('recovers the original physical observation receipt in reconciliation-only mode without new send authority', async () => {
+  const { getBoothPrinter, releaseBoothPrinter } = await import('@/features/booth/equipment');
+  await releaseBoothPrinter();
+  const printer = getBoothPrinter('instax-development');
+  const send = vi.spyOn(printer, 'sendOnce');
+  const connect = vi.spyOn(printer, 'connect');
+  const journal = new BrowserBoothMetadataJournal(sessionStorage);
+  const runId = crypto.randomUUID();
+  const operationId = crypto.randomUUID();
+  journal.putOperation({
+    kind: 'observation',
+    runId,
+    operationId,
+    observationId: operationId,
+    attemptId: crypto.randomUUID(),
+    dispatchId: crypto.randomUUID(),
+    printerId: 'synthetic-fi033',
+    connectionGeneration: 1,
+    adapterVersion: 'instax-mini-link3-v1',
+    evidenceVersion: 'instax-fi033-0102-dev-v1',
+    observationKind: 'full_ejection_confirmed',
+    recordedAt: Date.now(),
+  });
+  const paths: string[] = [];
+  const flow = new BoothFlow({
+    printer,
+    journal,
+    reconciliationOnly: true,
+    transport: async (path) => {
+      paths.push(path);
+      if (path === `/api/booth/operations/${operationId}`)
+        return {
+          receipt: {
+            operationId,
+            kind: 'observe',
+            committedRevision: 4,
+            result: { state: 'Printed' },
+          },
+        };
+      if (path !== '/api/booth/state') throw new Error(`Unexpected new operation: ${path}`);
+      return {
+        revision: 4,
+        runId,
+        state: 'Active',
+        counts: { ...counts, printed: 1, printsRemaining: 9, printsAvailable: 9 },
+        blockers: ['qualification_required'],
+        allowedActions: { startGuest: false, reportReadiness: false },
+        readinessWindowId: crypto.randomUUID(),
+        printerId: 'synthetic-fi033',
+        connectionGeneration: 2,
+        evidenceVersion: 'instax-fi033-0102-dev-v1',
+      };
+    },
+  });
+  owned.push(flow);
+  try {
+    await flow.initialize();
+    await flow.start();
+    await flow.print();
+    expect(journal.readOperations()).toEqual([]);
+    expect(paths).toContain(`/api/booth/operations/${operationId}`);
+    expect(
+      paths.every((path) => path === '/api/booth/state' || path.includes('/operations/'))
+    ).toBe(true);
+    expect(send).not.toHaveBeenCalled();
+    expect(connect).not.toHaveBeenCalled();
+    expect(flow.getSnapshot().counts?.printed).toBe(1);
+    expect(flow.getSnapshot().phase).not.toBe('confirmed');
+  } finally {
+    flow.dispose();
+    await releaseBoothPrinter();
+  }
+});

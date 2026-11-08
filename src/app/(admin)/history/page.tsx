@@ -12,7 +12,7 @@ export default async function HistoryPage({
   searchParams,
 }: {
   searchParams?: Promise<{ state?: string | string[] }>;
-} = {}) {
+}) {
   const query = await searchParams;
   const filter: HistoryFilter =
     query?.state === 'Completed' || query?.state === 'Cancelled' ? query.state : 'all';
