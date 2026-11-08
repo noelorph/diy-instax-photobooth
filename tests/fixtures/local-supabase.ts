@@ -150,6 +150,7 @@ export function cleanupEvents(ids: string[]) {
   localOwnerSql(`do $$ begin
     delete from public.event_media_assets where event_id in (${selected});
     delete from private.package_readiness_windows where event_id in (${selected});
+    -- Remove reload attribution before its referenced grants; never cascade away production evidence.
     delete from public.booth_reload_requests where event_id in (${selected});
     delete from public.additional_film_package_entries where event_id in (${selected});
     delete from public.operation_receipts where event_id in (${selected});

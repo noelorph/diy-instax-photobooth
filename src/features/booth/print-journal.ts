@@ -12,6 +12,17 @@ const dispatchBase = {
 const journalEntrySchema = z.union([
   z.strictObject({
     ...base,
+    kind: z.literal('reload_observation'),
+    reloadRequestId: id,
+    reloadRequestRevision: z.number().int().positive(),
+    printerId: id,
+    connectionGeneration: z.number().int().nonnegative(),
+    observationId: id,
+    adapterVersion: id,
+    evidenceVersion: id,
+  }),
+  z.strictObject({
+    ...base,
     kind: z.literal('capture'),
     sessionId: id,
     captureId: id,

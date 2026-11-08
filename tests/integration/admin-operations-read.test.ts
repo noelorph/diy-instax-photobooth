@@ -427,3 +427,57 @@ it('terminal media state never treats a failed read as no attachment', async () 
     await f.dispose();
   }
 }, 30000);
+
+it('shows only the current reload binding and its confirmed source on the authenticated phone', async () => {
+  const f = await createPackageFixture();
+  try {
+    vi.mocked(createClient).mockResolvedValue(f.adminClient);
+    vi.mocked(createPrivilegedClient).mockReturnValue(f.local.service);
+    vi.mocked(requireAdmin).mockResolvedValue({
+      userId: f.adminUser.id,
+      sessionId: f.adminSessionId,
+    });
+    f.seedRun('Paused', 'instax-fi033-0102-dev-v1');
+    const opened = await f.admin('request_reload', {
+      runId: f.runId,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+      expectedRevision: 2,
+      reason: 'loading',
+    });
+    expect(opened.error).toBeNull();
+    const first = await getOperationalEvent(f.eventId);
+    expect(first.status).toBe('success');
+    if (first.status !== 'success') throw Error('Missing Event');
+    expect(first.event.activeReloadRequest).toMatchObject({
+      reloadRequestId: opened.data.receipt.result.reloadRequestId,
+      reloadRequestRevision: 1,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+    });
+    const observationId = randomUUID();
+    expect(
+      (
+        await f.booth(
+          'observe_reload',
+          {
+            ...first.event.activeReloadRequest,
+            observationId,
+            kind: 'film_loaded',
+            adapterVersion: 'instax-mini-link3-v1',
+            evidenceVersion: 'instax-fi033-0102-dev-v1',
+          },
+          observationId
+        )
+      ).error
+    ).toBeNull();
+    const confirmed = await getOperationalEvent(f.eventId);
+    expect(confirmed.status).toBe('success');
+    if (confirmed.status !== 'success') throw Error('Missing Event');
+    expect(confirmed.event.activeReloadRequest).toBeNull();
+    expect(confirmed.event.reloadConfirmation?.confirmationSource).toBe('instax_automatic_reload');
+    expect(confirmed.event.counts).toEqual(first.event.counts);
+  } finally {
+    await f.dispose();
+  }
+});

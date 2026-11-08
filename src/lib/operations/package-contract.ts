@@ -118,3 +118,10 @@ export function packageCounts(
     printsAvailable: totalBookedPrints - printed - unresolved,
   };
 }
+
+export type ReloadRequestBinding = {
+  reloadRequestId: string;
+  reloadRequestRevision: number;
+  printerId: string;
+  connectionGeneration: number;
+};

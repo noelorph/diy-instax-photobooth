@@ -80,6 +80,7 @@ it('rejects readiness aged 5,001 ms before reservation', async () => {
     connect: printer.connect.bind(printer),
     readReadiness: async () => ({ ...snapshot, observedAgeMs: 5_001 }),
     observe: printer.observe.bind(printer),
+    observeReload: printer.observeReload.bind(printer),
     sendOnce: printer.sendOnce.bind(printer),
   };
   await expect(dispatchReservedAttempt(input, deps)).rejects.toThrow('Printer not ready');
@@ -334,6 +335,7 @@ it('does not reserve after a stop during the first readiness read', async () => 
       return snapshot;
     },
     observe: printer.observe.bind(printer),
+    observeReload: printer.observeReload.bind(printer),
     sendOnce: printer.sendOnce.bind(printer),
   };
   await expect(dispatchReservedAttempt(input, deps)).rejects.toThrow('Local dispatch stopped');
@@ -356,6 +358,7 @@ it('checks a local stop after the final awaited readiness read', async () => {
       return snapshot;
     },
     observe: printer.observe.bind(printer),
+    observeReload: printer.observeReload.bind(printer),
     sendOnce: printer.sendOnce.bind(printer),
   };
   await expect(dispatchReservedAttempt(input, deps)).rejects.toThrow('Local dispatch stopped');

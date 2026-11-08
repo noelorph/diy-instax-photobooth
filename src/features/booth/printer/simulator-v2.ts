@@ -60,6 +60,10 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
     };
   }
 
+  observeReload() {
+    return () => {};
+  }
+
   async sendOnce(authorization: DispatchAuthorization, image: Uint8Array) {
     if (this.sent.has(authorization.dispatchId)) return;
     if (
@@ -82,7 +86,10 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
     authorization: DispatchAuthorization
   ): void;
   emit(kind: 'connection_changed'): void;
-  emit(kind: PrinterObservationV2['kind'], authorization?: DispatchAuthorization) {
+  emit(
+    kind: Exclude<PrinterObservationV2['kind'], 'film_loaded'>,
+    authorization?: DispatchAuthorization
+  ) {
     if (kind === 'connection_changed') {
       this.connected = false;
       this.ready = false;

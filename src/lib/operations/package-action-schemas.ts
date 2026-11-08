@@ -115,6 +115,18 @@ export const packageActionSchemas = {
     connectionGeneration: generation,
   }),
   reconcile: packageOperationSchema.extend({ reason }),
+  observeReload: packageOperationSchema
+    .extend({
+      reloadRequestId: z.uuid(),
+      reloadRequestRevision: revision,
+      printerId,
+      connectionGeneration: generation,
+      observationId: z.uuid(),
+      kind: z.literal('film_loaded'),
+      adapterVersion: z.literal('instax-mini-link3-v1'),
+      evidenceVersion: z.literal('instax-fi033-0102-dev-v1'),
+    })
+    .refine((value) => value.operationId === value.observationId),
   observe: packageOperationSchema
     .extend({
       attemptId: z.uuid(),
@@ -142,3 +154,10 @@ void _attemptId;
 export const packageHttpObserveSchema = z
   .strictObject(httpObservationFields)
   .refine((value) => value.observationId === value.operationId);
+
+const { reloadRequestId: _reloadRequestId, ...httpReloadFields } =
+  packageActionSchemas.observeReload.shape;
+void _reloadRequestId;
+export const packageHttpReloadObserveSchema = z
+  .strictObject(httpReloadFields)
+  .refine((value) => value.operationId === value.observationId);

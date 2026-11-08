@@ -2273,3 +2273,137 @@ it('connects framed physical feedback to acknowledged Booth completion without a
     await releaseBoothPrinter();
   }
 }, 15000);
+
+it('arms once per request and journals automatic reload before POST without resolving Pending or Paused', async () => {
+  const runId = crypto.randomUUID(),
+    reloadRequestId = crypto.randomUUID(),
+    observationId = crypto.randomUUID();
+  const request = {
+    reloadRequestId,
+    reloadRequestRevision: 1,
+    printerId: 'simulator',
+    connectionGeneration: 1,
+  };
+  const printer = new SimulatedPrinterV2('simulator');
+  await printer.connect();
+  const arm = vi.spyOn(printer, 'observeReload');
+  let emit!: Parameters<typeof printer.observe>[0];
+  vi.spyOn(printer, 'observe').mockImplementation((listener) => {
+    emit = listener;
+    return () => {};
+  });
+  const journal = new BrowserBoothMetadataJournal(localStorage);
+  localStorage.clear();
+  let confirmed = false;
+  const bodies: Record<string, unknown>[] = [];
+  const transport = async (path: string, body?: Record<string, unknown>) => {
+    if (path.includes('/observations')) {
+      expect(journal.readOperations()).toMatchObject([
+        { kind: 'reload_observation', operationId: observationId, reloadRequestId },
+      ]);
+      bodies.push(body!);
+      confirmed = true;
+      return {
+        receipt: {
+          operationId: observationId,
+          kind: 'observe_reload',
+          committedRevision: 4,
+          result: { reloadRequestId },
+        },
+        revision: 4,
+        replayed: false,
+      };
+    }
+    return {
+      revision: confirmed ? 4 : 3,
+      runId,
+      state: 'Paused',
+      counts: { ...counts, unresolved: 1, printsAvailable: 9 },
+      blockers: ['print_pending', 'printer_not_safe'],
+      allowedActions: { startGuest: false, reportReadiness: true },
+      readinessWindowId: crypto.randomUUID(),
+      printerId: 'simulator',
+      connectionGeneration: 1,
+      activeReloadRequest: confirmed ? null : request,
+    };
+  };
+  const flow = new BoothFlow({ transport, printer, journal });
+  owned.push(flow);
+  await flow.initialize();
+  await flow.refresh();
+  expect(arm).toHaveBeenCalledTimes(1);
+  emit({
+    ...request,
+    kind: 'film_loaded',
+    observationId,
+    adapterVersion: 'instax-mini-link3-v1',
+    evidenceVersion: 'instax-fi033-0102-dev-v1',
+  });
+  await vi.waitFor(() => expect(bodies).toHaveLength(1));
+  await vi.waitFor(() => expect(journal.readOperations()).toEqual([]));
+  expect(flow.getSnapshot().phase).toBe('paused');
+  expect(flow.getSnapshot().counts?.unresolved).toBe(1);
+  expect(bodies[0]).not.toHaveProperty('attemptId');
+  expect(bodies[0]?.operationId).toBe(observationId);
+});
+it('replays a reload journal by its original receipt even after the active request changes', async () => {
+  localStorage.clear();
+  const runId = crypto.randomUUID(),
+    operationId = crypto.randomUUID(),
+    reloadRequestId = crypto.randomUUID();
+  const journal = new BrowserBoothMetadataJournal(localStorage);
+  journal.putOperation({
+    kind: 'reload_observation',
+    runId,
+    operationId,
+    observationId: operationId,
+    reloadRequestId,
+    reloadRequestRevision: 1,
+    printerId: 'simulator',
+    connectionGeneration: 1,
+    adapterVersion: 'instax-mini-link3-v1',
+    evidenceVersion: 'instax-fi033-0102-dev-v1',
+    recordedAt: Date.now(),
+  });
+  const paths: string[] = [];
+  const printer = new SimulatedPrinterV2('simulator');
+  const flow = new BoothFlow({
+    printer,
+    journal,
+    transport: async (path) => {
+      paths.push(path);
+      if (path.includes('/operations/'))
+        return {
+          receipt: {
+            operationId,
+            kind: 'observe_reload',
+            committedRevision: 4,
+            result: { reloadRequestId },
+          },
+        };
+      return {
+        revision: 5,
+        runId,
+        state: 'Paused',
+        counts,
+        blockers: ['film_reload_needed'],
+        allowedActions: { startGuest: false, reportReadiness: true },
+        readinessWindowId: crypto.randomUUID(),
+        printerId: 'simulator',
+        connectionGeneration: 2,
+        activeReloadRequest: {
+          reloadRequestId: crypto.randomUUID(),
+          reloadRequestRevision: 1,
+          printerId: 'simulator',
+          connectionGeneration: 2,
+        },
+      };
+    },
+  });
+  owned.push(flow);
+  await flow.initialize();
+  expect(journal.readOperations()).toEqual([]);
+  expect(paths).toContain(`/api/booth/operations/${operationId}`);
+  expect(paths.some((path) => path.endsWith('/observations'))).toBe(false);
+  expect(flow.getSnapshot().phase).toBe('paused');
+});

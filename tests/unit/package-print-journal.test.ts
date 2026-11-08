@@ -122,3 +122,34 @@ describe('metadata journal', () => {
     ).toThrow();
   });
 });
+
+it('persists request-bound reload evidence as metadata only for original-ID replay', () => {
+  const storage = new Map<string, string>();
+  const journal = new BrowserBoothMetadataJournal({
+    getItem: (key) => storage.get(key) ?? null,
+    setItem: (key, value) => {
+      storage.set(key, value);
+    },
+    removeItem: (key) => {
+      storage.delete(key);
+    },
+  });
+  const entry = {
+    kind: 'reload_observation' as const,
+    operationId: 'obs',
+    observationId: 'obs',
+    runId: 'run',
+    recordedAt: 1,
+    reloadRequestId: 'request',
+    reloadRequestRevision: 3,
+    printerId: 'printer',
+    connectionGeneration: 2,
+    adapterVersion: 'instax-mini-link3-v1',
+    evidenceVersion: 'instax-fi033-0102-dev-v1',
+  };
+  journal.putOperation(entry);
+  expect(journal.readOperations()).toEqual([entry]);
+  expect(() => journal.putOperation({ ...entry, reloadRequestRevision: 4 })).toThrow();
+  journal.acknowledgeOperation('obs');
+  expect(journal.readOperations()).toEqual([]);
+});

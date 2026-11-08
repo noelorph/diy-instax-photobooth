@@ -1281,3 +1281,78 @@ it('keeps server-proven unsent recovery distinct from possible delivery and Fini
   expect(screen.queryByRole('button', { name: 'Replace Booth access' })).toBeNull();
   expect(screen.queryByRole('button', { name: 'Start Booth Mode' })).toBeNull();
 });
+
+it('confirms a matching film request while Pending and Paused without offering job clearance', async () => {
+  const { BoothRecovery } = await import('@/features/admin/operations/booth-recovery');
+  const current = {
+    ...event,
+    runId: crypto.randomUUID(),
+    printerId: 'fixture-printer',
+    connectionGeneration: 2,
+    activeReloadRequest: {
+      reloadRequestId: crypto.randomUUID(),
+      reloadRequestRevision: 1,
+      printerId: 'fixture-printer',
+      connectionGeneration: 2,
+    },
+  };
+  const fetch = vi.fn(async (_path: string, init?: RequestInit) => {
+    const body = JSON.parse(String(init?.body));
+    return Response.json({ receipt: { operationId: body.operationId, kind: 'confirm_reload' } });
+  });
+  vi.stubGlobal('fetch', fetch);
+  render(
+    <BoothRecovery
+      event={current}
+      adminUserId="admin"
+      refreshAdmin={refresh}
+      handoffPending={false}
+    />
+  );
+  const confirm = screen.getByRole('button', { name: 'Confirm film loaded' });
+  await waitFor(() => expect(confirm.hasAttribute('disabled')).toBe(false));
+  fireEvent.click(confirm);
+  await screen.findByText('Film command recorded. Refreshing current state.');
+  expect(fetch.mock.calls[0]?.[0]).toBe(`/api/admin/events/${event.id}/reload-confirmations`);
+  expect(JSON.parse(String(fetch.mock.calls[0]?.[1]?.body))).toMatchObject({
+    reloadRequestId: current.activeReloadRequest.reloadRequestId,
+    printerId: 'fixture-printer',
+    connectionGeneration: 2,
+  });
+  expect(screen.queryByRole('checkbox')).toBeNull();
+});
+it('recovers a saved film command receipt without creating a replacement request', async () => {
+  const { BoothRecovery } = await import('@/features/admin/operations/booth-recovery');
+  const operationId = crypto.randomUUID();
+  sessionStorage.setItem(
+    `booth-reload:${event.id}:admin`,
+    JSON.stringify({
+      action: 'request_reload',
+      body: {
+        operationId,
+        expectedRevision: 2,
+        runId: crypto.randomUUID(),
+        printerId: 'device',
+        connectionGeneration: 1,
+        reason: 'admin_film_reload',
+      },
+    })
+  );
+  const fetch = vi.fn(async (path: string) => {
+    expect(path).toContain('/operations/');
+    return Response.json({ receipt: { operationId, kind: 'request_reload' } });
+  });
+  vi.stubGlobal('fetch', fetch);
+  render(
+    <BoothRecovery
+      event={event}
+      adminUserId="admin"
+      refreshAdmin={refresh}
+      handoffPending={false}
+    />
+  );
+  fireEvent.click(await screen.findByRole('button', { name: 'Retry film command' }));
+  await screen.findByText('Film command recorded. Refreshing current state.');
+  expect(fetch).toHaveBeenCalledTimes(1);
+  expect(fetch.mock.calls[0]?.[0]).toBe(`/api/admin/events/${event.id}/operations/${operationId}`);
+});

@@ -991,3 +991,74 @@ it('fences replacement and terminal commands to their expected Admin', async () 
     await f.dispose();
   }
 }, 30000);
+
+it('keeps reload observation same-origin, scoped, metadata-only and development-only', async () => {
+  const { POST } =
+    await import('@/app/api/booth/reload-requests/[reloadRequestId]/observations/route');
+  const f = await createPackageFixture();
+  try {
+    f.seedRun('Paused', 'instax-fi033-0102-dev-v1');
+    const secret = 'a'.repeat(64);
+    ownerUpdate('booth_grants', f.grantId, { secret_hash: hashSecret(secret) });
+    const reload = await f.admin('request_reload', {
+      runId: f.runId,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+      expectedRevision: 2,
+      reason: 'loading',
+    });
+    expect(reload.error).toBeNull();
+    const reloadRequestId = reload.data.receipt.result.reloadRequestId as string;
+    const observationId = randomUUID();
+    const body = {
+      operationId: observationId,
+      observationId,
+      reloadRequestRevision: 1,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+      kind: 'film_loaded',
+      adapterVersion: 'instax-mini-link3-v1',
+      evidenceVersion: 'instax-fi033-0102-dev-v1',
+    };
+    const context = { params: Promise.resolve({ reloadRequestId }) };
+    expect((await POST(request(body), context)).status).toBe(401);
+    expect(
+      (await POST(request(body, `booth_access=${secret}`, 'https://other.test'), context)).status
+    ).toBe(403);
+    // Use the existing cookie name from the authority module rather than a browser hint.
+    const { boothCookie } = await import('@/lib/operations/booth-authority');
+    const cookie = `${boothCookie}=${secret}`;
+    expect((await POST(request({ ...body, photo: 'forbidden' }, cookie), context)).status).toBe(
+      400
+    );
+    vi.stubEnv('NODE_ENV', 'production');
+    expect((await POST(request(body, cookie), context)).status).toBe(403);
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('BOOTH_PRINTER_MODE', 'disabled');
+    const confirmed = await POST(request(body, cookie), context);
+    expect(confirmed.status).toBe(200);
+    const replay = await POST(request(body, cookie), context);
+    expect(replay.status).toBe(200);
+    expect((await replay.json()).replayed).toBe(true);
+    const scoped = await boothState(request(undefined, cookie));
+    const scopedBody = await scoped.json();
+    expect(scopedBody.activeReloadRequest).toBeNull();
+    expect(scopedBody).not.toHaveProperty('confirmed_by_grant_id');
+    const session = (await f.adminClient.auth.getSession()).data.session!;
+    const adminCookie = sessionCookies(session);
+    for (const pair of adminCookie.split('; ')) {
+      const [name, value] = pair.split('=');
+      jar.set(name, value);
+    }
+    const phone = await adminState(request(undefined, adminCookie), {
+      params: Promise.resolve({ eventId: f.eventId }),
+    });
+    expect(phone.status).toBe(200);
+    const phoneBody = await phone.json();
+    expect(phoneBody.reloadConfirmation.confirmationSource).toBe('instax_automatic_reload');
+  } finally {
+    vi.stubEnv('NODE_ENV', 'test');
+    vi.stubEnv('BOOTH_PRINTER_MODE', 'simulated');
+    await f.dispose();
+  }
+});

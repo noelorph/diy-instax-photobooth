@@ -149,7 +149,7 @@ export async function dispatchReservedAttempt(
 export async function recordAndReportObservation(
   runId: string,
   observation:
-    | Exclude<PrinterObservationV2, { kind: 'connection_changed' }>
+    | Exclude<PrinterObservationV2, { kind: 'connection_changed' | 'film_loaded' }>
     | (Extract<PrinterObservationV2, { kind: 'connection_changed' }> & {
         attemptId: string;
         dispatchId: string | null;

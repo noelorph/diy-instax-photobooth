@@ -3,7 +3,35 @@ import { z } from 'zod';
 import { createPrivilegedClient } from './privileged-client';
 import { getBoothPrinterMode } from './printer-gate';
 import { packageRpc } from './package-rpc';
-import { PackageError, READINESS_MAX_AGE_MS, type PackageCounts } from './package-contract';
+import {
+  PackageError,
+  READINESS_MAX_AGE_MS,
+  type PackageCounts,
+  type ReloadRequestBinding,
+} from './package-contract';
+
+async function readReloadRequest(runId: string | null) {
+  if (!runId) return null;
+  const { data, error } = await createPrivilegedClient()
+    .from('booth_reload_requests')
+    .select('id,revision,printer_id,connection_generation,state,confirmation_source')
+    .eq('run_id', runId)
+    .neq('state', 'Superseded')
+    .order('created_at', { ascending: false })
+    .limit(1);
+  if (error) throw new PackageError('operation_unavailable');
+  const request = data[0];
+  return request
+    ? {
+        reloadRequestId: request.id,
+        reloadRequestRevision: request.revision,
+        printerId: request.printer_id,
+        connectionGeneration: request.connection_generation,
+        state: request.state,
+        confirmationSource: request.confirmation_source,
+      }
+    : null;
+}
 
 export async function readPackageAdminState(
   admin: { userId: string; sessionId: string },
@@ -27,7 +55,7 @@ export async function readPackageAdminState(
   const run = await client
     .from('booth_runs')
     .select(
-      'id,state,readiness_observation,observed_at,received_at,connection_generation,film_loaded_confirmed'
+      'id,state,printer_id,readiness_observation,observed_at,received_at,connection_generation,film_loaded_confirmed'
     )
     .eq('event_id', eventId)
     .eq('accounting_version', 2)
@@ -35,6 +63,7 @@ export async function readPackageAdminState(
     .limit(1);
   if (run.error) throw new PackageError('operation_unavailable');
   const latest = run.data[0];
+  const reload = await readReloadRequest(latest?.id ?? null);
   const observation = z
     .object({
       cameraLive: z.boolean(),
@@ -61,6 +90,18 @@ export async function readPackageAdminState(
     mediaRemovalState: state.mediaRemovalState as string | undefined,
     runId: run.data[0]?.id ?? null,
     runState: run.data[0]?.state ?? null,
+    printerId: latest?.printer_id ?? null,
+    connectionGeneration: latest?.connection_generation ?? null,
+    activeReloadRequest:
+      reload?.state === 'Open'
+        ? {
+            reloadRequestId: reload.reloadRequestId,
+            reloadRequestRevision: reload.reloadRequestRevision,
+            printerId: reload.printerId,
+            connectionGeneration: reload.connectionGeneration,
+          }
+        : null,
+    reloadConfirmation: reload?.state === 'Confirmed' ? reload : null,
     equipment:
       observation.success && latest
         ? {
@@ -107,6 +148,16 @@ export async function readPackageBoothState(hash: string, operationId?: string) 
     .eq('accounting_version', 2)
     .single();
   if (runError || !run) throw new PackageError('operation_unavailable');
+  const reload = await readReloadRequest(state.runId as string);
+  const activeReloadRequest: ReloadRequestBinding | null =
+    reload?.state === 'Open'
+      ? {
+          reloadRequestId: reload.reloadRequestId,
+          reloadRequestRevision: reload.reloadRequestRevision,
+          printerId: reload.printerId,
+          connectionGeneration: reload.connectionGeneration,
+        }
+      : null;
   const mode = getBoothPrinterMode();
   const newWorkAllowed =
     (mode === 'simulated' && run.evidence_policy_version === 'simulator-v1') ||
@@ -160,6 +211,7 @@ export async function readPackageBoothState(hash: string, operationId?: string) 
     pendingAttemptId,
     pendingDispatchId: data[0]?.dispatch_id ?? null,
     evidenceVersion: run.evidence_policy_version,
+    activeReloadRequest,
   };
 }
 

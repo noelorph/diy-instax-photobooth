@@ -277,6 +277,9 @@ export type Database = {
           accounting_version: number;
           confirmation_source: string | null;
           confirmed_at: string | null;
+          confirmed_by_grant_id: string | null;
+          observation_id: string | null;
+          evidence_policy_version: string | null;
           confirmed_by: string | null;
           connection_generation: number;
           created_at: string;
@@ -296,6 +299,9 @@ export type Database = {
           accounting_version?: number;
           confirmation_source?: string | null;
           confirmed_at?: string | null;
+          confirmed_by_grant_id?: string | null;
+          observation_id?: string | null;
+          evidence_policy_version?: string | null;
           confirmed_by?: string | null;
           connection_generation: number;
           created_at?: string;
@@ -314,6 +320,9 @@ export type Database = {
           accounting_version?: number;
           confirmation_source?: string | null;
           confirmed_at?: string | null;
+          confirmed_by_grant_id?: string | null;
+          observation_id?: string | null;
+          evidence_policy_version?: string | null;
           confirmed_by?: string | null;
           connection_generation?: number;
           created_at?: string;
@@ -329,6 +338,13 @@ export type Database = {
           trigger?: string;
         };
         Relationships: [
+          {
+            foreignKeyName: 'booth_reload_requests_grant_fkey';
+            columns: ['confirmed_by_grant_id', 'event_id', 'run_id'];
+            isOneToOne: false;
+            referencedRelation: 'booth_grants';
+            referencedColumns: ['id', 'event_id', 'run_id'];
+          },
           {
             foreignKeyName: 'booth_reload_requests_event_id_fkey';
             columns: ['event_id'];

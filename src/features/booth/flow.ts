@@ -77,6 +77,15 @@ const stateSchema = z.object({
   readinessWindowId: z.uuid(),
   printerId: z.string().min(1),
   connectionGeneration: z.number().int().nonnegative(),
+  activeReloadRequest: z
+    .object({
+      reloadRequestId: z.uuid(),
+      reloadRequestRevision: z.number().int().positive(),
+      printerId: z.string().min(1),
+      connectionGeneration: count,
+    })
+    .nullable()
+    .optional(),
   pendingAttemptId: z.uuid().nullable().optional(),
   pendingDispatchId: z.uuid().nullable().optional(),
   evidenceVersion: z.enum(['simulator-v1', 'instax-fi033-0102-dev-v1']).optional(),
@@ -126,6 +135,8 @@ export class BoothFlow {
   private pendingRecovery = false;
   private observing = Promise.resolve();
   private readonly stopObserving: () => void;
+  private reloadKey?: string;
+  private stopReload?: () => void;
   private completion?: ReturnType<typeof setTimeout>;
   private warningTimer?: ReturnType<typeof setTimeout>;
   private timeoutTimer?: ReturnType<typeof setTimeout>;
@@ -139,6 +150,7 @@ export class BoothFlow {
   ) {
     this.stopObserving = dependencies.printer.observe((observation) => {
       if (observation.kind === 'connection_changed' && !this.disposed) {
+        this.stopReload?.();
         this.equipmentEpoch++;
         this.stopForBlocker('printer_connection');
       }
@@ -400,6 +412,22 @@ export class BoothFlow {
     if (!state || this.disposed) return;
     const printer = await this.dependencies.printer.readReadiness();
     if (this.disposed || this.state !== state) return;
+    const request = state.activeReloadRequest;
+    const key = request ? JSON.stringify(request) : undefined;
+    if (key !== this.reloadKey) {
+      this.stopReload?.();
+      this.stopReload = undefined;
+      this.reloadKey = undefined;
+      if (
+        request &&
+        printer.connected &&
+        request.printerId === printer.printerId &&
+        request.connectionGeneration === printer.connectionGeneration
+      ) {
+        this.reloadKey = key;
+        this.stopReload = this.dependencies.printer.observeReload(request);
+      }
+    }
     const equipment = this.equipment;
     const fresh = !!equipment && Date.now() - equipment.at <= READINESS_MAX_AGE_MS;
     const camera =
@@ -781,6 +809,13 @@ export class BoothFlow {
               this.requests.signal
             )
           ).receipt;
+        } else if (entry.kind === 'reload_observation') {
+          const result = await this.reportReloadEntry(entry);
+          if (!result) {
+            confirmed.push(entry.operationId);
+            continue;
+          }
+          receipt = result.receipt;
         } else {
           if (entry.kind === 'reservation') missingReservation = true;
           if (entry.kind === 'observation') {
@@ -801,6 +836,7 @@ export class BoothFlow {
         reservation: 'reserve',
         dispatch_intent: 'dispatch',
         observation: 'observe',
+        reload_observation: 'observe_reload',
       }[entry.kind];
       if (receipt.operationId !== entry.operationId || receipt.kind !== expectedKind)
         return 'pending';
@@ -849,6 +885,53 @@ export class BoothFlow {
       return 'pending';
     }
   }
+  private async reportReloadEntry(entry: Extract<JournalEntry, { kind: 'reload_observation' }>) {
+    const {
+      reloadRequestId,
+      operationId,
+      reloadRequestRevision,
+      printerId,
+      connectionGeneration,
+      observationId,
+      adapterVersion,
+      evidenceVersion,
+    } = entry;
+    const { reloadRequestId: _id, ...body } = packageActionSchemas.observeReload.parse({
+      operationId,
+      reloadRequestId,
+      reloadRequestRevision,
+      printerId,
+      connectionGeneration,
+      observationId,
+      adapterVersion,
+      evidenceVersion,
+      kind: 'film_loaded',
+    });
+    void _id;
+    let raw: unknown;
+    try {
+      raw = await this.dependencies.transport(
+        `/api/booth/reload-requests/${reloadRequestId}/observations`,
+        body,
+        this.requests.signal
+      );
+    } catch (error) {
+      // A rejected stale reload has no print outcome to retain; receipt lookup precedes this replay.
+      if (
+        z.object({ status: z.literal(409), code: z.literal('not_ready') }).safeParse(error).success
+      )
+        return null;
+      throw error;
+    }
+    const reply = packageReplySchema.parse(raw);
+    if (
+      reply.receipt.operationId !== operationId ||
+      reply.receipt.kind !== 'observe_reload' ||
+      reply.receipt.result.reloadRequestId !== reloadRequestId
+    )
+      throw Error('Unexpected reload receipt');
+    return reply;
+  }
   private async closeSession(sessionId: string) {
     const body = packageActionSchemas.endSession.parse({
       operationId: crypto.randomUUID(),
@@ -868,6 +951,32 @@ export class BoothFlow {
   private async observe(observation: PrinterObservationV2) {
     const runId = this.state?.runId;
     if (!runId || this.disposed) return;
+    if (observation.kind === 'film_loaded') {
+      const request = this.state?.activeReloadRequest;
+      if (
+        !request ||
+        request.reloadRequestId !== observation.reloadRequestId ||
+        request.reloadRequestRevision !== observation.reloadRequestRevision ||
+        request.printerId !== observation.printerId ||
+        request.connectionGeneration !== observation.connectionGeneration
+      )
+        return;
+      const { kind: _kind, ...fields } = observation;
+      void _kind;
+      const entry: Extract<JournalEntry, { kind: 'reload_observation' }> = {
+        ...fields,
+        kind: 'reload_observation',
+        operationId: observation.observationId,
+        runId,
+        recordedAt: Date.now(),
+      };
+      this.dependencies.journal.putOperation(entry);
+      await this.reportReloadEntry(entry);
+      this.dependencies.journal.acknowledgeOperation(entry.operationId);
+      this.stopReload?.();
+      await this.refresh();
+      return;
+    }
     const attemptId =
       'attemptId' in observation
         ? observation.attemptId
@@ -1158,6 +1267,7 @@ export class BoothFlow {
   dispose() {
     this.disposed = true;
     this.stopObserving();
+    this.stopReload?.();
     this.guestStopped();
     this.requests.abort();
     clearTimeout(this.expiry);

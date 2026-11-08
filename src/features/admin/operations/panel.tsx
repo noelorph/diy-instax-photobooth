@@ -12,6 +12,7 @@ import styles from './panel.module.css';
 import { AddPackages } from './add-packages';
 import { BoothSetup } from './booth-setup';
 import { BoothControls } from './booth-controls';
+import { BoothRecovery } from './booth-recovery';
 import { boothFetch } from '@/features/booth/flow';
 import { STATE_POLL_MS } from '@/lib/operations/package-contract';
 
@@ -251,6 +252,12 @@ export function OperationsPanel({
           <p className={styles.stat}>{counts.printsAvailable} prints available</p>
         </section>
       </div>
+      <BoothRecovery
+        event={event}
+        adminUserId={adminUserId}
+        refreshAdmin={refreshAdmin}
+        handoffPending={handoffPending}
+      />
       <BoothControls
         key={`booth:${event.id}:${adminUserId}`}
         event={event}

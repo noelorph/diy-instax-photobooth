@@ -1,6 +1,7 @@
 import {
   READINESS_MAX_AGE_MS,
   type DispatchAuthorization,
+  type ReloadRequestBinding,
 } from '@/lib/operations/package-contract';
 import { validateTrialJpeg } from '@/features/qualification/image';
 import {
@@ -42,6 +43,13 @@ type Owner = {
   observedAt: number | null;
   ready: boolean;
   job?: Job;
+  reload?: {
+    request: ReloadRequestBinding;
+    detector: ReturnType<typeof createCandidateObservation>;
+    expiry: ReturnType<typeof setTimeout>;
+  };
+  coverOpen?: boolean;
+  loadFault?: { loadFault: 'cover_open' | 'load_change'; loadFaultId: string };
 };
 
 /** Development evidence only; an interrupted job cannot be cleared by reconnecting. */
@@ -53,6 +61,7 @@ export class MiniLink3PrinterV2 implements PrinterAdapterV2 {
   private unsafe = false;
   private disposed = false;
   private sent = new Set<string>();
+  private observedReloads = new Set<string>();
   private listeners = new Set<(event: PrinterObservationV2) => void>();
 
   constructor(private readonly bluetooth: WebBluetoothPort) {}
@@ -150,7 +159,7 @@ export class MiniLink3PrinterV2 implements PrinterAdapterV2 {
       owner?.observedAt == null
         ? Number.MAX_SAFE_INTEGER
         : Math.max(0, Date.now() - owner.observedAt);
-    return {
+    const snapshot = {
       printerId: this.printerId,
       connectionGeneration: this.generation,
       connected,
@@ -164,6 +173,7 @@ export class MiniLink3PrinterV2 implements PrinterAdapterV2 {
       evidence: connected ? evidence : null,
       oldJobCleared: connected && !this.unsafe,
     };
+    return owner?.loadFault ? { ...snapshot, ...owner.loadFault } : snapshot;
   }
 
   observe(listener: (event: PrinterObservationV2) => void) {
@@ -173,7 +183,11 @@ export class MiniLink3PrinterV2 implements PrinterAdapterV2 {
     };
   }
 
-  private emit(owner: Owner, kind: PrinterObservationV2['kind'], job = owner.job) {
+  private emit(
+    owner: Owner,
+    kind: Exclude<PrinterObservationV2['kind'], 'film_loaded'>,
+    job = owner.job
+  ) {
     if (this.disposed || this.owner !== owner) return;
     const base = {
       observationId: crypto.randomUUID(),
@@ -204,6 +218,8 @@ export class MiniLink3PrinterV2 implements PrinterAdapterV2 {
     owner.active = false;
     owner.ready = false;
     clearTimeout(owner.timer);
+    clearTimeout(owner.reload?.expiry);
+    owner.reload = undefined;
     owner.retiring = owner.connection?.disconnect().catch(() => {});
     this.unknown(owner);
     if (this.printerId && owner.generation === this.generation)
@@ -224,6 +240,7 @@ export class MiniLink3PrinterV2 implements PrinterAdapterV2 {
     try {
       for (const selector of [2, 3]) {
         if (!this.current(owner)) return;
+        const reload = owner.reload;
         const response = await this.transport(owner).exchange(
           INSTAX_OPCODES.supportFunctionInfo,
           new Uint8Array([selector]),
@@ -231,13 +248,43 @@ export class MiniLink3PrinterV2 implements PrinterAdapterV2 {
         );
         if (!this.current(owner)) return;
         if (response.payload[1] !== selector) throw Error('Unexpected status/history selector');
+        if (reload && owner.reload === reload) {
+          const result = reload.detector.observe(response);
+          if (result.blockedReason || result.candidate) {
+            clearTimeout(reload.expiry);
+            owner.reload = undefined;
+            if (result.candidate) {
+              owner.loadFault = undefined;
+              const event: PrinterObservationV2 = {
+                ...reload.request,
+                kind: 'film_loaded',
+                observationId: crypto.randomUUID(),
+                adapterVersion: evidence.adapterVersion,
+                evidenceVersion: evidence.evidenceVersion,
+              };
+              this.listeners.forEach((listener) => listener(event));
+            }
+          }
+        }
         const job = owner.job;
-        const snapshot = (job?.detector ?? createCandidateObservation('ejection')).observe(
-          response
-        );
+        const readiness = createCandidateObservation('ejection').observe(response);
+        // Recognized loading preserves previously proven safety; it never clears an unsafe job.
+        const loading =
+          job?.safe &&
+          ((!readiness.status?.operating &&
+            readiness.blockedReason === 'Cover opened during print observation') ||
+            (readiness.status?.operating &&
+              readiness.status.operationInfo === 2 &&
+              readiness.status.printResult === 127 &&
+              !readiness.status.coverOpen &&
+              readiness.blockedReason === 'Unrecognized operation/result sequence'));
+        const snapshot = job && !loading ? job.detector.observe(response) : readiness;
+        if (readiness.status) owner.coverOpen = readiness.status.coverOpen;
+        if (snapshot.status?.coverOpen && !owner.reload && !owner.loadFault)
+          owner.loadFault = { loadFault: 'cover_open', loadFaultId: crypto.randomUUID() };
         if (snapshot.blockedReason) {
           owner.ready = false;
-          if (job) this.unknown(owner);
+          if (job && !loading) this.unknown(owner);
           continue;
         }
         if (selector !== 2 || !snapshot.status) continue;
@@ -264,6 +311,40 @@ export class MiniLink3PrinterV2 implements PrinterAdapterV2 {
     } catch {
       this.fault(owner);
     }
+  }
+
+  observeReload(request: ReloadRequestBinding) {
+    const owner = this.owner;
+    if (
+      !owner ||
+      !this.current(owner) ||
+      request.printerId !== this.printerId ||
+      request.connectionGeneration !== owner.generation
+    )
+      return () => {};
+    const key = JSON.stringify([
+      request.reloadRequestId,
+      request.reloadRequestRevision,
+      request.printerId,
+      request.connectionGeneration,
+    ]);
+    if (this.observedReloads.has(key)) return () => {};
+    this.observedReloads.add(key);
+    clearTimeout(owner.reload?.expiry);
+    const reload = {
+      request: { ...request },
+      detector: createCandidateObservation('reload'),
+      expiry: setTimeout(() => {
+        if (owner.reload === reload) owner.reload = undefined;
+      }, 60_000),
+    };
+    owner.reload = reload;
+    return () => {
+      clearTimeout(reload.expiry);
+      if (owner.reload === reload) owner.reload = undefined;
+      // The scoped request already holds film readiness; closed-cover acknowledgement retires its local fault.
+      if (owner.coverOpen === false) owner.loadFault = undefined;
+    };
   }
 
   async sendOnce(authorization: DispatchAuthorization, image: Uint8Array): Promise<void> {
@@ -336,6 +417,7 @@ export class MiniLink3PrinterV2 implements PrinterAdapterV2 {
       owner.active = false;
       clearTimeout(owner.timer);
       clearTimeout(owner.job?.expiry);
+      clearTimeout(owner.reload?.expiry);
       await (owner.retiring ?? owner.connection?.disconnect());
     }
   }

@@ -1,5 +1,6 @@
 import type {
   DispatchAuthorization,
+  ReloadRequestBinding,
   PrinterEvidenceDescriptor,
 } from '@/lib/operations/package-contract';
 
@@ -33,6 +34,7 @@ export type PrinterObservationV2 = ObservationBase &
           | 'outcome_unknown'
           | 'ready_for_new_job';
       } & Pick<DispatchAuthorization, 'attemptId' | 'dispatchId' | 'printerId'>)
+    | ({ kind: 'film_loaded' } & ReloadRequestBinding)
     | { kind: 'connection_changed'; printerId: string }
   );
 
@@ -44,5 +46,6 @@ export interface PrinterAdapterV2 {
   disconnect(): Promise<void>;
   readReadiness(): Promise<PrinterReadinessSnapshot>;
   observe(listener: (observation: PrinterObservationV2) => void): () => void;
+  observeReload(request: ReloadRequestBinding): () => void;
   sendOnce(authorization: DispatchAuthorization, image: Uint8Array): Promise<void>;
 }

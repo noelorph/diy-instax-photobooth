@@ -94,6 +94,7 @@ export type BoothPackageAction =
   | 'dispatch'
   | 'reconcile'
   | 'observe'
+  | 'observe_reload'
   | 'report_readiness';
 
 export async function runPackageAdminOperation<T extends { operationId: string }>(
@@ -119,6 +120,8 @@ export async function runPackageAdminOperation<T extends { operationId: string }
         'complete',
         'cancel',
         'report_setup_readiness',
+        'request_reload',
+        'confirm_reload',
       ].includes(action) &&
         expectedAdmin !== null &&
         expectedAdmin !== admin.userId)
@@ -166,7 +169,7 @@ export async function runPackageBoothOperation<T extends { operationId: string }
   resourceId: string | null,
   action: BoothPackageAction,
   schema: z.ZodType<T>,
-  resource: 'attempt' | 'session' | null = null
+  resource: 'attempt' | 'session' | 'reload' | null = null
 ) {
   try {
     requireSameOrigin(request);
@@ -175,7 +178,13 @@ export async function runPackageBoothOperation<T extends { operationId: string }
     const { operationId: key, ...fields } = input;
     const payload: Record<string, unknown> = { ...fields };
     if (resourceId && resource)
-      payload[resource === 'attempt' ? 'attemptId' : 'sessionId'] = operationId(resourceId);
+      payload[
+        resource === 'attempt'
+          ? 'attemptId'
+          : resource === 'reload'
+            ? 'reloadRequestId'
+            : 'sessionId'
+      ] = operationId(resourceId);
     if (action === 'confirm_handoff') {
       const device = readSecret(request, deviceCookie);
       if (!device) throw new PackageError('access_required');
@@ -187,7 +196,7 @@ export async function runPackageBoothOperation<T extends { operationId: string }
       developmentEvidenceOnly();
       payload.printerMode = getBoothPrinterMode();
     }
-    if (action === 'observe') developmentEvidenceOnly();
+    if (action === 'observe' || action === 'observe_reload') developmentEvidenceOnly();
     const result = await packageRpc('package_booth_operation', {
       p_grant_hash: hash,
       p_operation: action,
