@@ -1,3 +1,5 @@
+import { renderToString } from 'react-dom/server';
+import { BoothClient } from '@/features/booth/booth-client';
 import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
 import { BoothSetup } from '@/features/admin/operations/booth-setup';
@@ -824,3 +826,29 @@ it('retains the physical setup owner after unmount and never simulates a failed 
     await releaseBoothPrinter();
   }
 });
+
+it.each(['simulated', 'instax-development'] as const)(
+  'server renders Admin current %s then the other pinned Booth without retaining an owner',
+  (current) => {
+    const requestDevice = vi.fn();
+    const fetcher = vi.fn();
+    vi.stubGlobal('window', undefined);
+    vi.stubGlobal('navigator', { bluetooth: { requestDevice } });
+    vi.stubGlobal('fetch', fetcher);
+    expect(() =>
+      renderToString(
+        <BoothSetup printerMode={current} eventId={crypto.randomUUID()} revision={1} />
+      )
+    ).not.toThrow();
+    expect(() =>
+      renderToString(
+        <BoothClient
+          printerMode={current === 'simulated' ? 'instax-development' : 'simulated'}
+          reconciliationOnly
+        />
+      )
+    ).not.toThrow();
+    expect(requestDevice).not.toHaveBeenCalled();
+    expect(fetcher).not.toHaveBeenCalled();
+  }
+);

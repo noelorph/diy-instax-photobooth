@@ -869,7 +869,7 @@ function guestSetup(baseCounts = counts) {
       attemptState = 'Dispatching';
       oldJobSafe = false;
     }
-    if (kind === 'observe')
+    if (kind === 'observe' && attemptState !== 'Printed' && attemptState !== 'NotPrinted')
       attemptState =
         body!.kind === 'full_ejection_confirmed'
           ? 'Printed'
@@ -2480,4 +2480,61 @@ it('recovers the original physical observation receipt in reconciliation-only mo
     flow.dispose();
     await releaseBoothPrinter();
   }
+});
+
+it('retains dispatch correlation for a disconnect after ready during confirmation and replays it', async () => {
+  vi.useFakeTimers();
+  const s = guestSetup();
+  const send = vi.spyOn(s.printer, 'sendOnce');
+  await s.printer.connect();
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  await s.flow.start();
+  s.flow.countdown();
+  await s.flow.shutter(async () => ({
+    bytes: new Uint8Array([1]),
+    url: 'blob:confirmed',
+    discard: vi.fn(),
+  }));
+  await s.flow.print();
+  s.printer.emit('full_ejection_confirmed', s.authorization);
+  await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
+  s.printer.emit('ready_for_new_job', s.authorization);
+  await vi.waitFor(() =>
+    expect(s.requests.some(({ body }) => body?.kind === 'ready_for_new_job')).toBe(true)
+  );
+  await vi.advanceTimersByTimeAsync(0);
+  s.loseObservationBeforeCommit();
+  s.printer.emit('connection_changed');
+  await vi.waitFor(() =>
+    expect(s.journal.readOperations().filter((entry) => entry.kind === 'observation')).toHaveLength(
+      1
+    )
+  );
+  const entry = s.journal.readOperations().find((entry) => entry.kind === 'observation');
+  expect(entry).toMatchObject({
+    kind: 'observation',
+    observationKind: 'connection_changed',
+    attemptId: s.authorization.attemptId,
+    dispatchId: s.authorization.dispatchId,
+  });
+  const first = s.requests
+    .filter(
+      ({ path, body }) => path.endsWith('/observations') && body?.kind === 'connection_changed'
+    )
+    .at(-1)!.body;
+  expect(first?.dispatchId).toBe(s.authorization.dispatchId);
+  const persisted = new BrowserBoothMetadataJournal(sessionStorage).readOperations();
+  expect(persisted.find((item) => item.kind === 'observation')).toEqual(entry);
+  await s.flow.reconcilePending(persisted);
+  const reports = s.requests.filter(
+    ({ path, body }) => path.endsWith('/observations') && body?.kind === 'connection_changed'
+  );
+  expect(reports).toHaveLength(2);
+  expect(reports[1].body).toEqual(first);
+  expect(s.journal.readOperations()).toEqual([]);
+  expect(send).toHaveBeenCalledOnce();
+  await s.flow.refresh();
+  expect(s.flow.getSnapshot().counts?.printed).toBe(1);
+  expect(s.requests.filter(({ body }) => body?.kind === 'full_ejection_confirmed')).toHaveLength(1);
 });

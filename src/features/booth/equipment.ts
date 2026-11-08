@@ -9,23 +9,24 @@ export function getBoothPrinter(mode: 'simulated'): SimulatedPrinterV2;
 export function getBoothPrinter(mode: Exclude<BoothPrinterMode, 'disabled'>): PrinterAdapterV2;
 export function getBoothPrinter(mode: Exclude<BoothPrinterMode, 'disabled'>): PrinterAdapterV2 {
   if (mode !== 'simulated' && mode !== 'instax-development') throw Error('Printer mode disabled');
-  if (owner && owner.mode !== mode) throw Error('Printer mode changed; restart the app');
-  if (!owner)
-    owner = {
-      mode,
-      printer:
-        mode === 'simulated'
-          ? new SimulatedPrinterV2('simulator')
-          : new MiniLink3PrinterV2({
-              requestDevice(options) {
-                const bluetooth = (navigator as Navigator & { bluetooth?: WebBluetoothPort })
-                  .bluetooth;
-                if (!bluetooth) throw Error('Web Bluetooth unavailable');
-                return bluetooth.requestDevice(options);
-              },
-            }),
-    };
-  return owner.printer;
+  const browser = typeof window !== 'undefined';
+  if (browser && owner && owner.mode !== mode) throw Error('Printer mode changed; restart the app');
+  const selected = (browser ? owner : undefined) ?? {
+    mode,
+    printer:
+      mode === 'simulated'
+        ? new SimulatedPrinterV2('simulator')
+        : new MiniLink3PrinterV2({
+            requestDevice(options) {
+              const bluetooth = (navigator as Navigator & { bluetooth?: WebBluetoothPort })
+                .bluetooth;
+              if (!bluetooth) throw Error('Web Bluetooth unavailable');
+              return bluetooth.requestDevice(options);
+            },
+          }),
+  };
+  if (browser) owner = selected;
+  return selected.printer;
 }
 /** Terminal teardown only; React subscription cleanup must retain the owner. */
 export async function releaseBoothPrinter() {

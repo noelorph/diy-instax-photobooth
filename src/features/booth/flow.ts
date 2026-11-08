@@ -1017,7 +1017,7 @@ export class BoothFlow {
     );
     if (observation.kind === 'ready_for_new_job' && attemptId === this.awaitingJobSafetyAttemptId) {
       this.awaitingJobSafetyAttemptId = undefined;
-      this.dispatchId = undefined;
+      if (!this.attemptId) this.dispatchId = undefined;
     }
   }
   private async reportObservationEntry(
@@ -1054,6 +1054,7 @@ export class BoothFlow {
     try {
       await this.closeSession(this.sessionId);
       this.attemptId = undefined;
+      if (!this.awaitingJobSafetyAttemptId) this.dispatchId = undefined;
       await this.refresh();
     } catch (error) {
       this.failure(error);
