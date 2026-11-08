@@ -74,7 +74,7 @@ export function BoothClient({
     owner.current = token;
     const controls = window as Window & {
       __boothSimulatorEject?: (authorization: DispatchAuthorization) => void;
-      __boothSimulatorReady?: () => void;
+      __boothSimulatorReady?: (authorization: DispatchAuthorization) => void;
     };
     if (
       process.env.NODE_ENV !== 'production' &&
@@ -82,7 +82,8 @@ export function BoothClient({
     ) {
       controls.__boothSimulatorEject = (authorization) =>
         getBoothPrinter().emit('full_ejection_confirmed', authorization);
-      controls.__boothSimulatorReady = () => getBoothPrinter().emit('ready_for_new_job');
+      controls.__boothSimulatorReady = (authorization) =>
+        getBoothPrinter().emit('ready_for_new_job', authorization);
     }
     const current = () => owner.current === token;
     const url = new URL(window.location.href);

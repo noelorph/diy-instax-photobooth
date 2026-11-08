@@ -1383,7 +1383,7 @@ it('sends one selected photo and confirms only an acknowledged full ejection', a
   expect(s.flow.getSnapshot().phase).toBe('printing');
   s.printer.emit('full_ejection_confirmed', s.authorization);
   await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
-  s.printer.emit('ready_for_new_job');
+  s.printer.emit('ready_for_new_job', s.authorization);
   await s.flow.reportEquipment(observation);
   await vi.advanceTimersByTimeAsync(2_500);
   expect(s.flow.getSnapshot().phase).toBe('confirmed');
@@ -1415,7 +1415,7 @@ it('keeps the final booked print confirmation visible through a state refresh', 
   await s.flow.print();
   s.printer.emit('full_ejection_confirmed', s.authorization);
   await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
-  s.printer.emit('ready_for_new_job');
+  s.printer.emit('ready_for_new_job', s.authorization);
   await vi.waitFor(() =>
     expect(
       s.requests.some(
@@ -1499,7 +1499,7 @@ it('ends confirmation when the live printer becomes unready after clearing the o
   await s.flow.print();
   s.printer.emit('full_ejection_confirmed', s.authorization);
   await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
-  s.printer.emit('ready_for_new_job');
+  s.printer.emit('ready_for_new_job', s.authorization);
   await vi.waitFor(() =>
     expect(
       s.requests.some(
@@ -1557,7 +1557,7 @@ it('acknowledges ready-for-new-job safety before dispatching the next Guest prin
   await s.flow.print();
   s.printer.emit('full_ejection_confirmed', s.authorization);
   await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
-  s.printer.emit('ready_for_new_job');
+  s.printer.emit('ready_for_new_job', s.authorization);
   await vi.waitFor(() =>
     expect(
       s.requests.some(
@@ -1599,7 +1599,7 @@ it('reports ready-for-new-job after the confirmation screen has ended', async ()
   await vi.waitFor(() => expect(s.flow.getSnapshot().phase).toBe('confirmed'));
   await vi.advanceTimersByTimeAsync(3_000);
   expect(s.flow.getSnapshot().phase).toBe('unavailable');
-  s.printer.emit('ready_for_new_job');
+  s.printer.emit('ready_for_new_job', s.authorization);
   await vi.waitFor(() =>
     expect(
       s.requests.some(
@@ -1885,6 +1885,7 @@ it('does not replay a stale ejection observation against the current pending att
     recordedAt: Date.now(),
     observationId,
     observationKind: 'full_ejection_confirmed',
+    printerId: 'simulator',
     attemptId: crypto.randomUUID(),
     dispatchId: crypto.randomUUID(),
     adapterVersion: 'simulator-v2',
@@ -2070,4 +2071,19 @@ it('keeps a pending Start alive when its committed open session is polled before
   await starting;
   expect(s.flow.getSnapshot().phase).toBe('preview');
   expect(s.requests.filter((request) => request.path.endsWith('/end'))).toHaveLength(0);
+});
+
+it('forwards the adapter load-fault identity in scoped readiness', async () => {
+  const s = setup();
+  const snapshot = await s.printer.connect();
+  const loadFaultId = crypto.randomUUID();
+  vi.spyOn(s.printer, 'readReadiness').mockResolvedValue({
+    ...snapshot,
+    ready: false,
+    loadFault: 'cover_open',
+    loadFaultId,
+  });
+  await s.flow.initialize();
+  await s.flow.reportEquipment(observation);
+  expect(s.observations.at(-1)).toMatchObject({ loadFault: 'cover_open', loadFaultId });
 });

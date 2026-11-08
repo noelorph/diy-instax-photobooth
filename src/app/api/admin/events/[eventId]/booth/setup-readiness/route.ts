@@ -14,7 +14,7 @@ import { packageRpc } from '@/lib/operations/package-rpc';
 import { packageActionSchemas } from '@/lib/operations/package-validation';
 import { operationResponse } from '@/lib/operations/responses';
 import { operationId } from '@/lib/operations/validation';
-import { requireSimulator } from '@/lib/operations/printer-gate';
+import { requireBoothPrinterMode } from '@/lib/operations/printer-gate';
 
 const query = z.strictObject({
   printerId: z
@@ -32,7 +32,7 @@ const query = z.strictObject({
 export async function GET(request: Request, context: { params: Promise<{ eventId: string }> }) {
   try {
     try {
-      requireSimulator();
+      requireBoothPrinterMode();
     } catch {
       throw new PackageError('qualification_required');
     }

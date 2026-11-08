@@ -425,7 +425,7 @@ it('resumes a ready Paused run but refuses to resume while a print is Pending', 
     expect(pause.error).toBeNull();
     const fresh = () =>
       localOwnerSql(
-        `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+        `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
       );
     fresh();
     const resume = await f.admin('resume', {

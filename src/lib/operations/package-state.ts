@@ -1,6 +1,7 @@
 import 'server-only';
 import { z } from 'zod';
 import { createPrivilegedClient } from './privileged-client';
+import { getBoothPrinterMode } from './printer-gate';
 import { packageRpc } from './package-rpc';
 import { PackageError, READINESS_MAX_AGE_MS, type PackageCounts } from './package-contract';
 
@@ -87,7 +88,7 @@ export async function readPackageBoothState(hash: string, operationId?: string) 
   });
   const { data, error } = await createPrivilegedClient()
     .from('print_attempts')
-    .select('id')
+    .select('id,dispatch_id')
     .eq('run_id', state.runId as string)
     .eq('accounting_version', 2)
     .in('state', ['Reserved', 'Dispatching', 'Accepted', 'Pending'])
@@ -101,12 +102,18 @@ export async function readPackageBoothState(hash: string, operationId?: string) 
     throw new PackageError('operation_unavailable');
   const { data: run, error: runError } = await createPrivilegedClient()
     .from('booth_runs')
-    .select('printer_id,connection_generation')
+    .select('printer_id,connection_generation,evidence_policy_version')
     .eq('id', state.runId as string)
     .eq('accounting_version', 2)
     .single();
   if (runError || !run) throw new PackageError('operation_unavailable');
-  const blockers = state.blockers as string[];
+  const mode = getBoothPrinterMode();
+  const newWorkAllowed =
+    (mode === 'simulated' && run.evidence_policy_version === 'simulator-v1') ||
+    (mode === 'instax-development' && run.evidence_policy_version === 'instax-fi033-0102-dev-v1');
+  const blockers = [...(state.blockers as string[])];
+  if (!newWorkAllowed && !blockers.includes('qualification_required'))
+    blockers.push('qualification_required');
   const pendingAttemptId = data[0]?.id ?? null;
   const principalStatus =
     state.state === 'Finishing'
@@ -140,6 +147,9 @@ export async function readPackageBoothState(hash: string, operationId?: string) 
     principalStatus,
     allowedActions: {
       ...actions,
+      startGuest: newWorkAllowed && actions.startGuest === true,
+      reserve: newWorkAllowed && actions.reserve === true,
+      dispatch: newWorkAllowed && actions.dispatch === true,
       connectPrinter: blockers.includes('printer_connection'),
       enableCamera: blockers.includes('camera'),
     },
@@ -148,6 +158,8 @@ export async function readPackageBoothState(hash: string, operationId?: string) 
     readinessWindowId: state.readinessWindowId,
     receipt: state.receipt,
     pendingAttemptId,
+    pendingDispatchId: data[0]?.dispatch_id ?? null,
+    evidenceVersion: run.evidence_policy_version,
   };
 }
 

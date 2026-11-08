@@ -1,5 +1,16 @@
+import {
+  SIMULATOR_EVIDENCE,
+  type PrinterEvidenceDescriptor,
+  type BoothPrinterMode,
+} from '@/lib/operations/package-contract';
 import { createHash, randomUUID } from 'node:crypto';
-import { cleanupEvents, localSupabase, ownerInsert, ownerUpdate } from './local-supabase';
+import {
+  cleanupEvents,
+  localSupabase,
+  localOwnerSql,
+  ownerInsert,
+  ownerUpdate,
+} from './local-supabase';
 
 export async function createPackageFixture(options: { originalPackages?: number } = {}) {
   const local = localSupabase();
@@ -39,13 +50,14 @@ export async function createPackageFixture(options: { originalPackages?: number 
       grantId,
       deviceHash,
       grantHash,
-      seedRun(state = 'Active') {
+      seedRun(state = 'Active', evidencePolicyVersion = 'simulator-v1') {
         ownerUpdate('events', eventId, { state: 'Live', revision: 2 });
         ownerInsert('booth_runs', {
           id: runId,
           event_id: eventId,
           accounting_version: 2,
           state,
+          evidence_policy_version: evidencePolicyVersion,
           device_hash: deviceHash,
           printer_id: 'fixture-printer',
           film_loaded_confirmed: true,
@@ -73,11 +85,16 @@ export async function createPackageFixture(options: { originalPackages?: number 
           p_connection_generation: 0,
         });
       },
-      async reportSetup() {
+      async reportSetup(
+        printerEvidence: PrinterEvidenceDescriptor = SIMULATOR_EVIDENCE,
+        printerMode: BoothPrinterMode = 'simulated'
+      ) {
         const read = await this.readSetup();
         if (read.error) throw read.error;
         const reported = await this.admin('report_setup_readiness', {
           readinessWindowId: read.data.readinessWindowId,
+          printerEvidence,
+          printerMode,
           deviceHash,
           printerId: 'fixture-printer',
           connectionGeneration: 0,
@@ -100,6 +117,14 @@ export async function createPackageFixture(options: { originalPackages?: number 
         };
       },
       admin(operation: string, payload: Record<string, unknown>, operationId = randomUUID()) {
+        if (['start', 'report_setup_readiness'].includes(operation))
+          payload = {
+            printerMode: 'simulated',
+            ...(operation === 'report_setup_readiness'
+              ? { printerEvidence: SIMULATOR_EVIDENCE }
+              : {}),
+            ...payload,
+          };
         return local.service.rpc('package_admin_operation', {
           p_admin_user_id: adminUser.id,
           p_admin_session_id: adminSessionId,
@@ -109,6 +134,23 @@ export async function createPackageFixture(options: { originalPackages?: number 
         });
       },
       booth(operation: string, payload: Record<string, unknown>, operationId = randomUUID()) {
+        if (['start_session', 'reserve', 'dispatch', 'report_readiness'].includes(operation))
+          payload = {
+            printerMode: 'simulated',
+            ...(operation === 'report_readiness' ? { printerEvidence: SIMULATOR_EVIDENCE } : {}),
+            ...payload,
+          };
+        if (operation === 'observe') {
+          const a = localOwnerSql(
+            `select printer_id,dispatch_id from public.print_attempts where id='${payload.attemptId}'`
+          )[0];
+          payload = {
+            printerId: a?.printer_id,
+            dispatchId: a?.dispatch_id,
+            adapterVersion: 'simulator-v2',
+            ...payload,
+          };
+        }
         return local.service.rpc('package_booth_operation', {
           p_grant_hash: grantHash,
           p_operation: operation,

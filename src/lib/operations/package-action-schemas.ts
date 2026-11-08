@@ -9,6 +9,20 @@ const printerId = z
   .min(1)
   .max(128)
   .refine((value) => /\S/.test(value));
+export const printerEvidenceSchema = z.union([
+  z.strictObject({
+    adapterVersion: z.literal('simulator-v2'),
+    evidenceVersion: z.literal('simulator-v1'),
+    modelNumber: z.null(),
+    firmwareRevision: z.null(),
+  }),
+  z.strictObject({
+    adapterVersion: z.literal('instax-mini-link3-v1'),
+    evidenceVersion: z.literal('instax-fi033-0102-dev-v1'),
+    modelNumber: z.literal('FI033'),
+    firmwareRevision: z.literal('0102'),
+  }),
+]);
 export const readinessObservationSchema = z
   .strictObject({
     cameraPermission: z.boolean(),
@@ -22,13 +36,16 @@ export const readinessObservationSchema = z
     loadFaultId: z.uuid().optional(),
   })
   .refine((value) => (value.loadFault === undefined) === (value.loadFaultId === undefined));
-const readinessReportSchema = z.strictObject({
-  readinessWindowId: z.uuid(),
-  observedAgeMs: z.number().int().min(0).max(5_000),
-  printerId,
-  connectionGeneration: generation,
-  observation: readinessObservationSchema,
-});
+const readinessReportSchema = z
+  .strictObject({
+    readinessWindowId: z.uuid(),
+    observedAgeMs: z.number().int().min(0).max(5_000),
+    printerId,
+    connectionGeneration: generation,
+    printerEvidence: printerEvidenceSchema.nullable(),
+    observation: readinessObservationSchema,
+  })
+  .refine((value) => !value.observation.printerConnected || value.printerEvidence !== null);
 const reason = z.string().trim().min(1);
 export const packageOperationSchema = z.strictObject({ operationId: z.uuid() });
 const eventRevisionSchema = packageOperationSchema.extend({ expectedRevision: revision });
@@ -39,24 +56,25 @@ export const packageActionSchemas = {
     printerId,
     connectionGeneration: generation,
   }),
-  setupReadiness: readinessReportSchema.extend({
+  setupReadiness: readinessReportSchema.safeExtend({
     operationId: z.uuid(),
     filmLoadedConfirmed: z.boolean(),
     powerConfirmed: z.boolean(),
     guidedAccessConfirmed: z.boolean(),
   }),
   reportReadiness: z.union([
-    readinessReportSchema.extend({ operationId: z.uuid() }),
+    readinessReportSchema.safeExtend({ operationId: z.uuid() }),
     z.strictObject({
       operationId: z.uuid(),
       kind: z.literal('connection_changed'),
+      printerEvidence: printerEvidenceSchema,
       readinessWindowId: z.uuid(),
       printerId,
       connectionGeneration: generation,
       expectedRevision: revision,
     }),
   ]),
-  reportSetupReadiness: readinessReportSchema.extend({
+  reportSetupReadiness: readinessReportSchema.safeExtend({
     operationId: z.uuid(),
     deviceHash: z.string().regex(/^[0-9a-f]{64}$/),
     filmLoadedConfirmed: z.boolean(),
@@ -110,7 +128,10 @@ export const packageActionSchemas = {
         'connection_changed',
         'ready_for_new_job',
       ]),
-      evidenceVersion: z.literal('simulator-v1'),
+      printerId,
+      dispatchId: z.uuid().nullable(),
+      adapterVersion: z.enum(['simulator-v2', 'instax-mini-link3-v1']),
+      evidenceVersion: z.enum(['simulator-v1', 'instax-fi033-0102-dev-v1']),
       connectionGeneration: generation,
       metadata: z.strictObject({}),
     })

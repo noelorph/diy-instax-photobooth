@@ -44,3 +44,5 @@
 [ADR-0029: Remove legacy features and replace the development schema](0029-remove-legacy-features-and-reset-development-schema.md) supersedes ADR-0025's legacy preservation, Draft conversion and migration-retention policy. F1–F7 remove obsolete consumers; F8 verifies complete removal and a fresh package-only baseline. Approved #9 current contracts, acceptance evidence and #17/#7 gates remain.
 
 [0034: November screen reference in the implementation plan](0034-use-november-screen-reference-in-implementation-plan.md): current presentation-reference target; application acceptance remains separate.
+
+[0035: Allow bounded development Instax integration](0035-allow-development-instax-integration.md) refines ADR-0025 with immutable development evidence policies, correlated outcomes and physical lifecycle safety; operational qualification remains open.

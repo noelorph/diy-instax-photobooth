@@ -40,6 +40,8 @@ function ready(snapshot: PrinterReadinessSnapshot, input: DispatchInput) {
   return (
     snapshot.connected &&
     snapshot.ready &&
+    snapshot.oldJobCleared &&
+    snapshot.evidence !== null &&
     snapshot.printerId === input.printerId &&
     snapshot.connectionGeneration === input.connectionGeneration &&
     Number.isFinite(snapshot.observedAgeMs) &&
@@ -146,7 +148,12 @@ export async function dispatchReservedAttempt(
 
 export async function recordAndReportObservation(
   runId: string,
-  observation: PrinterObservationV2,
+  observation:
+    | Exclude<PrinterObservationV2, { kind: 'connection_changed' }>
+    | (Extract<PrinterObservationV2, { kind: 'connection_changed' }> & {
+        attemptId: string;
+        dispatchId: string | null;
+      }),
   journal: BoothMetadataJournal,
   report: (entry: Extract<JournalEntry, { kind: 'observation' }>) => Promise<void>
 ) {
@@ -156,32 +163,20 @@ export async function recordAndReportObservation(
   const entry: Extract<JournalEntry, { kind: 'observation' }> =
     stored?.kind === 'observation'
       ? stored
-      : 'attemptId' in observation
-        ? {
-            kind: 'observation',
-            operationId: observation.observationId,
-            runId,
-            recordedAt: Date.now(),
-            observationId: observation.observationId,
-            observationKind: observation.kind,
-            attemptId: observation.attemptId,
-            dispatchId: observation.dispatchId,
-            adapterVersion: observation.adapterVersion,
-            evidenceVersion: observation.evidenceVersion,
-            connectionGeneration: observation.connectionGeneration,
-          }
-        : {
-            kind: 'observation',
-            operationId: observation.observationId,
-            runId,
-            recordedAt: Date.now(),
-            observationId: observation.observationId,
-            observationKind: observation.kind,
-            printerId: observation.printerId,
-            adapterVersion: observation.adapterVersion,
-            evidenceVersion: observation.evidenceVersion,
-            connectionGeneration: observation.connectionGeneration,
-          };
+      : {
+          kind: 'observation',
+          operationId: observation.observationId,
+          runId,
+          recordedAt: Date.now(),
+          observationId: observation.observationId,
+          observationKind: observation.kind,
+          printerId: observation.printerId,
+          attemptId: observation.attemptId,
+          dispatchId: observation.dispatchId,
+          adapterVersion: observation.adapterVersion,
+          evidenceVersion: observation.evidenceVersion,
+          connectionGeneration: observation.connectionGeneration,
+        };
   if (stored) {
     if (
       stored.kind !== 'observation' ||
@@ -190,11 +185,9 @@ export async function recordAndReportObservation(
       stored.adapterVersion !== observation.adapterVersion ||
       stored.evidenceVersion !== observation.evidenceVersion ||
       stored.connectionGeneration !== observation.connectionGeneration ||
-      ('attemptId' in observation
-        ? !('attemptId' in stored) ||
-          stored.attemptId !== observation.attemptId ||
-          stored.dispatchId !== observation.dispatchId
-        : 'attemptId' in stored || stored.printerId !== observation.printerId)
+      stored.printerId !== observation.printerId ||
+      stored.attemptId !== observation.attemptId ||
+      stored.dispatchId !== observation.dispatchId
     )
       throw new Error('Observation journal conflict');
   } else journal.putOperation(entry);

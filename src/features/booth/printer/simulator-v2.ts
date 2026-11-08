@@ -1,4 +1,4 @@
-import type { DispatchAuthorization } from '@/lib/operations/package-contract';
+import { SIMULATOR_EVIDENCE, type DispatchAuthorization } from '@/lib/operations/package-contract';
 import type {
   PrinterAdapterV2,
   PrinterObservationV2,
@@ -42,6 +42,8 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
       connected: this.connected,
       ready: this.ready,
       observedAgeMs: 0,
+      evidence: this.connected ? SIMULATOR_EVIDENCE : null,
+      oldJobCleared: this.connected && !this.oldJobPending,
     };
   }
 
@@ -73,7 +75,7 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
     kind: Extract<PrinterObservationV2, { attemptId: string }>['kind'],
     authorization: DispatchAuthorization
   ): void;
-  emit(kind: 'connection_changed' | 'ready_for_new_job'): void;
+  emit(kind: 'connection_changed'): void;
   emit(kind: PrinterObservationV2['kind'], authorization?: DispatchAuthorization) {
     if (kind === 'connection_changed') {
       this.connected = false;
@@ -90,11 +92,12 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
       connectionGeneration: authorization?.connectionGeneration ?? this.generation,
     };
     const observation: PrinterObservationV2 =
-      kind === 'connection_changed' || kind === 'ready_for_new_job'
+      kind === 'connection_changed'
         ? { ...base, kind, printerId: this.printerId }
         : {
             ...base,
             kind,
+            printerId: authorization!.printerId,
             attemptId: authorization!.attemptId,
             dispatchId: authorization!.dispatchId,
           };

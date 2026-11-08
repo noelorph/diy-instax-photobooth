@@ -17,7 +17,7 @@ it('accepts only pre-stop shutter metadata for two minutes without renewing revo
   try {
     f.seedRun();
     localOwnerSql(
-      `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+      `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
     );
     const started = await f.booth('start_session', { expectedRevision: 2 });
     expect(started.error).toBeNull();
@@ -85,7 +85,7 @@ it('closes the late Capture exception two minutes after the session stop', async
   try {
     f.seedRun();
     localOwnerSql(
-      `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+      `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
     );
     const started = await f.booth('start_session', { expectedRevision: 2 });
     expect(started.error).toBeNull();
@@ -120,7 +120,7 @@ it('rejects a claimed shutter before the matching session began', async () => {
   try {
     f.seedRun();
     localOwnerSql(
-      `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+      `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
     );
     const started = await f.booth('start_session', { expectedRevision: 2 });
     expect(started.error).toBeNull();
@@ -149,7 +149,7 @@ it('rejects late Capture when the original grant would already be expired', asyn
   try {
     f.seedRun();
     localOwnerSql(
-      `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+      `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
     );
     const started = await f.booth('start_session', { expectedRevision: 2 });
     expect(started.error).toBeNull();
@@ -184,7 +184,7 @@ it.each(['pause', 'finish'])(
     try {
       f.seedRun();
       localOwnerSql(
-        `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+        `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
       );
       const session = await f.booth('start_session', { expectedRevision: 2 });
       expect(session.error).toBeNull();

@@ -63,6 +63,7 @@ it('provides v2 states, parent guards, readiness and immutable package records',
   );
   for (const [table, column] of [
     ['booth_runs', 'connection_generation'],
+    ['booth_runs', 'evidence_policy_version'],
     ['booth_grants', 'device_hash'],
     ['captures', 'shutter_operation_id'],
     ['print_attempts', 'dispatch_id'],

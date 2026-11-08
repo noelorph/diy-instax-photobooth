@@ -354,6 +354,7 @@ export type Database = {
           created_at: string;
           device_hash: string | null;
           ended_at: string | null;
+          evidence_policy_version: string | null;
           event_id: string;
           film_loaded_confirmed: boolean;
           finish_requested_at: string | null;
@@ -378,6 +379,7 @@ export type Database = {
           created_at?: string;
           device_hash?: string | null;
           ended_at?: string | null;
+          evidence_policy_version?: string | null;
           event_id: string;
           film_loaded_confirmed?: boolean;
           finish_requested_at?: string | null;
@@ -401,6 +403,7 @@ export type Database = {
           created_at?: string;
           device_hash?: string | null;
           ended_at?: string | null;
+          evidence_policy_version?: string | null;
           event_id?: string;
           film_loaded_confirmed?: boolean;
           finish_requested_at?: string | null;

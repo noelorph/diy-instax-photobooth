@@ -1,3 +1,4 @@
+import { SIMULATOR_EVIDENCE } from '@/lib/operations/package-contract';
 // @vitest-environment node
 import { randomUUID } from 'node:crypto';
 import { afterAll, afterEach, beforeAll, expect, it, vi } from 'vitest';
@@ -54,7 +55,7 @@ beforeAll(() => {
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', status.API_URL);
   vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', status.ANON_KEY);
   vi.stubEnv('SUPABASE_SECRET_KEY', status.SERVICE_ROLE_KEY);
-  vi.stubEnv('BOOTH_SIMULATOR_ENABLED', 'true');
+  vi.stubEnv('BOOTH_PRINTER_MODE', 'simulated');
   priorPolicy = String(
     localOwnerSql('select mode from public.printer_completion_policy where id')[0].mode
   );
@@ -384,7 +385,7 @@ it('accepts only the narrow pre-stop shutter report after Booth access is revoke
     const secret = 'e'.repeat(64);
     ownerUpdate('booth_grants', fixture.grantId, { secret_hash: hashSecret(secret) });
     localOwnerSql(
-      `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${fixture.runId}'`
+      `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${fixture.runId}'`
     );
     const boothCookie = `__Host-booth-grant=${secret}`;
     const sessionResponse = await startSessionRoute(
@@ -448,7 +449,7 @@ it('does not disclose another grant’s operation receipt', async () => {
     const sourceSecret = '7'.repeat(64);
     ownerUpdate('booth_grants', source.grantId, { secret_hash: hashSecret(sourceSecret) });
     localOwnerSql(
-      `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${source.runId}'`
+      `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${source.runId}'`
     );
     const operationId = randomUUID();
     const committed = await startSessionRoute(
@@ -603,6 +604,7 @@ it('binds setup readiness to the current Admin session and device before Start',
       observedAgeMs: 0,
       printerId: 'fixture-printer',
       connectionGeneration: 0,
+      printerEvidence: SIMULATOR_EVIDENCE,
       observation: {
         cameraPermission: true,
         cameraLive: true,
@@ -818,7 +820,7 @@ it('replays Booth session creation and rejects a changed payload under the same 
     const secret = '5'.repeat(64);
     ownerUpdate('booth_grants', fixture.grantId, { secret_hash: hashSecret(secret) });
     localOwnerSql(
-      `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${fixture.runId}'`
+      `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${fixture.runId}'`
     );
     const boothCookie = `__Host-booth-grant=${secret}`;
     const body = { operationId: randomUUID(), expectedRevision: 2 };
@@ -925,7 +927,7 @@ it.each(['evidence_discrepancy', 'qualification_required'])(
       const secret = 'd'.repeat(64);
       ownerUpdate('booth_grants', f.grantId, { secret_hash: hashSecret(secret) });
       localOwnerSql(
-        `update public.booth_runs set blockers=array['${blocker}'],readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+        `update public.booth_runs set blockers=array['${blocker}'],readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
       );
       const response = await boothState(request(undefined, `__Host-booth-grant=${secret}`));
       expect(response.status).toBe(200);

@@ -1,3 +1,4 @@
+import { SIMULATOR_EVIDENCE } from '@/lib/operations/package-contract';
 // @vitest-environment node
 import { randomUUID } from 'node:crypto';
 import { describe, expect, it, vi, beforeEach } from 'vitest';
@@ -9,7 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock('@/lib/operations/admin-authority', () => ({ requireAdminRequest: mocks.admin }));
 vi.mock('@/lib/operations/package-rpc', () => ({ packageRpc: mocks.rpc }));
-vi.mock('@/lib/operations/printer-gate', () => ({ requireSimulator: mocks.simulator }));
+
 vi.mock('@/lib/operations/privileged-client', () => ({
   createPrivilegedClient: () => ({
     from: () => ({
@@ -87,7 +88,8 @@ beforeEach(() => {
     revision: 2,
     replayed: false,
   });
-  mocks.simulator.mockReset();
+  vi.stubEnv('NODE_ENV', 'test');
+  vi.stubEnv('BOOTH_PRINTER_MODE', 'simulated');
 });
 
 describe('package HTTP request contracts', () => {
@@ -191,6 +193,9 @@ const boothRows = [
     {
       observationId: id,
       kind: 'outcome_unknown',
+      printerId: 'instax',
+      dispatchId: id,
+      adapterVersion: 'simulator-v2',
       evidenceVersion: 'simulator-v1',
       connectionGeneration: 0,
       metadata: {},
@@ -206,6 +211,7 @@ const boothRows = [
       observedAgeMs: 0,
       printerId: 'instax',
       connectionGeneration: 0,
+      printerEvidence: SIMULATOR_EVIDENCE,
       observation: readyObservation,
     },
     null,
@@ -256,6 +262,9 @@ describe.each([...adminRows, ...boothRows])(
       const expectedPayload = {
         ...(isAdmin ? { eventId } : {}),
         ...fields,
+        ...(['start', 'sessions', 'reserve', 'dispatch', 'readiness'].includes(name)
+          ? { printerMode: 'simulated' }
+          : {}),
         ...(key === 'attemptId' ? { attemptId: resourceId } : {}),
         ...(key === 'sessionId' ? { sessionId: resourceId } : {}),
         ...(name === 'start' || name === 'recover-access' || name === 'confirm-handoff'
@@ -329,10 +338,8 @@ it('rejects a revoked Admin actor before calling package RPC', async () => {
   expect(mocks.rpc).not.toHaveBeenCalled();
 });
 
-it('keeps inspected resolution and printer observations behind the simulator gate', async () => {
-  mocks.simulator.mockImplementation(() => {
-    throw new OperationError('state_conflict');
-  });
+it('keeps inspected resolution and printer observations behind the production gate', async () => {
+  vi.stubEnv('NODE_ENV', 'production');
   const resolution = await resolveAttempt(
     request({
       operationId: id,
@@ -350,6 +357,9 @@ it('keeps inspected resolution and printer observations behind the simulator gat
       operationId: id,
       observationId: id,
       kind: 'full_ejection_confirmed',
+      printerId: 'instax',
+      dispatchId: id,
+      adapterVersion: 'simulator-v2',
       evidenceVersion: 'simulator-v1',
       connectionGeneration: 0,
       metadata: {},
@@ -360,10 +370,8 @@ it('keeps inspected resolution and printer observations behind the simulator gat
   expect((await observation.json()).code).toBe('qualification_required');
 });
 
-it('keeps setup readiness reads behind the simulator gate', async () => {
-  mocks.simulator.mockImplementation(() => {
-    throw new OperationError('state_conflict');
-  });
+it('keeps setup readiness reads behind the production gate', async () => {
+  vi.stubEnv('NODE_ENV', 'production');
   const response = await setupRead(
     new Request('https://booth.test/api/test?printerId=instax&connectionGeneration=0'),
     { params: Promise.resolve({ eventId }) }
@@ -380,6 +388,7 @@ it('validates setup report origin, size, and server-derived device authority', a
     observedAgeMs: 0,
     printerId: 'instax',
     connectionGeneration: 0,
+    printerEvidence: SIMULATOR_EVIDENCE,
     observation: readyObservation,
     filmLoadedConfirmed: true,
     powerConfirmed: true,
@@ -401,6 +410,9 @@ it('rejects a caller asserted terminal outcome in an observation', async () => {
       operationId: id,
       observationId: id,
       kind: 'printed',
+      printerId: 'instax',
+      dispatchId: id,
+      adapterVersion: 'simulator-v2',
       evidenceVersion: 'simulator-v1',
       connectionGeneration: 0,
       metadata: {},
@@ -435,3 +447,73 @@ it.each([null, '55555555-5555-4555-8555-555555555555'])(
     expect(mocks.rpc).not.toHaveBeenCalled();
   }
 );
+
+it.each(['disabled', 'unrecognized', ''])('refuses new work with server mode %s', async (mode) => {
+  vi.stubEnv('BOOTH_PRINTER_MODE', mode);
+  const response = await start(
+    request({
+      operationId: id,
+      expectedRevision: 1,
+      readinessWindowId: id,
+      printerId: 'instax',
+      connectionGeneration: 0,
+    }),
+    { params: Promise.resolve({ eventId }) }
+  );
+  expect(response.status).toBe(403);
+  expect((await response.json()).code).toBe('qualification_required');
+  expect(mocks.rpc).not.toHaveBeenCalled();
+});
+it.each(['simulated', 'instax-development'])(
+  'production rejects fresh %s evidence',
+  async (mode) => {
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('BOOTH_PRINTER_MODE', mode);
+    const physical = mode === 'instax-development';
+    const response = await observe(
+      request({
+        operationId: id,
+        observationId: id,
+        kind: 'full_ejection_confirmed',
+        printerId: 'instax',
+        dispatchId: id,
+        adapterVersion: physical ? 'instax-mini-link3-v1' : 'simulator-v2',
+        evidenceVersion: physical ? 'instax-fi033-0102-dev-v1' : 'simulator-v1',
+        connectionGeneration: 0,
+        metadata: {},
+      }),
+      { params: Promise.resolve({ attemptId }) }
+    );
+    expect(response.status).toBe(403);
+    expect((await response.json()).code).toBe('qualification_required');
+    expect(mocks.rpc).not.toHaveBeenCalled();
+  }
+);
+it('nonproduction forwards correlated outcome evidence after server mode is disabled', async () => {
+  vi.stubEnv('BOOTH_PRINTER_MODE', 'disabled');
+  const response = await observe(
+    request({
+      operationId: id,
+      observationId: id,
+      kind: 'full_ejection_confirmed',
+      printerId: 'instax',
+      dispatchId: id,
+      adapterVersion: 'instax-mini-link3-v1',
+      evidenceVersion: 'instax-fi033-0102-dev-v1',
+      connectionGeneration: 0,
+      metadata: {},
+    }),
+    { params: Promise.resolve({ attemptId }) }
+  );
+  expect(response.status).toBe(200);
+  expect(mocks.rpc).toHaveBeenCalledWith(
+    'package_booth_operation',
+    expect.objectContaining({
+      p_payload: expect.objectContaining({
+        dispatchId: id,
+        printerId: 'instax',
+        adapterVersion: 'instax-mini-link3-v1',
+      }),
+    })
+  );
+});

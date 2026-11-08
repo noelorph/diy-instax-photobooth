@@ -1,5 +1,7 @@
 # F6 — Booth Recovery Across Devices Implementation Plan
 
+**Development integration refinement — 2026-11-08:** [ADR-0035](../../adr/0035-allow-development-instax-integration.md) permits explicitly gated FI033/0102 development evidence with immutable run policies, full attempt/dispatch/printer/generation correlation and pinned nonproduction settlement after mode changes. Physical Finish also waits for old-job safety; Start cannot bypass unsafe earlier physical work by changing Event/run. Unqualified inspection cannot clear a possibly delivered physical job. Operational release, remaining F6/F8/media acceptance and actual-iPad qualification remain open. Physical adapter and request-bound reload integration are separate implementation tasks.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 >
 > **Required throughout:** Use **ponytail:ponytail, full**. Extend F4/F5's existing controller, journal and contracts. Keep equipment repair, outcome resolution and explicit Admin stop independent; do not add a recovery engine or automatic retries of photos.

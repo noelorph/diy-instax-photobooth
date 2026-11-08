@@ -71,7 +71,7 @@ jobs:
 
       - name: Verify production Booth restrictions
         env:
-          BOOTH_SIMULATOR_ENABLED: 'true'
+          BOOTH_PRINTER_MODE: 'simulated'
         run: npx playwright test --config playwright.config.ts tests/e2e/admin-booth-handoff.spec.ts
 
       - name: Stop local Supabase

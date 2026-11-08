@@ -1,3 +1,4 @@
+import { SIMULATOR_EVIDENCE } from '@/lib/operations/package-contract';
 import { testStack } from '../fixtures/test-stack.mjs';
 import { randomUUID } from 'node:crypto';
 import { execFile } from 'node:child_process';
@@ -43,6 +44,7 @@ async function reconnect(f: PackageFixture, generation: number) {
   const read = await f.readBooth();
   return f.booth('report_readiness', {
     kind: 'connection_changed',
+    printerEvidence: SIMULATOR_EVIDENCE,
     readinessWindowId: read.data.readinessWindowId,
     printerId: 'fixture-printer',
     connectionGeneration: generation,
@@ -121,7 +123,17 @@ it('admits setup with no run/grant using only fresh Admin/device-bound evidence'
           p_admin_session_id: otherSession,
           p_operation: 'report_setup_readiness',
           p_operation_id: randomUUID(),
-          p_payload: { eventId: f.eventId, ...payload },
+          p_payload: {
+            eventId: f.eventId,
+            printerMode: 'simulated',
+            printerEvidence: {
+              adapterVersion: 'simulator-v2',
+              evidenceVersion: 'simulator-v1',
+              modelNumber: null,
+              firmwareRevision: null,
+            },
+            ...payload,
+          },
         })
       ).error?.message
     ).toBe('not_ready');
@@ -348,6 +360,7 @@ it('enforces server freshness and generation boundaries without wall-clock sleep
     const key = randomUUID();
     const change = {
       kind: 'connection_changed',
+      printerEvidence: SIMULATOR_EVIDENCE,
       readinessWindowId: read.data.readinessWindowId,
       printerId: 'fixture-printer',
       connectionGeneration: 1,

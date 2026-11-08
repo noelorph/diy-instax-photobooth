@@ -9,7 +9,7 @@ export async function createPackageBrowserFixture(): Promise<PackageFixture> {
   const policy = String(
     localOwnerSql('select mode from public.printer_completion_policy where id')[0].mode
   );
-  if (!['disabled', 'simulated'].includes(policy))
+  if (!['disabled', 'simulated', 'instax-development'].includes(policy))
     throw new Error('Unexpected local printer policy.');
   const restoreDefault = setPackageCreationDefault();
   try {

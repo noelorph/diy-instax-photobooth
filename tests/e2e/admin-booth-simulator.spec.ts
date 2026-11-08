@@ -300,9 +300,11 @@ test('final booked unit sends once and counts only acknowledged simulator ejecti
         unresolved: 0,
         printsAvailable: 0,
       });
-      await d.boothPage.evaluate(() => {
-        (window as typeof window & { __boothSimulatorReady: () => void }).__boothSimulatorReady();
-      });
+      await d.boothPage.evaluate((authorization) => {
+        (
+          window as typeof window & { __boothSimulatorReady: (value: typeof authorization) => void }
+        ).__boothSimulatorReady(authorization);
+      }, dispatch.authorization);
       await expect(
         d.boothPage.getByRole('heading', {
           name: 'All booked prints have been used. Please ask the Admin to add another Film Package.',

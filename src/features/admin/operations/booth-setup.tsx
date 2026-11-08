@@ -157,14 +157,18 @@ export function BoothSetup({
           readinessWindowId: data.readinessWindowId,
           printerId: local.printerId,
           connectionGeneration: local.connectionGeneration,
+          printerEvidence: local.evidence,
           observedAgeMs: Date.now() - observedAt,
           observation: {
+            ...(local.loadFault
+              ? { loadFault: local.loadFault, loadFaultId: local.loadFaultId }
+              : {}),
             cameraPermission: live,
             cameraLive: live,
             serverReachable: navigator.onLine,
             printerConnected: local.connected,
             printerReady: local.ready,
-            oldJobCleared: local.ready,
+            oldJobCleared: local.oldJobCleared,
           },
           ...confirmations.current,
         });

@@ -78,6 +78,8 @@ const stateSchema = z.object({
   printerId: z.string().min(1),
   connectionGeneration: z.number().int().nonnegative(),
   pendingAttemptId: z.uuid().nullable().optional(),
+  pendingDispatchId: z.uuid().nullable().optional(),
+  evidenceVersion: z.enum(['simulator-v1', 'instax-fi033-0102-dev-v1']).optional(),
 });
 type State = z.infer<typeof stateSchema>;
 type EquipmentObservation = {
@@ -863,7 +865,13 @@ export class BoothFlow {
     if (!attemptId) return;
     await recordAndReportObservation(
       runId,
-      observation,
+      observation.kind === 'connection_changed'
+        ? {
+            ...observation,
+            attemptId,
+            dispatchId: this.dispatchId ?? this.state?.pendingDispatchId ?? null,
+          }
+        : observation,
       this.dependencies.journal,
       async (entry) => {
         const reply = await this.reportObservationEntry(entry, attemptId);
@@ -902,6 +910,9 @@ export class BoothFlow {
       attemptId,
       observationId: entry.observationId,
       kind: entry.observationKind,
+      printerId: entry.printerId,
+      dispatchId: entry.dispatchId,
+      adapterVersion: entry.adapterVersion,
       evidenceVersion: entry.evidenceVersion,
       connectionGeneration: entry.connectionGeneration,
       metadata: {},
@@ -1013,6 +1024,7 @@ export class BoothFlow {
       const body = packageActionSchemas.reportReadiness.parse({
         operationId: crypto.randomUUID(),
         readinessWindowId: pending.readinessWindowId,
+        printerEvidence: printer.evidence,
         observedAgeMs: printer.observedAgeMs + Date.now() - at,
         printerId: printer.printerId,
         // A disconnected owner invalidates the bound connection, never attests a live one.
@@ -1021,9 +1033,12 @@ export class BoothFlow {
           : this.state.connectionGeneration,
         observation: {
           ...observation,
+          ...(printer.loadFault
+            ? { loadFault: printer.loadFault, loadFaultId: printer.loadFaultId }
+            : {}),
           printerConnected: observation.printerConnected && printer.connected,
           printerReady: observation.printerReady && printer.ready,
-          oldJobCleared: observation.oldJobCleared && printer.ready,
+          oldJobCleared: observation.oldJobCleared && printer.oldJobCleared,
         },
       });
       this.reportedReadinessWindowId = pending.readinessWindowId;
@@ -1079,6 +1094,7 @@ export class BoothFlow {
           this.pendingConnection = packageActionSchemas.reportReadiness.parse({
             operationId: crypto.randomUUID(),
             kind: 'connection_changed',
+            printerEvidence: connected.evidence,
             readinessWindowId: state.readinessWindowId,
             printerId: connected.printerId,
             connectionGeneration: connected.connectionGeneration,

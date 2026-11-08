@@ -2,7 +2,10 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { SimulatedPrinterV2 } from '@/features/booth/printer/simulator-v2';
 import type { DispatchAuthorization } from '@/lib/operations/package-contract';
-import { requireQualifiedPrinterEvidence } from '@/lib/operations/printer-gate';
+import {
+  getBoothPrinterMode,
+  requireQualifiedPrinterEvidence,
+} from '@/lib/operations/printer-gate';
 vi.mock('server-only', () => ({}));
 
 const authorization: DispatchAuthorization = {
@@ -57,7 +60,10 @@ describe('provisional printer adapter', () => {
       connected: true,
       ready: false,
     });
-    printer.emit('ready_for_new_job');
+    printer.emit('ready_for_new_job', {
+      ...authorization,
+      connectionGeneration: (await printer.readReadiness()).connectionGeneration,
+    });
     expect((await printer.readReadiness()).ready).toBe(true);
     expect(printer.commandCount).toBe(1);
   });
@@ -120,7 +126,10 @@ describe('provisional printer adapter', () => {
     printer.emit('outcome_unknown', attempt);
     printer.emit('connection_changed');
     await printer.connect();
-    printer.emit('ready_for_new_job');
+    printer.emit('ready_for_new_job', {
+      ...authorization,
+      connectionGeneration: (await printer.readReadiness()).connectionGeneration,
+    });
     expect(seen).toEqual([
       'definitely_not_sent',
       'no_film_rejected',
@@ -150,8 +159,14 @@ describe('provisional printer adapter', () => {
     const ids: string[] = [];
     printer.observe((item) => ids.push(item.observationId));
     await printer.connect();
-    printer.emit('ready_for_new_job');
-    printer.emit('ready_for_new_job');
+    printer.emit('ready_for_new_job', {
+      ...authorization,
+      connectionGeneration: (await printer.readReadiness()).connectionGeneration,
+    });
+    printer.emit('ready_for_new_job', {
+      ...authorization,
+      connectionGeneration: (await printer.readReadiness()).connectionGeneration,
+    });
     expect(ids).toHaveLength(2);
     expect(ids[0]).not.toBe(ids[1]);
     expect(ids[0]).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
@@ -166,7 +181,10 @@ describe('provisional printer adapter', () => {
     expect((await printer.readReadiness()).ready).toBe(false);
     printer.emit('full_ejection_confirmed', attempt);
     expect((await printer.readReadiness()).ready).toBe(false);
-    printer.emit('ready_for_new_job');
+    printer.emit('ready_for_new_job', {
+      ...authorization,
+      connectionGeneration: (await printer.readReadiness()).connectionGeneration,
+    });
     expect((await printer.readReadiness()).ready).toBe(true);
   });
 });
@@ -175,7 +193,7 @@ describe('production evidence gate', () => {
   afterEach(() => vi.unstubAllEnvs());
   it('rejects simulator evidence in production even with a simulator flag and false client simulation hint', () => {
     vi.stubEnv('NODE_ENV', 'production');
-    vi.stubEnv('BOOTH_SIMULATOR_ENABLED', 'true');
+    vi.stubEnv('BOOTH_PRINTER_MODE', 'simulated');
     expect(() =>
       requireQualifiedPrinterEvidence(
         'full_ejection_confirmed',
@@ -193,7 +211,7 @@ describe('production evidence gate', () => {
     ['full_ejection_confirmed', 'admin', 'simulator-v1'],
   ])('rejects unqualified %s from %s', (kind, source, evidenceVersion) => {
     vi.stubEnv('NODE_ENV', 'test');
-    vi.stubEnv('BOOTH_SIMULATOR_ENABLED', 'true');
+    vi.stubEnv('BOOTH_PRINTER_MODE', 'simulated');
     expect(() =>
       requireQualifiedPrinterEvidence(
         kind,
@@ -201,5 +219,25 @@ describe('production evidence gate', () => {
         { mode: 'simulated', evidenceVersion: 'simulator-v1' }
       )
     ).toThrow();
+  });
+});
+
+describe('bounded development mode', () => {
+  afterEach(() => vi.unstubAllEnvs());
+  it('production refuses both development modes', () => {
+    vi.stubEnv('NODE_ENV', 'production');
+    for (const mode of ['simulated', 'instax-development']) {
+      vi.stubEnv('BOOTH_PRINTER_MODE', mode);
+      expect(getBoothPrinterMode()).toBe('disabled');
+    }
+  });
+  it('missing and unknown modes fail closed', () => {
+    vi.stubEnv('NODE_ENV', 'test');
+    for (const mode of ['', 'true', 'physical']) {
+      vi.stubEnv('BOOTH_PRINTER_MODE', mode);
+      expect(getBoothPrinterMode()).toBe('disabled');
+    }
+    vi.stubEnv('BOOTH_PRINTER_MODE', 'instax-development');
+    expect(getBoothPrinterMode()).toBe('instax-development');
   });
 });

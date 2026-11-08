@@ -21,7 +21,7 @@ function captureTime() {
 
 function ready(runId: string) {
   localOwnerSql(
-    `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb, observed_at=clock_timestamp(), received_at=clock_timestamp() where id='${runId}'`
+    `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":0}'::jsonb, observed_at=clock_timestamp(), received_at=clock_timestamp() where id='${runId}'`
   );
 }
 

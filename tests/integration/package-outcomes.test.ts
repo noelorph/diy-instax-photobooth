@@ -16,7 +16,7 @@ afterAll(() => {
 
 function ready(f: PackageFixture, generation = 0) {
   localOwnerSql(
-    `update public.booth_runs set readiness_observation='{"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":${generation}}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
+    `update public.booth_runs set readiness_observation='{"printerMode":"simulated","printerEvidence":{"adapterVersion":"simulator-v2","evidenceVersion":"simulator-v1","modelNumber":null,"firmwareRevision":null},"cameraPermission":true,"cameraLive":true,"serverReachable":true,"printerConnected":true,"printerReady":true,"oldJobCleared":true,"connectionGeneration":${generation}}'::jsonb,observed_at=clock_timestamp(),received_at=clock_timestamp() where id='${f.runId}'`
   );
 }
 
@@ -750,15 +750,13 @@ it('a Paused run still accepts qualified outcome evidence without resuming', asy
   }
 }, 30000);
 
-it('disabled policy rejects simulated ejection and inspected resolution', async () => {
+it('disabled policy permits pinned simulated settlement without granting new work', async () => {
   const f = await createPackageFixture();
   try {
     const attemptId = await attempt(f);
     expect((await observation(f, attemptId, 'outcome_unknown')).error).toBeNull();
     localOwnerSql("update public.printer_completion_policy set mode='disabled' where id");
-    expect((await observation(f, attemptId, 'full_ejection_confirmed')).error?.message).toBe(
-      'qualification_required'
-    );
+    expect((await observation(f, attemptId, 'full_ejection_confirmed')).error).toBeNull();
     expect(
       (
         await f.admin('resolve_attempt', {
@@ -768,9 +766,9 @@ it('disabled policy rejects simulated ejection and inspected resolution', async 
           oldJobCleared: false,
           expectedRevision: (await f.readAdmin()).data.revision,
         })
-      ).error?.message
-    ).toBe('qualification_required');
-    expect((await f.readAdmin()).data.counts).toMatchObject({ printed: 0, unresolved: 1 });
+      ).error
+    ).toBeNull();
+    expect((await f.readAdmin()).data.counts).toMatchObject({ printed: 1, unresolved: 0 });
   } finally {
     localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
     await f.dispose();

@@ -1,3 +1,4 @@
+import { SIMULATOR_EVIDENCE } from '@/lib/operations/package-contract';
 // @vitest-environment node
 import { describe, expect, it, vi } from 'vitest';
 vi.mock('server-only', () => ({}));
@@ -213,6 +214,9 @@ it('accepts each specified action shape and rejects authority or missing operati
       attemptId: id,
       observationId: id,
       kind: 'full_ejection_confirmed',
+      printerId: 'instax',
+      dispatchId: id,
+      adapterVersion: 'simulator-v2',
       evidenceVersion: 'simulator-v1',
       connectionGeneration: 0,
       metadata: {},
@@ -239,6 +243,9 @@ it('accepts only bounded safe outcome observation fields', () => {
     attemptId: id,
     observationId: id,
     kind: 'full_ejection_confirmed',
+    printerId: 'instax',
+    dispatchId: id,
+    adapterVersion: 'simulator-v2',
     evidenceVersion: 'simulator-v1',
     connectionGeneration: 0,
     metadata: {},
@@ -262,6 +269,7 @@ it('validates readiness heartbeat, connection change and reload boundaries stric
     observedAgeMs: 0,
     printerId: 'printer',
     connectionGeneration: 0,
+    printerEvidence: SIMULATOR_EVIDENCE,
     observation: {
       cameraPermission: true,
       cameraLive: true,
@@ -286,6 +294,7 @@ it('validates readiness heartbeat, connection change and reload boundaries stric
   const changed = {
     operationId: id,
     kind: 'connection_changed',
+    printerEvidence: SIMULATOR_EVIDENCE,
     readinessWindowId: id,
     printerId: 'printer',
     connectionGeneration: 1,

@@ -45,6 +45,8 @@ Unaffected decisions remain in force: photo privacy (0001), visual system (0010)
 
 ## Refinement
 
+[ADR-0035](0035-allow-development-instax-integration.md) permits explicitly gated FI033/0102 development evidence, immutable run policies and correlated settlement after configuration changes. It strengthens physical Finish/Start and old-job-safety guards without granting operational release or an unqualified physical clearing procedure.
+
 [ADR-0026](0026-order-captures-by-shutter-time.md) refines Capture eligibility at reservation and dispatch: use acknowledged shutter time, permit explicitly selected ties, and never substitute the bound photo. [ADR-0027](0027-draft-only-event-media.md) further defines Draft-only Event Media changes and trusted upload limits. All other product decisions here remain in force. [ADR-0029](0029-remove-legacy-features-and-reset-development-schema.md) supersedes legacy-data preservation, conversion and migration-chain retention with complete removal and a fresh development schema.
 
 [ADR-0028](0028-define-monthly-event-count.md) clarifies Dashboard monthly Event counting: include Draft/Live/Completed and exclude Cancelled. It changes no package accounting, retention or release gate here.

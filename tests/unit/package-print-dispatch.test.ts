@@ -505,6 +505,7 @@ it('retains accepted evidence until acknowledgement and then discards it', async
   const observation = {
     kind: 'command_accepted' as const,
     observationId: 'accepted-1',
+    printerId: 'printer',
     adapterVersion: 'simulator-v2',
     evidenceVersion: 'simulator-v1',
     connectionGeneration: 1,
@@ -531,6 +532,7 @@ it('retains full ejection evidence while offline without keeping image bytes', a
   const observation = {
     kind: 'full_ejection_confirmed' as const,
     observationId: 'ejected-1',
+    printerId: 'printer',
     adapterVersion: 'simulator-v2',
     evidenceVersion: 'simulator-v1',
     connectionGeneration: 1,
@@ -553,6 +555,7 @@ it('rejects a replay that changes the attempt under one observation ID', async (
   const observation = {
     kind: 'command_accepted' as const,
     observationId: 'same-observation',
+    printerId: 'printer',
     adapterVersion: 'simulator-v2',
     evidenceVersion: 'simulator-v1',
     connectionGeneration: 1,
@@ -579,11 +582,13 @@ it('retains the safe printer identity for an offline connection observation', as
   const { journal } = await rig();
   const observation = {
     kind: 'connection_changed' as const,
+    attemptId: 'attempt',
+    dispatchId: 'dispatch',
     observationId: 'connection-1',
+    printerId: 'printer',
     adapterVersion: 'simulator-v2',
     evidenceVersion: 'simulator-v1',
     connectionGeneration: 1,
-    printerId: 'printer',
   };
   await expect(
     recordAndReportObservation('run', observation, journal, async () => {

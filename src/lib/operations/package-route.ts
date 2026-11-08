@@ -15,7 +15,7 @@ import { parsePackageOperation } from './package-validation';
 import { packageRpc } from './package-rpc';
 import { requireSameOrigin, operationId } from './validation';
 import { operationResponse } from './responses';
-import { requireSimulator } from './printer-gate';
+import { getBoothPrinterMode, requireBoothPrinterMode } from './printer-gate';
 import { createPrivilegedClient } from './privileged-client';
 import { OperationError } from './types';
 
@@ -47,12 +47,8 @@ export function packageErrorResponse(error: unknown) {
         : 'operation_unavailable';
   return operationResponse({ code, message: messages[code] }, packageErrorStatus[code]);
 }
-function simulatorOnly() {
-  try {
-    requireSimulator();
-  } catch {
-    throw new PackageError('qualification_required');
-  }
+function developmentEvidenceOnly() {
+  if (process.env.NODE_ENV === 'production') throw new PackageError('qualification_required');
 }
 
 /** Match the browser proof's expiry to the grant after an authorized database call. */
@@ -149,8 +145,9 @@ export async function runPackageAdminOperation<T extends { operationId: string }
       if (!device) throw new PackageError('access_required');
       payload.deviceHash = hashSecret(device);
     }
-    if (action === 'start' || action === 'resolve_attempt' || action === 'report_setup_readiness')
-      simulatorOnly();
+    if (action === 'start' || action === 'report_setup_readiness')
+      payload.printerMode = requireBoothPrinterMode();
+    if (action === 'resolve_attempt') developmentEvidenceOnly();
     const result = await packageRpc('package_admin_operation', {
       p_admin_user_id: admin.userId,
       p_admin_session_id: admin.sessionId,
@@ -184,7 +181,13 @@ export async function runPackageBoothOperation<T extends { operationId: string }
       if (!device) throw new PackageError('access_required');
       payload.deviceHash = hashSecret(device);
     }
-    if (action === 'observe' || action === 'dispatch') simulatorOnly();
+    if (['start_session', 'reserve', 'dispatch'].includes(action))
+      payload.printerMode = requireBoothPrinterMode();
+    if (action === 'report_readiness') {
+      developmentEvidenceOnly();
+      payload.printerMode = getBoothPrinterMode();
+    }
+    if (action === 'observe') developmentEvidenceOnly();
     const result = await packageRpc('package_booth_operation', {
       p_grant_hash: hash,
       p_operation: action,

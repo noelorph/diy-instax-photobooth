@@ -1,3 +1,23 @@
+export type BoothPrinterMode = 'disabled' | 'simulated' | 'instax-development';
+export type PrinterEvidenceDescriptor =
+  | {
+      adapterVersion: 'simulator-v2';
+      evidenceVersion: 'simulator-v1';
+      modelNumber: null;
+      firmwareRevision: null;
+    }
+  | {
+      adapterVersion: 'instax-mini-link3-v1';
+      evidenceVersion: 'instax-fi033-0102-dev-v1';
+      modelNumber: 'FI033';
+      firmwareRevision: '0102';
+    };
+export const SIMULATOR_EVIDENCE: PrinterEvidenceDescriptor = {
+  adapterVersion: 'simulator-v2',
+  evidenceVersion: 'simulator-v1',
+  modelNumber: null,
+  firmwareRevision: null,
+};
 export const PRINTS_PER_PACKAGE = 10;
 export const MAX_TOTAL_PACKAGES = 214_748_364;
 export const READINESS_MAX_AGE_MS = 5_000;
