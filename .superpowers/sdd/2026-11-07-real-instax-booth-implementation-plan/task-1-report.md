@@ -44,3 +44,29 @@ Self-review corrected the initially selected renamed Start Session body to the l
 The local Playwright CLI skill was read. The required real flow browser checks depend on the unavailable local stack. Guest screenshots/tracing/video remain off. Existing accepted physical evidence remains accepted within its recorded scope; no new physical/iPad qualification is claimed.
 
 Next.js feedback reporting pass: no newly verified qualifying Next.js issue was retained. Missing generated route helper types were resolved by the documented `next typegen`; no feedback command was required.
+
+## Review fix round 1 — base fc03911
+
+Read `task-1-review.md` in full and checked both Important findings against the current Observe/Resolve Attempt bodies. Applied the receiving-code-review skill alongside the existing TDD/Ponytail full workflow. Both findings were valid; no product decision changed.
+
+1. Physical `definitely_not_sent` now retains Pending and audits a discrepancy when a dispatched attempt is already Pending or has recorded unknown/connection/readiness-fault evidence, even without `accepted_at`. The existing accepted-command guard remains shared; the added restriction applies only to the physical pin. A clean Dispatching pre-write non-send still becomes NotPrinted while preserving prior safety, including a false prior flag. Server-proven Reserved cancellation and simulator behavior remain unchanged.
+2. A conflicting terminal Admin inspection now explicitly invalidates physical old-job safety, independently of whether the discrepancy blocker was already present. Printed/NotPrinted accounting stays immutable. Existing physical Finish and cross-Event Start guards therefore retain the block.
+
+Added the direct privileged-RPC regressions **before** editing SQL: unknown-without-acceptance → non-send and readiness-fault-without-acceptance → non-send both retain one unresolved hold, count zero, and audit the conflict; normal Printed → ready → contradictory terminal inspection preserves one Printed, clears safety, keeps Finish Finishing, denies Complete, rejects later ready and blocks new Start even behind a synthetic historical terminal row. Existing clean pre-write cases remain in this same policy suite.
+
+Commands and output:
+
+- `npx vitest list tests/integration/package-instax-policy.test.ts` — exit 0, **12 policy scenarios collected**, including all three new cases. This ran before the SQL edit. Docker remains unavailable; collection does not establish a runtime red/green result. No migration, RPC, fixture mutation or physical operation was executed.
+- `npm test -- tests/unit/package-printer.test.ts tests/unit/package-contract.test.ts tests/unit/package-print-dispatch.test.ts tests/unit/package-print-journal.test.ts tests/unit/booth-flow.test.ts tests/unit/booth-page.test.tsx tests/components/booth-setup.test.tsx tests/integration/package-http-contracts.test.ts` — exit 0:
+
+  ```text
+  Test Files  8 passed (8)
+       Tests  277 passed (277)
+    Duration  15.58s
+  ```
+
+- `npx tsc --noEmit` — exit 0, no diagnostics.
+- `npx eslint tests/integration/package-instax-policy.test.ts` — exit 0, no diagnostics.
+- Changed test/report Prettier checks and `git diff --check` — exit 0.
+
+The migration is still unapplied. These changes were checked by source review, typecheck and unaffected runnable boundary/controller regressions; **neither SQL fix nor its new direct-RPC regressions has runtime verification**. The blocked database acceptance from the original report remains mandatory once the verified named local stack is usable. No browser rerun is claimed for this backend-only correction. No new Next.js feedback candidate arose.

@@ -505,7 +505,10 @@ begin
   else
     if a.state='Reserved' and kind<>'definitely_not_sent' then raise exception 'invalid_transition'; end if;
     if a.state='Pending' and kind in ('command_accepted','outcome_unknown','connection_changed') then target:='Pending'; end if;
-    if kind='definitely_not_sent' and a.accepted_at is not null then
+    if kind='definitely_not_sent' and (a.accepted_at is not null
+      or (r.evidence_policy_version='instax-fi033-0102-dev-v1' and a.dispatch_id is not null
+        and (a.state='Pending' or exists(select 1 from public.print_attempt_events
+          where attempt_id=a.id and evidence_kind in ('outcome_unknown','connection_changed','readiness_fault'))))) then
       target:='Pending'; discrepancy:=true;
       update public.booth_runs set blockers=array_append(blockers,'evidence_discrepancy') where id=r.id and not ('evidence_discrepancy'=any(blockers));
     end if;
@@ -590,6 +593,7 @@ begin
     insert into public.print_attempt_events(attempt_id,accounting_version,actor_scope,actor_id,state,evidence_kind,evidence_policy_version,reason)
       values(a.id,2,actor,p_admin_user_id,case when discrepancy then 'Discrepancy' else 'Diagnostic' end,'inspection',r.evidence_policy_version,reason);
     if discrepancy then update public.booth_runs set blockers=array_append(blockers,'evidence_discrepancy') where id=r.id and not ('evidence_discrepancy'=any(blockers)); end if;
+    if discrepancy and r.evidence_policy_version='instax-fi033-0102-dev-v1' then update public.booth_runs set old_job_safety_confirmed=false where id=r.id; end if;
   elsif a.state='Pending' then
     if target='NotPrinted' and p_payload->>'oldJobCleared'<>'true' then raise exception 'not_ready'; end if;
     update public.print_attempts set state=target,resolved_at=clock_timestamp(),evidence_policy_version=r.evidence_policy_version where id=a.id;

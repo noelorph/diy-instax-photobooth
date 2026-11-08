@@ -358,3 +358,134 @@ it('physical Finish retains the reporting grant through the final valid ready re
     await f.dispose();
   }
 }, 30000);
+
+it.each(['outcome_unknown', 'readiness_fault'] as const)(
+  'physical %s before acceptance prevents later non-send from releasing the hold',
+  async (interruption) => {
+    const f = await createPackageFixture();
+    try {
+      const a = await dispatched(f);
+      if (interruption === 'outcome_unknown') {
+        expect((await report(f, a, 'outcome_unknown')).error).toBeNull();
+      } else {
+        const state = await f.readBooth();
+        expect(state.error).toBeNull();
+        const fault = await f.booth('report_readiness', {
+          readinessWindowId: state.data.readinessWindowId,
+          observedAgeMs: 0,
+          printerId: a.printerId,
+          connectionGeneration: a.connectionGeneration,
+          printerMode: 'instax-development',
+          printerEvidence: evidence,
+          observation: {
+            cameraPermission: true,
+            cameraLive: true,
+            serverReachable: true,
+            printerConnected: true,
+            printerReady: false,
+            oldJobCleared: false,
+            loadFault: 'cover_open',
+            loadFaultId: randomUUID(),
+          },
+        });
+        expect(fault.error).toBeNull();
+      }
+      expect(
+        localOwnerSql(`select accepted_at from public.print_attempts where id='${a.attemptId}'`)[0]
+          .accepted_at
+      ).toBeNull();
+      const id = randomUUID();
+      const contradicted = await report(f, a, 'definitely_not_sent', {}, id);
+      expect(contradicted.error).toBeNull();
+      expect(contradicted.data.receipt.result).toMatchObject({
+        state: 'Pending',
+        discrepancy: true,
+      });
+      expect((await f.readBooth()).data.counts).toMatchObject({
+        printed: 0,
+        unresolved: 1,
+        printsAvailable: 9,
+      });
+      expect((await f.readBooth()).data.blockers).toContain('evidence_discrepancy');
+      expect(
+        localOwnerSql(
+          `select old_job_safety_confirmed safe from public.booth_runs where id='${f.runId}'`
+        )[0].safe
+      ).toBe(false);
+      expect((await report(f, a, 'definitely_not_sent', {}, id)).data.replayed).toBe(true);
+      expect((await f.readBooth()).data.counts.unresolved).toBe(1);
+    } finally {
+      await f.dispose();
+    }
+  },
+  30000
+);
+
+it('conflicting terminal physical inspection preserves Printed accounting and blocks Finish and later Start', async () => {
+  const f = await createPackageFixture();
+  const next = await createPackageFixture();
+  try {
+    const a = await dispatched(f);
+    expect((await report(f, a, 'full_ejection_confirmed')).error).toBeNull();
+    expect((await report(f, a, 'ready_for_new_job')).error).toBeNull();
+    expect(
+      localOwnerSql(
+        `select old_job_safety_confirmed safe from public.booth_runs where id='${f.runId}'`
+      )[0].safe
+    ).toBe(true);
+    const conflict = await f.admin('resolve_attempt', {
+      attemptId: a.attemptId,
+      outcome: 'not_printed',
+      inspectionReason: 'Inspection contradicts normal output',
+      oldJobCleared: true,
+      expectedRevision: (await f.readAdmin()).data.revision,
+    });
+    expect(conflict.error).toBeNull();
+    expect(conflict.data.receipt.result).toMatchObject({ state: 'Printed', discrepancy: true });
+    expect((await f.readAdmin()).data.counts).toMatchObject({
+      printed: 1,
+      unresolved: 0,
+      printsAvailable: 9,
+    });
+    expect(
+      localOwnerSql(
+        `select old_job_safety_confirmed safe from public.booth_runs where id='${f.runId}'`
+      )[0].safe
+    ).toBe(false);
+    expect((await f.readBooth()).data.blockers).toContain('evidence_discrepancy');
+    expect(
+      (
+        await f.admin('finish', {
+          runId: f.runId,
+          expectedRevision: (await f.readAdmin()).data.revision,
+        })
+      ).error
+    ).toBeNull();
+    expect(
+      localOwnerSql(`select state from public.booth_runs where id='${f.runId}'`)[0].state
+    ).toBe('Finishing');
+    expect(
+      (await f.admin('complete', { expectedRevision: (await f.readAdmin()).data.revision })).error
+        ?.message
+    ).toBe('print_pending');
+    expect((await report(f, a, 'ready_for_new_job')).error).not.toBeNull();
+    // A stale historical terminal row must not hide the persisted physical conflict.
+    ownerUpdate('booth_runs', f.runId, { state: 'Finished' });
+    ownerUpdate('events', f.eventId, { state: 'Completed' });
+    const setup = await next.reportSetup(evidence, 'instax-development');
+    expect(setup.error).toBeNull();
+    const start = await next.admin('start', {
+      readinessWindowId: setup.data.readinessWindowId,
+      deviceHash: next.deviceHash,
+      printerId: 'fixture-printer',
+      connectionGeneration: 0,
+      printerMode: 'instax-development',
+      expectedRevision: (await next.readAdmin()).data.revision,
+    });
+    expect(start.error?.message).toBe('print_pending');
+    expect((await f.readAdmin()).data.counts.printed).toBe(1);
+  } finally {
+    await next.dispose();
+    await f.dispose();
+  }
+}, 30000);
