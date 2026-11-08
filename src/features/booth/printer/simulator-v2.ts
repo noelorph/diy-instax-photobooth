@@ -35,6 +35,12 @@ export class SimulatedPrinterV2 implements PrinterAdapterV2 {
     return this.readReadiness();
   }
 
+  async disconnect() {
+    this.connected = false;
+    this.ready = false;
+    this.listeners.clear();
+  }
+
   async readReadiness(): Promise<PrinterReadinessSnapshot> {
     return {
       printerId: this.printerId,

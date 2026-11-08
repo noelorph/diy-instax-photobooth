@@ -49,6 +49,7 @@ function fixture(model = 'FI033', link3Available = true) {
     disconnect: vi.fn(),
   };
   const device = Object.assign(new EventTarget(), {
+    id: 'actual-device-id',
     name: 'INSTAX-123',
     gatt: { connect: async () => server },
   });
@@ -114,6 +115,7 @@ describe('Mini Link 3 Bluetooth connection', () => {
       onResponse: vi.fn(),
       onDisconnect: vi.fn(),
     });
+    expect(connection.deviceId).toBe('actual-device-id');
     expect(connection.modelNumber).toBe('FI033');
     expect(connection.firmwareRevision).toBe('1.2.3');
     expect(f.reads).toEqual([

@@ -14,6 +14,7 @@ function fixture() {
     getVideoTracks: () => [track],
   } as unknown as MediaStream;
   const connection = {
+    deviceId: 'qualification-fixture',
     modelNumber: 'FI033',
     firmwareRevision: '1.2.3',
     exchange: vi.fn(),

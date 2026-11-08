@@ -76,6 +76,7 @@ it('rejects readiness aged 5,001 ms before reservation', async () => {
   const { input, deps, printer, journal } = await rig();
   const snapshot = await printer.readReadiness();
   deps.printer = {
+    disconnect: printer.disconnect.bind(printer),
     connect: printer.connect.bind(printer),
     readReadiness: async () => ({ ...snapshot, observedAgeMs: 5_001 }),
     observe: printer.observe.bind(printer),
@@ -325,6 +326,7 @@ it('does not reserve after a stop during the first readiness read', async () => 
   let allowed = true;
   deps.canSendNow = () => allowed;
   deps.printer = {
+    disconnect: printer.disconnect.bind(printer),
     connect: printer.connect.bind(printer),
     readReadiness: async () => {
       const snapshot = await printer.readReadiness();
@@ -346,6 +348,7 @@ it('checks a local stop after the final awaited readiness read', async () => {
   let reads = 0;
   deps.canSendNow = () => allowed;
   deps.printer = {
+    disconnect: printer.disconnect.bind(printer),
     connect: printer.connect.bind(printer),
     readReadiness: async () => {
       const snapshot = await printer.readReadiness();

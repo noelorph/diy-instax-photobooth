@@ -27,7 +27,7 @@ type Server = {
   getPrimaryService(uuid: string): Promise<Service>;
   disconnect(): void;
 };
-type Device = EventTarget & { name?: string; gatt?: { connect(): Promise<Server> } };
+type Device = EventTarget & { id?: string; name?: string; gatt?: { connect(): Promise<Server> } };
 type PendingRequest = {
   opcode: number;
   resolve(value: InstaxResponse): void;
@@ -43,6 +43,7 @@ export type WebBluetoothPort = {
   }): Promise<Device>;
 };
 export type PrinterConnection = {
+  deviceId: string | null;
   modelNumber: string;
   firmwareRevision: string;
   exchange(opcode: InstaxOpcode, payload?: Uint8Array, timeoutMs?: number): Promise<InstaxResponse>;
@@ -202,6 +203,7 @@ export async function connectMiniLink3(
     }
 
     return {
+      deviceId: device.id || null,
       modelNumber,
       firmwareRevision,
       async exchange(opcode, payload = new Uint8Array(), timeoutMs = 5000) {

@@ -18,6 +18,7 @@ const frameOffset = validJpeg.findIndex(
 function connection(options: { failAt?: number; failOpcode?: number; film?: number } = {}) {
   const calls: { opcode: number; payload: Uint8Array }[] = [];
   const fake: PrinterConnection = {
+    deviceId: 'fixture-device',
     modelNumber: 'FI033',
     firmwareRevision: '1.2.3',
     disconnect: vi.fn(async () => undefined),

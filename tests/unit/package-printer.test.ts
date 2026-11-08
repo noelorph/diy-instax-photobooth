@@ -241,3 +241,16 @@ describe('bounded development mode', () => {
     expect(getBoothPrinterMode()).toBe('instax-development');
   });
 });
+
+it('disconnects the simulator owner without clearing unresolved job safety', async () => {
+  const printer = new SimulatedPrinterV2('printer');
+  await printer.connect();
+  await printer.sendOnce(
+    { attemptId: 'attempt', dispatchId: 'dispatch', printerId: 'printer', connectionGeneration: 1 },
+    new Uint8Array([1])
+  );
+  await printer.disconnect();
+  expect((await printer.readReadiness()).connected).toBe(false);
+  await printer.connect();
+  expect((await printer.readReadiness()).oldJobCleared).toBe(false);
+});

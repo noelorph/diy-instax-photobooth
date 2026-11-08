@@ -41,6 +41,7 @@ export interface PrinterAdapterV2 {
     expectedPrinterId?: string,
     previousGeneration?: number
   ): Promise<PrinterReadinessSnapshot>;
+  disconnect(): Promise<void>;
   readReadiness(): Promise<PrinterReadinessSnapshot>;
   observe(listener: (observation: PrinterObservationV2) => void): () => void;
   sendOnce(authorization: DispatchAuthorization, image: Uint8Array): Promise<void>;
