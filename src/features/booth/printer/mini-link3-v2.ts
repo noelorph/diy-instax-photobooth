@@ -299,7 +299,13 @@ export class MiniLink3PrinterV2 implements PrinterAdapterV2 {
         this.emit(owner, 'definitely_not_sent', job);
         return;
       }
-      if (!this.current(owner) || !owner.ready || this.unsafe) {
+      if (
+        !this.current(owner) ||
+        !owner.ready ||
+        owner.observedAt === null ||
+        Date.now() - owner.observedAt > READINESS_MAX_AGE_MS ||
+        this.unsafe
+      ) {
         this.emit(owner, 'definitely_not_sent', job);
         return;
       }

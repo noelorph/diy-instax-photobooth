@@ -281,6 +281,37 @@ it('refuses an authorized send on stale readiness without entering transport', a
   expect(await outcome).toBe('refused');
   expect(f.calls.filter((c) => c === 0x1080)).toHaveLength(0);
 });
+it('refuses status that ages beyond 5000 ms while send waits for history', async () => {
+  const f = setup();
+  await f.printer.connect();
+  const original = vi.mocked(f.connection.exchange).getMockImplementation()!;
+  let release!: () => void;
+  vi.mocked(f.connection.exchange).mockImplementation(async (...args) => {
+    if (args[0] === 2 && args[1]?.[0] === 3 && !release) {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+    }
+    return original(...args);
+  });
+  await vi.advanceTimersByTimeAsync(900);
+  expect((await f.printer.readReadiness()).observedAgeMs).toBe(0);
+  const pending = f.printer.sendOnce(grant, jpeg());
+  await vi.advanceTimersByTimeAsync(5001);
+  release();
+  await vi.advanceTimersByTimeAsync(10_000);
+  await pending;
+  expect(f.events.filter((e) => e.kind === 'definitely_not_sent')).toEqual([
+    expect.objectContaining(grant),
+  ]);
+  expect(f.calls.filter((c) => c === 0x1000 || c === 0x1001 || c === 0x1080)).toEqual([]);
+  expect((await f.printer.readReadiness()).oldJobCleared).toBe(true);
+  vi.mocked(f.connection.exchange).mockImplementation(original);
+  await vi.advanceTimersByTimeAsync(900);
+  expect((await f.printer.readReadiness()).ready).toBe(true);
+  await f.printer.sendOnce(grant, jpeg());
+  expect(f.calls.filter((c) => c === 0x1000 || c === 0x1001 || c === 0x1080)).toEqual([]);
+});
 it('rechecks a poll that becomes unavailable while the authorized send waits', async () => {
   const f = setup();
   await f.printer.connect();
