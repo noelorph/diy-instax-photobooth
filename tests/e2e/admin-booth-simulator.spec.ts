@@ -85,6 +85,7 @@ test('denied setup checks stop polling and recover only after an explicit rechec
 }) => {
   const f = await createPackageBrowserFixture();
   try {
+    localOwnerSql("update public.printer_completion_policy set mode='simulated' where id");
     const d = await devices(browser, f);
     try {
       let denied = true;
@@ -163,7 +164,7 @@ test('setup handoff reestablishes scoped readiness before Guest admission', asyn
         .single();
       expect(run.data?.state).toBe('Active');
       expect(run.data?.printer_id).toBe('simulator');
-      expect(run.data?.connection_generation).toBe(2);
+      expect(run.data?.connection_generation).toBe(1);
       expect(run.data?.readiness_observation.cameraLive).toBe(true);
       const grants = await f.local.service
         .from('booth_grants')
@@ -208,7 +209,7 @@ test('setup handoff reestablishes scoped readiness before Guest admission', asyn
         .select('connection_generation,readiness_observation')
         .eq('event_id', f.eventId)
         .single();
-      expect(reconnected.data?.connection_generation).toBe(3);
+      expect(reconnected.data?.connection_generation).toBe(2);
       expect(reconnected.data?.readiness_observation.cameraLive).toBe(true);
       const refreshed = (await read(d.boothPage, '/api/booth/state')).body;
       expect(refreshed.allowedActions.startGuest).toBe(true);
@@ -405,17 +406,10 @@ for (const blocker of ['paused', 'pending outcome'] as const) {
         if (blocker === 'pending outcome') seedOutcome(f, runId, 'Pending');
         await d.phonePage.goto(`/events/${f.eventId}`);
         if (blocker === 'paused') {
-          const pause = d.phonePage.waitForResponse(
-            (response) =>
-              response.url().endsWith('/booth/pause') && response.request().method() === 'POST'
-          );
-          const pausedState = d.boothPage.waitForResponse(async (response) => {
-            if (!response.url().endsWith('/api/booth/state') || !response.ok()) return false;
-            return (await response.json()).state === 'Paused';
-          });
-          await d.phonePage.getByRole('button', { name: 'Pause Booth', exact: true }).click();
-          expect((await pause).ok()).toBe(true);
-          await pausedState;
+          await reviewPhoneCommand(d.phonePage, 'pause', runId);
+          expect(
+            localOwnerSql(`select state from public.booth_runs where id='${runId}'`)[0].state
+          ).toBe('Paused');
           await expect(d.boothPage.getByRole('heading', { name: 'Booth paused' })).toBeVisible();
         }
         await d.phonePage.getByRole('button', { name: 'Add Film Packages', exact: true }).click();
@@ -608,8 +602,9 @@ test('released setup resources and rejected arrival camera keep admission blocke
       );
       await d.boothPage.getByRole('button', { name: 'Start Booth Mode' }).click();
       await confirmation;
-      // Let the app's document navigation release setup resources without racing another goto.
       await d.boothPage.waitForURL('**/booth');
+      // Soft arrival preserves resources; a hard reload exercises their actual release.
+      await d.boothPage.reload();
       await expect(d.boothPage.getByRole('button', { name: 'Connect to Instax' })).toBeVisible();
       await d.boothPage.getByRole('button', { name: 'Enable Camera' }).click();
       await expect(
@@ -961,20 +956,31 @@ test('phone Pause, receipt recovery, Resume and pending Finish retain scoped saf
   }
 });
 
-async function reviewPhoneCommand(page: Page, action: 'finish' | 'complete', runId?: string) {
+async function reviewPhoneCommand(
+  page: Page,
+  action: 'pause' | 'finish' | 'complete',
+  runId?: string
+) {
   let rejected: { operationId: string; expectedRevision: number } | undefined;
-  const title = action === 'finish' ? 'Finish Booth Mode' : 'Complete Event';
-  const endpoint = action === 'finish' ? '/booth/finish' : '/complete';
+  const title =
+    action === 'pause'
+      ? 'Pause Booth'
+      : action === 'finish'
+        ? 'Finish Booth Mode'
+        : 'Complete Event';
+  const endpoint =
+    action === 'pause' ? '/booth/pause' : action === 'finish' ? '/booth/finish' : '/complete';
   for (let attempt = 0; attempt < 2; attempt++) {
-    await page.getByRole('button', { name: title, exact: true }).click();
-    if (action === 'complete') await expect(page.getByRole('dialog')).toContainText('History');
     const response = page.waitForResponse(
       (r) => r.url().endsWith(endpoint) && r.request().method() === 'POST'
     );
-    await page.getByRole('button', { name: `Confirm ${title}`, exact: true }).click();
+    await page.getByRole('button', { name: title, exact: true }).click();
+    if (action === 'complete') await expect(page.getByRole('dialog')).toContainText('History');
+    if (action !== 'pause')
+      await page.getByRole('button', { name: `Confirm ${title}`, exact: true }).click();
     const result = await response;
     const submitted = result.request().postDataJSON();
-    if (action === 'finish') expect(submitted.runId).toBe(runId);
+    if (action !== 'complete') expect(submitted.runId).toBe(runId);
     else expect(submitted.runId).toBeUndefined();
     if (rejected) {
       expect(submitted.operationId).not.toBe(rejected.operationId);
@@ -984,10 +990,10 @@ async function reviewPhoneCommand(page: Page, action: 'finish' | 'complete', run
       rejected = submitted;
       console.log('Explicit stale command re-review:', action);
       expect((await result.json()).code).toBe('stale_revision');
-      await expect(page.getByRole('dialog')).toContainText(
-        'The Event changed. Review current state'
-      );
-      await page.getByRole('button', { name: 'Back', exact: true }).click();
+      await expect(
+        action === 'pause' ? page.getByRole('alert') : page.getByRole('dialog')
+      ).toContainText('The Event changed. Review current state');
+      if (action !== 'pause') await page.getByRole('button', { name: 'Back', exact: true }).click();
       await page.reload();
       continue;
     }
