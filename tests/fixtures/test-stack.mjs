@@ -1,12 +1,33 @@
 import { execFileSync } from 'node:child_process';
 import { resolve } from 'node:path';
 
-const workdir = process.env.INSTAX_TEST_WORKDIR;
-const projectId = workdir ? 'diy-instax-retirement-verification' : 'diy-instax-package-contracts';
+export function selectTestStack(startup = false) {
+  const profile = process.env.INSTAX_TEST_PROFILE;
+  if (profile && profile !== 'integration') throw new Error('Unknown INSTAX_TEST_PROFILE.');
+  const integrationWorkdir = resolve('.worktrees/instax-verification-stack');
+  const configuredWorkdir = process.env.INSTAX_TEST_WORKDIR;
+  if (profile && configuredWorkdir && resolve(configuredWorkdir) !== integrationWorkdir)
+    throw new Error('Use the fixed integration workdir for INSTAX_TEST_PROFILE=integration.');
+  const workdir = profile
+    ? integrationWorkdir
+    : startup
+      ? resolve('.worktrees/verification-stack')
+      : configuredWorkdir && resolve(configuredWorkdir);
+  const projectId = profile
+    ? 'diy-instax-integration-verification'
+    : workdir
+      ? 'diy-instax-retirement-verification'
+      : 'diy-instax-package-contracts';
+  const portBase = profile ? 60320 : workdir ? 58320 : 56320;
+  return { workdir, portBase, projectId };
+}
+
+const { workdir, portBase, projectId } = selectTestStack();
+export const testStackWorkdir = workdir;
 export const testStack = {
   projectId,
-  apiUrl: `http://127.0.0.1:${workdir ? 58321 : 56321}`,
-  mailpitUrl: `http://127.0.0.1:${workdir ? 58324 : 56324}`,
+  apiUrl: `http://127.0.0.1:${portBase + 1}`,
+  mailpitUrl: `http://127.0.0.1:${portBase + 4}`,
   databaseContainer: `supabase_db_${projectId}`,
   storageContainer: `supabase_storage_${projectId}`,
 };
