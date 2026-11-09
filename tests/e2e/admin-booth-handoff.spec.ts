@@ -28,7 +28,8 @@ test(`production cannot activate requested ${process.env.BOOTH_PRINTER_MODE ?? '
       ['__Host-booth-device', '__Host-booth-grant'].map((name) => ({
         name,
         value: 'a'.repeat(64),
-        url: 'http://127.0.0.1:1437',
+        domain: '127.0.0.1',
+        path: '/',
         secure: true,
         httpOnly: true,
         sameSite: 'Strict' as const,
