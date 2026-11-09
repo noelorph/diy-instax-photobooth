@@ -95,8 +95,8 @@ it('selects the fixed integration stack and workdir automatically', async () => 
   expect(testStackWorkdir).toBe(resolve('.worktrees/instax-verification-stack'));
   expect(testStack).toEqual({
     projectId: 'diy-instax-integration-verification',
-    apiUrl: 'http://127.0.0.1:60321',
-    mailpitUrl: 'http://127.0.0.1:60324',
+    apiUrl: 'http://127.0.0.1:61321',
+    mailpitUrl: 'http://127.0.0.1:61324',
     databaseContainer: 'supabase_db_diy-instax-integration-verification',
     storageContainer: 'supabase_storage_diy-instax-integration-verification',
   });
@@ -144,7 +144,7 @@ it.each([
 ])('integration retains existing work %j', async (existing) => {
   vi.stubEnv('INSTAX_TEST_PROFILE', 'integration');
   exec
-    .mockReturnValueOnce(JSON.stringify({ API_URL: 'http://127.0.0.1:60321' }))
+    .mockReturnValueOnce(JSON.stringify({ API_URL: 'http://127.0.0.1:61321' }))
     .mockReturnValueOnce('diy-instax-integration-verification')
     .mockReturnValueOnce(JSON.stringify(existing));
   const { readLocalSupabaseStatus } = await import('../fixtures/test-stack.mjs');
@@ -155,7 +155,7 @@ it.each([
 it('integration refuses a mismatched project label before reading records', async () => {
   vi.stubEnv('INSTAX_TEST_PROFILE', 'integration');
   exec
-    .mockReturnValueOnce(JSON.stringify({ API_URL: 'http://127.0.0.1:60321' }))
+    .mockReturnValueOnce(JSON.stringify({ API_URL: 'http://127.0.0.1:61321' }))
     .mockReturnValueOnce('diy-instax-retirement-verification');
   const { readLocalSupabaseStatus } = await import('../fixtures/test-stack.mjs');
   expect(() => readLocalSupabaseStatus()).toThrow('another project');
@@ -173,7 +173,7 @@ it.each([
     profile: 'integration',
     directory: '.worktrees/instax-verification-stack',
     project: 'diy-instax-integration-verification',
-    ports: [60321, 60322, 60320, 60329, 60323, 60324, 60327],
+    ports: [61321, 61322, 61320, 61329, 61323, 61324, 61327],
   },
 ])(
   'startup prepares only the selected fixed stack: $project',

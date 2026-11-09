@@ -4,7 +4,7 @@
 
 ## Scope and behavior
 
-- Added `INSTAX_TEST_PROFILE=integration` through the shared selector used by startup and fixture discovery. It fixes project `diy-instax-integration-verification`, resolved `.worktrees/instax-verification-stack`, API/Mailpit 60321/60324 and generated port range 60320–60329. Historical 5932x ports are not used.
+- Added `INSTAX_TEST_PROFILE=integration` through the shared selector used by startup and fixture discovery. It fixes project `diy-instax-integration-verification`, resolved `.worktrees/instax-verification-stack`, API/Mailpit 61321/61324 and generated port range 61320–61329. Historical 5932x ports are not used.
 - Unknown nonempty profiles and conflicting integration workdirs fail before any subprocess or startup writes. Equivalent resolved workdirs are accepted. No URL, port or project environment override was added.
 - Default discovery remains ordinary 56321; existing `INSTAX_TEST_WORKDIR` discovery remains retirement 58321. Default startup remains retirement at `.worktrees/verification-stack`.
 - Startup checks the base project/API identity, refuses differing existing generated config before writes, preserves empty seed paths, and retains additive migration copying and existing service exclusions. Exact API, Docker project-label, Live/unresolved and nonempty-Event discovery guards remain intact. No reset, stop or delete action was added.
@@ -32,3 +32,10 @@ INSTAX_TEST_PROFILE=integration npm test
 Use the same profile for existing Playwright commands. Do not reset, stop, settle or delete either existing populated stack. If the new stack has retained Events or unresolved work, discovery refuses it; do not bypass that refusal.
 
 Full `npm test` was deliberately not run because integration hooks invoke Docker/database fixture discovery, contrary to this task's no-Docker phase. Live startup, port/container/volume availability, migration application, SQL checks, full tests and browser verification remain for the coordinator. No browser check is required for this fixture-only change. Additive chain copying is still not F8 baseline acceptance; reused directories can retain removed migration files, and reused volumes do not guarantee an empty/current schema. Physical/iPad and other product gates remain open.
+
+
+## Port allocation follow-up — 2026-11-09
+
+After independent approval of `8374a03`, coordinator read-only live allocation checks found an existing listener on 60323. It was left untouched. The coordinator checked 61320–61329 as unused, so the fixed integration base alone moved from 60320 to 61320; project/workdir selection, API identity validation, guards, startup behavior and other stack allocations are unchanged. No generic port override was introduced.
+
+Updated the existing test expectations first: focused run was red (6 failed, 18 passed), showing the old API/Mailpit selection and generated ports. After changing the fixed base, all 24 focused tests passed. TypeScript, scoped ESLint, scoped Prettier and `git diff --check` passed again. No startup, Docker, database or migration operation was performed. Allocation may change before coordinator startup, so availability still needs checking at operation time.

@@ -18,7 +18,7 @@ export function selectTestStack(startup = false) {
     : workdir
       ? 'diy-instax-retirement-verification'
       : 'diy-instax-package-contracts';
-  const portBase = profile ? 60320 : workdir ? 58320 : 56320;
+  const portBase = profile ? 61320 : workdir ? 58320 : 56320;
   return { workdir, portBase, projectId };
 }
 
