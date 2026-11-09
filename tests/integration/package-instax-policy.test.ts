@@ -259,7 +259,10 @@ it('unsafe physical Finish cannot be bypassed by a new Event/run', async () => {
     expect((await report(f, a, 'ready_for_new_job')).error).not.toBeNull();
     // Owner fixture simulates a stale historic Finished row; its unsafe job must still block Start.
     ownerUpdate('booth_runs', f.runId, { state: 'Finished' });
-    ownerUpdate('events', f.eventId, { state: 'Completed' });
+    ownerUpdate('events', f.eventId, {
+      state: 'Completed',
+      revision: (await f.readAdmin()).data.revision + 1,
+    });
     const setup = await next.reportSetup(evidence, 'instax-development');
     expect(setup.error).toBeNull();
     const start = await next.admin('start', {
@@ -471,7 +474,10 @@ it('conflicting terminal physical inspection preserves Printed accounting and bl
     expect((await report(f, a, 'ready_for_new_job')).error).not.toBeNull();
     // A stale historical terminal row must not hide the persisted physical conflict.
     ownerUpdate('booth_runs', f.runId, { state: 'Finished' });
-    ownerUpdate('events', f.eventId, { state: 'Completed' });
+    ownerUpdate('events', f.eventId, {
+      state: 'Completed',
+      revision: (await f.readAdmin()).data.revision + 1,
+    });
     const setup = await next.reportSetup(evidence, 'instax-development');
     expect(setup.error).toBeNull();
     const start = await next.admin('start', {

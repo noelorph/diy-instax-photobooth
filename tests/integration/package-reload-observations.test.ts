@@ -232,25 +232,54 @@ it('rechecks Admin authority after the Event lock wait for manual confirmation',
 }, 30000);
 it('does not grant another device observation capability or accept a different policy', async () => {
   const { f, payload } = await setup();
-  ownerUpdate('booth_grants', f.grantId, { capabilities: ['read'] });
+  ownerUpdate('booth_grants', f.grantId, { capabilities: '{read}' });
   expect((await f.booth('observe_reload', payload, payload.observationId)).error?.message).toBe(
     'operation_forbidden'
   );
-  ownerUpdate('booth_grants', f.grantId, { capabilities: ['read', 'observe'] });
-  ownerUpdate('booth_runs', f.runId, { evidence_policy_version: 'simulator-v1' });
-  expect((await f.booth('observe_reload', payload, payload.observationId)).error?.message).toBe(
-    'qualification_required'
-  );
+  ownerUpdate('booth_grants', f.grantId, { capabilities: '{read,observe}' });
+  expect(
+    (
+      await f.booth(
+        'observe_reload',
+        { ...payload, evidenceVersion: 'simulator-v1' },
+        payload.observationId
+      )
+    ).error?.message
+  ).toBe('qualification_required');
   expect(run(f).film_loaded_confirmed).toBe(false);
 });
 it('rejects another run grant even when it submits the exact request binding', async () => {
   const { f, payload } = await setup();
   const other = await createPackageFixture();
   owned.push(other);
+  // Only one Event may be Live; keep the foreign request on a historical run.
+  ownerUpdate('booth_runs', f.runId, { state: 'Finished' });
+  ownerUpdate('events', f.eventId, {
+    state: 'Completed',
+    revision: (await f.readAdmin()).data.revision + 1,
+  });
   other.seedRun('Paused', 'instax-fi033-0102-dev-v1');
-  expect(
-    (await other.booth('observe_reload', payload, payload.observationId)).error
-  ).not.toBeNull();
+  expect((await other.booth('observe_reload', payload, payload.observationId)).error?.message).toBe(
+    'not_ready'
+  );
   expect(request(payload.reloadRequestId).state).toBe('Open');
   expect(run(f).film_loaded_confirmed).toBe(false);
+  const own = await other.admin('request_reload', {
+    runId: other.runId,
+    printerId: 'fixture-printer',
+    connectionGeneration: 0,
+    expectedRevision: 2,
+    reason: 'film loading',
+  });
+  expect(own.error).toBeNull();
+  const observationId = randomUUID();
+  expect(
+    (
+      await other.booth(
+        'observe_reload',
+        { ...payload, reloadRequestId: own.data.receipt.result.reloadRequestId, observationId },
+        observationId
+      )
+    ).error
+  ).toBeNull();
 });
