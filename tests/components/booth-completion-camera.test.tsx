@@ -38,6 +38,7 @@ async function completedGuest(lastPrint = false) {
   };
   const end = deferred();
   const readiness = deferred();
+  const unknown = deferred();
   let holdReadiness = false;
   let state = 'Active';
   let printed = 0;
@@ -90,6 +91,7 @@ async function completedGuest(lastPrint = false) {
                 : path.endsWith('/observations')
                   ? 'observe'
                   : 'end_session';
+      if (kind === 'observe' && body!.kind === 'outcome_unknown') await unknown.promise;
       if (kind === 'end_session') {
         await end.promise;
         open = false;
@@ -166,6 +168,7 @@ async function completedGuest(lastPrint = false) {
     authorization,
     end,
     readiness,
+    unknown,
     requests,
     setState: (value: string) => {
       state = value;
@@ -280,5 +283,31 @@ it.each(['Paused', 'offline', 'camera', 'printer'] as const)(
     s.readiness.resolve();
     await flush();
     expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
+  }
+);
+
+it.each(['matching', 'attemptId', 'dispatchId', 'printerId', 'connectionGeneration'] as const)(
+  'revokes completion camera retention only for a fully correlated generic fault: %s',
+  async (binding) => {
+    const s = await completedGuest();
+    await act(() => vi.advanceTimersByTimeAsync(3000));
+    s.end.resolve();
+    await flush();
+    expect(s.flow.getSnapshot().phase).toBe('unavailable');
+    expect(s.camera.stop).not.toHaveBeenCalled();
+    const authorization = { ...s.authorization };
+    if (binding === 'connectionGeneration') authorization.connectionGeneration = 2;
+    else if (binding !== 'matching') authorization[binding] = crypto.randomUUID();
+    s.printer.emit('outcome_unknown', authorization);
+    await flush();
+    expect((await s.printer.readReadiness()).connected).toBe(true);
+    if (binding === 'matching') expect(s.camera.stop).toHaveBeenCalled();
+    else expect(s.camera.stop).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Start' })).toBeNull();
+    expect(s.printer.commandCount).toBe(1);
+    expect(s.printed()).toBe(1);
+    s.unknown.resolve();
+    s.readiness.resolve();
+    await flush();
   }
 );

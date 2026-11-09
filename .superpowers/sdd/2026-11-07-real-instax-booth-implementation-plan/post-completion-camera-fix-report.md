@@ -25,3 +25,22 @@ GREEN: `npx vitest run tests/components/booth-completion-camera.test.tsx tests/c
 ## Limits and handoff
 
 Database/browser execution belongs to the coordinator's serial runtime verification slot and was not run here. The coordinator will run the final combined suite on the reviewed candidate; this report does not claim that broader acceptance. No physical action, qualification claim, important product-document change, dependency, or unrelated edit was made. Existing dated physical evidence and release gates are unchanged. The pre-existing Next-generated AGENTS.md block deletion was left untouched and excluded from this commit. No meaningful Next.js-specific feedback candidate arose.
+
+## Review round 1 — correlated generic printer fault
+
+Addressed the P2 in `post-completion-camera-review.md` on base `b4e73bb`. Verified that the real adapter's `unknown()` retains connection while making the job unsafe and emitting `outcome_unknown`, and that a terminal Printed attempt records subsequent observations as diagnostics. Such a fault therefore cannot rely on a server Pending blocker to revoke camera retention.
+
+The existing synchronous printer observer now revokes completion retention with a generic printer fault only when `outcome_unknown` matches the outstanding completed attempt, current dispatch, bound printer ID and connection generation, while the Guest is confirmed or waiting after normal closure. Observation journaling/reporting still proceeds normally; no terminal accounting or physical-safety acknowledgement is substituted. All unrelated faults and ordinary clearing behavior remain as before.
+
+Added five controlled component cases for matching and individually mismatched attempt ID, dispatch ID, printer ID and connection generation. The test holds the generic-fault observation response, advances no clock after emission and asserts that the matching connected fault stops the camera while unavailable remains unavailable, with Start blocked, one send and one Printed count. Each mismatched fault leaves the camera untouched before its response. The original normal clearing/readiness recovery regression remains passing.
+
+Exact verification commands and results:
+
+- RED: `npx vitest run tests/components/booth-completion-camera.test.tsx` — exit 1; `Test Files 1 failed (1)`, `Tests 1 failed | 15 passed (16)`. Matching generic-fault case failed: `AssertionError: expected "vi.fn()" to be called at least once` at the immediate camera-stop assertion. Four mismatch guards and original 11 cases passed.
+- GREEN: `npx vitest run tests/components/booth-completion-camera.test.tsx tests/components/booth-flow.test.tsx tests/unit/booth-flow.test.ts` — exit 0; `Test Files 3 passed (3)`, `Tests 125 passed (125)`, duration 22.76s.
+- `npx tsc --noEmit` — exit 0, no diagnostics.
+- `npx eslint src/features/booth/flow.ts src/features/booth/booth-client.tsx tests/components/booth-completion-camera.test.tsx` — exit 0, no diagnostics.
+- `npx prettier --write src/features/booth/flow.ts tests/components/booth-completion-camera.test.tsx` — both files unchanged by formatting.
+- `git diff --check` — exit 0, no diagnostics.
+
+This follow-up changes only Flow, its controlled component regression and this report. No database/browser/full-suite or physical checks were run, consistent with coordinator ownership. AGENTS.md remains untouched/excluded. No Next.js-specific feedback candidate arose.

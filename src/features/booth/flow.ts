@@ -156,6 +156,16 @@ export class BoothFlow {
         this.equipmentEpoch++;
         this.stopForBlocker('printer_connection');
       }
+      if (
+        observation.kind === 'outcome_unknown' &&
+        !this.disposed &&
+        (this.completedGuest || this.view.phase === 'confirmed') &&
+        observation.attemptId === this.awaitingJobSafetyAttemptId &&
+        observation.dispatchId === this.dispatchId &&
+        observation.printerId === this.state?.printerId &&
+        observation.connectionGeneration === this.state?.connectionGeneration
+      )
+        this.stopForBlocker('printer_fault');
       this.observing = this.observing
         .then(() => this.observe(observation))
         .catch((error) => {
