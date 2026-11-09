@@ -974,6 +974,8 @@ async function reviewPhoneCommand(
     const response = page.waitForResponse(
       (r) => r.url().endsWith(endpoint) && r.request().method() === 'POST'
     );
+    // Observe context-close rejection if a UI step fails before the response is awaited.
+    void response.catch(() => {});
     await page.getByRole('button', { name: title, exact: true }).click();
     if (action === 'complete') await expect(page.getByRole('dialog')).toContainText('History');
     if (action !== 'pause')
