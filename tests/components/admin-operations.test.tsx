@@ -103,11 +103,20 @@ it('shows durable Paused status and expires independently reported equipment rea
   expect(within(status).getByText('Booth paused')).toBeTruthy();
   expect(within(status).getByText('Only you can resume the booth from the phone.')).toBeTruthy();
   const equipment = screen.getByLabelText('Equipment status');
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(32);
+  });
   expect(equipment.textContent).toContain('CameraReady');
   expect(equipment.textContent).toContain('InstaxDisconnected');
   expect(equipment.textContent).toContain('InternetOnline');
   await act(async () => {
-    await vi.advanceTimersByTimeAsync(1001);
+    await vi.advanceTimersByTimeAsync(968);
+  });
+  expect(equipment.textContent).toContain('CameraReady');
+  expect(equipment.textContent).toContain('InstaxDisconnected');
+  expect(equipment.textContent).toContain('InternetOnline');
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(1);
   });
   expect(equipment.textContent).toContain('CameraNeeds check');
   expect(equipment.textContent).toContain('InternetNeeds check');
