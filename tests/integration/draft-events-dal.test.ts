@@ -306,48 +306,58 @@ describe('protected Draft DAL with local Auth and Data API', () => {
     const owner = await admin();
     const unowned = await createDraft(randomUUID(), booking);
     if (unowned.status !== 'success') throw new Error('unowned control creation failed');
-    let committed!: () => void;
-    const afterCommit = new Promise<void>((resolve) => {
-      committed = resolve;
-    });
-    let release!: () => void;
-    const delayedRead = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    vi.mocked(createClient)
-      .mockResolvedValueOnce(owner.client)
-      .mockImplementationOnce(async () => {
-        committed();
-        await delayedRead;
-        throw new Error('fixture lost the committed response');
-      });
-    const operationId = randomUUID();
-    const creation = trackedCreate(operationId, booking);
-    await afterCommit;
-    const row = localOwnerSql(
-      `select event_id from public.operation_receipts where actor_scope='admin:${owner.user.id}' and operation_kind='create_draft' and operation_key='${operationId}'`
-    )[0];
-    expect(row.event_id).toBeTruthy();
-    let cleaned = false;
-    const cleanup = cleanupDrafts().then(() => {
-      cleaned = true;
-    });
+    let release: (() => void) | undefined;
+    let creation: ReturnType<typeof trackedCreate> | undefined;
+    let cleanup: Promise<void> | undefined;
+    let ownedEventId: string | undefined;
     try {
+      let committed!: () => void;
+      const afterCommit = new Promise<void>((resolve) => {
+        committed = resolve;
+      });
+      const delayedRead = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      vi.mocked(createClient)
+        .mockResolvedValueOnce(owner.client)
+        .mockImplementationOnce(async () => {
+          committed();
+          await delayedRead;
+          throw new Error('fixture lost the committed response');
+        });
+      const operationId = randomUUID();
+      creation = trackedCreate(operationId, booking);
+      await afterCommit;
+      const row = localOwnerSql(
+        `select event_id from public.operation_receipts where actor_scope='admin:${owner.user.id}' and operation_kind='create_draft' and operation_key='${operationId}'`
+      )[0];
+      expect(row.event_id).toBeTruthy();
+      ownedEventId = String(row.event_id);
+      let cleaned = false;
+      cleanup = cleanupDrafts().then(() => {
+        cleaned = true;
+      });
       await new Promise((resolve) => setTimeout(resolve, 0));
       expect(cleaned).toBe(false);
-    } finally {
-      release();
+      release!();
       await creation;
       await cleanup;
+      expect(
+        localOwnerSql(`select count(*)::int n from public.events where id='${ownedEventId}'`)
+      ).toEqual([{ n: 0 }]);
+      expect(
+        localOwnerSql(`select count(*)::int n from public.events where id='${unowned.draft.id}'`)
+      ).toEqual([{ n: 1 }]);
+    } finally {
+      release?.();
       try {
-        expect(
-          localOwnerSql(`select count(*)::int n from public.events where id='${row.event_id}'`)
-        ).toEqual([{ n: 0 }]);
-        expect(
-          localOwnerSql(`select count(*)::int n from public.events where id='${unowned.draft.id}'`)
-        ).toEqual([{ n: 1 }]);
+        await creation;
       } finally {
-        cleanupEvents([String(row.event_id), unowned.draft.id]);
+        try {
+          await cleanup;
+        } finally {
+          cleanupEvents([unowned.draft.id, ...(ownedEventId ? [ownedEventId] : [])]);
+        }
       }
     }
   });
