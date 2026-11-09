@@ -43,6 +43,7 @@ export type View = {
   captureId?: string;
   shutterCount?: number;
   inactivityWarning?: boolean;
+  completionAdmissionWaiting?: boolean;
   counts?: PackageCounts;
   blockers: readonly string[];
   allowedActions: { connectPrinter: boolean; enableCamera: boolean };
@@ -131,6 +132,7 @@ export class BoothFlow {
   private shutterGeneration = 0;
   private attemptId?: string;
   private awaitingJobSafetyAttemptId?: string;
+  private completedGuest = false;
   private dispatchId?: string;
   private pendingRecovery = false;
   private observing = Promise.resolve();
@@ -223,6 +225,11 @@ export class BoothFlow {
       });
   }
   private stopForBlocker(blocker: string) {
+    if (blocker !== 'printer_not_safe') {
+      this.completedGuest = false;
+      if (this.view.completionAdmissionWaiting)
+        this.show({ ...this.view, completionAdmissionWaiting: false });
+    }
     this.acknowledgedAt = 0;
     if (
       !['preview', 'countdown', 'capturing', 'review', 'printing', 'confirmed'].includes(
@@ -251,6 +258,7 @@ export class BoothFlow {
     this.pendingPhoto = undefined;
   }
   private guestStopped() {
+    this.completedGuest = false;
     this.clearInactivity();
     this.shutterGeneration++;
     this.discardPendingPhoto();
@@ -296,6 +304,7 @@ export class BoothFlow {
           : this.state?.state === 'Finishing'
             ? 'finishing'
             : 'unavailable',
+      completionAdmissionWaiting: false,
       blockers: access
         ? ['access_required']
         : [
@@ -500,9 +509,25 @@ export class BoothFlow {
               : 'unavailable';
     if (phase !== 'welcome' && this.sessionId) this.guestStopped();
     const visiblePhase = phase === 'welcome' && this.sessionId ? this.view.phase : phase;
+    const completionAdmissionWaiting =
+      this.completedGuest &&
+      phase === 'unavailable' &&
+      state.state === 'Active' &&
+      state.counts.printsAvailable > 0 &&
+      state.counts.unresolved === 0 &&
+      !state.pendingAttemptId &&
+      camera &&
+      connected &&
+      reconciled &&
+      !printer.loadFault &&
+      (printer.ready || !!this.awaitingJobSafetyAttemptId) &&
+      !!equipment?.observation.serverReachable &&
+      blockers.every((blocker) => ['printer_not_safe', 'readiness_stale'].includes(blocker));
+    if (!completionAdmissionWaiting) this.completedGuest = false;
     const showingPhoto = visiblePhase === 'review' || visiblePhase === 'printing';
     this.show({
       phase: visiblePhase,
+      completionAdmissionWaiting,
       photoUrl: showingPhoto ? this.photo?.url : undefined,
       captureId: showingPhoto ? this.captureId : undefined,
       shutterCount: this.shutterCount,
@@ -1053,6 +1078,7 @@ export class BoothFlow {
     if (this.view.phase !== 'confirmed' || !this.sessionId) return;
     try {
       await this.closeSession(this.sessionId);
+      this.completedGuest = this.view.phase === 'confirmed';
       this.attemptId = undefined;
       if (!this.awaitingJobSafetyAttemptId) this.dispatchId = undefined;
       await this.refresh();

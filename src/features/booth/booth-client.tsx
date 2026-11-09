@@ -152,12 +152,12 @@ export function BoothClient({
       wasGuest.current = true;
     if (
       ['paused', 'finishing', 'finished', 'access-required'].includes(view.phase) ||
-      (view.phase === 'unavailable' && wasGuest.current)
+      (view.phase === 'unavailable' && wasGuest.current && !view.completionAdmissionWaiting)
     ) {
       camera.stop();
       void report();
     }
-  }, [view.phase, camera, report]);
+  }, [view.phase, view.completionAdmissionWaiting, camera, report]);
   useEffect(() => {
     if (view.inactivityWarning) continueButton.current?.focus();
   }, [view.inactivityWarning]);
