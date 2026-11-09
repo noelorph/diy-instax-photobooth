@@ -7,6 +7,9 @@ export async function installInstaxBluetooth(context: BrowserContext) {
     ({ idle, active, empty }) => {
       let status = idle;
       let executeCount = 0;
+      let statusPollCount = 0;
+      let statusLabel = 'idle';
+      let lastStatusPoll = { sequence: 0, label: '' };
       let ejects = 3;
       let chooserCount = 0;
       let buffered = new Uint8Array(0);
@@ -54,6 +57,8 @@ export async function installInstaxBluetooth(context: BrowserContext) {
           const selector = buffered[6];
           buffered = new Uint8Array(0);
           if (opcode === 0x1080) executeCount++;
+          if (opcode === 2 && selector === 2)
+            lastStatusPoll = { sequence: ++statusPollCount, label: statusLabel };
           const payload =
             opcode !== 2
               ? [0]
@@ -107,11 +112,14 @@ export async function installInstaxBluetooth(context: BrowserContext) {
       Object.assign(window, {
         __instaxFixture: {
           cover: (open: boolean) => {
+            statusLabel = open ? 'open' : 'idle';
             status = open ? [0, 2, 0x3a, 1, 0, 0, 0, 0, 0, 0] : idle;
             if (!open) ejects++;
           },
           counts: () => ({ executeCount, chooserCount }),
+          lastStatusPoll: () => ({ ...lastStatusPoll }),
           status: (value: 'idle' | 'active' | 'empty') => {
+            statusLabel = value;
             status = value === 'active' ? active : value === 'empty' ? empty : idle;
           },
           disconnect: () => {

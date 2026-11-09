@@ -15,6 +15,88 @@ const fixture = (page: Page, command: 'counts' | 'idle' | 'active' | 'empty' | '
     if (command === 'disconnect') f.disconnect();
     else f.status(command);
   }, command);
+
+// A fresh operation is allowed only after a definite stale_revision rejection.
+async function reviewPhoneCommand(page: Page, action: 'request' | 'confirm' | 'pause') {
+  let rejected: { operationId: string; expectedRevision: number } | undefined;
+  const title =
+    action === 'request'
+      ? 'Reload film'
+      : action === 'confirm'
+        ? 'Confirm film loaded'
+        : 'Pause Booth';
+  const endpoint =
+    action === 'request'
+      ? '/reload-requests'
+      : action === 'confirm'
+        ? '/reload-confirmations'
+        : '/booth/pause';
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const response = page.waitForResponse(
+      (r) => r.url().endsWith(endpoint) && r.request().method() === 'POST'
+    );
+    void response.catch(() => {});
+    try {
+      await page.getByRole('button', { name: title, exact: true }).click();
+      const result = await response;
+      const submitted = result.request().postDataJSON();
+      if (rejected) {
+        expect(submitted.operationId).not.toBe(rejected.operationId);
+        expect(submitted.expectedRevision).toBeGreaterThan(rejected.expectedRevision);
+      }
+      if (result.status() === 409) {
+        expect((await result.json()).code).toBe('stale_revision');
+        await expect(
+          action === 'pause'
+            ? page.getByRole('alert')
+            : page.getByRole('region', { name: 'Film reload controls' })
+        ).toContainText('Review current state');
+        rejected = submitted;
+        await page.reload();
+        continue;
+      }
+      expect(result.status()).toBe(200);
+      return { submitted, body: await result.json() };
+    } finally {
+      // Drain the waiter even if a UI step fails before a response arrives.
+      await response.catch(() => {});
+    }
+  }
+  throw new Error('State changed again after explicit re-review');
+}
+async function statusPoll(page: Page) {
+  return page.evaluate(() =>
+    (
+      window as unknown as {
+        __instaxFixture: { lastStatusPoll(): { sequence: number; label: string } };
+      }
+    ).__instaxFixture.lastStatusPoll()
+  );
+}
+async function waitForStatusPoll(page: Page, label: string, after: number) {
+  await expect
+    .poll(async () => {
+      const poll = await statusPoll(page);
+      return poll.sequence > after && poll.label === label;
+    })
+    .toBe(true);
+}
+function nextReloadBinding(page: Page, requestId?: string, generation?: number) {
+  const response = page.waitForResponse(async (r) => {
+    if (new URL(r.url()).pathname !== '/api/booth/state' || r.request().method() !== 'GET')
+      return false;
+    expect(r.status()).toBe(200);
+    const state = await r.json();
+    return (
+      !!state.activeReloadRequest &&
+      (!requestId || state.activeReloadRequest.reloadRequestId === requestId) &&
+      (generation === undefined || state.connectionGeneration === generation)
+    );
+  });
+  void response.catch(() => {});
+  return response;
+}
+
 async function capture(page: Page) {
   await page.getByRole('button', { name: 'Take Photo', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Print', exact: true })).toBeVisible();
@@ -195,8 +277,11 @@ for (const viewport of [
         await booth.getByRole('button', { name: 'Start Booth Mode', exact: true }).click();
         await expect(booth).toHaveURL(/\/booth$/);
         await phone.goto(`/events/${f.eventId}`);
-        const phoneState = async () =>
-          (await phone.request.get(`/api/admin/events/${f.eventId}/booth/state`)).json();
+        const phoneState = async () => {
+          const response = await phone.request.get(`/api/admin/events/${f.eventId}/booth/state`);
+          expect(response.status()).toBe(200);
+          return response.json();
+        };
         const cover = (open: boolean) =>
           booth.evaluate((open) => {
             (
@@ -214,57 +299,170 @@ for (const viewport of [
           await booth.waitForTimeout(1200);
           await fixture(booth, 'empty');
           await expect.poll(async () => (await phoneState()).counts.unresolved).toBe(1);
-          await phone.getByRole('button', { name: 'Pause Booth', exact: true }).click();
+          await reviewPhoneCommand(phone, 'pause');
           await expect.poll(async () => (await phoneState()).runState).toBe('Paused');
           await fixture(booth, 'idle');
           await booth.waitForTimeout(1200);
         }
         const before = await phoneState();
         if (scenario === 'missed baseline') {
+          const prior = await statusPoll(booth);
           await cover(true);
-          await booth.waitForTimeout(1200);
+          await waitForStatusPoll(booth, 'open', prior.sequence);
         }
-        await phone.getByRole('button', { name: 'Reload film', exact: true }).click();
-        await expect(
-          phone.getByRole('button', { name: 'Confirm film loaded', exact: true })
-        ).toBeVisible();
-        await booth.waitForTimeout(1500);
+        // Arm before the phone mutation: only the Booth's natural GET can establish binding.
+        const binding = nextReloadBinding(booth);
+        try {
+          await reviewPhoneCommand(phone, 'request');
+          await expect(
+            phone.getByRole('button', { name: 'Confirm film loaded', exact: true })
+          ).toBeVisible();
+          const bound = await (await binding).json();
+          expect(bound.activeReloadRequest).toEqual((await phoneState()).activeReloadRequest);
+        } finally {
+          await binding.catch(() => {});
+        }
         const first = (await phoneState()).activeReloadRequest;
+        let matchingRequest = first;
+        const boundPoll = await statusPoll(booth);
+        await waitForStatusPoll(
+          booth,
+          scenario === 'missed baseline' ? 'open' : 'idle',
+          boundPoll.sequence
+        );
         if (scenario === 'expired') await booth.waitForTimeout(61000);
         if (scenario === 'replacement') {
+          const prior = await statusPoll(booth);
           await cover(true);
-          await booth.waitForTimeout(1200);
-          await phone.getByRole('button', { name: 'Reload film', exact: true }).click();
-          await expect
-            .poll(async () => (await phoneState()).activeReloadRequest.reloadRequestId)
-            .not.toBe(first.reloadRequestId);
-          await booth.waitForTimeout(1500);
+          await waitForStatusPoll(booth, 'open', prior.sequence);
+          const replacementBinding = booth.waitForResponse(async (r) => {
+            if (new URL(r.url()).pathname !== '/api/booth/state') return false;
+            expect(r.status()).toBe(200);
+            const state = await r.json();
+            return (
+              !!state.activeReloadRequest &&
+              state.activeReloadRequest.reloadRequestId !== first.reloadRequestId
+            );
+          });
+          void replacementBinding.catch(() => {});
+          try {
+            await reviewPhoneCommand(phone, 'request');
+            matchingRequest = (await phoneState()).activeReloadRequest;
+            expect(matchingRequest.reloadRequestId).not.toBe(first.reloadRequestId);
+            expect((await (await replacementBinding).json()).activeReloadRequest).toEqual(
+              matchingRequest
+            );
+          } finally {
+            await replacementBinding.catch(() => {});
+          }
         } else if (scenario === 'reconnect') {
           await fixture(booth, 'disconnect');
-          await booth.getByRole('button', { name: 'Connect to Instax', exact: true }).click();
-          await expect
-            .poll(async () => (await phoneState()).connectionGeneration)
-            .toBeGreaterThan(first.connectionGeneration);
+          const reconnectedBinding = nextReloadBinding(
+            booth,
+            first.reloadRequestId,
+            first.connectionGeneration + 1
+          );
+          try {
+            await booth.getByRole('button', { name: 'Connect to Instax', exact: true }).click();
+            await expect
+              .poll(async () => (await phoneState()).connectionGeneration)
+              .toBeGreaterThan(first.connectionGeneration);
+            const reconnected = await (await reconnectedBinding).json();
+            matchingRequest = reconnected.activeReloadRequest;
+            expect(matchingRequest.reloadRequestId).toBe(first.reloadRequestId);
+            expect(matchingRequest.connectionGeneration).toBeGreaterThan(
+              first.connectionGeneration
+            );
+          } finally {
+            await reconnectedBinding.catch(() => {});
+          }
           await phone.reload();
         } else if (scenario !== 'missed baseline') {
+          const prior = await statusPoll(booth);
           await cover(true);
-          await booth.waitForTimeout(1200);
+          await waitForStatusPoll(booth, 'open', prior.sequence);
         }
         await cover(false);
-        if (scenario === 'manual race')
-          await phone.getByRole('button', { name: 'Confirm film loaded', exact: true }).click();
+        if (scenario === 'manual race') {
+          const response = phone.waitForResponse(
+            (r) => r.url().endsWith('/reload-confirmations') && r.request().method() === 'POST',
+            { timeout: 5000 }
+          );
+          void response.catch(() => {});
+          try {
+            const button = phone.getByRole('button', { name: 'Confirm film loaded', exact: true });
+            let clickError: unknown;
+            const visible = await button.isVisible();
+            if (visible) {
+              try {
+                await button.click({ timeout: 5000 });
+              } catch (error) {
+                clickError = error;
+              }
+            }
+            const result = await response.catch((error) => {
+              if (visible && !clickError) throw error;
+              return null;
+            });
+            if (result) {
+              expect(result.request().postDataJSON().reloadRequestId).toBe(first.reloadRequestId);
+              if (result.status() === 409) {
+                expect((await result.json()).code).toBe('stale_revision');
+              } else {
+                expect(result.status()).toBe(200);
+                const receipt = (await result.json()).receipt;
+                expect(receipt.kind).toBe('confirm_reload');
+                expect(receipt.result.reloadRequestId).toBe(first.reloadRequestId);
+              }
+            }
+            if (!result || result.status() === 409 || clickError) {
+              // A missing button or rejected command is accepted only with this exact automatic commit.
+              await expect
+                .poll(async () => (await phoneState()).reloadConfirmation?.reloadRequestId)
+                .toBe(first.reloadRequestId);
+              expect((await phoneState()).reloadConfirmation).toMatchObject({
+                reloadRequestId: first.reloadRequestId,
+                printerId: first.printerId,
+                connectionGeneration: first.connectionGeneration,
+                confirmationSource: 'instax_automatic_reload',
+              });
+            }
+          } finally {
+            await response.catch(() => {});
+          }
+        }
         if (['missed baseline', 'expired', 'replacement', 'reconnect'].includes(scenario)) {
           await booth.waitForTimeout(2000);
           expect((await phoneState()).activeReloadRequest).not.toBeNull();
           await phone.reload();
-          await phone.getByRole('button', { name: 'Confirm film loaded', exact: true }).click();
+          await reviewPhoneCommand(phone, 'confirm');
         }
         await expect.poll(async () => (await phoneState()).activeReloadRequest).toBeNull();
         const after = await phoneState();
         expect(after.counts).toEqual(before.counts);
         expect(after.equipment.filmLoaded).toBe(true);
-        expect(after.reloadConfirmation.reloadRequestId).toBeTruthy();
-        const scoped = await (await booth.request.get('/api/booth/state')).json();
+        expect(after.reloadConfirmation).toMatchObject({
+          reloadRequestId: matchingRequest.reloadRequestId,
+          reloadRequestRevision: matchingRequest.reloadRequestRevision + 1,
+          printerId: matchingRequest.printerId,
+          connectionGeneration: matchingRequest.connectionGeneration,
+          state: 'Confirmed',
+        });
+        expect(
+          localOwnerSql(
+            `select count(*)::int n from public.booth_reload_requests where event_id='${f.eventId}' and state='Confirmed'`
+          )[0].n
+        ).toBe(1);
+        if (scenario === 'automatic' || scenario === 'paused Pending')
+          expect(after.reloadConfirmation.confirmationSource).toBe('instax_automatic_reload');
+        if (['missed baseline', 'expired', 'replacement', 'reconnect'].includes(scenario))
+          expect(after.reloadConfirmation.confirmationSource).toBe('admin_physical_confirmation');
+        const scopedResponse = await booth.evaluate(async () => {
+          const response = await fetch('/api/booth/state');
+          return { status: response.status, body: await response.json() };
+        });
+        expect(scopedResponse.status).toBe(200);
+        const scoped = scopedResponse.body;
         expect(scoped.activeReloadRequest).toBeNull();
         expect(scoped.counts).toEqual(after.counts);
         await expect(phone.getByText(/Film loading confirmed/)).toBeVisible();
@@ -283,9 +481,15 @@ for (const viewport of [
           expect(scoped.allowedActions.startGuest).toBe(false);
         }
       } finally {
-        await boothContext.close();
-        await phoneContext.close();
-        await f.dispose();
+        try {
+          await boothContext.close();
+        } finally {
+          try {
+            await phoneContext.close();
+          } finally {
+            await f.dispose();
+          }
+        }
       }
     });
   }
