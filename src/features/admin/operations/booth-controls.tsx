@@ -59,9 +59,10 @@ export function BoothControls({
   const [portalContainer, setPortalContainer] = useState<HTMLElement | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [equipmentTime, setEquipmentTime] = useState(Date.now);
+  const [equipmentTime, setEquipmentTime] = useState<number | null>(null);
   const expiresAt = event.equipment?.expiresAt;
-  const equipmentFresh = !!expiresAt && Date.parse(expiresAt) >= equipmentTime;
+  const equipmentFresh =
+    equipmentTime !== null && !!expiresAt && Date.parse(expiresAt) >= equipmentTime;
   useEffect(() => {
     if (!expiresAt) return;
     const remaining = Date.parse(expiresAt) - Date.now();
@@ -70,6 +71,7 @@ export function BoothControls({
   }, [expiresAt]);
   useEffect(() => {
     const frame = requestAnimationFrame(() => {
+      setEquipmentTime(Date.now());
       try {
         const saved = sessionStorage.getItem(savedKey);
         if (saved) {
