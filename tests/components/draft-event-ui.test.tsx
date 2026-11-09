@@ -132,7 +132,7 @@ it('discards validation errors belonging to cancelled edits', async () => {
   fireEvent.change(screen.getByLabelText('Client email'), { target: { value: 'invalid' } });
   fireEvent.click(screen.getByRole('button', { name: 'Save Draft' }));
   await screen.findByText('Enter a valid Client email.');
-  expect(document.activeElement).toBe(screen.getByRole('alert'));
+  await waitFor(() => expect(document.activeElement).toBe(screen.getByRole('alert')));
   fireEvent.click(screen.getByRole('button', { name: 'Cancel' }));
   fireEvent.click(screen.getByRole('button', { name: 'Edit Draft' }));
   expect((screen.getByLabelText('Client email') as HTMLInputElement).value).toBe(
