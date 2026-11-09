@@ -69,12 +69,12 @@ async function raceBehindGuard<T, U>(first: () => Promise<T>, second: () => Prom
     b = second();
     await waitForQueued(2);
   } finally {
-    child.stdin.write('commit;\n\\q\n');
+    child.stdin.end('commit;\n\\q\n');
+    await Promise.allSettled(b ? [a, b] : [a]);
+    await done;
   }
   if (!b) throw new Error('Second database operation was not queued');
-  const result = await Promise.all([a, b] as const);
-  await done;
-  return result;
+  return Promise.all([a, b] as const);
 }
 
 function directRpc(
@@ -111,6 +111,32 @@ function directRpc(
     child.stdin.end(`set role service_role;\n${query}\n`);
   });
 }
+
+it('drains a started RPC before returning a queue failure', async () => {
+  const f = await createPackageFixture();
+  try {
+    const { sessionId } = await reserved(f);
+    let completed = false;
+    await expect(
+      raceBehindGuard(
+        () =>
+          directRpc(
+            `select public.package_booth_operation('${f.grantHash}','end_session','${randomUUID()}','{"sessionId":"${sessionId}","reason":"reload"}'::jsonb);`
+          ).then((result) => {
+            completed = true;
+            return result;
+          }),
+        async () => null
+      )
+    ).rejects.toThrow('Expected 2 queued database operations');
+    expect(completed).toBe(true);
+    expect(
+      localOwnerSql(`select state from public.guest_sessions where id='${sessionId}'`)[0].state
+    ).toBe('Abandoned');
+  } finally {
+    await f.dispose();
+  }
+}, 30000);
 
 async function reserved(f: Awaited<ReturnType<typeof createPackageFixture>>) {
   f.seedRun();
@@ -695,7 +721,7 @@ it('denies dispatch when a competing Admin pause gets the guard first', async ()
         ),
       () =>
         directRpc(
-          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"expectedRevision":${revision}}'::jsonb);`
+          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"printerMode":"simulated","expectedRevision":${revision}}'::jsonb);`
         )
     );
     expect(paused.error).toBeNull();
@@ -720,7 +746,7 @@ it('preserves physical possibility when dispatch gets the guard before Admin pau
     const [dispatch, stalePause] = await raceBehindGuard(
       () =>
         directRpc(
-          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"expectedRevision":${revision}}'::jsonb);`
+          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"printerMode":"simulated","expectedRevision":${revision}}'::jsonb);`
         ),
       () =>
         directRpc(
@@ -768,7 +794,7 @@ it('rejects a delayed reservation after session end wins the guard', async () =>
         ),
       () =>
         directRpc(
-          `select public.package_booth_operation('${f.grantHash}','reserve','${reservationId}','{"sessionId":"${sessionId}","captureId":"${captureId}","expectedRevision":${captured.data.revision}}'::jsonb);`
+          `select public.package_booth_operation('${f.grantHash}','reserve','${reservationId}','{"sessionId":"${sessionId}","captureId":"${captureId}","printerMode":"simulated","expectedRevision":${captured.data.revision}}'::jsonb);`
         )
     );
     expect(ended.error).toBeNull();
@@ -802,7 +828,7 @@ it('denies dispatch when a competing Finish gets the guard first', async () => {
         ),
       () =>
         directRpc(
-          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"expectedRevision":${revision}}'::jsonb);`
+          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"printerMode":"simulated","expectedRevision":${revision}}'::jsonb);`
         )
     );
     expect(finished.error).toBeNull();
@@ -830,7 +856,7 @@ it('keeps Finish waiting for a possible print when dispatch wins the guard', asy
     const [dispatch, staleFinish] = await raceBehindGuard(
       () =>
         directRpc(
-          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"expectedRevision":${revision}}'::jsonb);`
+          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"printerMode":"simulated","expectedRevision":${revision}}'::jsonb);`
         ),
       () =>
         directRpc(
@@ -878,7 +904,7 @@ it('denies dispatch after a competing session end closes the Capture', async () 
         ),
       () =>
         directRpc(
-          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"expectedRevision":${revision}}'::jsonb);`
+          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"printerMode":"simulated","expectedRevision":${revision}}'::jsonb);`
         )
     );
     expect(ended.error).toBeNull();
@@ -903,7 +929,7 @@ it('keeps session end from cancelling a competing committed dispatch', async () 
     const [dispatch, ended] = await raceBehindGuard(
       () =>
         directRpc(
-          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"expectedRevision":${revision}}'::jsonb);`
+          `select public.package_booth_operation('${f.grantHash}','dispatch','${randomUUID()}','{"attemptId":"${attemptId}","printerId":"fixture-printer","connectionGeneration":0,"printerMode":"simulated","expectedRevision":${revision}}'::jsonb);`
         ),
       () =>
         directRpc(
@@ -980,6 +1006,7 @@ it.each([true, false])(
       expect(setup.error).toBeNull();
       const payload = {
         eventId: f.eventId,
+        printerMode: 'simulated',
         expectedRevision: 1,
         readinessWindowId: setup.data.readinessWindowId,
         deviceHash: f.deviceHash,

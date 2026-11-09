@@ -396,6 +396,8 @@ it('normalizes whole decimal readiness numbers before validation and receipt fin
       printerId: 'fixture-printer',
       connectionGeneration: 0,
       observation,
+      printerMode: 'simulated',
+      printerEvidence: SIMULATOR_EVIDENCE,
     };
     const decimal = JSON.stringify(payload)
       .replace('"observedAgeMs":0', '"observedAgeMs":0.0')
@@ -462,7 +464,29 @@ it('invalidates prepared confirmations on each new load fault episode without re
       (await report(f, { loadFault: 'load_change', loadFaultId: randomUUID() })).error
     ).toBeNull();
     expect(revision(f)).toBe(prepared.expectedRevision + 1);
-    expect((await f.admin('confirm_reload', prepared)).error?.message).toBe('stale_revision');
+    expect((await f.admin('confirm_reload', prepared)).error?.message).toBe('not_ready');
+    const currentRequest = localOwnerSql(
+      `select id from public.booth_reload_requests where run_id='${f.runId}' and state='Open'`
+    )[0].id;
+    const staleOperationId = randomUUID();
+    expect(
+      (
+        await f.admin(
+          'confirm_reload',
+          { ...prepared, reloadRequestId: currentRequest },
+          staleOperationId
+        )
+      ).error?.message
+    ).toBe('stale_revision');
+    expect(
+      localOwnerSql(`select film_loaded_confirmed from public.booth_runs where id='${f.runId}'`)[0]
+        .film_loaded_confirmed
+    ).toBe(false);
+    expect(
+      localOwnerSql(
+        `select count(*)::int n from public.operation_receipts where event_id='${f.eventId}' and operation_key='${staleOperationId}'`
+      )
+    ).toEqual([{ n: 0 }]);
     expect(
       (await f.admin('confirm_reload', { ...prepared, expectedRevision: revision(f) })).error
         ?.message

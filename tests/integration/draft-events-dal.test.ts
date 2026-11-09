@@ -51,6 +51,8 @@ function form(overrides: Record<string, string> = {}) {
 describe('protected Draft DAL with local Auth and Data API', () => {
   let local: ReturnType<typeof localSupabase>;
   const eventIds: string[] = [];
+  const pendingCreates: Promise<unknown>[] = [];
+  const ownedCreations: { userId: string; operationId: string }[] = [];
   let adminUserId: string;
   let restoreDefault: () => void;
   beforeAll(() => {
@@ -58,14 +60,32 @@ describe('protected Draft DAL with local Auth and Data API', () => {
     restoreDefault = setPackageCreationDefault();
   });
   afterAll(() => restoreDefault?.());
-  afterEach(async () => {
-    vi.restoreAllMocks();
-    vi.resetAllMocks();
+  async function cleanupDrafts() {
+    await Promise.allSettled(pendingCreates.splice(0));
+    for (const { userId, operationId } of ownedCreations.splice(0)) {
+      const { data, error } = await local.service
+        .from('operation_receipts')
+        .select('event_id')
+        .eq('accounting_version', 2)
+        .eq('actor_scope', `admin:${userId}`)
+        .eq('operation_kind', 'create_draft')
+        .eq('operation_key', operationId);
+      if (error) throw error;
+      for (const receipt of data ?? []) {
+        if (receipt.event_id && !eventIds.includes(receipt.event_id))
+          eventIds.push(receipt.event_id);
+      }
+    }
     if (eventIds.length) {
       const { error } = await cleanupEvents(eventIds.splice(0));
       if (error) throw error;
     }
+  }
+  afterEach(async () => {
+    await cleanupDrafts();
     await local.cleanup();
+    vi.restoreAllMocks();
+    vi.resetAllMocks();
   });
   async function admin() {
     const user = await local.provisionUser();
@@ -75,17 +95,35 @@ describe('protected Draft DAL with local Auth and Data API', () => {
     vi.mocked(createClient).mockResolvedValue(device.client);
     return { user, ...device };
   }
-  async function trackedCreate(operationId: string, input: unknown) {
-    const result = await createDraft(operationId, input);
-    if (result.status === 'success' && !eventIds.includes(result.draft.id))
-      eventIds.push(result.draft.id);
-    return result;
+  function ownCreation(operationId: unknown) {
+    if (
+      typeof operationId === 'string' &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(operationId)
+    )
+      ownedCreations.push({ userId: adminUserId, operationId });
   }
-  async function trackedCreateAction(...args: Parameters<typeof createDraftAction>) {
-    if (args[1] instanceof FormData) args[1].set('adminUserId', adminUserId);
-    const result = await createDraftAction(...args);
-    if (result.status === 'success' && !eventIds.includes(result.id)) eventIds.push(result.id);
-    return result;
+  function trackedCreate(operationId: string, input: unknown) {
+    ownCreation(operationId);
+    const pending = createDraft(operationId, input).then((result) => {
+      if (result.status === 'success' && !eventIds.includes(result.draft.id))
+        eventIds.push(result.draft.id);
+      return result;
+    });
+    pendingCreates.push(pending);
+    return pending;
+  }
+  function trackedCreateAction(...args: Parameters<typeof createDraftAction>) {
+    if (args[1] instanceof FormData) {
+      args[1].set('adminUserId', adminUserId);
+      const keys = args[1].getAll('operationId');
+      if (keys.length === 1) ownCreation(keys[0]);
+    }
+    const pending = createDraftAction(...args).then((result) => {
+      if (result.status === 'success' && !eventIds.includes(result.id)) eventIds.push(result.id);
+      return result;
+    });
+    pendingCreates.push(pending);
+    return pending;
   }
   async function create(input: unknown = booking) {
     const result = await trackedCreate(randomUUID(), input);
@@ -262,6 +300,56 @@ describe('protected Draft DAL with local Auth and Data API', () => {
         status: 'conflict',
       });
     expect(await listDrafts()).toEqual(before);
+  });
+
+  it('drains a committed creation before recovering its owned receipt for cleanup', async () => {
+    const owner = await admin();
+    const unowned = await createDraft(randomUUID(), booking);
+    if (unowned.status !== 'success') throw new Error('unowned control creation failed');
+    let committed!: () => void;
+    const afterCommit = new Promise<void>((resolve) => {
+      committed = resolve;
+    });
+    let release!: () => void;
+    const delayedRead = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    vi.mocked(createClient)
+      .mockResolvedValueOnce(owner.client)
+      .mockImplementationOnce(async () => {
+        committed();
+        await delayedRead;
+        throw new Error('fixture lost the committed response');
+      });
+    const operationId = randomUUID();
+    const creation = trackedCreate(operationId, booking);
+    await afterCommit;
+    const row = localOwnerSql(
+      `select event_id from public.operation_receipts where actor_scope='admin:${owner.user.id}' and operation_kind='create_draft' and operation_key='${operationId}'`
+    )[0];
+    expect(row.event_id).toBeTruthy();
+    let cleaned = false;
+    const cleanup = cleanupDrafts().then(() => {
+      cleaned = true;
+    });
+    try {
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      expect(cleaned).toBe(false);
+    } finally {
+      release();
+      await creation;
+      await cleanup;
+      try {
+        expect(
+          localOwnerSql(`select count(*)::int n from public.events where id='${row.event_id}'`)
+        ).toEqual([{ n: 0 }]);
+        expect(
+          localOwnerSql(`select count(*)::int n from public.events where id='${unowned.draft.id}'`)
+        ).toEqual([{ n: 1 }]);
+      } finally {
+        cleanupEvents([String(row.event_id), unowned.draft.id]);
+      }
+    }
   });
 
   it('denies receipt replay after Admin authority is revoked', async () => {
