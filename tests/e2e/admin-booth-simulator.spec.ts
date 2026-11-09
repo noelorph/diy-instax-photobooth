@@ -1,4 +1,4 @@
-import { expect, test, type Page, type Browser } from '@playwright/test';
+import { expect, test, type Page, type Browser, type Route } from '@playwright/test';
 import { createPackageBrowserFixture } from '../fixtures/package-browser';
 import { localOwnerSql, ownerUpdate } from '../fixtures/local-supabase';
 type Fixture = Awaited<ReturnType<typeof createPackageBrowserFixture>>;
@@ -1083,7 +1083,26 @@ test('protected replacement preserves the same Paused run and counts; phone Resu
       await expect(
         d.phonePage.getByRole('heading', { name: 'Booth running', exact: true })
       ).toBeVisible();
-      await reviewPhoneCommand(d.phonePage, 'finish', original.runId);
+      let releaseReadiness!: () => void;
+      const readinessGate = new Promise<void>((resolve) => (releaseReadiness = resolve));
+      const heldReadiness: Promise<void>[] = [];
+      const holdReadiness = (route: Route) => {
+        const pending = readinessGate.then(() => route.continue()).catch(() => {});
+        heldReadiness.push(pending);
+        return pending;
+      };
+      // Keep periodic readiness revisions outside this explicit Finish review.
+      await d.boothPage.route('**/api/booth/readiness', holdReadiness);
+      try {
+        await reviewPhoneCommand(d.phonePage, 'finish', original.runId);
+      } finally {
+        releaseReadiness();
+        try {
+          await d.boothPage.unroute('**/api/booth/readiness', holdReadiness);
+        } finally {
+          await Promise.allSettled(heldReadiness);
+        }
+      }
       await expect(d.boothPage.getByRole('heading', { name: 'Booth Mode finished' })).toBeVisible();
       await signInFromBooth(d.boothPage, f);
       await prepare(d.boothPage, f);
