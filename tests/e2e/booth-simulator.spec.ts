@@ -45,7 +45,7 @@ test('Welcome, Retake and selected Capture reservation use metadata-only version
             ...(pending ? ['print_pending'] : []),
           ],
           allowedActions: { startGuest: !sessionOpen, reportReadiness: true },
-          readinessWindowId: '00000000-0000-4000-8000-000000000003',
+          readinessWindowId: crypto.randomUUID(),
           printerId: 'simulator',
           connectionGeneration: generation,
           pendingAttemptId: pending ? attemptId : null,
